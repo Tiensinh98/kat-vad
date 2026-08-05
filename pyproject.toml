@@ -1,0 +1,82 @@
+[project]
+name = "kat-vad"
+version = "0.1.0"
+description = "KAT-VAD: Kinematics-Aware, definition-conditioned Traffic Video Anomaly Detection (LaGoVAD baseline + KIP)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "av>=12",
+    "einops>=0.8",
+    "faiss-cpu>=1.8",
+    "gdown>=5",
+    "matplotlib>=3.9",
+    "numpy<2",
+    "opencv-python>=4.10",
+    "pyyaml>=6",
+    "requests>=2.32",
+    "scikit-learn>=1.5",
+    "torch==2.4.*",
+    "torchmetrics>=1.4",
+    "torchvision==0.19.*",
+    "tqdm>=4.66",
+    "transformers==4.56.*",
+]
+
+[dependency-groups]
+dev = [
+    "bandit>=1.9.4",
+    "mypy>=2.1.0",
+    "pycycle>=0.0.8",
+    "pyright>=1.1.411",
+    "pytest>=8",
+    "ruff>=0.15.20",
+    "types-pyyaml>=6.0.12.20260518",
+    "types-requests>=2.33.0.20260518",
+    "types-tqdm>=4.68.0.20260608",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["core"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["core"]
+exclude = ["LaGoVAD-PreVAD", "\\.venv", "\\.ai-workflow"]
+check_untyped_defs = true
+disallow_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = ["core.tests.*"]
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = [
+    "faiss",
+    "faiss.*",
+    "cv2",
+    "cv2.*",
+    "av",
+    "av.*",
+    "gdown",
+    "einops",
+    "torchvision.*",
+    "transformers.*",
+    "sklearn.*",
+    "torchmetrics.*",
+    "matplotlib.*",
+]
+ignore_missing_imports = true
+
+[tool.bandit]
+exclude_dirs = ["LaGoVAD-PreVAD", ".venv", ".ai-workflow", "core/tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["core/tests"]
+addopts = "-q"

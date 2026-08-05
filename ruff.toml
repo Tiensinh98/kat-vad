@@ -1,0 +1,31 @@
+# Ruff configuration for KAT-VAD. LaGoVAD-PreVAD/ is a read-only baseline — never linted.
+target-version = "py310"
+line-length = 100
+extend-exclude = ["LaGoVAD-PreVAD", ".ai-workflow", ".venv"]
+
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # bugbear
+    "SIM", # simplify
+    "C4",  # comprehensions
+    "RUF", # ruff-specific
+    "T20", # flake8-print: no print() — CLAUDE.md §10 (use logging)
+    "BLE", # no bare/blind except — CLAUDE.md §10
+    "TID251", # banned-api (see below)
+]
+
+[lint.flake8-tidy-imports.banned-api]
+# Unsafe under CUDA autocast (AMP) — raises at runtime. BCE(p, y) on probabilities
+# == binary_cross_entropy_with_logits(torch.logit(p, eps), y), which is safe.
+"torch.nn.functional.binary_cross_entropy".msg = "unsafe under autocast; use binary_cross_entropy_with_logits (on logits, or torch.logit(p, eps) for probabilities)"
+"torch.nn.BCELoss".msg = "unsafe under autocast; use torch.nn.BCEWithLogitsLoss"
+
+[lint.per-file-ignores]
+# Tests may use asserts and simple structure freely; print stays banned.
+"core/tests/**" = ["SIM117"]

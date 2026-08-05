@@ -1,0 +1,10 @@
+{
+  "include": ["core"],
+  "exclude": ["LaGoVAD-PreVAD", ".venv", ".ai-workflow", "**/__pycache__"],
+  "typeCheckingMode": "standard",
+  "pythonVersion": "3.10",
+  "venvPath": ".",
+  "venv": ".venv",
+  "reportMissingTypeStubs": false,
+  "reportUnknownMemberType": false
+}
