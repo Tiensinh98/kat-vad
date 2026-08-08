@@ -166,6 +166,34 @@ SEED = 2024
 MAX_VIS_LEN = 512  # sliding-window length for full-video eval
 
 # ---------------------------------------------------------------------------
+# Evaluation score pooling (lesson C12)
+#
+# Micro AUC concatenates every video's frames into one ranking, so the
+# *between-video* score scale enters the metric. That is signal only when the
+# test set contains normal videos (MSAD). On an all-abnormal set (DoTA) the
+# task is purely within-clip localization and the between-video scale is noise
+# that swamps it -- LaGoVAD's own offline_dota_eval.py min-max normalizes each
+# clip before accumulating for exactly this reason.
+# ---------------------------------------------------------------------------
+SCORE_NORM_AUTO = "auto"  # minmax when the test set is effectively all-abnormal
+SCORE_NORM_NONE = "none"
+SCORE_NORM_MINMAX = "minmax"  # LaGoVAD offline_dota_eval.py convention
+SCORE_NORM_ZSCORE = "zscore"
+SCORE_NORM_CHOICES = (
+    SCORE_NORM_AUTO,
+    SCORE_NORM_NONE,
+    SCORE_NORM_MINMAX,
+    SCORE_NORM_ZSCORE,
+)
+SCORE_NORM_EPS = 1e-12  # guards constant-score clips (flat model output)
+# Below this share of normal videos, the between-video scale has too little to
+# calibrate against and `auto` switches to per-video normalization. Measured
+# split: MSAD test is 50.4 % normal, DoTA val 0.21 % (3 of 1,397 -- clips whose
+# anomaly window rounds away at stride 8). Requiring *zero* normal videos would
+# let those 3 silently restore the raw protocol on an all-abnormal benchmark.
+SCORE_NORM_AUTO_NORMAL_FRACTION = 0.05
+
+# ---------------------------------------------------------------------------
 # Reproduction gates (plan §1; active context 2026-07-07 amendment)
 # ---------------------------------------------------------------------------
 TAD_ZERO_SHOT_AUC = 89.56

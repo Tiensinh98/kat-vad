@@ -18,8 +18,8 @@ import torchmetrics
 
 from core.config import Config
 from core.data.definitions import DatasetSpecVerbalizer, dataset_abbr, verbalize_class_name
-from core.evaluate import frame_ap, frame_auc
 from core.inference import expand_to_frames, sliding_window_scores
+from core.metrics import frame_ap, frame_auc
 from core.models.kat_vad import KATVAD
 from core.models.text_encoding import make_text_encoder, stub_text_features
 from core.tests.fixtures import build_fixture

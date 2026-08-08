@@ -1,0 +1,51 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+.ai-workflow/
+.project/
+.claude/
+.cursor/
+LaGoVAD-PreVAD/
+Detection-of-Traffic-Anomaly/
+
+# Project-specific artifacts
+core/weights/
+*.pth
+*.pt
+*.npz
+*.npy
+*.ckpt
+lightning_logs/
+wandb/
+runs/
+results/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Dataset (root-level only -- an unanchored `data/` also hides core/data/*.py)
+datasets/
+/data/
+
+CLAUDE.md
+
+# Docs (root-level only -- an unanchored `docs/` also hides core/docs/*.md)
+/docs/
+
+# Outputs
+outputs/
+
+# Collab
+collab/

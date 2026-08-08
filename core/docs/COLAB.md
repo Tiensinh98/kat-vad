@@ -450,6 +450,149 @@ Single raw video (extraction path, needs the CLIP weights from Step 3):
 
 ---
 
+## no_center_crop rebuild (2026-08-08)
+
+**Why:** two independent reasons, detailed in `core/docs/RESULTS_DOTA.md` §4.
+
+1. LaGoVAD trained everything on `no_center_crop` features (anisotropic resize
+   to 224², full field of view). Our center-crop cache makes `gate_a` — the
+   reproduction reference — a train/test mismatch.
+2. `raft_extract` is already **full-frame** (240×320, no crop). Center-cropping
+   the CLIP branch means KIP is trained to regress motion evidence removed from
+   its own input; on dashcam footage that is exactly the lateral field of view
+   where the kinematics live.
+
+**Everything goes to new paths.** Nothing below overwrites a center-crop
+artifact, so the existing MSAD 0.9052 reproduction stays on disk to compare
+against (lesson C2/C13).
+
+| | center-crop (existing) | `no_center_crop` (new) |
+|---|---|---|
+| MSAD CLIP | `cache/clip/MSAD` | `cache/clip/MSAD_ncc` |
+| MSAD KNN | `cache/knn/MSAD` | `cache/knn/MSAD_ncc` |
+| MSAD runs | `outputs/MSAD` | `outputs/MSAD_ncc` |
+| DoTA CLIP | `cache/clip/DoTA_s1`, `_s8` | `cache/clip/DoTA_ncc_s1`, `_ncc_s8` |
+| DoTA runs | `outputs/DoTA` | `outputs/DoTA_ncc` |
+| **RAFT flow** | `cache/flow/v1/MSAD` | **reused unchanged** |
+
+**The flow cache is not rebuilt.** `preprocess_for_raft` never used
+`preprocess_frames`, so it is independent of this transform. That removes the
+most expensive item from the rebuild.
+
+### R0 — Cheap go/no-go first (~30 min, do this before anything else)
+
+Extract ~200 DoTA clips with the new transform and re-score `gate_a` only. If
+0.6142 moves toward the published 0.6260, the transform is confirmed and the
+full rebuild is justified by evidence rather than by argument.
+
+```bash
+%%bash
+cd /content/drive/MyDrive/Thesis/kat-vad
+head -200 "$KATVAD_DATA_ROOT/DoTA/labels_s8/test_ids.txt" > /content/probe_ids.txt
+
+python -m core.tools.extract_clip_features \
+  --frames-dir "$KATVAD_DATA_ROOT/DoTA/frames" --frames-subdir images \
+  --ids-file /content/probe_ids.txt \
+  --dataset DoTA --stride 8 --batch-size 64 --device cuda \
+  --no-center-crop \
+  --output-dir "$KATVAD_CACHE_ROOT/clip/DoTA_probe_ncc_s8"
+```
+
+Then score `gate_a` on the probe subset under both caches and compare **the same
+200 clips** on each — paired, so the comparison is clean. Proceed to R1 only if
+the gap closes materially.
+
+### R1 — MSAD CLIP features, new transform
+
+```bash
+!python -m core.tools.extract_clip_features \
+  --videos-dir "$KATVAD_DATA_ROOT/MSAD/videos" \
+  --dataset MSAD-full \
+  --no-center-crop \
+  --output-dir "$KATVAD_CACHE_ROOT/clip/MSAD_ncc" \
+  --device cuda
+```
+
+Confirm the log line reads `Transform: anisotropic resize`. Resumable as usual.
+
+### R2 — KNN cache (derived from CLIP, so it must be rebuilt)
+
+```bash
+!python -m core.data.knn_cache \
+  --data-dir "$KATVAD_DATA_ROOT/MSAD" \
+  --dataset MSAD-full \
+  --clip-dir "$KATVAD_CACHE_ROOT/clip/MSAD_ncc" \
+  --output "$KATVAD_CACHE_ROOT/knn/MSAD_ncc/knn_cache.npz"
+```
+
+### R3 — Retrain: stage 1, then stage 2 ×2
+
+Same commands as §6.1–6.3 with `--clip-dir` → `MSAD_ncc`, `--knn-cache` →
+`MSAD_ncc`, `--output-dir` → `$KATVAD_OUTPUT_ROOT/MSAD_ncc/...`. `--flow-dir`
+is **unchanged** (`cache/flow/v1/MSAD`).
+
+> **Fold the validation split + `checkpoint_best` work into this retrain.** It
+> is already queued in `activeContext.md`, and the current DoTA arms are
+> uninterpretable partly because eval reads `checkpoint_last` deep in the
+> overfit regime (`RESULTS_DOTA.md` §3). Doing it separately means paying for
+> two full training cycles.
+
+### R4 — Re-measure MSAD
+
+The 0.9052 vs paper 0.9041 reproduction was obtained on the center-crop cache.
+It is **unverified** until re-measured here, and it may not land in the same
+place — that is the accepted cost of the switch, not a surprise.
+
+```bash
+!python -m core.evaluate \
+  --ckpt "$KATVAD_OUTPUT_ROOT/MSAD_ncc/stage2_kip_off/checkpoint_best.pt" \
+  --set kip.enabled=false --set data.dataset=MSAD-full \
+  --data-dir "$KATVAD_DATA_ROOT/MSAD" \
+  --clip-dir "$KATVAD_CACHE_ROOT/clip/MSAD_ncc" \
+  --output-dir "$KATVAD_OUTPUT_ROOT/MSAD_ncc/eval_kip_off" --save-scores
+```
+
+`--score-norm` defaults to `auto`, which resolves to `none` on MSAD (50.4 %
+normal videos). Confirm the log says so.
+
+### R5 — DoTA, full re-extraction and the three arms
+
+The long pass: 1,397 clips at stride 1. Resumable; expect it to outlive a Colab
+session at least once.
+
+```bash
+!python -m core.tools.extract_clip_features \
+  --frames-dir "$KATVAD_DATA_ROOT/DoTA/frames" --frames-subdir images \
+  --ids-file "$KATVAD_DATA_ROOT/DoTA/labels_s8/test_ids.txt" \
+  --dataset DoTA --stride 1 --batch-size 64 --device cuda \
+  --no-center-crop \
+  --output-dir "$KATVAD_CACHE_ROOT/clip/DoTA_ncc_s1"
+```
+
+Derive stride 8 (`range(0,N,8)` makes `[::8]` exact — see `DOTA_EVAL.md` §3.4),
+then run the three arms as in `DOTA_EVAL.md` §3.5 with `--clip-dir` →
+`DoTA_ncc_s8` and `--output-dir` → `$KATVAD_OUTPUT_ROOT/DoTA_ncc/...`.
+
+`--score-norm auto` resolves to `minmax` on DoTA. Confirm the log line:
+
+```
+INFO core.metrics: score-norm auto -> minmax (1394/1397 videos abnormal; 0.21% normal, threshold 5%)
+```
+
+### R6 — Compare
+
+```bash
+for d in gate_a eval_kip_off eval_kip_on; do
+  python -m core.tools.rescore --run-dir "$KATVAD_OUTPUT_ROOT/DoTA_ncc/$d"
+done
+```
+
+Record against the center-crop baselines in `RESULTS_DOTA.md` §1. The number
+that decides whether the rebuild was worth it is **`gate_a` min-max vs 0.6260**;
+the number that matters scientifically is still **Δ(on − off) with its CI**.
+
+---
+
 ## Local dry-run (no Colab, no downloads)
 
 Skip the mount and env cells (roots default to the repo directory) and add

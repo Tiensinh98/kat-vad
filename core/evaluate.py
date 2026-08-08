@@ -8,6 +8,15 @@ expansion, so metrics are computed at sampled-frame resolution), and writes
 ``results.json`` plus one per-video score ``.npz`` consumable by
 ``core/tools/visualize.py``.
 
+``--score-norm`` selects how per-video score curves are pooled before the micro
+metric (lesson C12). The default ``auto`` uses min-max per video when every
+eval video is abnormal -- pooling raw scores over an all-abnormal set measures
+between-clip confidence rather than localization, and cost LaGoVAD's released
+checkpoint 11 AUC points on DoTA. ``auc_raw`` is always reported alongside so
+the two protocols stay comparable. To recompute these from an existing run's
+``scores/`` directory without re-running inference, use
+``python -m core.tools.rescore``.
+
 MCC family / AUC_A / mAP@IoU are Phase-7 scope and intentionally stubbed.
 """
 
@@ -20,7 +29,6 @@ import random
 from pathlib import Path
 
 import numpy as np
-from sklearn.metrics import average_precision_score, roc_auc_score
 
 from core import constants
 from core.config import load_config
@@ -33,6 +41,7 @@ from core.inference import (
     score_to_npz,
     sliding_window_scores,
 )
+from core.metrics import pooled_metrics
 from core.models.text_encoding import (
     TEXT_ENCODER_CHOICES,
     TEXT_ENCODER_CLIP,
@@ -44,16 +53,6 @@ LOGGER = logging.getLogger(__name__)
 
 RESULTS_FILENAME = "results.json"
 SCORES_DIRNAME = "scores"
-
-
-def frame_auc(scores: np.ndarray, labels: np.ndarray) -> float:
-    """Micro frame-level ROC AUC (labels in {0,1}); tested against torchmetrics."""
-    return float(roc_auc_score(labels.astype(np.int64), scores))
-
-
-def frame_ap(scores: np.ndarray, labels: np.ndarray) -> float:
-    """Micro frame-level average precision; tested against torchmetrics."""
-    return float(average_precision_score(labels.astype(np.int64), scores))
 
 
 def abnormal_only_auc(*_args: np.ndarray) -> float:
@@ -90,6 +89,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         help="encode raw class names instead of sampled definitions")
     parser.add_argument("--save-scores", action="store_true",
                         help="write per-video score .npz files for visualization")
+    parser.add_argument("--score-norm", choices=constants.SCORE_NORM_CHOICES,
+                        default=constants.SCORE_NORM_AUTO,
+                        help="per-video score pooling before the micro metric "
+                             "(auto: minmax if every eval video is abnormal)")
     return parser
 
 
@@ -141,16 +144,11 @@ def main(argv: list[str] | None = None) -> None:
             score_to_npz(scores_dir, video_id, score, sim, class_names, gt=gt)
         LOGGER.info("scored %s (%d sampled frames)", video_id, len(gt))
 
-    scores_cat = np.concatenate(all_scores)
-    labels_cat = np.concatenate(all_labels)
-    if labels_cat.min() == labels_cat.max():
-        raise ValueError("Test set has a single class; AUC/AP undefined")
+    metrics = pooled_metrics(all_scores, all_labels, args.score_norm)
     results = {
         "dataset": dataset_name,
         "num_videos": len(dataset),
-        "num_frames": len(labels_cat),
-        "auc": frame_auc(scores_cat, labels_cat),
-        "ap": frame_ap(scores_cat, labels_cat),
+        **metrics,
         "checkpoint": str(args.ckpt or args.baseline_ckpt),
         "per_video": per_video,
     }
@@ -159,8 +157,10 @@ def main(argv: list[str] | None = None) -> None:
     with results_path.open("w", encoding="utf-8") as fh:
         json.dump(results, fh, indent=2)
     LOGGER.info(
-        "AUC %.4f | AP %.4f | %d videos -> %s",
-        results["auc"], results["ap"], len(dataset), results_path,
+        "AUC %.4f | AP %.4f | norm=%s (raw AUC %.4f) | macro AUC %.4f over %d/%d "
+        "videos -> %s",
+        results["auc"], results["ap"], results["score_norm"], results["auc_raw"],
+        results["auc_macro"], results["auc_macro_videos"], len(dataset), results_path,
     )
 
 

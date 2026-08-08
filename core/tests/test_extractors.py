@@ -86,6 +86,64 @@ class TestClipExtraction:
         assert pixels.shape == (3, 3, constants.CROP_SIZE, constants.CROP_SIZE)
         assert torch.isfinite(pixels).all()
 
+    def test_no_center_crop_same_shape_different_content(self) -> None:
+        """Both transforms give CLIP its 224 square, but not the same pixels.
+
+        A wide frame is the case that matters: center-crop discards the left
+        and right thirds, which on dashcam footage is where lateral motion is.
+        """
+        frames = np.random.default_rng(0).integers(
+            0, 255, size=(2, 60, 180, 3), dtype=np.uint8
+        )
+        cropped = extract_clip_features.preprocess_frames(frames, center_crop=True)
+        squashed = extract_clip_features.preprocess_frames(frames, center_crop=False)
+        assert cropped.shape == squashed.shape
+        assert torch.isfinite(squashed).all()
+        assert not torch.allclose(cropped, squashed)
+
+    def test_no_center_crop_is_identity_on_square_input(self) -> None:
+        """Square frames have nothing to crop, so the transforms must agree."""
+        frames = np.random.default_rng(1).integers(
+            0, 255, size=(2, 64, 64, 3), dtype=np.uint8
+        )
+        assert torch.allclose(
+            extract_clip_features.preprocess_frames(frames, center_crop=True),
+            extract_clip_features.preprocess_frames(frames, center_crop=False),
+            atol=1e-5,
+        )
+
+    def test_center_crop_flag_reaches_the_cache(
+        self, tiny_clip_encoder, tmp_path: Path
+    ) -> None:
+        """The flag must change the written features, not just the signature.
+
+        Uses a wide (16:9-ish) frame folder: on a square input the transforms
+        agree by construction, so a square fixture would pass vacuously.
+        """
+        from torchvision.io import write_jpeg
+
+        frames_dir = tmp_path / "frames"
+        folder = frames_dir / "wide_000001" / "images"
+        folder.mkdir(parents=True)
+        torch.manual_seed(0)
+        for index in range(4):
+            write_jpeg(
+                (torch.rand(3, 45, 80) * 255).to(torch.uint8),
+                str(folder / f"{index:06d}.jpg"),
+            )
+
+        caches = {}
+        for name, center_crop in (("default", True), ("ncc", False)):
+            out = tmp_path / name
+            extract_clip_features.extract_frame_directory(
+                frames_dir, out, tiny_clip_encoder, CPU, stride=1, batch_size=4,
+                subdir="images", center_crop=center_crop,
+            )
+            caches[name] = np.load(out / "wide_000001.npy")
+
+        assert caches["default"].shape == caches["ncc"].shape
+        assert not np.allclose(caches["default"], caches["ncc"])
+
 
 class TestFlowStatistics:
     def test_stats_dim_and_determinism(self) -> None:

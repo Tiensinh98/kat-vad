@@ -44,6 +44,14 @@ in the repo — the 55 GB `DoTA_full.zip` is not):
 | Anomaly classes | 20 fine-grained (`ego: turning` 279, `other: turning` 206, `ego: lateral` 153, …) |
 | Frame layout after unzip | `frames/{video_id}/images/000000.jpg` (6-digit, 0-indexed) |
 
+> **2026-08-08 — this protocol has been corrected and the experiment has been
+> run.** The pooling rule documented below in its first version (raw pooled
+> scores) was wrong, and put all three arms at chance. Results, the diagnosis
+> and the corrected numbers: **`core/docs/RESULTS_DOTA.md`**. §2.1 below now
+> carries the verified rule. The other change since: the pipeline is moving to
+> `no_center_crop` features, so the runs described here are re-done into
+> `*_ncc` paths (`core/docs/COLAB.md`).
+
 **Label parity — verified, not assumed.** LaGoVAD's `dota_test_anno.json`
 stores `anomaly_span` as normalized `[anomaly_start/num_frames,
 anomaly_end/num_frames]`, and rebuilds frame labels as `round(frac ×
@@ -80,6 +88,47 @@ stride-8 features are *exactly* `stride1_features[::8]` — one extraction serve
 every stride, and the finer strides become a free temporal-scale ablation (§7).
 
 ---
+
+## 2.1 Score pooling — verified by reproduction, not by reading
+
+**Every clip in DoTA val is abnormal** (1,394 of 1,397 usable; the 3 exceptions
+are windows that round away at stride 8). So the task is purely *within-clip*
+localization, and a micro AUC that concatenates all clips into one ranking puts
+each clip's absolute score scale into the metric where it carries no label
+information. A confident clip's negatives then outrank a hesitant clip's
+positives.
+
+LaGoVAD's own DoTA script min-max normalizes each clip before accumulating:
+
+```python
+# LaGoVAD-PreVAD/src/offline_evals/offline_dota_eval.py
+pred_normed_score = (pred_score - pred_score.min()) / (pred_score.max() - pred_score.min())
+metric.update(pred_normed_score, frame_label)
+```
+
+Its generic `full_length_eval.py` harness pools raw. **The two disagree, and the
+reproduction decides which one the paper used:**
+
+| `gate_a` = LaGoVAD released `best.ckpt` | AUC |
+|---|---:|
+| raw pooled | 0.5055 (chance) |
+| **per-clip min-max** | **0.6142** |
+| per-clip z-score | 0.6236 |
+| published | 0.6260 |
+
+So: **per-clip min-max**. `core/evaluate.py --score-norm auto` (the default)
+resolves this from the label distribution — min-max when normal videos are under
+5 % of the test set — so MSAD keeps raw pooling and DoTA gets normalized without
+either being a dataset-name special case. `results.json` records `score_norm`,
+`auc`, `auc_raw` and `auc_macro`.
+
+`auc_macro` (mean per-clip AUC over clips with both classes) needs no
+normalization at all and is the honest localization metric here. Quote it
+alongside.
+
+**This is a post-processing step.** Changing the pooling rule never needs
+re-running inference — `python -m core.tools.rescore --run-dir <dir>` recomputes
+every rule from the saved `.npz` curves.
 
 ## 3. Colab setup
 
@@ -478,11 +527,18 @@ anything.**
 
 ### D1 — Pipeline sanity (`gate_a`)
 
-| `gate_a` AUC | Verdict | Action |
+Read this against the **min-max** number (§2.1), not the raw one. Applying D1 to
+raw scores is what produced a false "broken pipeline" reading on 2026-08-08 when
+the pipeline was fine and the metric was not.
+
+| `gate_a` AUC (min-max) | Verdict | Action |
 |---|---|---|
 | **≥ 0.58** | Data prep is sound (LaGoVAD 62.60 minus the center-crop handicap, ~0.5 pp on MSAD, plus transfer-free slack) | Proceed to D2 |
 | 0.52 – 0.58 | Suspicious | Check §3.1 clip count, §3.2 warning lines, and that `--set kip.enabled=false` was passed. Then proceed, flagging it |
-| **< 0.52** | Broken — near chance | **Stop.** Debug before interpreting anything: wrong frame ordering, label/feature length mismatch, or an incomplete unzip |
+| **< 0.52** | Broken — near chance | **Stop.** Debug before interpreting anything: **first re-check the pooling rule** (`core.tools.rescore`), then frame ordering, label/feature length mismatch, or an incomplete unzip |
+
+**Measured 2026-08-08:** 0.6142 min-max (0.5055 raw) — D1 **passes** on the
+corrected protocol. It read as a hard fail on the raw one.
 
 ### D2 — Transfer floor (`eval_kip_off`)
 
