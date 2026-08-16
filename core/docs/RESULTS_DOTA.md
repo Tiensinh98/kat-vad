@@ -3,6 +3,21 @@
 **Written:** 2026-08-08 · **Protocol:** `core/docs/DOTA_EVAL.md` ·
 **Companion:** `core/docs/RESULTS_MSAD.md`
 
+> **⚠ The KIP verdict in this document is superseded.
+> See `core/docs/RESULTS_NCC.md`.**
+>
+> Every number here was measured on **center-cropped** features. The Δ(on − off)
+> of **−0.0329** recorded in §1 and §5 was a measurement of the crop, not of KIP:
+> the same A/B on `no_center_crop` features gives **+0.0911**
+> (CI [+0.0799, +0.1019]), and only the KIP arm moves (+0.1514 macro AUC vs
+> +0.0077 for KIP-off). §4's diagnosis of the transform defect was right; the
+> mistake was recording a signed delta while that defect was open — now lesson
+> C14.
+>
+> **Still valid and unaffected:** §2's pooling analysis (lesson C12), the
+> `gate_a` reproduction at 0.6142 min-max vs published 0.6260, and §3's
+> saturation finding.
+
 Three checkpoints scored on DoTA val (1,397 of 1,402 clips — 5 lost to a
 truncated unzip, §1). No training. The first run reported all three at chance;
 this document records what was actually wrong and what the corrected numbers
