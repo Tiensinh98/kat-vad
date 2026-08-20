@@ -593,6 +593,307 @@ the number that matters scientifically is still **Δ(on − off) with its CI**.
 
 ---
 
+## Arm 4 + trajectory probe (2026-08-16, post Phase A)
+
+> **RUN 2026-08-19 — results in `core/docs/RESULTS_ARM4_PROBE.md`.** Both
+> confounds closed: Δ(on − off_warm) = +0.0988 ± 0.0148 (nine CIs excluding
+> zero), H3 rejected at matched convergence. §A5.0 was correctly skipped — a
+> plain `torch.load` worked in that session. Kept here as the runbook of record.
+> Next time, set `checkpoint_every_steps` denser early: the probe had no
+> checkpoint below step 100, where 94 % of the loss range lives (lesson 16).
+
+**Why:** Phase A settled H2 — the DoTA gain replicates across seeds 2024/2025/
+2026 at Δ +0.0916 ± 0.0088, every CI excluding zero (`RESULTS_PHASE_A.md`). Two
+confounds remain, and **neither needs the val-split machinery** originally
+planned as Phase B:
+
+| open item | what closes it | cost |
+|---|---|---|
+| **Warm-start asymmetry** — KIP-on inits from stage 1, KIP-off starts cold | Arm 4: KIP-off warm-started | 3 training runs, no code |
+| **H3** — KIP-on is simply less fitted to MSAD (train `mil` 3.5–6.3× higher every seed) | Trajectory probe over saved step checkpoints | ~24 evals on cached features, no code, no training |
+
+Do A4 first: it is the question a reviewer asks first, and if the Δ dies there
+the probe is moot.
+
+### A4 — the fourth arm: KIP-off, warm-started
+
+Identical to the existing KIP-off arm in every respect except that it inits from
+the *same* stage-1 checkpoint the KIP-on arm used. That isolates KIP itself from
+the 125 epochs of trunk pretraining `L_KIP_rec`/`L_KIP_align` deliver through the
+shared temporal encoder.
+
+`--flow-dir` is **omitted** — with `kip.enabled=false` no flow target is
+consumed, and passing it would only invite confusion about what the arm sees.
+
+#### A4.0 — strip the KIP weights first (required; the run raises without it)
+
+`warm_start_model` (`core/train.py:98-108`) is fail-loud on **unexpected** keys,
+and its error message names this exact case: *"a KIP-off run cannot warm-start
+from a KIP-on checkpoint."* A stage-1 checkpoint carries `kip.*` parameters that a
+`kip.enabled=false` model does not have, so `--init-weights` rejects it outright.
+
+That guard is correct and must not be weakened (lesson 5). Write a stripped copy
+instead — explicit about exactly what is discarded, and it leaves the trainer's
+contract untouched:
+
+A plain `torch.load` on these checkpoints **fails on a Colab VM that has drifted
+from the one that trained them** (observed 2026-08-16):
+
+```
+TypeError: _reconstruct: First argument must be a sub-type of ndarray
+```
+
+`save_checkpoint` (`core/train.py:408-425`) stores `rng`, and `rng["numpy"]` is
+`np.random.get_state()` (`core/train.py:389`) — a tuple wrapping a 624-element
+uint32 **numpy array**. That is the only numpy object in the payload, and it is
+the one that fails to unpickle across a numpy major-version change. The tensors
+are fine; the whole `torch.load` just aborts before reaching them, because a
+pickle is one stream.
+
+The cell below loads through an unpickler that refuses to reconstruct numpy
+arrays at all — the RNG blob decodes to a discardable placeholder — then writes a
+**slim** checkpoint carrying `model` plus provenance scalars and nothing else.
+Both consumers only ever read `payload["model"]`: `warm_start_model`
+(`core/train.py:94`) and `load_model_for_scoring` (`core/inference.py:62-63`).
+Dropping `rng`/`optimizer`/`scheduler`/`scaler` costs nothing here — this is a
+fresh run via `--init-weights`, not a resume — and makes the output immune to the
+same failure later.
+
+```python
+import os, pickle, torch
+from pathlib import Path
+
+
+class _Discarded:
+    """Stands in for a numpy array we deliberately refuse to reconstruct."""
+
+    def __setstate__(self, state): pass
+
+
+def _discard(*args, **kwargs): return _Discarded()
+
+
+class _NumpyFreeUnpickler(pickle.Unpickler):
+    def find_class(self, module, name):
+        if name in ('_reconstruct', 'scalar') and module.endswith('multiarray'):
+            return _discard
+        return super().find_class(module, name)
+
+
+class _shim:                       # duck-types the pickle module for torch.load
+    Unpickler = _NumpyFreeUnpickler
+
+    @staticmethod
+    def load(f, **kw): return _NumpyFreeUnpickler(f, **kw).load()
+
+
+OUT = Path(os.environ['KATVAD_OUTPUT_ROOT'])
+for S in (2024, 2025, 2026):
+    src = (OUT / 'MSAD_ncc' if S == 2024 else OUT / f'MSAD_ncc_s{S}') / 'stage1'
+    payload = torch.load(src / 'checkpoint_last.pt', map_location='cpu',
+                         weights_only=False, pickle_module=_shim)
+    kept = {k: v for k, v in payload['model'].items() if not k.startswith('kip.')}
+    dropped = len(payload['model']) - len(kept)
+    slim = {'model': kept,
+            'epoch': payload.get('epoch'),
+            'global_step': payload.get('global_step'),
+            'class_names': payload.get('class_names')}
+    torch.save(slim, src / 'checkpoint_last_nokip.pt')
+    print(f"seed {S}: dropped {dropped} kip.* tensors, kept {len(kept)}, "
+          f"step={slim['global_step']}")
+```
+
+Two sanity checks before proceeding:
+
+- `dropped` must be **> 0** for every seed. If it is 0 you pointed at the wrong
+  checkpoint (a KIP-off stage-2 file, say) and the arm would be meaningless.
+- `step` must match the stage-1 length in that seed's `config.yaml`. If it is
+  `None`, the load silently returned something other than a trainer checkpoint.
+
+The shim only intercepts numpy array reconstruction. Tensors travel the
+`persistent_load` storage path and never reach `find_class`, so the weights are
+byte-identical to a normal load — this is not a lossy recovery.
+
+> **Do not "fix" this by downgrading numpy.** Colab's torch wheel is built
+> against the numpy 2 ABI; pinning `numpy<2` to match the training VM tends to
+> break the whole runtime (`_ARRAY_API not found`) for a problem that costs one
+> cell to route around.
+
+> The real defect is upstream: `save_checkpoint` pickles a library-versioned
+> object (`np.random.get_state()`) into an artifact meant to outlive its
+> environment. Storing it as raw bytes, or omitting it when RNG resume is not
+> needed, would make checkpoints portable. Not changing that mid-experiment —
+> the baseline of truth stays fixed — but it belongs in the backlog.
+
+The trunk this transfers — temporal encoder, fusion, heads — is exactly the part
+that received stage-1 gradients. Dropping `kip.*` is not a compromise: the KIP-off
+arm has no KIP module to put them in. That is the whole point of the control.
+
+> If this cell ever gets used a second time, promote it to
+> `core/tools/strip_kip_weights.py` with a CLI and tests (§10/§11). One-off
+> experiment scaffolding does not earn a module.
+
+#### A4.1 — train
+
+```bash
+%%bash
+cd /content/drive/MyDrive/Thesis/kat-vad
+
+for S in 2024 2025 2026; do
+  SRC="$KATVAD_OUTPUT_ROOT/MSAD_ncc"; [ $S != 2024 ] && SRC="$KATVAD_OUTPUT_ROOT/MSAD_ncc_s$S"
+  python -m core.train \
+    --set train.stage=2 --set train.amp=true \
+    --set kip.enabled=false \
+    --set data.dataset=MSAD-full \
+    --set train.num_epochs=125 \
+    --set train.checkpoint_every_steps=100 \
+    --set train.seed=$S \
+    --init-weights "$SRC/stage1/checkpoint_last_nokip.pt" \
+    --data-dir "$KATVAD_DATA_ROOT/MSAD" \
+    --clip-dir "$KATVAD_CACHE_ROOT/clip/MSAD_ncc" \
+    --knn-cache "$KATVAD_CACHE_ROOT/knn/MSAD_ncc/knn_cache.npz" \
+    --output-dir "$SRC/stage2_kip_off_warm"
+done
+```
+
+> **Note the seed-2024 path asymmetry.** Seed 2024 lives in `MSAD_ncc/stage1`;
+> 2025/2026 live in `MSAD_ncc_s$S/stage1`. The `SRC` line above handles it.
+> Run seed 2024 alone first and confirm the log line
+> `Warm-started model weights from ...` appears before queueing all three.
+
+Then evaluate all three, both benchmarks:
+
+```bash
+%%bash
+cd /content/drive/MyDrive/Thesis/kat-vad
+
+for S in 2024 2025 2026; do
+  SRC="$KATVAD_OUTPUT_ROOT/MSAD_ncc"; DST="$KATVAD_OUTPUT_ROOT/DoTA_ncc"
+  if [ $S != 2024 ]; then SRC="$KATVAD_OUTPUT_ROOT/MSAD_ncc_s$S"; DST="$KATVAD_OUTPUT_ROOT/DoTA_ncc_s$S"; fi
+
+  python -m core.evaluate \
+    --ckpt "$SRC/stage2_kip_off_warm/checkpoint_last.pt" \
+    --set kip.enabled=false --set data.dataset=MSAD-full \
+    --data-dir "$KATVAD_DATA_ROOT/MSAD" \
+    --clip-dir "$KATVAD_CACHE_ROOT/clip/MSAD_ncc" \
+    --output-dir "$SRC/eval_kip_off_warm" --save-scores
+
+  python -m core.evaluate \
+    --ckpt "$SRC/stage2_kip_off_warm/checkpoint_last.pt" \
+    --set kip.enabled=false --set data.dataset=DoTA \
+    --data-dir "$KATVAD_DATA_ROOT/DoTA/labels_s8" \
+    --clip-dir "$KATVAD_CACHE_ROOT/clip/DoTA_s8_ncc" \
+    --output-dir "$DST/eval_kip_off_warm" --save-scores
+done
+```
+
+**Decision rule** — compare KIP-on against `off_warm` instead of cold `off`:
+
+| across 3 seeds | reading |
+|---|---|
+| Δ(on − off_warm) still ≥ +0.05, CIs exclude zero | Warm start is not the mechanism. **The A/B is now "KIP vs no KIP"** — the strongest version of the claim available |
+| Δ shrinks materially but stays positive | Part of the gain was trunk pretraining. Report the *warm* Δ as the headline; the cold Δ overstates KIP |
+| Δ collapses to ~0 | **The gain was the warm start, not KIP.** Say so. Stage-1 pretraining becomes the contribution, not the module |
+
+### A5 — trajectory probe: does convergence level alone buy DoTA transfer?
+
+H3's claim is that KIP-on transfers better *because* it is less fitted to MSAD.
+That is directly falsifiable with checkpoints you already have — no val split, no
+retraining, no smaller training set, so every number stays comparable to
+Phase A's.
+
+`checkpoint_every_steps=100` over 500 steps left 5 step checkpoints plus
+`checkpoint_last` per stage-2 run. Score the whole trajectory of **both** arms on
+DoTA, and read each checkpoint's train `mil` out of `metrics.jsonl`.
+
+Start with seed 2024 only. Extend to 2025/2026 only if the answer is ambiguous.
+
+#### A5.0 — sanitize the step checkpoints (same numpy failure as A4.0)
+
+`core/inference.py:62` loads with `weights_only=False`, so **every**
+`checkpoint_step_*.pt` hits the identical `_reconstruct` TypeError described in
+A4.0. Rewrite each one slim first; `--ckpt` then points at the `_slim.pt` copy.
+Reuse `_shim` from the A4.0 cell (run it in the same session, or paste the class
+definitions again).
+
+```python
+S = 2024
+SRC = OUT / 'MSAD_ncc'
+for arm in ('on', 'off'):
+    for ck in sorted((SRC / f'stage2_kip_{arm}').glob('checkpoint_step_*.pt')):
+        if ck.stem.endswith('_slim'):
+            continue
+        payload = torch.load(ck, map_location='cpu',
+                             weights_only=False, pickle_module=_shim)
+        torch.save({'model': payload['model'],
+                    'global_step': payload.get('global_step')},
+                   ck.with_name(f'{ck.stem}_slim.pt'))
+        print(f"{arm} {ck.stem}: step={payload.get('global_step')}, "
+              f"{len(payload['model'])} tensors")
+```
+
+Check the printed `global_step` values are distinct and ascending. If two files
+report the same step, you are about to plot the same model twice.
+
+Skip A5.0 entirely if a plain `torch.load` on these files works in your session —
+the failure is environment drift, not a property of the artifacts.
+
+#### A5.1 — score the trajectory
+
+```bash
+%%bash
+cd /content/drive/MyDrive/Thesis/kat-vad
+S=2024
+SRC="$KATVAD_OUTPUT_ROOT/MSAD_ncc"
+
+for ARM in on off; do
+  EXTRA=""; [ "$ARM" = off ] && EXTRA="--set kip.enabled=false"
+  for CK in "$SRC/stage2_kip_$ARM"/checkpoint_step_*_slim.pt; do
+    STEP=$(basename "$CK" _slim.pt)
+    python -m core.evaluate \
+      --ckpt "$CK" $EXTRA --set data.dataset=DoTA \
+      --data-dir "$KATVAD_DATA_ROOT/DoTA/labels_s8" \
+      --clip-dir "$KATVAD_CACHE_ROOT/clip/DoTA_s8_ncc" \
+      --output-dir "$KATVAD_OUTPUT_ROOT/probe/DoTA_s$S/${ARM}_${STEP}"
+  done
+done
+```
+
+> `EXTRA` is set **inside** the loop on purpose. A `%%bash` cell starts with a
+> clean environment, and an unset `EXTRA` silently turns a KIP-off eval into a
+> KIP-on one — the exact defect found in
+> `collab/DoTA_ncc/evaluate_s2025_s2026.py` (`RESULTS_PHASE_A.md` §8).
+
+No `--save-scores`: the probe needs only `results.json`, and 12 × 1,397 score
+files is a lot of Drive for a diagnostic.
+
+Then plot DoTA AUC against that checkpoint's train `mil`, one curve per arm:
+
+| observation | reading |
+|---|---|
+| A KIP-off checkpoint at `mil` ≈ 0.005–0.010 (matching KIP-on's endpoint) reaches DoTA ≈ 0.63 | **H3 holds.** KIP is acting as a regularizer. Still publishable — but not the proposal's claim, and say so plainly |
+| KIP-off stays at 0.53–0.56 along its whole trajectory while KIP-on sits at 0.63 | **H3 is dead at matched convergence.** The Δ is KIP's |
+| Curves overlap when plotted against `mil` rather than step | H3 holds — convergence level, not the module, indexes transfer |
+
+**Discipline:** this reads DoTA *test* scores along a training trajectory. It is
+a **diagnostic, not model selection**. The reported arm stays `checkpoint_last`,
+and the probe curve never becomes a headline number — otherwise the result reads
+as tuned on test. Write that sentence into whatever document reports it.
+
+### Why the original Phase B is deferred
+
+`.project/plans/msad-ncc-seeds-and-selection.md` §3 specified a `--val-ratio`
+three-way split, a KNN rebuild, a new `core/tools/select_checkpoint.py`, and a
+full retraining cycle — on a training set 20 % smaller (120 → 96 abnormal
+videos), whose numbers are by its own §3.3 **not comparable** to anything already
+measured or to LaGoVAD's.
+
+A5 answers the same H3 question more directly, on the training set everything
+else was measured on, for the cost of a dozen cached-feature evals. Build the
+val-split machinery only if A5 comes back ambiguous.
+
+---
+
 ## Local dry-run (no Colab, no downloads)
 
 Skip the mount and env cells (roots default to the repo directory) and add

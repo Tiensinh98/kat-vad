@@ -10,6 +10,13 @@
 **H1 holds; H2 (seed luck) is rejected.** H3 and the warm-start confound remain
 open, and the MSAD reproduction gate is redefined below.
 
+> **Updated 2026-08-19 — §6's two open confounds are now closed.**
+> `RESULTS_ARM4_PROBE.md` adds a fourth arm (KIP-off warm-started) and a
+> trajectory probe: Δ(on − off_warm) = **+0.0988 ± 0.0148**, nine CIs excluding
+> zero, so the warm start is not the mechanism; and KIP-off's DoTA AUC is flat
+> at 0.559–0.561 across a 33× range of train `mil`, so **H3 is rejected**.
+> Nothing in this document is superseded — the numbers below stand as measured.
+
 ---
 
 ## 1. What ran
@@ -187,18 +194,24 @@ motion module. Phase A does not touch this. See §6.
 
 **Still open**
 
-1. **H3 — under-convergence transfers.** KIP-on is less fitted to MSAD in every
-   seed. Nothing here distinguishes "motion module" from "regularizer".
-2. **Warm-start asymmetry.** KIP-on warm-starts from stage 1; KIP-off starts
-   cold, and stage-1 gradients reach the shared temporal encoder. The A/B is
-   still *"KIP + warm start"* vs *"no KIP, cold"*.
+1. ~~**H3 — under-convergence transfers.**~~ **CLOSED 2026-08-19 — rejected.**
+   At train `mil` matched to KIP-on's endpoint, KIP-off reaches DoTA ≈ 0.560
+   against KIP-on's 0.6519, and its transfer is flat over a 33× `mil` range.
+   `RESULTS_ARM4_PROBE.md` §4.
+2. ~~**Warm-start asymmetry.**~~ **CLOSED 2026-08-19 — not the mechanism.**
+   Δ(on − off_warm) = +0.0988 ± 0.0148 over three seeds, nine CIs excluding
+   zero, no shrinkage against the cold Δ; stage-1 trunk pretraining alone moves
+   DoTA by ±0.02 with a seed-dependent sign. `RESULTS_ARM4_PROBE.md` §2.
 3. **The mechanism generally.** D4 is refuted; D5 (MSAD multi-class accuracy)
    did not replicate under `_ncc` at seed 2024 and was not re-checked here. The
-   result is real and its *reason* is unknown.
+   result is real and its *reason* is unknown. **This is now the only open
+   scientific question** — items 1 and 2 eliminated two rival explanations
+   without confirming one.
 
-Items 1 and 2 are what the next cycle is for — see
-`.project/plans/msad-ncc-seeds-and-selection.md` §3 (revised) and `COLAB.md`
-§ "Arm 4 + trajectory probe".
+Items 1 and 2 were what the next cycle was for — run, and reported in
+`core/docs/RESULTS_ARM4_PROBE.md` (runbook: `COLAB.md` § "Arm 4 + trajectory
+probe"). `.project/plans/msad-ncc-seeds-and-selection.md` §3 (Phase B) stays
+deferred; A5 answered its question for ~1 % of the cost.
 
 **Do not change KIP's architecture, losses, or hyperparameters on this result**
 (lesson 14). Two confounds are open.
