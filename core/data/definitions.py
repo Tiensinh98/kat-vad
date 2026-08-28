@@ -191,38 +191,153 @@ _UNIVERSAL_CLS_DEFS: dict[str, list[str]] = {
     ],
 }
 
+# PreVAD v6 taxonomy — the 36 names of the *live* ``DEFAULT_CLASSES`` in
+# ``LaGoVAD-PreVAD/src/datasets/PreVAD.py`` (space-separated), NOT the
+# CamelCase list commented out above it. The release's own train/test CSVs use
+# exactly these names in ``class_name``; 35 of the 36 occur in the data
+# (``Fire-related Accident`` is a superclass with no "Others" rows), so
+# ``defs.json`` carries 35 while this lookup covers all 36 and can never
+# under-cover. Six names are simultaneously superclasses and classes
+# (``Vehicle Accident``, ``Violence``, ``Robbery``, ``Production Accident``,
+# ``Fire-related Accident``, ``Animal-related Violence``, ``Daily Accident``):
+# those rows are the taxonomy's "Others" buckets, so their definitions are
+# deliberately broad.
 _PREVAD_CLS_DEFS: dict[str, list[str]] = {
     "Normal": _UNIVERSAL_CLS_DEFS["Normal"],
-    "Accident": [
-        "An unexpected event, often resulting in damage or injury, involving "
-        "vehicles, machinery, or other objects."
+    # --- 1. Vehicle Accident ------------------------------------------------
+    "Vehicle Accident": [
+        "A vehicle accident",
+        "A moving vehicle crashes, overturns or loses control, leaving wreckage "
+        "and debris on the scene.",
+        "An accident involving a vehicle of any kind — a boat, a motorcycle, a "
+        "bus or a truck — that ends in a collision or a rollover.",
     ],
-    "AirAccident": _UNIVERSAL_CLS_DEFS["AirAccident"],
-    "AnimalAttackAnimal": _UNIVERSAL_CLS_DEFS["AnimalAttackAnimal"],
-    "AnimalAttackHuman": _UNIVERSAL_CLS_DEFS["AnimalAttackHuman"],
-    "AnimalPredation": _UNIVERSAL_CLS_DEFS["AnimalPredation"],
-    "CarAccident": _UNIVERSAL_CLS_DEFS["CarAccident"],
-    "Collapse": _UNIVERSAL_CLS_DEFS["Collapse"],
-    "CrowdViolence": _UNIVERSAL_CLS_DEFS["CrowdViolence"],
-    "Explosion": _UNIVERSAL_CLS_DEFS["Explosion"],
-    "FallDown": _UNIVERSAL_CLS_DEFS["FallDown"],
-    "FallIntoWater": _UNIVERSAL_CLS_DEFS["FallIntoWater"],
-    "Fire": _UNIVERSAL_CLS_DEFS["Fire"],
-    "MechanicalAccident": _UNIVERSAL_CLS_DEFS["MechanicalAccident"],
-    "ObjectImpact": _UNIVERSAL_CLS_DEFS["ObjectImpact"],
-    "RangeShooting": [
+    "Air Accident": _UNIVERSAL_CLS_DEFS["AirAccident"],
+    "Train Accident": _UNIVERSAL_CLS_DEFS["TrainAccident"],
+    "Car Accident": _UNIVERSAL_CLS_DEFS["CarAccident"],
+    # --- 2. Violence --------------------------------------------------------
+    "Violence": _UNIVERSAL_CLS_DEFS["Fighting"],
+    "Vandalism": [
+        "Vandalism",
+        "Vandalism, smashing store doors, breaking windows.",
+        "Deliberate destruction of property — kicking in doors, overturning "
+        "shelves, damaging parked vehicles.",
+    ],
+    "Crowd Violence": _UNIVERSAL_CLS_DEFS["CrowdViolence"],
+    "Riot": _UNIVERSAL_CLS_DEFS["Riot"],
+    "Assault": _UNIVERSAL_CLS_DEFS["Assault"],
+    "Range Shooting": [
         "Shooting in a range",
         "A shooting scene in a range, often involving multiple people and firearms.",
         "Firing guns at a shooting range, where people aim at targets from a set "
         "distance, often seen bullet holes in targets.",
         "The act of shooting at a target from a distance",
     ],
-    "Riot": _UNIVERSAL_CLS_DEFS["Riot"],
+    "Shooting Accident": [
+        "Shooting accident",
+        "A firearm discharges unintentionally, injuring the shooter or a "
+        "bystander, with visible muzzle flash and people reacting in alarm.",
+        "Someone is shot, the muzzle emits flames and smoke, and people scatter "
+        "or fall to the ground.",
+        "An unintended gunshot during handling, cleaning or celebration with a "
+        "firearm.",
+    ],
+    "War": _UNIVERSAL_CLS_DEFS["WarScene"],
+    # --- 3. Robbery ---------------------------------------------------------
     "Robbery": _UNIVERSAL_CLS_DEFS["Robbery"],
-    "Shooting": _UNIVERSAL_CLS_DEFS["Shooting"],
-    "TrainAccident": _UNIVERSAL_CLS_DEFS["TrainAccident"],
-    "Violence": _UNIVERSAL_CLS_DEFS["Fighting"],
-    "WarScene": _UNIVERSAL_CLS_DEFS["WarScene"],
+    "Carjacking": [
+        "Carjacking",
+        "A vehicle is taken by force from its driver, often at gunpoint or by "
+        "dragging the driver out of the seat.",
+        "Someone approaches a stopped car, threatens the occupant and drives the "
+        "vehicle away.",
+    ],
+    "Mugging": [
+        "Mugging",
+        "A person is robbed in the street, their bag or phone snatched, often "
+        "after being pushed or threatened.",
+        "A street robbery of a passer-by by one or more people, involving "
+        "grabbing, shoving or a weapon.",
+    ],
+    "Store Robbery": [
+        "Store robbery",
+        "Someone robs a shop or a convenience store, threatening the clerk over "
+        "the counter and taking money from the register.",
+        "An armed robbery inside a store, with the staff raising their hands and "
+        "the cash drawer being emptied.",
+    ],
+    # --- 4. Production Accident --------------------------------------------
+    "Production Accident": [
+        "A production accident",
+        "An accident on a work site — a factory, a warehouse, a construction "
+        "site — that injures a worker or destroys equipment.",
+        "An industrial mishap during work, involving heavy loads, machinery or "
+        "unstable structures.",
+    ],
+    "Mechanical Accident": _UNIVERSAL_CLS_DEFS["MechanicalAccident"],
+    "Object Impact": _UNIVERSAL_CLS_DEFS["ObjectImpact"],
+    "Collapse": _UNIVERSAL_CLS_DEFS["Collapse"],
+    "Fall from Height": [
+        "A person falls from a height",
+        "Someone falls from a roof, a ladder, scaffolding or a balcony and hits "
+        "the ground below.",
+        "A worker loses footing at elevation and drops, often with the structure "
+        "or platform giving way.",
+    ],
+    # --- 5. Fire-related Accident ------------------------------------------
+    "Fire-related Accident": [
+        "A fire-related accident",
+        "An accident involving fire, heat or smoke — flames spreading, thick "
+        "smoke filling the scene, or a sudden burst of heat.",
+    ],
+    "Fume": [
+        "Smoke and fumes",
+        "Thick smoke or gas billows out of a vehicle, a machine or a building, "
+        "with no open flame yet visible.",
+        "Dense white or black fumes pour from a hood, a vent or an engine "
+        "compartment and people back away.",
+    ],
+    "Fire": _UNIVERSAL_CLS_DEFS["Fire"],
+    "Explosion": _UNIVERSAL_CLS_DEFS["Explosion"],
+    # --- 6. Animal-related Violence -----------------------------------------
+    "Animal-related Violence": [
+        "Animal-related violence",
+        "A violent encounter involving an animal, ending in injury to the animal "
+        "or to a person.",
+        "An animal behaves aggressively — charging, biting or trampling.",
+    ],
+    "Predation": _UNIVERSAL_CLS_DEFS["AnimalPredation"],
+    "Animal Attack Animal": _UNIVERSAL_CLS_DEFS["AnimalAttackAnimal"],
+    "Animal Attack Human": _UNIVERSAL_CLS_DEFS["AnimalAttackHuman"],
+    # --- 7. Daily Accident --------------------------------------------------
+    "Daily Accident": [
+        "An everyday accident",
+        "A small mishap in ordinary life — someone slips, trips, drops something "
+        "or bumps into an obstacle.",
+        "An unexpected everyday accident at home, in a shop or on the street.",
+    ],
+    "Sport Fail": [
+        "A sporting failure",
+        "An athlete crashes, misses or wipes out during a sport — falling off a "
+        "bike, missing a landing, colliding with another player.",
+        "A failed attempt during a sporting activity that ends in a fall or a "
+        "collision.",
+    ],
+    "Stunt Fail": [
+        "A failed stunt",
+        "A stunt goes wrong — the jump falls short, the trick is missed, and the "
+        "performer crashes hard.",
+        "Someone attempting a daring trick loses control and hits the ground, a "
+        "wall or an obstacle.",
+    ],
+    "Fall into Water": _UNIVERSAL_CLS_DEFS["FallIntoWater"],
+    "Fall to the Ground": _UNIVERSAL_CLS_DEFS["FallDown"],
+    "Drop Something": [
+        "Someone drops something",
+        "An object slips out of someone's hands and falls to the floor, often "
+        "breaking or spilling.",
+        "A carried item is dropped and hits the ground, scattering its contents.",
+    ],
 }
 
 _UCF_CLS_DEFS: dict[str, list[str]] = {

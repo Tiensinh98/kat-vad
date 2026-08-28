@@ -118,8 +118,10 @@ class TestVerbalizer:
             verbalizer.set_dataset("unknown")
 
     def test_seeded_rng_is_deterministic(self) -> None:
-        first = DatasetSpecVerbalizer("prevad", rng=random.Random(7))("CarAccident")
-        second = DatasetSpecVerbalizer("prevad", rng=random.Random(7))("CarAccident")
+        # "Car Accident" (spaced) is the PreVAD v6 class name shipped in the
+        # release CSVs; the CamelCase "CarAccident" belongs to dota/dada.
+        first = DatasetSpecVerbalizer("prevad", rng=random.Random(7))("Car Accident")
+        second = DatasetSpecVerbalizer("prevad", rng=random.Random(7))("Car Accident")
         assert first == second
 
     def test_dada_shares_dota_definitions(self) -> None:
