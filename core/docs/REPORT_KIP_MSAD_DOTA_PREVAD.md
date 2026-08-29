@@ -1,16 +1,28 @@
 # KAT-VAD — Experimental Report: the Kinematic Induction Pathway on MSAD and DoTA
 
-**Compiled:** 2026-08-21 · **Scope:** every training and evaluation run on the
-`no_center_crop` pipeline, plus the center-crop pipeline it replaced.
+**Compiled:** 2026-08-21 · **Revised:** 2026-08-28 (PreVAD campaign folded in as
+§12) · **Scope:** every training and evaluation run on the `no_center_crop`
+pipeline, plus the center-crop pipeline it replaced, plus the PreVAD trunk
+campaign.
 **Source of every number:** `outputs/**/results.json`, `outputs/**/scores/*.npz`,
-`outputs/**/metrics.jsonl`, `outputs/**/config.yaml`, `data/{MSAD,DoTA}/*`.
+`outputs/**/metrics.jsonl`, `outputs/**/config.yaml`,
+`data/{MSAD,DoTA}/*`, `PreVAD/{train,test}.csv`.
 No number in this document was copied from a paper or estimated.
 
 **Primary evidence chain (measurement order):** `RESULTS_MSAD.md` →
 `RESULTS_DOTA.md` → `RESULTS_NCC.md` → `RESULTS_PHASE_A.md` →
-`RESULTS_ARM4_PROBE.md`. This report consolidates them into one data-driven
-account; where an earlier document was superseded, only the surviving number
-appears here.
+`RESULTS_ARM4_PROBE.md` → **`RESULTS_PREVAD.md`**. This report consolidates them
+into one data-driven account; where an earlier document was superseded, only the
+surviving number appears here.
+
+> **2026-08-28 status.** Nothing in §§1–11 is superseded. A second campaign
+> (PreVAD pretraining → MSAD finetune → MSAD + DoTA eval, 3 seeds) has since
+> run. It produced one strong positive — **PreVAD pretraining is worth ~+5 AP
+> in-domain and ~+0.04 DoTA AUC to the plain baseline** — and one **void KIP
+> ablation**: the KIP module in that campaign was grafted at random init and
+> never trained (`L_KIP_rec` 10.2–13.3 vs 4.91 here; `L_KIP_align` never left its
+> initialisation). Its Δ(on − off) must **not** be read as evidence about the
+> +0.09. See §12 and `RESULTS_PREVAD.md`.
 
 ---
 
@@ -48,6 +60,17 @@ The proposed **ego-kinematics mechanism is refuted, six comparisons out of six**
 the gain on third-party (`other:`) motion consistently exceeds the gain on
 ego-motion. The effect is real, attributable to the module, and its **mechanism
 remains unidentified**. This report says so explicitly rather than papering over it.
+
+**Added 2026-08-28 — the trunk matters more than expected, and one attribution
+question is now open that was not before.** A PreVAD-pretrained trunk
+(32,673 clips, 34 classes) lifts the **KIP-off** baseline by **+0.0474 AP**
+in-domain on MSAD and **+0.0376 micro AUC** zero-shot on DoTA, and pushes our
+KIP-off arm **above** the released LaGoVAD checkpoint on MSAD (AUC +0.0039, AP
++0.0604). Broad-domain pretraining is therefore a second, independent lever on
+exactly the quantity KIP was built to move. Whether the +0.09 **survives** that
+trunk is **not yet known**: the run that would have answered it removed KIP's
+stage-1 warm-up at the same time, so its KIP arm never trained (§12). One run
+closes the question.
 
 ---
 
@@ -755,7 +778,172 @@ out-of-domain AUC.
 
 ---
 
-## 12. Trends
+## 12. PreVAD trunk transfer — a second corpus, and a blocked A/B
+
+Full analysis: **`RESULTS_PREVAD.md`**. Everything in §§1–11 used a trunk
+pretrained on MSAD itself. This section reports what happened when the trunk came
+from **PreVAD** (32,673 training clips, 34 classes, 8 superclasses) instead.
+
+### 12.1 The design, and the three variables that moved
+
+```
+PreVAD train ─ stage 2, KIP-off, 13,360 steps ─→ trunk
+                    │
+                    ├─ eval on PreVAD test                    → Gate P0 comparison
+                    └─ graft randomly-initialised kip.*
+                            └─ MSAD-full stage 2, 160 steps, KIP {on, off} × seeds 2024/2025/2026
+                                    └─ eval MSAD (in-domain) + DoTA (zero-shot)
+```
+
+Against the §6 campaign, **three things changed at once**: the trunk source
+(MSAD stage-1 KIP warm-up → PreVAD stage-2), the **removal of KIP's stage-1
+warm-up**, and the step budget (500 → 160). All `kip.*`, `model.*`, `loss.*`,
+`dvs.*` and `data.*` fields are identical; within the campaign the six configs are
+byte-identical modulo `train.seed`.
+
+### 12.2 Gate P0 — the port reproduces the released checkpoint on a third benchmark
+
+PreVAD test is **49.9 % normal**, so `--score-norm auto` resolves to raw pooling
+(the MSAD protocol, not DoTA's — lesson C12 deciding from labels, not from a
+name). 2,606 clips, 190,558 sampled frames.
+
+| arm | micro AUC | AP | macro AUC (n=1,078) |
+|---|---:|---:|---:|
+| released `best.ckpt` | 0.9031 | 0.6910 | 0.6721 |
+| our PreVAD trunk (KIP-off, seed 2024) | 0.9007 | 0.6902 | 0.6709 |
+| **Δ (paired bootstrap)** | **−0.0025** [−0.0103, +0.0047] | −0.0008 [−0.0266, +0.0232] | −0.0012 [−0.0135, +0.0105] |
+
+**All three CIs include zero.** Under lesson C8b the reproduction gate now passes
+on MSAD *and* PreVAD. The released `ViT-B-16-8p` features are compatible with our
+pipeline; §4.5 of `PREVAD_SETUP.md` is satisfied.
+
+### 12.3 What the PreVAD trunk buys the plain baseline
+
+Paired clip bootstrap, PreVAD-trunk arm minus the §6 cold arm of the same seed
+and same arm type; clip ids and ground truth verified identical.
+
+| benchmark | arm | Δ metric | per-seed | seed-level t95 |
+|---|---|---|---|---|
+| MSAD | KIP-off | **AP +0.0474** | +0.0404 / +0.0525 / +0.0493 | **[+0.0318, +0.0630]** |
+| MSAD | KIP-off | AUC +0.0120 | +0.0057 / +0.0138 / +0.0166 | [−0.0020, +0.0260] |
+| DoTA | KIP-off | **AUC +0.0376** | +0.0257 / +0.0291 / +0.0580 | [−0.0065, +0.0817] |
+| DoTA | KIP-**on** | AUC −0.0565 | −0.0851 / −0.0420 / −0.0423 | [−0.1180, +0.0051] |
+
+All twelve clip-level CIs exclude zero and the **sign is stable within each arm**
+— exactly what the stage-1-only trunk transfer of §7.4 failed to do (±0.02 with a
+sign that flipped across seeds). Seed-level intervals are wide at n = 3, so:
+**direction established, magnitude not pinned.**
+
+Absolute MSAD levels are the best the project has produced. KIP-off mean AUC
+**0.8988** / AP **0.7036**, against the cold campaign's 0.8868 / 0.6562 and the
+released checkpoint's 0.8949 / 0.6432:
+
+| arm | Δ vs released `best.ckpt` | seed-level t95 |
+|---|---:|---|
+| PreVAD-trunk KIP-off, AUC | **+0.0039** ± 0.0008 | **[+0.0019, +0.0058]** |
+| PreVAD-trunk KIP-off, AP | **+0.0604** ± 0.0039 | **[+0.0506, +0.0702]** |
+
+(The three deltas share one reference arm, so n = 3 measures our arm's
+seed-stability, not three independent replications. Read it as "consistently a
+little better on AUC, clearly better on AP".)
+
+**Conclusion 5 of §14 is upgraded**: our port is no longer merely
+indistinguishable from the released checkpoint in-domain — with a broad-domain
+trunk it is above it.
+
+### 12.4 The KIP A/B in this campaign is BLOCKED — the module was never trained
+
+| seed | MSAD Δ(on − off) AUC | DoTA Δ(on − off) AUC | 95 % CI |
+|---|---:|---:|---|
+| 2024 | −0.0033 | −0.0196 | [−0.0260, −0.0132] |
+| 2025 | −0.0044 | +0.0120 | [+0.0054, +0.0193] |
+| 2026 | −0.0016 | +0.0003 | [−0.0062, +0.0072] |
+| **seed-level** | −0.0031 ± 0.0014 | **−0.0024 ± 0.0159** | t95 [−0.0420, +0.0372] |
+
+It is tempting to read that as "the +0.09 evaporates under a different trunk". It
+is not readable that way. KIP's own losses say why:
+
+| run | `kip_rec` → | `kip_align` → | `kin` → | steps |
+|---|---|---|---|---:|
+| §9 cold stage 1 | 16.54 → 10.52 | 4.63 → 4.08 | — | 500 |
+| §9 cold stage 2, KIP-on | 9.43 → **4.91** | 4.07 → **3.70** | 0.76 → **0.47** | 500 |
+| PreVAD-trunk stage 2, KIP-on, s2024/25/26 | 16.0–17.1 → **10.2 / 13.3 / 10.9** | 4.61 → **4.61 / 4.58 / 4.57** | 0.73 → 0.67 | 160 |
+
+`kip.*` was grafted at **random init**, `L_KIP_rec` ends where the cold
+campaign's *stage 1* ended, `L_KIP_align` never moves off its initialisation and
+sits **above** the 4.265 chance level, and `L_kin` barely moves. The arm labelled
+"KIP-on" carries an untrained KIP.
+
+**Per lesson C14, the signed Δ is reported as blocked, not as a result.** An
+ablation run under a known-open precondition defect measures the defect. The
+precondition here is "KIP's flow head has been trained at all".
+
+Nor is the shortened schedule the explanation. Interpolating the §10 probe to a
+matched 160 steps (seed 2024 only):
+
+| arm | cold @ ~160 steps | PreVAD trunk @ 160 | difference |
+|---|---:|---:|---:|
+| KIP-off | ≈ 0.5596 | **0.5864** | +0.027 |
+| KIP-on | ≈ 0.6286 | **0.5664** | −0.062 |
+
+The trunk helps the baseline and hurts the untrained-KIP arm at matched budget.
+
+### 12.5 What it *does* license — a negative control on H4
+
+**H4** holds that KIP is essentially a fixed temporal smoother: the gate MLP's
+321 parameters never receive gradient (`(ratio * max_shift).floor().long()` is
+non-differentiable), so the module's *content* may be irrelevant and only its
+architectural smoothing matters — which is precisely what buys AUC on a
+within-clip localization benchmark.
+
+In this campaign that smoother is **fully present and active** —
+`use_gate_shift=true`, PMG head running, gate reading `flow_norm`, shift
+applied — and it delivers **−0.002 ± 0.016** on DoTA. The only missing ingredient
+is a *trained* PMG head.
+
+**The architecture alone does not produce the gain.** That is a real constraint
+on the strong form of H4. It is not decisive — the trunk changed simultaneously,
+and `‖ê_O‖` drives the shift schedule, so an untrained `ê_O` yields a different
+smoother, not the same one. The clean control is one run (below).
+
+### 12.6 The one run that unblocks this
+
+**PreVAD trunk + KIP stage-1 warm-up on MSAD + `num_epochs=125`.** One training
+arm per seed. It holds the trunk fixed and restores the only thing that was
+removed, isolating *trunk* from *KIP pretraining*. Until it exists, this campaign
+has no KIP verdict — and §§13–14 below stand exactly as measured in §§6–11.
+
+### 12.7 A PreVAD KIP A/B is out of reach — permanently
+
+Recorded here so it is not proposed again. `L_KIP_rec` regresses `e_O`, a cached
+RAFT embedding; RAFT needs pixels. **PreVAD ships CLIP features only**
+(`ViT-B-16-8p-features.zip`, 35,279 `.npy`). The release cannot be replayed:
+`annotations/data_sources.csv` covers 82 % of rows with a platform URL, a
+realistic yield after link rot is **50–70 %**, and the 3,800 permanently dead
+rows are China Expressway Camera captures — the traffic/motion clips KIP cares
+about most. Even a successful re-download cannot be paired with the released
+features (different transcode, possibly different fps, `-Scene-NNN` ids imply an
+unpublished shot-detection pass; `core/data/dataset.py:112` raises on the length
+mismatch), and a KIP-on arm on a 60 % subset is not comparable to a KIP-off arm
+on the full release.
+
+`require_flow = cfg.kip.enabled` makes this a hard stop rather than a silent
+degradation. **Do not** set `require_flow=False` to get past it: that zero-fills
+`e_O` and trains the PMG head to predict zeros — a wrong run that still produces
+a checkpoint.
+
+Full reasoning, including two defects in the authors' download toolkit:
+`PREVAD_SETUP.md` §7.4. Settled as the user's decision, **2026-08-29**.
+
+**Consequence for §12.6:** the unblocking run is *unaffected*. It trains KIP on
+**MSAD**, whose flow cache already exists
+(`cache/flow/v1/MSAD/MSAD-full`) — PreVAD contributes only the trunk, which is
+already on disk and was trained KIP-off. Limitation 14 is closable without a
+single new flow extraction.
+
+---
+
+## 13. Trends
 
 1. **The gap is stable; the level is not.** Across seeds, both DoTA arms drift
    down together (off 0.5607 → 0.5585 → 0.5283; on 0.6519 → 0.6416 → 0.6288),
@@ -778,17 +966,30 @@ out-of-domain AUC.
 6. **Field of view is a first-order variable for a motion module.** The crop
    removal moved KIP-on by +0.15 macro AUC and everything else by ≈ 0. A motion
    pathway must see the same frame its flow targets were computed on.
+7. **The pretraining corpus is a lever of comparable size to the module.**
+   Swapping the trunk from MSAD stage-1 to PreVAD stage-2 moved the *baseline* by
+   +0.047 AP in-domain and +0.038 AUC zero-shot, with a stable sign in every seed
+   (§12.3). Two of this project's three largest measured effects — the crop
+   removal and the trunk swap — are **preconditions**, not architecture.
+8. **A trunk that helps the baseline can hurt an arm that depends on it.** The
+   same PreVAD trunk that gave KIP-off +0.038 on DoTA cost the KIP arm −0.057
+   (§12.3). Trunk effects are not additive across arms, so a "better trunk" must
+   be re-measured per arm and never assumed to lift a delta uniformly.
 
 ---
 
-## 13. Conclusions
+## 14. Conclusions
 
-1. **KIP produces a large, reproducible, out-of-domain gain.**
+1. **KIP produces a large, reproducible, out-of-domain gain — under the trunk it
+   was measured on.**
    Δ = **+0.0915 ± 0.0088** micro AUC on DoTA zero-shot against a cold baseline
    and **+0.0988 ± 0.0148** against a trunk-matched warm baseline; 18 bootstrap
    CIs across micro AUC, AP and macro AUC over three seeds, **all excluding
    zero**. KIP-on also beats the released baseline checkpoint by +0.0508
-   (CI [+0.0355, +0.0659]).
+   (CI [+0.0355, +0.0659]). *Scope added 2026-08-28:* every one of those runs
+   pretrains KIP in a stage-1 warm-up on MSAD. **Whether the gain survives a
+   different trunk is untested** — the campaign that would have tested it removed
+   the warm-up at the same time (§12.4).
 
 2. **The gain is attributable to the KIP module itself.** Two rival explanations
    were tested and eliminated: warm-start transfer (arm 3 — the delta grew) and
@@ -804,10 +1005,13 @@ out-of-domain AUC.
    (345,154 of 18.9 M), **RGB-only at test time**. RAFT runs offline, once, as a
    cached training target and never on the scoring path.
 
-5. **The baseline port is sound.** Our KIP-off arm is statistically
-   indistinguishable from the released checkpoint on MSAD under an identical
-   protocol — eight paired bootstraps, all CIs including zero, AP consistently
-   higher for our arms.
+5. **The baseline port is sound — and, with a broad-domain trunk, better than the
+   released checkpoint.** Our KIP-off arm is statistically indistinguishable from
+   the released checkpoint on MSAD under an identical protocol — eight paired
+   bootstraps, all CIs including zero, AP consistently higher for our arms — and
+   indistinguishable again on **PreVAD** (Δ AUC −0.0025, CI [−0.0103, +0.0047]).
+   With a PreVAD-pretrained trunk it moves **above** it: AUC +0.0039, AP +0.0604,
+   both seed-level intervals excluding zero (§12.2–12.3).
 
 6. **The proposed mechanism is refuted; the actual mechanism is unknown.**
    Ego-kinematics fails six comparisons out of six (`other` > `ego` every time).
@@ -820,7 +1024,23 @@ out-of-domain AUC.
    decided by the test set's *label distribution*, not its name — on an
    all-abnormal benchmark, raw pooling cost the reference checkpoint 11 AUC
    points and put every arm at chance. Keeping a released checkpoint in every run
-   is what made that findable.
+   is what made that findable. The rule generalised correctly on first contact
+   with a third dataset: PreVAD is 49.9 % normal and `auto` resolved to raw
+   pooling with no human decision.
+
+8. **Broad-domain pretraining is an independent lever on the same quantity.**
+   A PreVAD trunk buys the *plain baseline* +0.047 AP in-domain and +0.038 AUC
+   zero-shot, sign-stable across three seeds. Since KIP's headline claim is also
+   about out-of-domain transfer, the two must eventually be measured *together* —
+   a method that is redundant with cheap pretraining is a different contribution
+   from one that composes with it. **That composition is currently unmeasured**
+   (§12.6).
+
+9. **The KIP architecture with an untrained flow head buys nothing.** With the
+   PMG head at random init, the gate and adaptive shift fully active, DoTA
+   Δ(on − off) is −0.002 ± 0.016. It is a confounded control (the trunk moved
+   too), but it is the first evidence *against* the strong form of H4 — that KIP
+   is a fixed temporal smoother whose content does not matter (§12.5).
 
 **The honest one-line claim this evidence supports:** *a train-time motion
 induction pathway, costing +1.8 % inference parameters and no test-time flow,
@@ -828,34 +1048,43 @@ improves zero-shot transfer from fixed-camera to ego-centric anomaly detection b
 ≈ 9 AUC points with no in-domain cost — by a mechanism that is not the one it was
 designed around.*
 
+**And the sentence that must accompany it from 2026-08-28 on:** *measured from an
+MSAD-pretrained trunk with a stage-1 KIP warm-up; the gain has not yet been shown
+to survive a broad-domain trunk, and broad-domain pretraining moves the same
+benchmark on its own.*
+
 ---
 
-## 14. Limitations and threats to validity
+## 15. Limitations and threats to validity
 
 | # | Limitation | Severity | Status |
 |---|---|---|---|
 | 1 | **Mechanism unidentified.** The effect is real and attributed to the module, but *what* the module does is unknown. No eval-time diagnostics of ŷ_O, gate α or shift magnitude have been saved. | **High** | Open — next task |
-| 2 | **One transfer benchmark.** The gain is DoTA-only. Nothing distinguishes "motion" from "DoTA". A second benchmark (PreVAD / TAD) is needed. | **High** | Open |
+| 2 | **One transfer benchmark.** The gain is DoTA-only. Nothing distinguishes "motion" from "DoTA". A second benchmark is needed. | **High** | **Open, and narrower than it looked.** PreVAD is wired end-to-end and Gate P0 passes (§12.2), but it is a *pretraining corpus* only: it ships CLIP features and no pixels, so RAFT targets cannot be built and **a PreVAD KIP A/B is permanently out of reach** (§12.7, `PREVAD_SETUP.md` §7.4; user's decision 2026-08-29). Any second KIP benchmark must ship raw video |
 | 3 | **`L_KIP_align` near chance** (3.61–3.70 vs 4.265) with both mitigation knobs off. One of three proposed losses is nearly inert. | Medium | Open |
 | 4 | **No validation split, no model selection.** Every arm is `checkpoint_last` at train `mil` ≈ 0.001–0.01 — an arbitrary point deep in the overfit regime, chosen for neither arm. | Medium | Deliberately deferred; the probe showed the endpoint is not special for either arm |
 | 5 | **`L_kin` never isolated.** The `use_lkin=false` ablation has not been run; its contribution is unmeasured. | Medium | Open |
 | 6 | **`L_KIP_rec` undertrained.** Still improving at step ~446 of 500 in both stages. The reported gain is achieved *without* reconstruction converging. | Low–Medium | Open (upside, if anything) |
 | 7 | **Zero-shot only.** No DoTA-trained result exists. Do not write "KAT-VAD on DoTA = X" from this evidence. | Medium | By design |
-| 8 | **Extreme score saturation** (86–89 % of DoTA frames > 0.99). Rank metrics are safe; every calibration/threshold metric is meaningless on these arms. | Medium | Characterised (§11.3) |
+| 8 | **Extreme score saturation** (86–89 % of DoTA frames > 0.99). Rank metrics are safe; every calibration/threshold metric is meaningless on these arms. | Medium | Characterised (§11.3). **Relieved under a PreVAD trunk** — 38–48 % on DoTA, with a real low tail — so calibration becomes worth revisiting on those arms only |
 | 9 | **Coverage 1,397 / 1,402 DoTA clips.** Absolute numbers are not strictly comparable to the published 62.60, which is defined on 1,402. | Low | All arms on the identical subset; paired Δ unaffected |
 | 10 | **Metric frame basis.** AUC is over 18,350 (MSAD) / 18,369 (DoTA) stride-8 *sampled* frames, not raw frame counts. | Low | Consistent across all arms |
-| 11 | **`--init-weights` is not recorded in `config.yaml`.** A warm-started arm's config is byte-identical to the cold arm's — the one fact the arm exists to establish is absent from its own output. Warm start was verified from step-1 loss instead. | Medium | Provenance defect; a run manifest is needed |
+| 11 | **`--init-weights` is not recorded in `config.yaml`.** A warm-started arm's config is byte-identical to the cold arm's — the one fact the arm exists to establish is absent from its own output. Warm start was verified from step-1 loss instead. | **High** (upgraded) | Unfixed, and it has now cost a **third** campaign: the PreVAD arms' trunk and graft had to be reconstructed from step-1 `mil` and from `collab/PreVAD/evaluate.py`. ~30 LOC (lesson C17) |
 | 12 | **Probe blind spot.** No checkpoint below step 100, where 94 % of the loss range occurs. | Low | Bracketed; verdict unaffected |
-| 13 | **n = 3 seeds.** Adequate for the +0.09 (spread ±0.009); inadequate for the macro-variance observation in §8.4. | Low | Stated per-claim |
+| 13 | **n = 3 seeds.** Adequate for the +0.09 (spread ±0.009); inadequate for the macro-variance observation in §8.4, and inadequate for the §12.3 trunk-transfer magnitudes (spread ±0.018 on DoTA). | Low–Medium | Stated per-claim |
+| 14 | **The +0.09 has been measured under exactly one trunk.** Every arm in §§6–11 warm-starts KIP from an MSAD stage-1 warm-up. The one campaign with a different trunk removed that warm-up simultaneously and is void as a KIP test (§12.4). | **High** | Open — one run closes it (§12.6) |
+| 15 | **`core.evaluate` and `core.tools.rescore` disagree on the same score files.** `core.evaluate` min-max normalizes in float32, `rescore` in float64. On `DoTA_ncc_pv_s2024/eval_kip_off`: AUC 0.586406 vs 0.585956, **AP 0.369953 vs 0.366069**. Float32 rounding manufactures ties among saturated frames. ΔAP = 0.0039 is the order of several deltas in this report. | Medium | Found 2026-08-28. All reported numbers use the float32 path (matching every `results.json`); deltas are paired so no conclusion changes. Fix in `core/metrics.py:normalize_scores`, then `rescore --write` everywhere |
+| 16 | **PreVAD score filenames are not PreVAD ids.** 90 of 2,606 test ids contain `:`, written as `_` in `scores/*.npz`. A naive join to `test.csv` silently drops 3.5 % of the test set with no error. | Low | Characterised; apply `video_id.replace(":", "_")` |
 
 **Standing discipline:** do **not** tune KIP's architecture, losses, or
-hyperparameters against the +0.09. The confounds are closed but the mechanism is
-unexplained, and tuning against an unexplained delta is how a benchmark gets fit
-rather than a method validated.
+hyperparameters against the +0.09. The confounds *tested so far* are closed but
+the mechanism is unexplained, and tuning against an unexplained delta is how a
+benchmark gets fit rather than a method validated. As of 2026-08-28 the trunk is
+an open confound as well (limitation 14).
 
 ---
 
-## 15. Provenance
+## 16. Provenance
 
 | Section | Artifacts |
 |---|---|
@@ -866,6 +1095,7 @@ rather than a method validated.
 | §9 loss trends | `outputs/MSAD_ncc*/stage{1,2_*}/metrics.jsonl`, 20-step trailing means |
 | §10 probe | `outputs/DoTA_ncc/probe/{on,off}_checkpoint_step_*/results.json` joined to `metrics.jsonl` by `global_step` |
 | §11 mechanism | per-clip AUC deltas grouped by `metadata_val.json → anomaly_class`; center-crop arms from `outputs/{MSAD,DoTA}/*` |
+| §12 PreVAD campaign | `outputs/PreVAD/{gate_p0,eval_trunk,stage2_kip_off}/**`, `outputs/{MSAD,DoTA}_ncc_pv_s{2024,2025,2026}/**`, `PreVAD/{train,test}.csv`, `collab/PreVAD/evaluate.py` |
 
 **Statistics.** Micro AUC = `roc_auc_score` over concatenated sampled frames.
 Macro AUC = mean per-clip `roc_auc_score`, skipping single-label clips.
@@ -879,8 +1109,16 @@ figure is derived from saved score curves and logs.
 and this report are the durable record; the underlying score curves live on the
 author's Drive.
 
+**Dtype caveat (2026-08-28).** Every micro AUC/AP under min-max pooling in this
+report comes from the **float32** normalization path, which is what
+`core.evaluate` used to write every `results.json`. `core.tools.rescore` casts to
+float64 and returns values up to 0.0039 AP lower on saturated DoTA arms
+(limitation 15). All deltas are paired, so both arms carry the same bias.
+
 **Detailed source documents:** `RESULTS_MSAD.md` (center-crop MSAD, per-class and
 per-video breakdowns), `RESULTS_DOTA.md` (the pooling defect and its diagnosis),
 `RESULTS_NCC.md` (the transform switch), `RESULTS_PHASE_A.md` (seed campaign,
 gate redefinition), `RESULTS_ARM4_PROBE.md` (warm-start control and trajectory
-probe). Protocol definitions: `DOTA_EVAL.md`, `TRAINING.md`, `DATA_LAYOUT.md`.
+probe), **`RESULTS_PREVAD.md`** (Gate P0, the PreVAD trunk, and the blocked A/B).
+Protocol definitions: `DOTA_EVAL.md`, `TRAINING.md`, `DATA_LAYOUT.md`,
+`PREVAD_SETUP.md`.
