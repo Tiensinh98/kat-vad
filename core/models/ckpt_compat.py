@@ -55,6 +55,7 @@ class LoadReport:
     loaded: list[str] = field(default_factory=list)
     skipped_clip_body: list[str] = field(default_factory=list)
     missing_ours: list[str] = field(default_factory=list)  # ours, not in ckpt
+    skipped_train_only: list[str] = field(default_factory=list)  # KIP 3e/3f at inference
 
 
 def map_baseline_key(key: str) -> str | None:
@@ -139,10 +140,92 @@ def load_baseline_checkpoint(model: KATVAD, path: Path) -> LoadReport:
     return load_baseline_state_dict(model, state_dict)
 
 
+# Keys a *training* checkpoint carries that the v3 inference graph does not
+# build. This is an explicit allowlist, never `strict=False`: anything outside
+# it is still a hard error, because a silent partial load produces a
+# plausible-looking model with randomly initialized layers (lesson C5).
+KIP_TRAIN_ONLY_PREFIXES = (
+    "kip.mhead.",  # 3e motion score head
+    "kip.proj_flow.",  # 3f alignment projections
+    "kip.proj_rgb.",
+)
+_KIP_GATE_MLP_PREFIX = "kip.shift.mlp."
+
+_GATE_MISMATCH_MSG = (
+    "This checkpoint contains {n} kip.shift.mlp.* tensors, so it was trained "
+    "with the frozen-MLP gate, but the model was built with "
+    "kip.gate_type={gate_type!r}. Scoring it under a different gate silently "
+    "measures a different model. Rebuild with kip.gate_type='mlp_frozen' "
+    "(or pass --gate-type mlp_frozen)."
+)
+_GATE_MISSING_MSG = (
+    "The model was built with kip.gate_type={gate_type!r}, which owns a gate "
+    "MLP, but the checkpoint carries no kip.shift.mlp.* tensors — it was "
+    "trained with a parameter-free gate. Rebuild with the gate_type that "
+    "produced this checkpoint."
+)
+
+
+def load_kip_state_dict(model: KATVAD, state_dict: dict[str, Tensor]) -> LoadReport:
+    """Load one of *our* checkpoints, tolerating only train-only KIP keys.
+
+    Used when scoring: :meth:`KATVAD.from_config` with ``training=False`` omits
+    KIP's motion head and alignment projections, so a training checkpoint has
+    keys the model does not. Those specific prefixes are dropped and counted;
+    every other mismatch still raises.
+
+    Also refuses a gate-type mismatch (:data:`_GATE_MISMATCH_MSG`) — the failure
+    mode where an ``mlp_frozen`` checkpoint is scored under the ``rank`` gate and
+    returns a plausible number for a model that was never trained.
+    """
+    ours = model.state_dict()
+    report = LoadReport()
+
+    gate_mlp_keys = [k for k in state_dict if k.startswith(_KIP_GATE_MLP_PREFIX)]
+    kip = getattr(model, "kip", None)
+    if kip is not None and kip.shift is not None:
+        gate_type = kip.shift.gate_type
+        model_has_mlp = kip.shift.mlp is not None
+        if gate_mlp_keys and not model_has_mlp:
+            raise KeyError(_GATE_MISMATCH_MSG.format(n=len(gate_mlp_keys), gate_type=gate_type))
+        if model_has_mlp and not gate_mlp_keys:
+            raise KeyError(_GATE_MISSING_MSG.format(gate_type=gate_type))
+
+    filtered: dict[str, Tensor] = {}
+    for key, value in state_dict.items():
+        if key not in ours and key.startswith(KIP_TRAIN_ONLY_PREFIXES):
+            report.skipped_train_only.append(key)
+            continue
+        filtered[key] = value
+
+    missing_ours = [k for k in ours if k not in filtered]
+    if missing_ours:
+        raise KeyError(
+            "Checkpoint is missing weights for parameters this model needs: "
+            f"{missing_ours[:10]}{'...' if len(missing_ours) > 10 else ''}"
+        )
+    model.load_state_dict(filtered)  # strict: any residual mismatch raises
+    report.loaded.extend(filtered)
+    if report.skipped_train_only:
+        counts = {
+            prefix: sum(1 for k in report.skipped_train_only if k.startswith(prefix))
+            for prefix in KIP_TRAIN_ONLY_PREFIXES
+        }
+        LOGGER.info(
+            "Loaded %d tensors; dropped %d train-only KIP tensors (%s)",
+            len(report.loaded),
+            len(report.skipped_train_only),
+            ", ".join(f"{k}{v}" for k, v in counts.items() if v),
+        )
+    return report
+
+
 __all__ = [
+    "KIP_TRAIN_ONLY_PREFIXES",
     "LoadReport",
     "baseline_key_for",
     "load_baseline_checkpoint",
     "load_baseline_state_dict",
+    "load_kip_state_dict",
     "map_baseline_key",
 ]

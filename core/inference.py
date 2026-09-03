@@ -32,8 +32,9 @@ from core.data.definitions import (
     verbalize_class_name,
 )
 from core.device import resolve_device
-from core.models.ckpt_compat import load_baseline_checkpoint
-from core.models.kat_vad import KATVAD
+from core.kip import gate_shift
+from core.models.ckpt_compat import load_baseline_checkpoint, load_kip_state_dict
+from core.models.kat_vad import KATVAD, KIP_DIAG_PREFIX
 from core.models.text_encoding import (
     TEXT_ENCODER_CHOICES,
     TEXT_ENCODER_CLIP,
@@ -44,6 +45,9 @@ from core.models.text_encoding import (
 LOGGER = logging.getLogger(__name__)
 
 ClassFeatsFn = Callable[[], Tensor]
+
+# KIP gate diagnostics are stored as kip_<name> keys inside the existing .npz.
+KIP_DIAG_NPZ_PREFIX = "kip_"
 
 
 def load_model_for_scoring(
@@ -57,12 +61,17 @@ def load_model_for_scoring(
     if (ckpt is None) == (baseline_ckpt is None):
         raise ValueError("Provide exactly one of --ckpt / --baseline-ckpt")
     needs_clip = text_encoder == TEXT_ENCODER_CLIP
-    model = KATVAD.from_config(cfg, load_clip=needs_clip)
+    model = KATVAD.from_config(cfg, load_clip=needs_clip, training=False)
     if ckpt is not None:
         payload = torch.load(ckpt, map_location="cpu", weights_only=False)  # nosec B614 - own ckpt
         state = payload.get("model", payload)
-        model.load_state_dict(state)
-        LOGGER.info("Loaded KAT-VAD checkpoint %s", ckpt)
+        report = load_kip_state_dict(model, state)
+        LOGGER.info(
+            "Loaded KAT-VAD checkpoint %s (%d tensors, %d train-only dropped)",
+            ckpt,
+            len(report.loaded),
+            len(report.skipped_train_only),
+        )
     else:
         assert baseline_ckpt is not None  # nosec B101 - narrowing for type-checkers
         report = load_baseline_checkpoint(model, baseline_ckpt)
@@ -80,23 +89,40 @@ def sliding_window_scores(
     features: Tensor,
     class_feats_fn: ClassFeatsFn,
     max_vis_len: int = constants.MAX_VIS_LEN,
-) -> tuple[Tensor, Tensor]:
+    kip_diagnostics: bool = False,
+) -> tuple[Tensor, Tensor, dict[str, Tensor]]:
     """Score one full-length video: ``(L,) sigmoid curve, (L, C) sim sigmoids``.
 
     ``class_feats_fn`` is called once per window (baseline re-samples the
     verbalized definitions each window).
+
+    With ``kip_diagnostics``, the third return value carries the per-position
+    gate internals concatenated across windows (empty dict otherwise). Note the
+    windowing: ``s_t`` comes from a *within-window* rank, so a video longer than
+    ``max_vis_len`` is ranked per window, not globally — which is exactly what
+    the scored model does, and is why these arrays are the right ones to read.
     """
     device = next(model.parameters()).device
     length = len(features)
     bin_parts: list[Tensor] = []
     sim_parts: list[Tensor] = []
+    diag_parts: dict[str, list[Tensor]] = {}
     for start in range(0, length, max_vis_len):
         window = features[start : start + max_vis_len].unsqueeze(0).to(device)
         lengths = torch.tensor([window.shape[1]], device=device)
-        outputs = model(window, lengths, class_feats=class_feats_fn())
+        outputs = model(
+            window,
+            lengths,
+            class_feats=class_feats_fn(),
+            return_kip_diagnostics=kip_diagnostics,
+        )
         bin_parts.append(outputs["cls_bin_logits"][0].sigmoid().cpu())
         sim_parts.append(outputs["cls_sim_mat"][0].sigmoid().cpu())
-    return torch.cat(bin_parts, dim=0)[:length], torch.cat(sim_parts, dim=0)[:length]
+        for key, value in outputs.items():
+            if key.startswith(KIP_DIAG_PREFIX):
+                diag_parts.setdefault(key[len(KIP_DIAG_PREFIX) :], []).append(value[0].cpu())
+    diagnostics = {k: torch.cat(v, dim=0)[:length] for k, v in diag_parts.items()}
+    return torch.cat(bin_parts, dim=0)[:length], torch.cat(sim_parts, dim=0)[:length], diagnostics
 
 
 def make_class_feats_fn(
@@ -161,7 +187,15 @@ def score_to_npz(
     sim: Tensor,
     class_names: list[str],
     gt: np.ndarray | None = None,
+    kip_diagnostics: dict[str, Tensor] | None = None,
 ) -> Path:
+    """Write one clip's scores, and optionally its KIP gate diagnostics.
+
+    Diagnostics land as ``kip_<name>`` keys alongside ``score``/``sim``: no new
+    artifact format and no new directory layout, so every existing reader keeps
+    working and ``rescore``/``evaluate`` are unaffected. ``s`` is written as
+    int16 (it is bounded by ``D/K = 128``), the rest as float32.
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{video_id}.npz"
     payload: dict[str, np.ndarray] = {
@@ -171,6 +205,11 @@ def score_to_npz(
     }
     if gt is not None:
         payload["gt"] = gt.astype(np.float32)
+    for name, value in (kip_diagnostics or {}).items():
+        array = value.numpy()
+        payload[f"{KIP_DIAG_NPZ_PREFIX}{name}"] = (
+            array.astype(np.int16) if name == "s" else array.astype(np.float32)
+        )
     np.savez(path, **payload)
     return path
 
@@ -197,6 +236,14 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--text-encoder", choices=TEXT_ENCODER_CHOICES,
                         default=TEXT_ENCODER_CLIP)
+    parser.add_argument("--gate-type", choices=gate_shift.GATE_TYPES, default=None,
+                        help="override kip.gate_type; must match what trained the "
+                             "checkpoint (a mismatch raises)")
+    parser.add_argument("--dump-kip-diag", dest="dump_kip_diag",
+                        action=argparse.BooleanOptionalAction, default=True,
+                        help="write KIP gate diagnostics (s, gate_ratio, m, mu_norm, "
+                             "eo_norm) into each score .npz. On by default here; the "
+                             "training path never collects them.")
     return parser
 
 
@@ -204,6 +251,14 @@ def main(argv: list[str] | None = None) -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     args = build_arg_parser().parse_args(argv)
     cfg = load_config(args.config, args.overrides)
+    if args.gate_type is not None:
+        cfg.kip.gate_type = args.gate_type
+        if args.gate_type not in gate_shift.MLP_GATE_TYPES:
+            # rank/constant consume no intensity signal; keeping a stale one
+            # would fail validation for a key the CLI just made irrelevant.
+            cfg.kip.gate_signal = None
+        cfg.kip.validate()
+        LOGGER.info("Gate type overridden from CLI: %s", args.gate_type)
     device = resolve_device(cfg.train.device)
 
     class_names = resolve_class_names(args.defs, args.class_names)
@@ -228,11 +283,21 @@ def main(argv: list[str] | None = None) -> None:
     if not features_by_id:
         raise FileNotFoundError(f"No feature files found under {args.features}")
 
+    dump_diag = args.dump_kip_diag and cfg.kip.enabled
+    if args.dump_kip_diag and not cfg.kip.enabled:
+        LOGGER.info("--dump-kip-diag requested but KIP is disabled; nothing to log")
     for video_id, feats in features_by_id.items():
-        score, sim = sliding_window_scores(
-            model, feats, class_feats_fn, cfg.data.max_vis_len
+        score, sim, diagnostics = sliding_window_scores(
+            model, feats, class_feats_fn, cfg.data.max_vis_len, kip_diagnostics=dump_diag
         )
-        path = score_to_npz(args.output_dir, video_id, score, sim, class_names)
+        path = score_to_npz(
+            args.output_dir,
+            video_id,
+            score,
+            sim,
+            class_names,
+            kip_diagnostics=diagnostics or None,
+        )
         LOGGER.info("%s: %d frames scored -> %s", video_id, len(score), path)
 
 

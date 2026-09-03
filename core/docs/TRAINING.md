@@ -25,6 +25,57 @@ no text encoding happens at all.
 KIP ablation gating (spec §10): `kip.enabled=false` → pure baseline;
 `kip.pmg_only=true` → rec+align only; `kip.use_lkin=false` → no `L_kin`.
 
+## The KIP gate (v3, 2026-08-30)
+
+`kip.gate_type` selects how the per-position shift count `s_t` is produced. All
+four share one floor/clamp/mask implementation
+(`core.kip.ecmr.shift_counts_from_ratio`), so cross-gate comparisons carry no
+implementation confound.
+
+| `gate_type` | Params | `s_t` behaviour | Use for |
+|---|---:|---|---|
+| `rank` (**default**) | **0** | ECMR residual → within-clip rank → spans `[0, 128]` on every clip | v3 default; the only gate that is genuinely input-adaptive |
+| `mlp_frozen` | 321 | **Near-constant, `s ≈ 58–69`, span 0–4/128** | Reproducing every number in `RESULTS_*.md` bit-for-bit |
+| `mlp_ste` | 321 | Forward bit-identical to `mlp_frozen`; backward unblocked | Ablation 5 only (also opens `L_MIL` → PMG, which Pi-VAD's unweighted `L_PMG` exists to prevent) |
+| `constant` | 0 | Fixed `const_shift_ratio`; `ê_O` ignored entirely | The plain-TSM control (ablation 4) |
+
+`gate_signal` (`flow_norm` / `feat_var`) applies to the `mlp_*` types only;
+setting it alongside `rank` or `constant` **raises** rather than being ignored.
+
+> **A config file with a `kip:` section and no `gate_type` raises on load.**
+> Every config written before 2026-08-30 ran `mlp_frozen`; resolving the omission
+> silently either way would make two arms with identical-looking configs
+> different models (lesson C14 / lesson 24). Add the key explicitly.
+
+> **A checkpoint is bound to its gate type.** `load_kip_state_dict` refuses an
+> `mlp_frozen` checkpoint under a `rank` model and vice versa, keyed on the
+> presence of `kip.shift.mlp.*`. **It cannot tell `rank` from `constant`** —
+> both are parameter-free with an identical key layout. Until the run manifest
+> (lesson 17) lands, record the gate type of any `constant` arm by hand.
+
+### Stage-1 convergence is a precondition, not a nicety
+
+Under `rank`, `mlp_frozen` and `constant`, `s_t` is a hard integer used as a
+slice index, so **no gradient reaches `ê_O` or the PMG head through the shift**.
+This is unchanged from v1 — the rank gate removes 321 already-dead parameters
+and alters no gradient edge. The PMG head is trained by `L_KIP_rec`,
+`L_KIP_align` and `L_kin`-via-`mhead`, and by nothing else.
+
+Consequence: a stage-2 run whose stage-1 has not converged ranks a poorly-trained
+`ê_O`, and still produces a checkpoint and a plausible number. Spec v3 §8's
+`assert stage1_final(L_KIP_rec) < tau_rec` is the enforcement and is **not yet
+implemented** (deferred to the training-pipeline plan). Until it is, check
+`metrics.jsonl` for the stage-1 `kip_rec` floor before trusting a stage-2 arm.
+
+### Gate diagnostics
+
+`--dump-kip-diag` (default **on** in `core/evaluate.py` with `--save-scores`,
+and in `core/inference.py`; **never** collected during training) writes
+`kip_s`, `kip_gate_ratio`, `kip_m`, `kip_mu_norm`, `kip_eo_norm` into each score
+`.npz`. Note the windowing: the rank is computed *within* a `data.max_vis_len`
+window, so `s_t` resets at each window boundary — which is what the scored model
+does, not a logging artifact.
+
 ## Documented deviations from the baseline
 
 1. **`L_dvs` pair is row-gated.** The baseline marks the *whole* abnormal
@@ -44,6 +95,15 @@ KIP ablation gating (spec §10): `kip.enabled=false` → pure baseline;
 3. **Scheduler.** Cosine-with-warmup implemented in-house
    (`train.cosine_warmup_lambda`, unit-tested) instead of
    `transformers.get_scheduler` — avoids HF internal-API drift (lesson P4).
+
+### Backbone: stock CLIP, not Alert-CLIP
+
+Spec v3 §0 and the architecture doc's Phase 1 both name **Alert-CLIP** as the
+frame encoder. **The implementation uses stock CLIP ViT-B/16** at the pinned
+revision (`constants.CLIP_MODEL_NAME` / `CLIP_MODEL_REVISION`), because no
+Alert-CLIP checkpoint is publicly available (checked 2026-08-30). The swap is
+deferred, not rejected. **Every measured number in this repo is a stock-CLIP
+number**; do not attribute any of them to abnormality-tuned features.
 
 ## Resumability contract
 

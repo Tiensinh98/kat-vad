@@ -11,6 +11,7 @@ import torch
 from core.config import KIPConfig
 from core.kip import (
     GATE_SIGNAL_FEAT_VAR,
+    GATE_TYPE_MLP_FROZEN,
     KIP,
     KinematicShift,
     MotionScoreHead,
@@ -133,7 +134,9 @@ class TestKinematicShift:
 
     def test_feat_var_gate_signal(self):
         vt, mask = make_inputs()
-        module = KinematicShift(gate_signal=GATE_SIGNAL_FEAT_VAR)
+        module = KinematicShift(
+            gate_type=GATE_TYPE_MLP_FROZEN, gate_signal=GATE_SIGNAL_FEAT_VAR
+        )
         eo = torch.randn(BATCH, LENGTH, FLOW_DIM)
         assert module(vt, eo, mask).shape == vt.shape
 
@@ -164,7 +167,8 @@ class TestMotionScoreHead:
 class TestKIP:
     def test_output_shapes(self):
         vt, mask = make_inputs()
-        vk, eo, yo = KIP()(vt, mask)
+        vk, eo, yo, _ = KIP()(vt, mask)
+        assert yo is not None
         assert vk.shape == (BATCH, LENGTH, DIM)
         assert eo.shape == (BATCH, LENGTH, FLOW_DIM)
         assert yo.shape == (BATCH, LENGTH)
@@ -172,35 +176,45 @@ class TestKIP:
     def test_gradients_reach_pmg_and_motion_head(self):
         vt, mask = make_inputs()
         kip = KIP()
-        vk, eo, yo = kip(vt, mask)
+        vk, eo, yo, _ = kip(vt, mask)
+        assert yo is not None  # training graph builds the motion head
         (vk.sum() + eo.sum() + yo.sum()).backward()
+        assert kip.mhead is not None
         assert all(p.grad is not None for p in kip.pmg.parameters())
         assert all(p.grad is not None for p in kip.mhead.parameters())
 
     def test_gate_mlp_receives_no_gradient_spec_as_written(self):
-        """Hard floor → integer counts: spec §3 gives the gate MLP no gradient."""
+        """Hard floor → integer counts: the v1 gate MLP gets no gradient.
+
+        Pins the defect that motivated the v3 rank gate. Must name
+        ``mlp_frozen`` explicitly now that ``rank`` is the default and owns no
+        MLP at all.
+        """
         vt, mask = make_inputs()
-        kip = KIP()
-        vk, eo, yo = kip(vt, mask)
+        kip = KIP(gate_type=GATE_TYPE_MLP_FROZEN)
+        vk, eo, yo, _ = kip(vt, mask)
         (vk.sum() + eo.sum() + yo.sum()).backward()
         assert kip.shift is not None
+        assert kip.shift.mlp is not None
         assert all(p.grad is None for p in kip.shift.mlp.parameters())
 
     def test_align_projections(self):
         vt, mask = make_inputs()
         kip = KIP()
-        _, eo, _ = kip(vt, mask)
+        _, eo, _, _ = kip(vt, mask)
         a, b = kip.project_for_align(eo, vt)
         assert a.shape == (BATCH, LENGTH, 128)
         assert b.shape == (BATCH, LENGTH, 128)
         (a.sum() + b.sum()).backward()
+        assert kip.proj_flow is not None
+        assert kip.proj_rgb is not None
         assert kip.proj_flow.weight.grad is not None
         assert kip.proj_rgb.weight.grad is not None
 
     def test_gate_shift_disabled_passthrough(self):
         vt, mask = make_inputs()
         kip = KIP(use_gate_shift=False)
-        vk, _, _ = kip(vt, mask)
+        vk, _, _, _ = kip(vt, mask)
         assert kip.shift is None
         assert torch.equal(vk, vt * mask.unsqueeze(-1))
 
@@ -209,14 +223,15 @@ class TestKIP:
         assert KIP.from_config(cfg).shift is None
 
     def test_from_config_gate_signal(self):
-        cfg = KIPConfig(gate_signal=GATE_SIGNAL_FEAT_VAR)
+        cfg = KIPConfig(gate_type=GATE_TYPE_MLP_FROZEN, gate_signal=GATE_SIGNAL_FEAT_VAR)
         kip = KIP.from_config(cfg)
         assert kip.shift is not None
         assert kip.shift.gate_signal == GATE_SIGNAL_FEAT_VAR
 
     def test_mask_optional(self):
         vt, _ = make_inputs()
-        vk, eo, yo = KIP()(vt)
+        vk, eo, yo, _ = KIP()(vt)
+        assert yo is not None
         assert vk.shape == vt.shape
         assert torch.isfinite(vk).all()
         assert torch.isfinite(eo).all()

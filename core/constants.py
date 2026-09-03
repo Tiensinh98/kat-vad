@@ -102,6 +102,11 @@ FOLDING_FACTOR = 4  # K; max shiftable channels per direction = HIDDEN_DIM // K
 GATE_MLP_HIDDEN_DIM = 16
 MOTION_HEAD_HIDDEN_DIM = 128
 
+# KIP gate — v3 Phases 3b/3c (ECMR + rank map); both are parameter-free
+ECMR_EMA_LAMBDA = 0.9  # causal EMA decay for the dominant-motion prototype mu_t
+RANK_TIE_EPS = 1e-6  # per-clip residual std below this => rank order is arbitrary
+CONST_SHIFT_RATIO = 0.5  # plain-TSM control: fixed r_t, ignores e_O entirely
+
 # Temporal encoder (baseline: RoFormer 2 layers / 4 heads / window 25)
 TEMPORAL_LAYERS = 2
 TEMPORAL_HEADS = 4

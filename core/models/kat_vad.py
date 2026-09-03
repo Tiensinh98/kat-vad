@@ -29,6 +29,8 @@ from core.models.fusion import CoAttentionFusion
 from core.models.heads import BinaryHead, MultiClassHead
 from core.models.temporal_encoder import TemporalEncoder
 
+KIP_DIAG_PREFIX = "kip_diag/"
+
 if TYPE_CHECKING:
     from transformers import PreTrainedTokenizerBase
 
@@ -82,8 +84,14 @@ class KATVAD(nn.Module):
         self.tokenizer = tokenizer
 
     @classmethod
-    def from_config(cls, cfg: Config, load_clip: bool = False) -> KATVAD:
-        """Build from :class:`core.config.Config`; ``load_clip`` pulls HF weights."""
+    def from_config(
+        cls, cfg: Config, load_clip: bool = False, training: bool = True
+    ) -> KATVAD:
+        """Build from :class:`core.config.Config`; ``load_clip`` pulls HF weights.
+
+        ``training=False`` builds KIP's inference graph — no motion head, no
+        alignment projections (v3 Phases 3e/3f are train-time only).
+        """
         clip_text_model: SoftPromptCLIPTextModel | None = None
         tokenizer: PreTrainedTokenizerBase | None = None
         if load_clip:
@@ -108,7 +116,11 @@ class KATVAD(nn.Module):
             score_head_kernel=cfg.model.score_head_kernel,
             bin_head_type=cfg.model.bin_head_type,
             multiclass_temp=cfg.model.multiclass_temp,
-            kip=KIP.from_config(cfg.kip, d=cfg.model.hidden_dim) if cfg.kip.enabled else None,
+            kip=(
+                KIP.from_config(cfg.kip, d=cfg.model.hidden_dim, training=training)
+                if cfg.kip.enabled
+                else None
+            ),
             kip_on_raw_features=cfg.kip.enabled and cfg.kip.on_raw_features,
             clip_text_model=clip_text_model,
             tokenizer=tokenizer,
@@ -159,6 +171,7 @@ class KATVAD(nn.Module):
         v_feat_l: Tensor,
         class_feats: Tensor | None = None,
         caption_feats: Tensor | None = None,
+        return_kip_diagnostics: bool = False,
     ) -> dict[str, Tensor]:
         """Visual forward + optional per-text-set fusion/heads.
 
@@ -169,6 +182,11 @@ class KATVAD(nn.Module):
         Returns ``vis_feats`` (= ``v^k``, or ``v^t`` with KIP off), KIP outputs
         (``eo_hat``, ``motion_scores``) when KIP is on, and per-text-set
         ``cls_bin_logits``/``cls_sim_mat`` (+ ``cap_*`` for captions).
+
+        ``return_kip_diagnostics`` adds the gate internals under ``kip_diag/*``
+        keys (``s``, ``gate_ratio``, ``m``, ``mu_norm``, ``eo_norm``). Off by
+        default: it costs a second gate evaluation and the training path has no
+        use for it.
         """
         mask = padding_mask(v_feat_l, v_feat.shape[1]).to(v_feat.device)
         vt = self.temporal_encoder(v_feat, v_feat_l)
@@ -177,11 +195,15 @@ class KATVAD(nn.Module):
         if self.kip is not None:
             # ablation 6: splice KIP on raw CLIP features instead of v^t
             kip_input = v_feat if self.kip_on_raw_features else vt
-            vk, eo_hat, motion_scores = self.kip(kip_input, mask)
+            kip_out = self.kip(kip_input, mask, return_diagnostics=return_kip_diagnostics)
             outputs["vt"] = vt
-            outputs["eo_hat"] = eo_hat
-            outputs["motion_scores"] = motion_scores
-            vis_feats = vk
+            outputs["eo_hat"] = kip_out.eo_hat
+            if kip_out.motion_scores is not None:  # absent on the inference graph
+                outputs["motion_scores"] = kip_out.motion_scores
+            if kip_out.diagnostics is not None:
+                for name, value in kip_out.diagnostics.items():
+                    outputs[f"{KIP_DIAG_PREFIX}{name}"] = value
+            vis_feats = kip_out.vk
         else:
             vis_feats = vt
         outputs["vis_feats"] = vis_feats
@@ -197,4 +219,4 @@ class KATVAD(nn.Module):
         return outputs
 
 
-__all__ = ["KATVAD"]
+__all__ = ["KATVAD", "KIP_DIAG_PREFIX"]

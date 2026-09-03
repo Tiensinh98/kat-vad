@@ -590,7 +590,7 @@ def main(argv: list[str] | None = None) -> None:
     flow_dir = args.flow_dir if args.flow_dir else constants.FLOW_CACHE_DIR / dataset_name
 
     knn_cache = load_knn_cache(args.knn_cache) if args.knn_cache else None
-    require_flow = cfg.kip.enabled
+    require_flow = cfg.kip.enabled and not cfg.kip.disable_pmg
     dataset = DVSFeatureDataset(
         data_dir=data_dir,
         clip_dir=clip_dir,

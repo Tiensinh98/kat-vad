@@ -151,7 +151,7 @@ class TestSlidingWindow:
         model = KATVAD.from_config(cfg).eval()
         feats = torch.randn(40, cfg.model.hidden_dim)
         class_feats = torch.randn(3, cfg.model.hidden_dim)
-        score, sim = sliding_window_scores(model, feats, lambda: class_feats, 512)
+        score, sim, _ = sliding_window_scores(model, feats, lambda: class_feats, 512)
         with torch.no_grad():
             ref = model(feats[None], torch.tensor([40]), class_feats=class_feats)
         torch.testing.assert_close(score, ref["cls_bin_logits"][0].sigmoid())
@@ -165,7 +165,7 @@ class TestSlidingWindow:
         model = KATVAD.from_config(cfg).eval()
         feats = torch.randn(37, cfg.model.hidden_dim)
         class_feats = torch.randn(2, cfg.model.hidden_dim)
-        score, sim = sliding_window_scores(model, feats, lambda: class_feats, 16)
+        score, sim, _ = sliding_window_scores(model, feats, lambda: class_feats, 16)
         assert score.shape == (37,)
         assert sim.shape == (37, 2)
         assert torch.isfinite(score).all()

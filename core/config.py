@@ -16,8 +16,20 @@ from typing import Any
 import yaml
 
 from core import constants
+from core.kip import gate_shift
 
 LOGGER = logging.getLogger(__name__)
+
+# A config file written before kip.gate_type existed can only have run the v1
+# frozen-MLP gate, but this branch is v3-faithful and carries no v1 default.
+# Resolving the ambiguity silently either way produces two arms whose configs
+# look identical and whose models are not — see lesson C14.
+_AMBIGUOUS_GATE_MSG = (
+    "{path}: kip.enabled is true but kip.gate_type is missing. This config "
+    "predates the v3 gate and ran the frozen-MLP gate (kip.shift.mlp.*). Add "
+    "'gate_type: mlp_frozen' under kip: to reproduce it, or 'gate_type: rank' "
+    "to run the v3 gate — they are different models and are not comparable."
+)
 
 
 @dataclass
@@ -52,12 +64,51 @@ class KIPConfig:
     pmg_only: bool = False  # ablation 2: v^k = v^t, only L_KIP_rec + L_KIP_align active
     use_gate_shift: bool = True  # ablation 3 pairs with use_lkin=False
     use_lkin: bool = True  # ablation 4
-    gate_signal: str = "flow_norm"  # ablation 5: "flow_norm" (ours) | "feat_var" (RefineVAD)
+    # v3 gate (architecture Phases 3b/3c). "rank" is the v3 default; "mlp_frozen"
+    # reproduces every arm in core/docs/RESULTS_*.md bit-for-bit.
+    gate_type: str = gate_shift.GATE_TYPE_RANK
+    # ablation 5, MLP gates only: "flow_norm" (ours) | "feat_var" (RefineVAD).
+    # None for rank/constant, which consume no intensity signal.
+    gate_signal: str | None = None
+    ecmr_lambda: float = constants.ECMR_EMA_LAMBDA  # "rank" gate: EMA decay for mu_t
+    const_shift_ratio: float = constants.CONST_SHIFT_RATIO  # "constant" gate: fixed r_t
+    disable_pmg: bool = False  # true plain-TSM control: no PMG head, no flow targets
     on_raw_features: bool = False  # ablation 6: splice KIP directly on F (skip temporal enc)
     folding_factor: int = constants.FOLDING_FACTOR
     d_flow: int = constants.FLOW_DIM
     pmg_latent_dim: int = constants.PMG_LATENT_DIM
     align_proj_dim: int = constants.ALIGN_PROJ_DIM
+
+    def __post_init__(self) -> None:
+        self.validate()
+
+    def validate(self) -> None:
+        """Check the gate enum and its signal/parameter pairing.
+
+        Called from ``__post_init__`` and again by :func:`load_config`, because
+        ``_apply_section`` mutates an already-constructed dataclass by
+        ``setattr`` and never re-runs ``__post_init__``.
+        """
+        if self.gate_type not in gate_shift.GATE_TYPES:
+            raise ValueError(
+                f"Unknown kip.gate_type: {self.gate_type!r}; "
+                f"expected one of {gate_shift.GATE_TYPES}"
+            )
+        if self.gate_type in gate_shift.MLP_GATE_TYPES:
+            if self.gate_signal is not None and self.gate_signal not in gate_shift.GATE_SIGNALS:
+                raise ValueError(f"Unknown kip.gate_signal: {self.gate_signal!r}")
+        elif self.gate_signal is not None:
+            raise ValueError(
+                f"kip.gate_signal={self.gate_signal!r} is meaningless for "
+                f"kip.gate_type={self.gate_type!r}: only {gate_shift.MLP_GATE_TYPES} "
+                "consume an intensity signal. Remove the key."
+            )
+        if not 0.0 <= self.ecmr_lambda < 1.0:
+            raise ValueError(f"kip.ecmr_lambda must be in [0, 1), got {self.ecmr_lambda!r}")
+        if not 0.0 <= self.const_shift_ratio <= 1.0:
+            raise ValueError(
+                f"kip.const_shift_ratio must be in [0, 1], got {self.const_shift_ratio!r}"
+            )
 
 
 @dataclass
@@ -184,6 +235,11 @@ def load_config(path: Path | None = None, overrides: list[str] | None = None) ->
     if path is not None:
         with Path(path).open("r", encoding="utf-8") as fh:
             raw: dict[str, Any] = yaml.safe_load(fh) or {}
+        # Only a file that *configures* kip can be ambiguous. A file with no
+        # kip section makes no claim about the gate and gets the v3 default.
+        kip_raw = raw.get("kip")
+        if kip_raw and kip_raw.get("enabled", True) and "gate_type" not in kip_raw:
+            raise KeyError(_AMBIGUOUS_GATE_MSG.format(path=path))
         valid_sections = {f.name for f in dataclasses.fields(cfg)}
         for section_name, section_data in raw.items():
             if section_name not in valid_sections:
@@ -208,4 +264,8 @@ def load_config(path: Path | None = None, overrides: list[str] | None = None) ->
         setattr(section, key, _coerce(value, getattr(section, key)))
         LOGGER.debug("Config override applied: %s", item)
 
+    # _apply_section and the override loop both bypass __post_init__.
+    cfg.kip.validate()
+    if cfg.kip.enabled:
+        LOGGER.info("KIP gate resolved to gate_type=%s", cfg.kip.gate_type)
     return cfg

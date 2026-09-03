@@ -87,6 +87,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         default=TEXT_ENCODER_CLIP)
     parser.add_argument("--no-verbalize", action="store_true",
                         help="encode raw class names instead of sampled definitions")
+    parser.add_argument("--dump-kip-diag", dest="dump_kip_diag",
+                        action=argparse.BooleanOptionalAction, default=True,
+                        help="write KIP gate diagnostics (s, gate_ratio, m, mu_norm, "
+                             "eo_norm) into each saved score .npz; requires "
+                             "--save-scores. On by default (eval is not training).")
     parser.add_argument("--save-scores", action="store_true",
                         help="write per-video score .npz files for visualization")
     parser.add_argument("--score-norm", choices=constants.SCORE_NORM_CHOICES,
@@ -125,11 +130,17 @@ def main(argv: list[str] | None = None) -> None:
     all_labels: list[np.ndarray] = []
     per_video: dict[str, dict[str, float]] = {}
     scores_dir = args.output_dir / SCORES_DIRNAME
+    # Collect gate internals only when they will actually be written.
+    dump_diag = args.dump_kip_diag and args.save_scores and cfg.kip.enabled
     for i in range(len(dataset)):
         item = dataset[i]
         video_id: str = item["video_id"]
-        score, sim = sliding_window_scores(
-            model, item["v_feat"], class_feats_fn, cfg.data.max_vis_len
+        score, sim, kip_diag = sliding_window_scores(
+            model,
+            item["v_feat"],
+            class_feats_fn,
+            cfg.data.max_vis_len,
+            kip_diagnostics=dump_diag,
         )
         gt = item["frame_label"].numpy()
         scores_np = score.numpy()
@@ -141,7 +152,15 @@ def main(argv: list[str] | None = None) -> None:
             "abnormal": float(gt.max() > 0),
         }
         if args.save_scores:
-            score_to_npz(scores_dir, video_id, score, sim, class_names, gt=gt)
+            score_to_npz(
+                scores_dir,
+                video_id,
+                score,
+                sim,
+                class_names,
+                gt=gt,
+                kip_diagnostics=kip_diag or None,
+            )
         LOGGER.info("scored %s (%d sampled frames)", video_id, len(gt))
 
     metrics = pooled_metrics(all_scores, all_labels, args.score_norm)
