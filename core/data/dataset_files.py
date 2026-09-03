@@ -27,6 +27,7 @@ LOGGER = logging.getLogger(__name__)
 
 NORMAL_CLASS = "Normal"  # first entry of defs.json for every dataset
 TEST_IDS_FILENAME = "test_ids.txt"  # scored ids, for extract_clip_features --ids-file
+TRAIN_IDS_FILENAME = "train_ids.txt"  # train ids, for raft_extract --ids-file (flow is train-only)
 
 
 def class_name_list(class_names: set[str]) -> list[str]:
@@ -68,19 +69,36 @@ def write_dataset_files(
         LOGGER.info("Wrote %s", target)
 
 
-def write_test_ids(out_dir: Path, video_ids: list[str]) -> Path:
-    """Emit the scored video ids for ``extract_clip_features --ids-file``."""
-    target = out_dir / TEST_IDS_FILENAME
+def _write_ids(target: Path, video_ids: list[str]) -> Path:
+    """Write one video id per line, newline-terminated."""
+    target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text("".join(f"{v}\n" for v in video_ids), encoding="utf-8")
     LOGGER.info("Wrote %s (%d ids)", target, len(video_ids))
     return target
 
 
+def write_test_ids(out_dir: Path, video_ids: list[str]) -> Path:
+    """Emit the scored video ids for ``extract_clip_features --ids-file``."""
+    return _write_ids(out_dir / TEST_IDS_FILENAME, video_ids)
+
+
+def write_train_ids(out_dir: Path, video_ids: list[str]) -> Path:
+    """Emit the train video ids for ``raft_extract --ids-file``.
+
+    Flow targets are train-time only (spec §1), so extracting ``e_O`` for the
+    scored split is wasted GPU hours on a dataset whose train split dominates
+    the corpus (TAD: 410 of 510 videos).
+    """
+    return _write_ids(out_dir / TRAIN_IDS_FILENAME, video_ids)
+
+
 __all__ = [
     "NORMAL_CLASS",
     "TEST_IDS_FILENAME",
+    "TRAIN_IDS_FILENAME",
     "class_name_list",
     "num_sampled_frames",
     "write_dataset_files",
     "write_test_ids",
+    "write_train_ids",
 ]

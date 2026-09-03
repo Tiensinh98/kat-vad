@@ -48,6 +48,12 @@ KNN_CACHE_DIR = CACHE_ROOT / "knn"
 KNN_CACHE_FILENAME = "knn_cache.npz"
 
 TAD_DATASET = "TAD"
+# TAD ships extracted frames split by a top-level directory, and exactly one
+# anomaly class -- the name the official test annotation and _TAD_CLS_DEFS both
+# use. The train split has no annotation file, so the directory IS the label.
+TAD_ABNORMAL_DIRNAME = "abnormal"
+TAD_NORMAL_DIRNAME = "normal"
+TAD_ABNORMAL_CLASS = "Car Accident"
 PREVAD_DATASET = "PreVAD"
 DOTA_DATASET = "DoTA"
 DADA_DATASET = "DADA2000"
