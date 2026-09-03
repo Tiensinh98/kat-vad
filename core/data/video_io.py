@@ -114,11 +114,21 @@ def read_sampled_frames_from_dir(
 
     Loads the whole clip at once -- fine for short, small-resolution clips; the
     CLIP extractor streams in batches instead (:func:`encode_frame_dir`).
+
+    The result is made **C-contiguous**, which :func:`read_images` is not: it
+    returns a permuted view. Values are identical either way, but a
+    non-contiguous buffer sends torch's batched convolutions down a different
+    kernel path, and RAFT flow statistics then differ from the video path's by
+    ~3e-5 on the same pixels. That is numerically irrelevant and operationally
+    poisonous: ``cache/flow/v1/{DATASET}/`` is supposed to mean the same thing
+    whether the dataset shipped videos (MSAD) or frames (TAD), and a cache that
+    quietly depends on its source is a cache you cannot compare across datasets.
+    Measured 2026-09-02; ``core/tests/test_extractors.py`` asserts bit-equality.
     """
     paths = list_frame_images(folder, subdir)
     if not paths:
         raise ValueError(f"No frame images under {folder}")
-    return read_images(paths[::stride])
+    return np.ascontiguousarray(read_images(paths[::stride]))
 
 
 __all__ = [

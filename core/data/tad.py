@@ -1,4 +1,4 @@
-"""TAD preprocessor: official test protocol -> the standard dataset files.
+"""TAD preprocessor: official test protocol (+ optional train split) -> dataset files.
 
 TAD ships extracted frames, not videos::
 
@@ -15,19 +15,31 @@ Each entry carries ``anomaly_span`` as **normalized** ``[start_frac, end_frac]``
 pairs -- fractions of the clip, so they convert to any sampling rate. Ten of the
 60 abnormal videos carry more than one span.
 
-This module is **evaluation-only**: TAD's remaining 410 videos are its train
-split and have no public frame-level annotation, so ``labels_train.json`` is
-written empty and every annotated video lands in the test split. Frame folders
-on disk that the annotation does not mention are ignored (with a log line).
+**Two modes, and the default is unchanged from the eval-only original:**
 
-The whole corpus is far larger than the scored split, so ``test_ids.txt`` is
-emitted alongside for ``extract_clip_features --ids-file`` -- extracting all 510
-videos would waste most of the run.
+* Default (``with_train_split=False``): evaluation only. ``labels_train.json``
+  is written empty and every annotated video lands in the test split; frame
+  folders the annotation does not mention are ignored (with a log line). This
+  is what every TAD artifact before 2026-09-02 was built with.
+* ``with_train_split=True``: the ~410 frame folders the annotation does **not**
+  name become the weakly-supervised train split. TAD's train videos carry no
+  public frame-level annotation, so the **directory is the label** --
+  ``frames/abnormal/*`` -> 1, ``frames/normal/*`` -> 0 -- and TAD has exactly
+  one anomaly class, ``Car Accident``, which is both the annotation's own name
+  for it and the key in ``_TAD_CLS_DEFS``. Nothing frame-level is inferred, so
+  weak supervision is preserved by construction.
+
+Both modes emit ``test_ids.txt``; the train mode also emits ``train_ids.txt``.
+The whole corpus is far larger than the scored split, so those files exist to
+scope ``extract_clip_features --ids-file`` and ``raft_extract --ids-file``
+(flow targets are train-time only) rather than paying for all 510 videos twice.
 
 CLI::
 
     python -m core.data.tad --annotation data/TAD/annotations/tad_test_anno.json
-        --frames-dir data/TAD/frames --out-dir data/TAD [--stride 8] [--dry-run]
+        --frames-dir data/TAD/frames --out-dir data/TAD [--stride 8]
+        [--with-train-split] [--abnormal-dirname abnormal]
+        [--normal-dirname normal] [--dry-run]
 """
 
 from __future__ import annotations
@@ -41,11 +53,13 @@ from pathlib import Path
 from core import constants
 from core.data.dataset_files import (
     NORMAL_CLASS,
-    TEST_IDS_FILENAME,
     class_name_list,
     num_sampled_frames,
     write_dataset_files,
+    write_test_ids,
+    write_train_ids,
 )
+from core.data.definitions import DATASET_CLS_DEFS, dataset_abbr
 from core.data.video_io import list_frame_folders, list_frame_images, video_id_from_path
 
 LOGGER = logging.getLogger(__name__)
@@ -53,6 +67,9 @@ LOGGER = logging.getLogger(__name__)
 VIDEO_PATH_KEY = "video_path"
 CLASS_NAME_KEY = "class_name"
 ANOMALY_SPAN_KEY = "anomaly_span"
+
+TRAIN_SPLIT = "train"
+TEST_SPLIT = "test"
 
 
 @dataclass(frozen=True)
@@ -68,6 +85,26 @@ class TadRecord:
     class_name: str
     total_frames: int
     spans: tuple[tuple[float, float], ...]
+
+    @property
+    def is_abnormal(self) -> bool:
+        return self.class_name != NORMAL_CLASS
+
+
+@dataclass(frozen=True)
+class TadTrainRecord:
+    """One TAD **train** video: a video-level label and nothing more.
+
+    Deliberately not a :class:`TadRecord` with empty ``spans`` -- that type's
+    invariant is "abnormal implies at least one span", enforced by
+    :func:`_validate_spans`, and a train video legitimately has none. Keeping
+    the two apart means a train record can never be mistaken for an annotated
+    one on the frame-level eval path.
+    """
+
+    video_id: str
+    class_name: str
+    total_frames: int
 
     @property
     def is_abnormal(self) -> bool:
@@ -118,12 +155,23 @@ def _validate_spans(
             )
 
 
+def frame_folders_by_id(frames_dir: Path) -> dict[str, Path]:
+    """``{video_id: folder}`` for every frame folder under ``frames_dir``.
+
+    One scan, shared by the test and train resolvers: on a Drive FUSE mount a
+    recursive walk of ~510 clip folders is not free, and doing it twice per run
+    is the kind of waste that turns a two-minute cell into a ten-minute one.
+    """
+    return {video_id_from_path(p): p for p in list_frame_folders(frames_dir)}
+
+
 def resolve_records(
     annotated: list[tuple[str, str, tuple[tuple[float, float], ...]]],
     frames_dir: Path,
+    folders: dict[str, Path] | None = None,
 ) -> list[TadRecord]:
     """Attach on-disk frame counts to the annotated videos, sorted by id."""
-    folders = {video_id_from_path(p): p for p in list_frame_folders(frames_dir)}
+    folders = folders if folders is not None else frame_folders_by_id(frames_dir)
     missing = sorted(video_id for video_id, _, _ in annotated if video_id not in folders)
     if missing:
         raise ValueError(
@@ -142,10 +190,86 @@ def resolve_records(
     unannotated = len(folders) - len(records)
     if unannotated:
         LOGGER.info(
-            "Ignoring %d frame folders absent from the annotation (TAD train split)",
+            "%d frame folders are absent from the annotation (TAD train split)",
             unannotated,
         )
     return sorted(records, key=lambda r: r.video_id)
+
+
+def _label_from_directory(
+    folder: Path, frames_dir: Path, abnormal_dirname: str, normal_dirname: str
+) -> str:
+    """Class name implied by the split directory a frame folder sits under.
+
+    The train split has no annotation file, so this *is* the supervision. It
+    refuses to guess: a folder under neither directory (or, absurdly, both) is
+    an error, not a default -- silently bucketing it as normal would poison the
+    MIL objective with unlabelled anomalies and nothing downstream would raise.
+    """
+    parents = folder.relative_to(frames_dir).parts[:-1]
+    is_abnormal = abnormal_dirname in parents
+    is_normal = normal_dirname in parents
+    if is_abnormal == is_normal:
+        got = "both" if is_abnormal else "neither"
+        raise ValueError(
+            f"{folder}: {got} of the split directories {abnormal_dirname!r} / "
+            f"{normal_dirname!r} appears in its path relative to {frames_dir}. "
+            "The directory is the only video-level label TAD's train split has; "
+            "fix the layout rather than defaulting it."
+        )
+    return constants.TAD_ABNORMAL_CLASS if is_abnormal else NORMAL_CLASS
+
+
+def resolve_train_records(
+    frames_dir: Path,
+    test_ids: set[str],
+    abnormal_dirname: str = constants.TAD_ABNORMAL_DIRNAME,
+    normal_dirname: str = constants.TAD_NORMAL_DIRNAME,
+    folders: dict[str, Path] | None = None,
+) -> list[TadTrainRecord]:
+    """Every frame folder outside ``test_ids``, labelled by its split directory."""
+    folders = folders if folders is not None else frame_folders_by_id(frames_dir)
+    records = sorted(
+        (
+            TadTrainRecord(
+                video_id=video_id,
+                class_name=_label_from_directory(
+                    folder, frames_dir, abnormal_dirname, normal_dirname
+                ),
+                total_frames=len(list_frame_images(folder)),
+            )
+            for video_id, folder in folders.items()
+            if video_id not in test_ids
+        ),
+        key=lambda r: r.video_id,
+    )
+    abnormal = sum(1 for r in records if r.is_abnormal)
+    if not abnormal or abnormal == len(records):
+        raise ValueError(
+            f"TAD train split needs both classes, got {abnormal} abnormal / "
+            f"{len(records) - abnormal} normal under {frames_dir}. "
+            "DVSFeatureDataset raises on this later and less clearly."
+        )
+    return records
+
+
+def check_definition_coverage(class_names: set[str]) -> None:
+    """Every emitted class must have definition sentences (lesson 19).
+
+    ``verbalize_class_name`` returns the bare class name for an unknown class
+    instead of raising, so a taxonomy mismatch does not crash training -- it
+    quietly conditions the text branch on ``"Car Accident"`` the string rather
+    than on a definition, voiding the definition-conditioning claim with no
+    error anywhere.
+    """
+    known = set(DATASET_CLS_DEFS[dataset_abbr(constants.TAD_DATASET)])
+    undefined = sorted(class_names - known)
+    if undefined:
+        raise ValueError(
+            f"{len(undefined)} TAD classes have no definition sentences: {undefined}. "
+            "Add them to _TAD_CLS_DEFS in core/data/definitions.py -- without them "
+            "the text branch is conditioned on bare class names."
+        )
 
 
 def sampled_frame_labels(record: TadRecord, stride: int) -> list[int]:
@@ -186,14 +310,39 @@ def build_frame_labels(
     return frame_labels
 
 
-def write_test_ids(out_dir: Path, records: list[TadRecord]) -> Path:
-    """Emit the scored video ids for ``extract_clip_features --ids-file``."""
-    target = out_dir / TEST_IDS_FILENAME
-    target.write_text(
-        "".join(f"{r.video_id}\n" for r in records), encoding="utf-8"
+def _meta(
+    test: list[TadRecord],
+    train: list[TadTrainRecord],
+    frame_labels: dict[str, list[int]],
+    stride: int,
+) -> dict[str, dict[str, object]]:
+    """Per-video diagnostics -- never training supervision (data-layout contract)."""
+    meta: dict[str, dict[str, object]] = {
+        r.video_id: {
+            "class_name": r.class_name,
+            "split": TEST_SPLIT,
+            "total_frames": r.total_frames,
+            "sampled_frames": len(frame_labels[r.video_id]),
+            "positive_frames": sum(frame_labels[r.video_id]),
+            "normalized_spans": [list(s) for s in r.spans],
+        }
+        for r in test
+    }
+    meta.update(
+        {
+            r.video_id: {
+                "class_name": r.class_name,
+                "split": TRAIN_SPLIT,
+                "total_frames": r.total_frames,
+                "sampled_frames": num_sampled_frames(r.total_frames, stride),
+                # no window: TAD's train split has no frame-level annotation,
+                # which is what keeps the supervision weak by construction
+                "normalized_spans": [],
+            }
+            for r in train
+        }
     )
-    LOGGER.info("Wrote %s (%d ids)", target, len(records))
-    return target
+    return meta
 
 
 def preprocess(
@@ -202,41 +351,68 @@ def preprocess(
     out_dir: Path,
     stride: int = constants.FRAME_STRIDE,
     dry_run: bool = False,
-) -> list[TadRecord]:
-    """Build the standard dataset files for the official TAD test split."""
-    records = resolve_records(parse_annotation_file(annotation), frames_dir)
-    frame_labels = build_frame_labels(records, stride)
-    abnormal = [r for r in records if r.is_abnormal]
+    with_train_split: bool = False,
+    abnormal_dirname: str = constants.TAD_ABNORMAL_DIRNAME,
+    normal_dirname: str = constants.TAD_NORMAL_DIRNAME,
+) -> tuple[list[TadTrainRecord], list[TadRecord]]:
+    """Build the standard dataset files for TAD; returns ``(train, test)``.
+
+    ``with_train_split=False`` (default) reproduces the eval-only behaviour this
+    module shipped with: ``train`` comes back empty and ``labels_train.json`` is
+    written empty.
+    """
+    folders = frame_folders_by_id(frames_dir)
+    test = resolve_records(parse_annotation_file(annotation), frames_dir, folders)
+    frame_labels = build_frame_labels(test, stride)
+    train: list[TadTrainRecord] = []
+    if with_train_split:
+        train = resolve_train_records(
+            frames_dir,
+            {r.video_id for r in test},
+            abnormal_dirname,
+            normal_dirname,
+            folders,
+        )
+    class_names = {r.class_name for r in test} | {r.class_name for r in train}
+    check_definition_coverage(class_names)
+
+    abnormal_test = sum(1 for r in test if r.is_abnormal)
     LOGGER.info(
         "TAD test split: %d videos (%d abnormal), %d sampled frames, %d positive",
-        len(records),
-        len(abnormal),
+        len(test),
+        abnormal_test,
         sum(len(v) for v in frame_labels.values()),
         sum(sum(v) for v in frame_labels.values()),
     )
+    if with_train_split:
+        abnormal_train = sum(1 for r in train if r.is_abnormal)
+        LOGGER.info(
+            "TAD train split: %d videos (%d abnormal / %d normal), video-level "
+            "labels only",
+            len(train),
+            abnormal_train,
+            len(train) - abnormal_train,
+        )
+    else:
+        LOGGER.info(
+            "Eval-only run: labels_train.json will be empty. Pass --with-train-split "
+            "to build the weakly-supervised train split from the frame folders."
+        )
     if dry_run:
         LOGGER.info("Dry run: no files written")
-        return records
+        return train, test
 
     write_dataset_files(
         out_dir,
-        labels_train={},  # eval-only: TAD's train split has no public annotation
+        labels_train={r.video_id: int(r.is_abnormal) for r in train},
         frame_labels_test=frame_labels,
-        defs=class_name_list({r.class_name for r in records}),
-        meta={
-            r.video_id: {
-                "class_name": r.class_name,
-                "split": "test",
-                "total_frames": r.total_frames,
-                "sampled_frames": len(frame_labels[r.video_id]),
-                "positive_frames": sum(frame_labels[r.video_id]),
-                "normalized_spans": [list(s) for s in r.spans],
-            }
-            for r in records
-        },
+        defs=class_name_list(class_names),
+        meta=_meta(test, train, frame_labels, stride),
     )
-    write_test_ids(out_dir, records)
-    return records
+    write_test_ids(out_dir, [r.video_id for r in test])
+    if with_train_split:
+        write_train_ids(out_dir, [r.video_id for r in train])
+    return train, test
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -248,6 +424,14 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--out-dir", type=Path,
                         default=constants.DATA_ROOT / constants.TAD_DATASET)
     parser.add_argument("--stride", type=int, default=constants.FRAME_STRIDE)
+    parser.add_argument("--with-train-split", action="store_true",
+                        help="build labels_train.json from the frame folders the "
+                             "annotation does not name; the split directory is the "
+                             "video-level label (default: off, eval-only)")
+    parser.add_argument("--abnormal-dirname", default=constants.TAD_ABNORMAL_DIRNAME,
+                        help="split directory whose train clips are abnormal")
+    parser.add_argument("--normal-dirname", default=constants.TAD_NORMAL_DIRNAME,
+                        help="split directory whose train clips are normal")
     parser.add_argument("--dry-run", action="store_true",
                         help="parse and report, write nothing")
     return parser
@@ -262,6 +446,9 @@ def main(argv: list[str] | None = None) -> None:
         out_dir=args.out_dir,
         stride=args.stride,
         dry_run=args.dry_run,
+        with_train_split=args.with_train_split,
+        abnormal_dirname=args.abnormal_dirname,
+        normal_dirname=args.normal_dirname,
     )
 
 

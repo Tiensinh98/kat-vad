@@ -21,11 +21,26 @@ Resumable per video, on the same terms as the CLIP extractor: rerunning encodes
 only what is missing, and an interrupted write is redone rather than skipped
 (:mod:`core.tools.feature_cache`).
 
+Datasets that ship extracted frames instead of videos (TAD, DoTA) use
+``--frames-dir``, exactly as :mod:`core.tools.extract_clip_features` does;
+``--frames-subdir`` names the per-video image folder (DoTA:
+``frames/{video_id}/images/*.jpg``; TAD: no subdir). Both sources sample the
+same raw indices ``range(0, N, stride)``, so ``e_O`` lines up row-for-row with
+the CLIP cache either way — the training dataset asserts that length match and
+raises on a mismatch.
+
+``--ids-file`` scopes the run to a split. Flow targets are **train-time only**,
+so on a corpus whose train split dominates (TAD: 410 of 510) extracting the
+scored ids too is wasted GPU time.
+
 CLI::
 
     python -m core.flow.raft_extract --videos-dir data/MSAD/videos
         --dataset MSAD [--stride 8] [--batch-size 8] [--device auto]
         [--small] [--random-weights] [--force]
+
+    python -m core.flow.raft_extract --frames-dir data/TAD/frames
+        --dataset TAD [--ids-file data/TAD/train_ids.txt]
 """
 
 from __future__ import annotations
@@ -33,6 +48,7 @@ from __future__ import annotations
 import argparse
 import logging
 import math
+from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
@@ -40,9 +56,21 @@ import torch
 from torch import Tensor, nn
 
 from core import constants
-from core.data.video_io import list_videos, read_sampled_frames
+from core.data.video_io import (
+    list_frame_folders,
+    list_videos,
+    read_sampled_frames,
+    read_sampled_frames_from_dir,
+    video_id_from_path,
+)
 from core.device import resolve_device
-from core.tools.feature_cache import Progress, pending_items, save_array
+from core.tools.feature_cache import (
+    Progress,
+    pending_items,
+    read_ids_file,
+    save_array,
+    select_ids,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -176,6 +204,45 @@ def video_flow_stats(
     return stats.numpy().astype(np.float32)
 
 
+def _extract_sources(
+    sources: dict[str, Path],
+    read_frames: Callable[[Path], np.ndarray],
+    dataset: str,
+    model: nn.Module,
+    device: torch.device,
+    cache_root: Path | None = None,
+    batch_size: int = 8,
+    force: bool = False,
+    size: tuple[int, int] | None = None,
+) -> list[Path]:
+    """Cache ``e_O`` (+ raw stats) for every source; resumable per video.
+
+    The one loop behind both public entry points, so the video and frame-folder
+    paths cannot drift apart in cache layout, write order or resume semantics.
+    ``read_frames`` is the only difference between them.
+    """
+    cache_root = cache_root if cache_root is not None else constants.FLOW_CACHE_DIR
+    projection = get_or_create_projection(cache_root)
+    output_dir = cache_root / dataset
+    output_dir.mkdir(parents=True, exist_ok=True)
+    model = model.to(device).eval()
+
+    pending = pending_items(sources, output_dir, force)
+    progress = Progress(len(pending))
+    written: list[Path] = []
+    for video_id, source in pending:
+        target = output_dir / f"{video_id}.npy"
+        stats = video_flow_stats(read_frames(source), model, device, batch_size, size)
+        embeddings = (stats @ projection).astype(np.float32)
+        # e_O last: it is what resume keys on, so a crash in between redoes both
+        save_array(output_dir / f"{video_id}{constants.FLOW_STATS_SUFFIX}", stats)
+        save_array(target, embeddings)
+        written.append(target)
+        LOGGER.info("Saved %s %s -- %s", target.name, embeddings.shape, progress.step())
+    LOGGER.info("Extracted flow for %d new videos into %s", len(written), output_dir)
+    return written
+
+
 def extract_directory(
     videos_dir: Path,
     dataset: str,
@@ -186,30 +253,51 @@ def extract_directory(
     batch_size: int = 8,
     force: bool = False,
     size: tuple[int, int] | None = None,
+    video_ids: set[str] | None = None,
 ) -> list[Path]:
-    """Cache ``e_O`` (+ raw stats) for every video; resumable per video."""
-    cache_root = cache_root if cache_root is not None else constants.FLOW_CACHE_DIR
-    projection = get_or_create_projection(cache_root)
-    output_dir = cache_root / dataset
-    output_dir.mkdir(parents=True, exist_ok=True)
-    model = model.to(device).eval()
+    """Cache ``e_O`` for every video file under ``videos_dir``."""
+    sources = select_ids(
+        {path.stem: path for path in list_videos(videos_dir)}, video_ids, videos_dir,
+        "video",
+    )
+    return _extract_sources(
+        sources,
+        lambda path: read_sampled_frames(path, stride),
+        dataset, model, device, cache_root, batch_size, force, size,
+    )
 
-    videos = {path.stem: path for path in list_videos(videos_dir)}
-    pending = pending_items(videos, output_dir, force)
-    progress = Progress(len(pending))
-    written: list[Path] = []
-    for video_id, video_path in pending:
-        target = output_dir / f"{video_id}.npy"
-        frames = read_sampled_frames(video_path, stride)
-        stats = video_flow_stats(frames, model, device, batch_size, size)
-        embeddings = (stats @ projection).astype(np.float32)
-        # e_O last: it is what resume keys on, so a crash in between redoes both
-        save_array(output_dir / f"{video_id}{constants.FLOW_STATS_SUFFIX}", stats)
-        save_array(target, embeddings)
-        written.append(target)
-        LOGGER.info("Saved %s %s -- %s", target.name, embeddings.shape, progress.step())
-    LOGGER.info("Extracted flow for %d new videos into %s", len(written), output_dir)
-    return written
+
+def extract_frame_directory(
+    frames_dir: Path,
+    dataset: str,
+    model: nn.Module,
+    device: torch.device,
+    cache_root: Path | None = None,
+    stride: int = constants.FRAME_STRIDE,
+    batch_size: int = 8,
+    force: bool = False,
+    size: tuple[int, int] | None = None,
+    subdir: str | None = None,
+    video_ids: set[str] | None = None,
+) -> list[Path]:
+    """Cache ``e_O`` for every per-video frame folder under ``frames_dir``.
+
+    Datasets that ship frames (TAD, DoTA) have no video file to decode, so the
+    frames themselves are the source. Ids come from
+    :func:`core.data.video_io.video_id_from_path`, the same rule the CLIP
+    extractor uses, so the two caches key on identical ids.
+    """
+    sources = select_ids(
+        {video_id_from_path(p): p for p in list_frame_folders(frames_dir, subdir)},
+        video_ids,
+        frames_dir,
+        "frame folder",
+    )
+    return _extract_sources(
+        sources,
+        lambda folder: read_sampled_frames_from_dir(folder, stride, subdir),
+        dataset, model, device, cache_root, batch_size, force, size,
+    )
 
 
 def load_raft_model(small: bool = False, random_weights: bool = False) -> nn.Module:
@@ -232,7 +320,15 @@ def load_raft_model(small: bool = False, random_weights: bool = False) -> nn.Mod
 
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n", 1)[0])
-    parser.add_argument("--videos-dir", type=Path, required=True)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--videos-dir", type=Path, help="directory of video files")
+    source.add_argument("--frames-dir", type=Path,
+                        help="directory of per-video extracted-frame folders")
+    parser.add_argument("--frames-subdir", default=None,
+                        help="image subfolder inside each frame folder (DoTA: images)")
+    parser.add_argument("--ids-file", type=Path, default=None,
+                        help="restrict to these video ids, one per line; flow is "
+                             "train-time only, so this is usually train_ids.txt")
     parser.add_argument("--dataset", default=constants.MSAD_DATASET)
     parser.add_argument("--cache-root", type=Path, default=None,
                         help="default: cache/flow/v1")
@@ -251,16 +347,32 @@ def main(argv: list[str] | None = None) -> None:
     args = build_arg_parser().parse_args(argv)
     device = resolve_device(args.device)
     model = load_raft_model(small=args.small, random_weights=args.random_weights)
-    extract_directory(
-        videos_dir=args.videos_dir,
-        dataset=args.dataset,
-        model=model,
-        device=device,
-        cache_root=args.cache_root,
-        stride=args.stride,
-        batch_size=args.batch_size,
-        force=args.force,
-    )
+    video_ids = read_ids_file(args.ids_file) if args.ids_file else None
+    if args.frames_dir is not None:
+        extract_frame_directory(
+            frames_dir=args.frames_dir,
+            dataset=args.dataset,
+            model=model,
+            device=device,
+            cache_root=args.cache_root,
+            stride=args.stride,
+            batch_size=args.batch_size,
+            force=args.force,
+            subdir=args.frames_subdir,
+            video_ids=video_ids,
+        )
+    else:
+        extract_directory(
+            videos_dir=args.videos_dir,
+            dataset=args.dataset,
+            model=model,
+            device=device,
+            cache_root=args.cache_root,
+            stride=args.stride,
+            batch_size=args.batch_size,
+            force=args.force,
+            video_ids=video_ids,
+        )
 
 
 if __name__ == "__main__":

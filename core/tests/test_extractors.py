@@ -210,3 +210,171 @@ class TestRaftExtraction:
         stats = raft_extract.video_flow_stats(frames, model, CPU, size=(128, 128))
         assert stats.shape == (1, constants.FLOW_STATS_DIM)
         assert not stats.any()
+
+
+class TestRaftFrameExtraction:
+    """P2: datasets that ship frames (TAD) instead of videos.
+
+    The parity test is the load-bearing one. A second extraction path is only
+    safe if it is the *same* pipeline with a different reader — anything else
+    silently produces a flow cache that is not comparable to the MSAD one every
+    v1 number was measured against.
+    """
+
+    @staticmethod
+    def _frames_from_video(video_path: Path, folder: Path, subdir: str | None = None):
+        """Dump a video's stride-sampled frames as lossless PNGs, one per file."""
+        from torchvision.io import write_png
+
+        target = folder / subdir if subdir else folder
+        target.mkdir(parents=True, exist_ok=True)
+        frames = read_sampled_frames(video_path, 1)
+        for index, frame in enumerate(frames):
+            write_png(
+                torch.from_numpy(frame).permute(2, 0, 1).contiguous(),
+                str(target / f"{index:06d}.png"),
+            )
+        return frames
+
+    def test_matches_the_video_path_exactly(self, video_fixture, tmp_path: Path) -> None:
+        """Same pixels in, bit-identical e_O out — whatever the source was."""
+        model = raft_extract.load_raft_model(small=True, random_weights=True)
+        video = list_videos(video_fixture.videos_dir)[0]
+        frames_dir = tmp_path / "frames"
+        self._frames_from_video(video, frames_dir / f"{video.stem}.mp4")
+
+        from_frames = raft_extract.extract_frame_directory(
+            frames_dir=frames_dir, dataset=constants.TAD_DATASET, model=model,
+            device=CPU, cache_root=tmp_path / "flow_frames", batch_size=4,
+            size=(128, 128),
+        )
+        from_video = raft_extract.extract_directory(
+            videos_dir=video_fixture.videos_dir, dataset=constants.TAD_DATASET,
+            model=model, device=CPU, cache_root=tmp_path / "flow_video",
+            batch_size=4, size=(128, 128),
+        )
+        assert len(from_frames) == 1
+        video_target = next(p for p in from_video if p.stem == video.stem)
+        assert np.array_equal(np.load(from_frames[0]), np.load(video_target))
+        stats_name = f"{video.stem}{constants.FLOW_STATS_SUFFIX}"
+        assert np.array_equal(
+            np.load(from_frames[0].parent / stats_name),
+            np.load(video_target.parent / stats_name),
+        )
+
+    def test_shapes_resume_and_id_layout(self, video_fixture, tmp_path: Path) -> None:
+        model = raft_extract.load_raft_model(small=True, random_weights=True)
+        frames_dir = tmp_path / "frames"
+        # TAD's split-directory layout, and its ".mp4" folder names
+        for index, video in enumerate(list_videos(video_fixture.videos_dir)[:2]):
+            split = "abnormal" if index == 0 else "normal"
+            self._frames_from_video(video, frames_dir / split / f"{video.stem}.mp4")
+
+        cache_root = tmp_path / "flow" / "v1"
+        written = raft_extract.extract_frame_directory(
+            frames_dir=frames_dir, dataset=constants.TAD_DATASET, model=model,
+            device=CPU, cache_root=cache_root, batch_size=4, size=(128, 128),
+        )
+        assert len(written) == 2
+        # the split directory does not leak into the id (video_id_from_path)
+        assert {p.stem for p in written} == {
+            v.stem for v in list_videos(video_fixture.videos_dir)[:2]
+        }
+        embeddings = np.load(written[0])
+        assert embeddings.shape[1] == constants.FLOW_DIM
+        stats = np.load(
+            written[0].parent / f"{written[0].stem}{constants.FLOW_STATS_SUFFIX}"
+        )
+        assert stats.shape == (embeddings.shape[0], constants.FLOW_STATS_DIM)
+        assert np.allclose(stats[-1], stats[-2])  # last flow duplicated, spec §1
+        assert (cache_root / constants.FLOW_PROJECTION_FILENAME).exists()
+        assert (
+            raft_extract.extract_frame_directory(
+                frames_dir=frames_dir, dataset=constants.TAD_DATASET, model=model,
+                device=CPU, cache_root=cache_root, size=(128, 128),
+            )
+            == []
+        )
+
+    def test_stride_matches_the_clip_cache_row_for_row(
+        self, video_fixture, tmp_path: Path
+    ) -> None:
+        """The training dataset asserts len(flow) == len(features); prove it holds."""
+        model = raft_extract.load_raft_model(small=True, random_weights=True)
+        video = list_videos(video_fixture.videos_dir)[0]
+        frames_dir = tmp_path / "frames"
+        frames = self._frames_from_video(video, frames_dir / f"{video.stem}.mp4")
+
+        written = raft_extract.extract_frame_directory(
+            frames_dir=frames_dir, dataset=constants.TAD_DATASET, model=model,
+            device=CPU, cache_root=tmp_path / "flow", stride=STRIDE, batch_size=4,
+            size=(128, 128),
+        )
+        expected = (len(frames) + STRIDE - 1) // STRIDE
+        assert np.load(written[0]).shape[0] == expected
+
+    def test_ids_file_scopes_the_run_and_missing_ids_raise(
+        self, video_fixture, tmp_path: Path
+    ) -> None:
+        model = raft_extract.load_raft_model(small=True, random_weights=True)
+        videos = list_videos(video_fixture.videos_dir)[:2]
+        frames_dir = tmp_path / "frames"
+        for video in videos:
+            self._frames_from_video(video, frames_dir / f"{video.stem}.mp4")
+
+        written = raft_extract.extract_frame_directory(
+            frames_dir=frames_dir, dataset=constants.TAD_DATASET, model=model,
+            device=CPU, cache_root=tmp_path / "flow", batch_size=4, size=(128, 128),
+            video_ids={videos[0].stem},
+        )
+        assert [p.stem for p in written] == [videos[0].stem]
+
+        with pytest.raises(ValueError, match="have no frame folder under"):
+            raft_extract.extract_frame_directory(
+                frames_dir=frames_dir, dataset=constants.TAD_DATASET, model=model,
+                device=CPU, cache_root=tmp_path / "flow2", size=(128, 128),
+                video_ids={"not_a_clip"},
+            )
+
+    def test_frames_subdir_layout(self, video_fixture, tmp_path: Path) -> None:
+        """DoTA's frames/{id}/images/*.png shape, on the flow path too."""
+        model = raft_extract.load_raft_model(small=True, random_weights=True)
+        video = list_videos(video_fixture.videos_dir)[0]
+        frames_dir = tmp_path / "frames"
+        self._frames_from_video(video, frames_dir / video.stem, subdir="images")
+
+        written = raft_extract.extract_frame_directory(
+            frames_dir=frames_dir, dataset=constants.DOTA_DATASET, model=model,
+            device=CPU, cache_root=tmp_path / "flow", batch_size=4, size=(128, 128),
+            subdir="images",
+        )
+        assert [p.stem for p in written] == [video.stem]
+
+    def test_cli_requires_exactly_one_source(self) -> None:
+        parser = raft_extract.build_arg_parser()
+        with pytest.raises(SystemExit):
+            parser.parse_args(["--dataset", constants.TAD_DATASET])
+        with pytest.raises(SystemExit):
+            parser.parse_args(["--videos-dir", "a", "--frames-dir", "b"])
+        assert parser.parse_args(["--frames-dir", "b"]).videos_dir is None
+
+    def test_cli_dispatches_to_the_frame_path(
+        self, video_fixture, tmp_path: Path
+    ) -> None:
+        video = list_videos(video_fixture.videos_dir)[0]
+        frames_dir = tmp_path / "frames"
+        self._frames_from_video(video, frames_dir / "abnormal" / f"{video.stem}.mp4")
+        ids_file = tmp_path / "train_ids.txt"
+        ids_file.write_text(f"{video.stem}\n", encoding="utf-8")
+        cache_root = tmp_path / "flow" / "v1"
+
+        raft_extract.main([
+            "--frames-dir", str(frames_dir),
+            "--ids-file", str(ids_file),
+            "--dataset", constants.TAD_DATASET,
+            "--cache-root", str(cache_root),
+            "--batch-size", "4",
+            "--device", "cpu",
+            "--small", "--random-weights",
+        ])
+        assert (cache_root / constants.TAD_DATASET / f"{video.stem}.npy").exists()

@@ -57,7 +57,13 @@ from core.data.video_io import (
     video_id_from_path,
 )
 from core.device import resolve_device
-from core.tools.feature_cache import Progress, pending_items, save_array
+from core.tools.feature_cache import (
+    Progress,
+    pending_items,
+    read_ids_file,
+    save_array,
+    select_ids,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -184,15 +190,12 @@ def extract_frame_directory(
     Resumable: only the clips still missing from ``output_dir`` are encoded.
     """
     output_dir.mkdir(parents=True, exist_ok=True)
-    folders = {video_id_from_path(p): p for p in list_frame_folders(frames_dir, subdir)}
-    if video_ids is not None:
-        missing = sorted(video_ids - set(folders))
-        if missing:
-            raise ValueError(
-                f"{len(missing)} requested ids have no frame folder under "
-                f"{frames_dir}: {missing[:5]}"
-            )
-        folders = {vid: path for vid, path in folders.items() if vid in video_ids}
+    folders = select_ids(
+        {video_id_from_path(p): p for p in list_frame_folders(frames_dir, subdir)},
+        video_ids,
+        frames_dir,
+        "frame folder",
+    )
     pending = pending_items(folders, output_dir, force)
     progress = Progress(len(pending))
     written: list[Path] = []
@@ -207,15 +210,6 @@ def extract_frame_directory(
         LOGGER.info("Saved %s %s -- %s", target.name, features.shape, progress.step())
     LOGGER.info("Extracted %d new feature files into %s", len(written), output_dir)
     return written
-
-
-def read_ids_file(path: Path) -> set[str]:
-    """Video ids, one per line; blank lines ignored."""
-    ids = {line.strip() for line in path.read_text(encoding="utf-8").splitlines()}
-    ids.discard("")
-    if not ids:
-        raise ValueError(f"{path} contains no video ids")
-    return ids
 
 
 def extract_directory(

@@ -99,6 +99,43 @@ def pending_items(
     return pending
 
 
+def read_ids_file(path: Path) -> set[str]:
+    """Video ids, one per line; blank lines ignored.
+
+    Shared by both extractors: ``--ids-file`` scopes a run to one split, and the
+    CLIP and flow caches must be scoped by the same rule or they disagree about
+    which videos exist.
+    """
+    ids = {line.strip() for line in path.read_text(encoding="utf-8").splitlines()}
+    ids.discard("")
+    if not ids:
+        raise ValueError(f"{path} contains no video ids")
+    return ids
+
+
+def select_ids(
+    sources: dict[str, Path],
+    video_ids: set[str] | None,
+    origin: Path,
+    what: str = "source",
+) -> dict[str, Path]:
+    """Restrict ``sources`` to ``video_ids``; a requested id with no source raises.
+
+    A silently short cache does not fail here -- it fails hours later as a
+    missing-``.npy`` crash inside training or eval, by which point the run that
+    caused it is gone. ``what`` names the thing that is missing ("frame folder",
+    "video") so the message points at the directory the caller actually passed.
+    """
+    if video_ids is None:
+        return sources
+    missing = sorted(video_ids - set(sources))
+    if missing:
+        raise ValueError(
+            f"{len(missing)} requested ids have no {what} under {origin}: {missing[:5]}"
+        )
+    return {vid: path for vid, path in sources.items() if vid in video_ids}
+
+
 class Progress:
     """Per-item ``[i/N] elapsed .. eta ..`` for runs long enough to worry about."""
 
