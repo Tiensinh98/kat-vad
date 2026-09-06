@@ -57,6 +57,18 @@ TAD_ABNORMAL_CLASS = "Car Accident"
 PREVAD_DATASET = "PreVAD"
 DOTA_DATASET = "DoTA"
 DADA_DATASET = "DADA2000"
+# DADA-2000 ships extracted frames split by fault-attribution directory, plus
+# Cleaned_Metadata.csv (frame-level accident windows for the two fault dirs
+# only -- 0_Normal_Driving carries no CSV rows, the directory IS the label).
+DADA_METADATA_FILENAME = "Cleaned_Metadata.csv"
+DADA_NON_EGO_FAULT_DIRNAME = "0_Non_Ego_Fault"
+DADA_NORMAL_DIRNAME = "0_Normal_Driving"
+DADA_EGO_FAULT_DIRNAME = "1_Ego_Fault"
+DADA_CLASS_NAME = "CarAccident"  # definition key shared with DoTA (spec §7.5)
+# type<N>_vid<N> folder names repeat across the three fault-attribution dirs
+# (confirmed on the real archive) -- video_id is prefixed by dirname to stay
+# globally unique; this separator must never appear inside a dirname itself.
+DADA_ID_SEPARATOR = "__"
 MSAD_DATASET = "MSAD"  # user's traffic slice (frozen split, gates a/b/c)
 MSAD_FULL_DATASET = "MSAD-full"  # entire MSAD benchmark (paper-comparable runs)
 UCF_CRIME_DATASET = "UCF-Crime"
