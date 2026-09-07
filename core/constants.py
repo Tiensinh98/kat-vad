@@ -212,6 +212,36 @@ SCORE_NORM_EPS = 1e-12  # guards constant-score clips (flat model output)
 SCORE_NORM_AUTO_NORMAL_FRACTION = 0.05
 
 # ---------------------------------------------------------------------------
+# EDA (core/eda, core/tools/eda.py) — dataset characterization
+# ---------------------------------------------------------------------------
+EDA_REPORT_JSON_FILENAME = "eda_report.json"
+EDA_REPORT_MD_FILENAME = "eda_report.md"
+EDA_PLOTS_DIRNAME = "plots"
+# Percentiles reported for every length/count distribution.
+EDA_PERCENTILES = (0, 5, 25, 50, 75, 95, 100)
+# Clip-length thresholds the kernel-coverage table reports (lesson C27).
+EDA_SHORT_CLIP_THRESHOLDS = (3, 5, 9, 13, 17)
+# Cosine-autocorrelation lags, in sampled frames, for the CLIP feature cache.
+EDA_AUTOCORR_MAX_LAG = 8
+# Frame-level linear probe (RESULTS_DADA.md §10-B).
+EDA_PROBE_FOLDS = 5
+EDA_PROBE_MAX_ITER = 2000
+EDA_PROBE_C = 1.0
+EDA_PROBE_MIN_CLIPS = 10  # below this a grouped CV split is meaningless
+EDA_SECTION_CORPUS = "corpus"
+EDA_SECTION_LABELS = "labels"
+EDA_SECTION_PROTOCOL = "protocol"
+EDA_SECTION_FEATURES = "features"
+EDA_SECTION_SCORES = "scores"
+EDA_SECTIONS = (
+    EDA_SECTION_CORPUS,
+    EDA_SECTION_LABELS,
+    EDA_SECTION_PROTOCOL,
+    EDA_SECTION_FEATURES,
+    EDA_SECTION_SCORES,
+)
+
+# ---------------------------------------------------------------------------
 # Reproduction gates (plan §1; active context 2026-07-07 amendment)
 # ---------------------------------------------------------------------------
 TAD_ZERO_SHOT_AUC = 89.56
