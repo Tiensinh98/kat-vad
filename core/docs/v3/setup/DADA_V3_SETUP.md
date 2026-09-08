@@ -919,7 +919,8 @@ first would have answered a question you did not yet know you were asking.
 | Change `core.data.dada --seed` when sweeping train seeds | That is the **split** seed. A new split re-draws the corpus and every cross-seed Δ compares two different datasets | §3.0 |
 | Re-extract CLIP features into `clip/DADA2000` without checking `TRANSFORM.txt` | The dir name does not record `--no-center-crop`; a cropped re-extraction voids every number in `RESULTS_DADA.md` silently | **C2**, §1.2a |
 | Read an `mlp_ste` row trained under `amp: true` | 33 of 500 steps carried NaN on the 2024 seed, and there is no gradient clipping in `core/train.py` | §3.3-A4 |
-| Quote a DADA micro AUC without the 0.9069 clip-oracle beside it | 74 % of test frames are from all-normal clips; micro there measures clip classification | **C12**, `RESULTS_DADA.md` §4 |
+| Quote a DADA micro AUC without the **0.9086** clip-oracle **and the 0.8654 length-only baseline** beside it | 74 % of test frames are from all-normal clips, and the corpus also leaks its label through clip length — a ruler scores 0.8654 | **C12**, **C28**, `RESULTS_DADA.md` §4, §4.1 |
+| Report a DADA micro AUC as the headline at all | Use `auc_macro` **and** the clip-mean-removed micro; the raw micro column is bounded by two zero-localization baselines | **C12**, **C27**, **C28**, `DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md` |
 | Set `data.is_egocentric=false` | DADA-2000 is dashcam footage; that flag selects the wrong DVS tuning | §1.3 |
 | Read anything into DADA-2000's `mul` loss | `C = 2`; `H_mul` is near-degenerate on this taxonomy | §1.3 |
 | Compute a Δ before asserting score-file counts | One 0-byte `.npz` perturbs every paired Δ in the study | **11b** |

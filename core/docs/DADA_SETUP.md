@@ -430,6 +430,29 @@ done
 Then recompute with `core.tools.rescore` over the eval dir with those ids held
 out, and report the clip-level oracle beside the micro number (lesson **12**).
 
+**Done for the 2026-09-06 campaign (Phase 0.2, 2026-09-08).** The corrected
+379-clip numbers for all seven arms are in `RESULTS_DADA.md` §3.1a — computed
+offline from the saved `.npz` files, no retraining and no re-eval. Summary:
+micro moves **+0.001 to +0.002** per arm; `auc_macro` is **unchanged** on every
+arm (the four clips are single-class, so `macro_video_auc` already skipped
+them); the clip oracle moves 0.9086 → **0.9082** and the length-only baseline
+0.8654 → **0.8681**. Because the baseline rises more than any arm does, the best
+arm's margin over a ruler *shrinks* to **+0.0075**. Quote the 379-clip column
+and say which split a number came from.
+
+**And print the length-only baseline too** (lesson **C28**). This corpus leaks
+its label through clip length: abnormal clips top out at **17** stride-8 frames
+while **107** normal clips are longer than any abnormal clip. `core.tools.eda`
+computes it in §3.3 of its report:
+
+```bash
+%%bash
+python -m core.tools.eda report --dataset DADA2000 \
+  --data-dir "$KATVAD_DATA_ROOT/DADA2000" \
+  --output-dir "$KATVAD_OUTPUT_ROOT/eda/DADA2000" --sections corpus,labels,protocol
+# read §0 verdicts and §3.3; an arm that does not beat §3.3's micro AUC is unmeasured
+```
+
 ---
 
 ## 6. Sanity check — a released checkpoint on DADA-2000

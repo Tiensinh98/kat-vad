@@ -4,7 +4,6 @@
   "project": "KAT-VAD",
   "updated": "2026-07-27",
   "description": "Machine-readable execution policy for CLAUDE.md. Mirrors CLAUDE.md sections 2-13; CLAUDE.md is prose authority, this file is for automation and CI checks.",
-
   "session_check": {
     "required_files": [
       ".project/INIT.md",
@@ -13,7 +12,6 @@
     ],
     "on_missing": "stop_and_ask"
   },
-
   "task_modes": [
     "SIMPLE",
     "INVESTIGATE",
@@ -28,7 +26,6 @@
     "Never enter IMPLEMENTATION without a preceding INVESTIGATE or PLANNING pass.",
     "If the request is ambiguous, classify as INVESTIGATE."
   ],
-
   "memory_loading": {
     "core_always": [
       ".project/preference.md",
@@ -69,19 +66,71 @@
       "Prefer minimal sufficient context."
     ]
   },
-
   "mcp_triggers": [
-    { "condition": "editing_code",             "tools": ["trace_path", "get_code_snippet"], "blocking": true },
-    { "condition": "exploring_unfamiliar_code","tools": ["search_graph", "get_code_snippet"], "blocking": true },
-    { "condition": "debugging",                "tools": ["search_graph", "trace_path", "get_code_snippet"], "blocking": true },
-    { "condition": "renaming_symbol",          "tools": ["search_graph", "trace_path"], "blocking": true },
-    { "condition": "before_commit",            "tools": ["detect_changes"], "blocking": true },
-    { "condition": "external_library",         "tools": ["context7_resolve-library-id", "context7_query-docs"], "blocking": true },
-    { "condition": "complex_reasoning",        "tools": ["sequential-thinking"], "blocking": false },
-    { "condition": "implementing_or_bugfix",   "tools": ["load:lessons-learned/meta-index.md"], "blocking": true }
+    {
+      "condition": "editing_code",
+      "tools": [
+        "trace_path",
+        "get_code_snippet"
+      ],
+      "blocking": true
+    },
+    {
+      "condition": "exploring_unfamiliar_code",
+      "tools": [
+        "search_graph",
+        "get_code_snippet"
+      ],
+      "blocking": true
+    },
+    {
+      "condition": "debugging",
+      "tools": [
+        "search_graph",
+        "trace_path",
+        "get_code_snippet"
+      ],
+      "blocking": true
+    },
+    {
+      "condition": "renaming_symbol",
+      "tools": [
+        "search_graph",
+        "trace_path"
+      ],
+      "blocking": true
+    },
+    {
+      "condition": "before_commit",
+      "tools": [
+        "detect_changes"
+      ],
+      "blocking": true
+    },
+    {
+      "condition": "external_library",
+      "tools": [
+        "context7_resolve-library-id",
+        "context7_query-docs"
+      ],
+      "blocking": true
+    },
+    {
+      "condition": "complex_reasoning",
+      "tools": [
+        "sequential-thinking"
+      ],
+      "blocking": false
+    },
+    {
+      "condition": "implementing_or_bugfix",
+      "tools": [
+        "load:lessons-learned/meta-index.md"
+      ],
+      "blocking": true
+    }
   ],
   "codebase_memory_project": "Users-sinhpham-Public-cs-Internship-2-Video Anomaly Detection papers-code",
-
   "hard_stops": [
     "preference_missing",
     "required_context_missing",
@@ -89,45 +138,83 @@
     "trace_path_impact_HIGH_or_CRITICAL_without_user_approval",
     "requirements_unclear"
   ],
-
   "code_boundaries": {
-    "writable": ["core/", ".project/", "ruff.toml", "pyproject.toml", "CLAUDE.md"],
-    "read_only": ["LaGoVAD-PreVAD/"],
-    "untracked_run_data": ["data/", "outputs/", "cache/"],
+    "writable": [
+      "core/",
+      ".project/",
+      "ruff.toml",
+      "pyproject.toml",
+      "CLAUDE.md"
+    ],
+    "read_only": [
+      "LaGoVAD-PreVAD/"
+    ],
+    "untracked_run_data": [
+      "data/",
+      "outputs/",
+      "cache/"
+    ],
     "docs_location": "core/docs/",
     "plans_location": ".project/plans/"
   },
-
   "code_standards": {
     "python": {
       "style": "PEP 8",
-      "naming": { "functions": "snake_case", "classes": "PascalCase", "constants": "UPPER_SNAKE_CASE" },
+      "naming": {
+        "functions": "snake_case",
+        "classes": "PascalCase",
+        "constants": "UPPER_SNAKE_CASE"
+      },
       "type_hints": "required_on_public_surface",
-      "banned": ["print", "bare_except", "global", "magic_numbers", "hardcoded_paths"],
-      "banned_api": ["torch.nn.functional.binary_cross_entropy", "torch.nn.BCELoss"],
+      "banned": [
+        "print",
+        "bare_except",
+        "global",
+        "magic_numbers",
+        "hardcoded_paths"
+      ],
+      "banned_api": [
+        "torch.nn.functional.binary_cross_entropy",
+        "torch.nn.BCELoss"
+      ],
       "banned_api_reason": "P13 [HIGH] - hard-rejected inside CUDA autocast; use bce_with_logits(torch.logit(p, LOGIT_EPS), y)",
       "constants_module": "core/constants.py",
       "imports": "module_top_level_only",
       "logging": "logging module only"
     },
-    "principles": ["KISS", "DRY", "search_for_existing_implementation_first"]
+    "principles": [
+      "KISS",
+      "DRY",
+      "search_for_existing_implementation_first"
+    ]
   },
-
   "quality_gates": {
     "command": "source .venv/bin/activate && ruff check * && mypy * && bandit * && pycycle * && pyright *",
     "pycycle_invocation": "cd core && pycycle --here",
     "test_command": "source .venv/bin/activate && python -m pytest core/tests -q",
-    "expected_test_count": 273,
-    "run_before": ["commit"]
+    "expected_test_count": 423,
+    "run_before": [
+      "commit"
+    ]
   },
-
   "git": {
-    "forbidden": ["git add .", "git add -A", "git commit --no-verify"],
+    "forbidden": [
+      "git add .",
+      "git add -A",
+      "git commit --no-verify"
+    ],
     "max_files_per_commit": 20,
-    "never_commit": [".project/ (except whitelisted memory-bank files)", "outputs/", "data/", "cache/"],
-    "commit_precheck": ["detect_changes", "quality_gates"]
+    "never_commit": [
+      ".project/ (except whitelisted memory-bank files)",
+      "outputs/",
+      "data/",
+      "cache/"
+    ],
+    "commit_precheck": [
+      "detect_changes",
+      "quality_gates"
+    ]
   },
-
   "lessons": {
     "meta_index": ".project/memory-bank/lessons-learned/meta-index.md",
     "index": ".project/memory-bank/lessons-learned/index.md",
@@ -144,16 +231,28 @@
     "duplicate_check": "grep -i '[keyword]' .project/memory-bank/lessons-learned/index.md",
     "ci_check": ".project/scripts/lesson_checks.sh"
   },
-
   "experiment_policy": {
     "reporting": {
-      "required_metrics": ["micro_auc", "micro_ap", "video_level_auc", "within_abnormal_auc", "oracle_auc"],
+      "required_metrics": [
+        "micro_auc",
+        "micro_ap",
+        "video_level_auc",
+        "within_abnormal_auc",
+        "oracle_auc"
+      ],
       "reason": "P20 [MEDIUM] - micro AUC alone cannot distinguish a localizer from a video-level classifier",
-      "eval_must_pass": ["--save-scores"]
+      "eval_must_pass": [
+        "--save-scores"
+      ]
     },
     "ablation": {
       "must_differ_only_in": "the ablated flag",
-      "shared": ["seed", "training horizon", "data split", "feature cache"],
+      "shared": [
+        "seed",
+        "training horizon",
+        "data split",
+        "feature cache"
+      ],
       "min_seeds_before_believing_a_delta": 3
     },
     "gates": {
@@ -165,10 +264,17 @@
       "action": "re-extract and re-measure every gate quoted on the old cache (P17)"
     }
   },
-
   "communication": {
     "language": "English",
-    "forbidden": ["filler openers", "long preambles", "unnecessary clarifying questions when intent is obvious"],
-    "required": ["direct", "risks and impact for non-trivial tasks", "pros and cons per option"]
+    "forbidden": [
+      "filler openers",
+      "long preambles",
+      "unnecessary clarifying questions when intent is obvious"
+    ],
+    "required": [
+      "direct",
+      "risks and impact for non-trivial tasks",
+      "pros and cons per option"
+    ]
   }
 }

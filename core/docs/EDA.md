@@ -10,10 +10,14 @@ corpus rather than of the model:
 - DADA-2000's median clip is **9** stride-8 frames under a `Conv1d(kernel=9)`
   score head, so every output timestep sees the whole clip (lesson **C27**);
 - **74 %** of its test frames come from clips that are negative in their
-  entirety, so a constant-score-per-clip oracle scores **0.9069** micro AUC with
-  zero localization (lesson **C12**).
+  entirety, so a constant-score-per-clip oracle scores **0.9086** micro AUC with
+  zero localization (lesson **C12**);
+- and its abnormal clips are **trimmed** (max 17 stride-8 frames) while its normal
+  clips are not (median 19), so a detector reading only the clip's **frame count**
+  scores **0.8654** micro AUC — within 0.009 of the best trained arm (lesson
+  **C28**, added 2026-09-08).
 
-Both are computable from the label files alone, in seconds, with no GPU. Run
+All three are computable from the label files alone, in seconds, with no GPU. Run
 this **before** the first training arm on any new corpus.
 
 ---
@@ -28,12 +32,13 @@ this **before** the first training arm on any new corpus.
 | **1.3 MIL top-k floor** | How many clips get `k = 1`, i.e. where `L_MIL` is a plain max | labels |
 | **2. Label geometry** | Positives per clip, span counts and lengths, multi-span clips (**C18**), and **windows that vanished at this stride** | labels + `meta.json` |
 | **3. What the metric measures** | Frame share by clip kind, the **clip-level oracle**, the cross-clip pair fraction, per-clip AUC resolution, what `--score-norm auto` resolves to (**C12**) | labels |
-| **3.4 A scored run** | Between/within score variance and constant-curve count for a trained arm | `--scores-dir` |
+| **3.3 Clip-length leak** | Whether the clip's **frame count** alone predicts its label, and how many normal clips are separable by a threshold with no pixels read (**C28**) | labels |
+| **3.5 A scored run** | Between/within score variance and constant-curve count for a trained arm | `--scores-dir` |
 | **4. Features** | Norms, effective dimensionality, **temporal autocorrelation**, feature variance decomposition | `--clip-dir` |
 | **4.2 Linear probe** | **The supervised ceiling of the cached features** — `RESULTS_DADA.md` §10-B | `--clip-dir` |
 | **4.3 Flow** | Distribution of the 23-dim RAFT descriptors | `--flow-dir` |
 
-Nothing here reads a checkpoint. Section 3.4 is the only part that touches a
+Nothing here reads a checkpoint. Section 3.5 is the only part that touches a
 model, and only through saved score curves.
 
 ---
@@ -85,7 +90,7 @@ python -m core.tools.eda report --dataset DADA2000 \
   --output-dir "$KATVAD_OUTPUT_ROOT/eda/DADA2000_A2_s2024"
 ```
 
-Adds §3.4: between-clip / within-clip score variance and the constant-curve
+Adds §3.5: between-clip / within-clip score variance and the constant-curve
 count — the flatness diagnostic that `RESULTS_DADA.md` §4/§7.1 correlated at
 Spearman +0.68 with DADA micro AUC and −0.82 with DoTA micro AUC.
 
@@ -143,7 +148,8 @@ Defined at the top of `core/eda/report.py`; change them there, not inline.
 | Treat the frame probe as a model result | It is a supervised ceiling on the features, with the labels the model never sees |
 | Point `--clip-dir` at a cache built with a different stride or transform | The tool raises (lessons **C2**/**C13**) — that raise is the feature, do not work around it |
 | Act on §1.2 by changing `frame_stride` or `score_head_kernel` casually | Both invalidate every cached feature **and every metric measured on it** (**C2**) |
-| Compare `auc_macro` across corpora without §3.3's resolution row | A mean of per-clip AUCs on 9-frame clips with 2 positives is coarse, not wrong |
+| Compare `auc_macro` across corpora without §3.4's resolution row | A mean of per-clip AUCs on 9-frame clips with 2 positives is coarse, not wrong |
+| Quote any AUC from a corpus whose §3.3 length-only baseline is high | The label is readable without the pixels; an arm that fails to beat that baseline is unmeasured (**C28**) |
 | Expect a flow-versus-label correlation | Flow is a train-time cache and the train split carries no frame labels |
 
 ---

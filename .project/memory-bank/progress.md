@@ -31,7 +31,9 @@
 | — | **`core/eda/` pre-flight profiler** — 5 modules + `core/tools/eda.py` + `core/docs/EDA.md`; verdicts for C27 / C12 / vanished windows, §4.2 frame-level linear probe | ✅ 2026-09-06, **present on `main`**. Never run on real data — needs the Drive caches |
 
 **Measured on `main`, 2026-09-08: 79 Python files (54 source + 25 test),
-10,484 source LOC. 418 tests collected → 418 pass, 0 fail.** Data-free, CPU-only.
+10,607 source LOC. 423 tests collected → 423 pass, 0 fail.** Data-free, CPU-only.
+*(LOC and test count re-measured 2026-09-08 after Phase 0 added
+`protocol.clip_length_leak` and its five tests.)*
 `outputs/**` holds **62,254** per-clip `.npz` score files (on the user's disk;
 gitignored).
 
@@ -97,7 +99,7 @@ a per-clip constant — Spearman(flatness, DoTA AUC) = **−0.82** across 7 arms
 hyperparameter, not a motion mechanism.**
 
 **And the DADA in-domain number is a mirage.** A constant-score-per-clip oracle
-scores **micro AUC 0.9069** on that test set (74 % of frames come from all-normal
+scores **micro AUC 0.9086** on that test set (74 % of frames come from all-normal
 clips); our best arm reached 0.8739 with `auc_macro` at chance (0.44–0.57 across
 arms). **No arm has shown frame-level localization on DADA-2000.**
 
@@ -121,7 +123,7 @@ these rows plus `core/docs/RESULTS_*.md` are all that survives.
 | **Arm 4 + trajectory probe** (`RESULTS_ARM4_PROBE.md`, 2026-08-19) | MSAD_ncc ×3 | Δ vs warm-started KIP-off **+0.0988 ± 0.0148** (no shrinkage → warm-start confound closed); KIP-off flat 0.559–0.561 over a 33× `mil` range → **H3 rejected** | **v1** |
 | **PreVAD** (`RESULTS_PREVAD.md`) | — | Gate P0 defined; **KIP-on is unbuildable** (features only, no pixels) | **v1** |
 | **v3 gate attribution** (`RESULTS_V3_GATE_ATTRIBUTION.md`, 2026-09-01) — *doc absent on `main`* | MSAD-full, A2 ×3 seeds | **A2 (fixed 50 % shift, no flow/PMG/KIP-losses) ≡ full v1 KIP**: Δ = **+0.0109**, t95 **[−0.0588, +0.0805]**, 6/6 metrics include zero. **A2 − A0 = +0.1025 ± 0.0350**, t95 [+0.0154, +0.1896]. Archived V1 arm reproduces at **+0.0916 ± 0.0087**. **A1 (rank) − A2 = −0.0683**, CI [−0.0790, −0.0580]. **A2b − A2 = −0.0105** | **v3** |
-| **DADA-2000** (`v3/RESULTS_DADA.md`, 2026-09-06) — *doc present on `main`* | DADA-2000, 7 arms | Zero-shot DoTA **A2 − A0 = −0.0918** (2nd seed −0.1089) and **A1 − A2 = +0.0300** — *both signs inverted vs MSAD*. In-domain best **0.8739 micro** vs a **0.9069** constant-per-clip oracle, `auc_macro` **0.44–0.57 (chance)**. Spearman(flatness, DoTA micro) = **−0.82** | **v3** |
+| **DADA-2000** (`v3/RESULTS_DADA.md`, 2026-09-06) — *doc present on `main`* | DADA-2000, 7 arms | Zero-shot DoTA **A2 − A0 = −0.0918** (2nd seed −0.1089) and **A1 − A2 = +0.0300** — *both signs inverted vs MSAD*. In-domain best **0.8739 micro** vs a **0.9086** constant-per-clip oracle, `auc_macro` **0.44–0.57 (chance)**. Spearman(flatness, DoTA micro) = **−0.82** | **v3** |
 | **Method-class gap** (2026-09-06) | — | SimpleTAD DADA→DoTA **80.3** vs our best-ever DoTA **0.6423**: **0.161 method ceiling + 0.035 corpus cost → 82 % is the method class** | — |
 
 **The two sentences that outlive every number:** *KIP's measured contribution is
@@ -255,7 +257,7 @@ attributed it to any part of KIP:
       motion claim is already unsupported. Keep only if a *positive* flow
       contribution is ever claimed again.
 - [ ] **DADA follow-ups** (`RESULTS_DADA.md` §10), in order: **(A)** reporting
-      fix — `auc_macro` + the 0.9069 clip-oracle row as the DADA headline;
+      fix — `auc_macro` + the 0.9086 clip-oracle row as the DADA headline;
       **(B) frame-level linear probe** on the cached frozen-CLIP DADA features
       against the real frame labels (~30 min, decisive: separates backbone
       capacity from weak supervision); **(C)** re-extract at stride 2–4 with

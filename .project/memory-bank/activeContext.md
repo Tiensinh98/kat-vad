@@ -16,7 +16,7 @@
 > | `kip.gate_type` | **does not exist** (`core/config.py` raises `KeyError`) | `rank` (default) / `mlp_frozen` / `mlp_ste` / `constant` |
 > | `core/kip/ecmr.py` | absent | present |
 > | `train_only_modules`, `--dump-kip-diag` | absent | present |
-> | tests | **418 collected → 418 pass, 0 fail** (see below) | 537 green |
+> | tests | **423 collected → 423 pass, 0 fail** (418 + 5 from Phase 0, 2026-09-08) | 537 green |
 >
 > **Every measured result recorded below was produced by the `v3` branch's code.**
 > They are kept here on purpose: `outputs/` is gitignored and
@@ -27,7 +27,158 @@
 **Last Memory Bank Update:** 2026-09-08 (branch split recorded: `main` = v1,
 `v3` = v3; all counts re-measured on this tree)
 
-## 2026-09-08 (latest) — `main` is the v1 branch; the memory bank now says so
+## 2026-09-08 (latest, second entry) — Phase 0 shipped: the reporting is fixed and two published numbers were wrong
+
+**Code changed** (first code change on this branch since the test collapse):
+`core/eda/protocol.py`, `core/eda/report.py`, `core/tests/test_eda.py`.
+**Suite: 423 collected, 423 pass** (418 + 5 new). `ruff`, `mypy`, `pyright`
+clean on the touched files.
+
+### What shipped
+
+* **`protocol.clip_length_leak()`** — the C28 check, wired into
+  `protocol_report` (guarded: a single-clip-class corpus records `skipped`
+  rather than raising, so DoTA-shaped corpora keep working), rendered as report
+  **§3.3**, given a **CRITICAL** verdict above clip-level AUC **0.65**
+  (`LENGTH_LEAK_WARN_AUC`), and added to the cross-corpus comparison table.
+  Report sections renumbered: resolution 3.3 → **3.4**, scored run 3.4 → **3.5**
+  (`core/docs/EDA.md` updated to match).
+* **Blast radius traced first** (`trace_path`): `protocol_report` ←
+  `build_report` ← `_run_report` ← `main`, all inside `core/eda/` +
+  `core/tools/eda.py`. Nothing on the training, scoring or metrics path consumes
+  it, and the change only *adds* a key. Real risk LOW; the tool's hop-distance
+  labels say CRITICAL and are not meaningful here.
+* **Docs:** `RESULTS_DADA.md` (correction banner, rebuilt §3 headline table with
+  a `clip-mean removed` column and both baseline rows, new §3.1a / §4.1 / §4.2,
+  §9 limitations, §10-A and §10-B marked done), `DADA_SETUP.md` §5.1,
+  `DADA_V3_SETUP.md` pitfalls, `EDA.md`, `DIAGNOSIS_...md` Phase 0.
+
+### Two published numbers were wrong
+
+1. **The DADA clip oracle is 0.9086, not 0.9069.** `RESULTS_DADA.md` §4 used the
+   3,880-frame `0_Normal_Driving` **subgroup** count instead of the
+   all-normal-**clip** count (3,896). The 16-frame gap is **exactly** the four
+   vanished-window clips — abnormal in `meta.json`, all-zero after stride-8
+   rounding, therefore all-normal *clips* for every metric. **Phase 0.1 and
+   Phase 0.2 were the same defect surfacing twice.** Corrected in 9 files
+   (`protocol.py`, `EDA.md`, `RESULTS_DADA.md`, `DADA_V3_SETUP.md`,
+   `activeContext`, `progress`, `projectbrief`, `systemPatterns`, lessons
+   `index`/`detailed`/`meta-index`) and pinned by a renamed test.
+2. **The length-only baseline was missing**, and it is the one that matters:
+   0.8654 (383 clips) / **0.8681** (379). Best arm 0.8756. Margin **+0.0075**.
+
+### The vanished-clip exclusion, computed (Phase 0.2 — no GPU, no re-eval)
+
+Offline from the saved `.npz`. Micro moves **+0.001–0.002** per arm;
+**`auc_macro` is unchanged to 4 dp on every arm** (single-class clips were
+already skipped by `macro_video_auc`). Oracle 0.9086 → 0.9082; length-only
+0.8654 → 0.8681 — the baseline rises *more than any arm does*. Full table in
+`RESULTS_DADA.md` §3.1a. **Quote the 379-clip column from now on.**
+
+### The leak is DADA-specific
+
+Same function, same `.npz` files, DoTA test split: clip-level AUC **0.5280**,
+micro **0.4993**, **0** clips separable by length. So C28 is a defect of the
+*reconstructed* DADA build, not a property of dashcam corpora — and TAD must be
+checked before it is trained, not after.
+
+### Next
+
+Phase 1 (code arms, no re-extraction): DVS anchor-*ignore* (C29), bottom-k MIL,
+length-controlled eval. Phase 2 (corpus rebuild, fires **C2**). Phase 3 (probe →
+the backbone decision). All in `DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md` §6.
+
+---
+
+## 2026-09-08 — the DADA failure is attributed: a ruler scores 0.8654
+
+**No code changed.** Diagnosis only, from the `core/eda/` reports in
+`outputs/EDA/` plus a re-read of the 383 + 1,397 per-clip `.npz` curves already
+on disk. Written up in **`core/docs/DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md`**;
+two lessons added (**C28**, **C29**, both CRITICAL).
+
+### The finding
+
+The DADA arms are **clip classifiers, not frame detectors**, and three
+independent defects each force that outcome:
+
+1. **C28 — the corpus leaks its label through clip length.** Abnormal test clips
+   are **max 17** stride-8 frames; **all 107 clips with T >= 18 are normal**. A
+   constant-score-per-clip detector reading only `-T` scores **micro AUC
+   0.8654 / AP 0.2630** — within **0.0085** of the best trained arm (0.8739) and
+   ahead of four of the seven. This is a property of the **reconstructed**
+   DADA-2000 build (accident videos trimmed, normals full length), visible in
+   `eda_report.md` §1.4 as 7.0 vs 20.6 sampled frames per clip.
+2. **C27, extended — three whole-clip mixers, not one.** `RESULTS_DADA.md` §5
+   blames `ConvScoreHead` (kernel 9 >= median T 9). It is also
+   `TEMPORAL_WINDOW = 25` -> `half_window = 12`, so **every token is already a
+   function of every frame after transformer layer 1**. Nobody has changed
+   `temporal_window`; it is the largest of the three spans.
+3. **C29 — DVS labels the entire anchor clip positive.** `synthesis.py:83` sets
+   `pseudo[anchor_span] = 1.0` over the whole anchor and `supervised_loss` eats
+   it as a **dense** per-frame BCE. DADA abnormal clips are only **35.1 %**
+   truly positive, so **64.9 %** of anchor frames are trained to 1 against a 0
+   annotation. And **no term in the objective pushes any frame of an abnormal
+   clip down** (checked all four wired terms, `train.py:285-336`).
+
+### The numbers that settle it
+
+| | |
+|---|---|
+| micro, best arm (A2 s2025) | 0.8739 |
+| micro, **clip-mean removed** (A2 s2024) | **0.4943** — 100 % of micro is clip ranking |
+| clip-level AUC (per-clip mean vs clip label) | **0.9260** |
+| length-only detector | **0.8654** |
+| clip oracle (perfect ranking, zero localization) | 0.9086 |
+| pos / neg-in-abnormal / all-normal mean score | **0.4076 / 0.4078 / 0.0493** |
+| argmax frame is a true positive | **28.3 %** vs 35.1 % base rate (6 of 7 arms below chance) |
+
+`dvs_sup` converges 0.681 -> 0.027: the model fits the wrong pseudo-label
+almost perfectly.
+
+### The transfer story
+
+The arm that fits DADA **worst** transfers **best**: A0 KIP-off, clip-AUC 0.767,
+DoTA macro **0.6254**. A2 s2025, clip-AUC 0.934, DoTA macro **0.5086**. Textbook
+shortcut learning. (Spearman(clip-AUC, DoTA macro) = −0.39 across 7 arms,
+p = 0.38 — **suggestive only**, n is 7 single-seed arms.)
+
+### The plan (doc §6)
+
+Phase 0 reporting (zero GPU) -> Phase 1 code arms with no re-extraction
+(DVS anchor-ignore, bottom-k MIL, length-controlled eval) -> Phase 2 corpus
+rebuild: **fixed-length windows**, `frame_stride` 8->2, `score_head_kernel` 9->3,
+`temporal_window` 25->9, `mil_topk_pct` 16->8, new cache path (**fires C2** —
+invalidates every DADA number incl. all of `RESULTS_DADA.md`) -> Phase 3 re-run
+the probe. Pre-registered readings are in the doc; per lesson 14 nothing here is
+tuned against a delta.
+
+### Backbone question — answered: not yet, and not as a swap
+
+Asked directly by the user. Doc §7. On **DoTA** the frozen-CLIP frame probe
+(**0.6708** macro) already **beats every trained arm** (best 0.6254) — the
+deficit is supervision, not representation. On **DADA** the probe reads 0.5228,
+but it was measured under C28+C27 and is not admissible; feature statistics are
+indistinguishable from DoTA's (lag-1 cosine 0.963/0.965, B/W variance 2.72/3.19,
+419/512 dims). Three blockers on a swap: it voids the LaGoVAD claim and the C8b
+checkpoint gate; **VideoMAE has no text tower, so `H_mul` / `mul_mil` /
+`L_neg` silently die** — only a CLIP-aligned video model (ViCLIP, X-CLIP,
+InternVideo2-CLIP) preserves the definition conditioning; and it invalidates
+every cache in the project (C2/C13) while being measured *through* C27–C29.
+**Buy the answer instead:** a linear-probe A/B of video vs CLIP features on the
+DoTA test split (~1-2 GPU-h, no training), with a pre-registered decision rule
+(>= +0.10 macro -> adopt as a second stream; within ±0.03 -> keep CLIP). Free
+first step: a `Δf_t = f_t − f_{t−1}` stream from the **existing** cache.
+
+### `RESULTS_DADA.md` §10 status
+
+**§10-B (frame-level probe) is now run** — 0.5228 DADA / 0.6708 DoTA. §10-A
+(reporting fix) is specified but **not yet applied**. §10-C (stride 2 +
+kernel 3) is now Phase 2 and is justified. §10-D (`mlp_ste` NaN) still open.
+
+---
+
+## 2026-09-08 — `main` is the v1 branch; the memory bank now says so
 
 **No code changed.** This entry exists because the previous memory bank was the
 **v3** memory bank sitting on `main` — it described `ecmr.py`, four gate types,
@@ -39,7 +190,7 @@
 |---|---|
 | Python files | **79** — 54 source + 25 test |
 | Source LOC | **10,484** |
-| Tests | **418 collected: 418 pass, 0 fail** (green 2026-09-08) |
+| Tests | **423 collected: 423 pass, 0 fail** (418 at the time of this entry; +5 later the same day, Phase 0) |
 | KIP | v1: `pmg.py`, `gate_shift.py` (`KinematicShift`, frozen MLP gate), `motion_head.py`, `kip_module.py`, `losses.py` |
 | Adapters | MSAD, DoTA, PreVAD, **TAD**, **DADA-2000** — all present |
 | `core/eda/` | present (5 modules + `core/tools/eda.py` + `core/docs/EDA.md`) |
@@ -120,7 +271,7 @@ a fixed ~50 % smoother. Architecture work on the gate belongs on `v3`.
 green**, ruff / mypy / pyright / pycycle clean, CPU, data-free.
 
 **Why.** Every structural finding in `RESULTS_DADA.md` — the kernel-9 head over
-9-frame clips (**C27**), the 0.9069 clip oracle (**C12**), the 4 vanished
+9-frame clips (**C27**), the 0.9086 clip oracle (**C12**), the 4 vanished
 windows — was computable from `frame_labels_test.json` in seconds, and was
 instead discovered after a seven-arm campaign. The tool turns each into a
 pre-flight check. Lesson **27** gained an *Enforcement* clause naming it, and
@@ -171,7 +322,7 @@ the suspicion list came back clean and is written down so it is not re-checked:
 
 1. **`--strict` is a gate, not a repair** (`core/data/dada.py:417-432`). The 4
    vanished clips enter the *test* split with all-zero labels and read as
-   genuine normals, inflating both the micro AUC and the 0.9069 clip oracle.
+   genuine normals, inflating both the micro AUC and the 0.9086 clip oracle.
    `build_frame_labels` is test-only (`:557`) → **fixable with no retraining.**
 2. **`clip/DADA2000` does not record its transform.** Extraction ran
    `--no-center-crop`; every other cache in the project carries `_ncc`, and
@@ -245,7 +396,7 @@ runbook's "**Ordering inverts**" row.
 
 **2. The in-domain DADA 0.86 is a clip-level number, not a frame-level one.**
 74 % of the 5,244 test frames come from all-normal `0_Normal_Driving` clips, so a
-model emitting **one constant score per clip** scores **micro AUC 0.9069**. Best
+model emitting **one constant score per clip** scores **micro AUC 0.9086**. Best
 arm: A2 s2025 at **0.8739 — 96 % of that oracle** — with `auc_macro` **0.5716**.
 Every arm's `auc_macro` is 0.44–0.57, i.e. **chance**; A2b is 0.4399, *below* it.
 **No arm has demonstrated frame-level localization on DADA-2000.**
@@ -304,7 +455,7 @@ abandoning the frozen-CLIP WS-VAD baseline.
 
 ### Next on DADA (`RESULTS_DADA.md` §10)
 
-**A. Reporting fix** (zero GPU) — make `auc_macro` + the 0.9069 clip-oracle row
+**A. Reporting fix** (zero GPU) — make `auc_macro` + the 0.9086 clip-oracle row
 the DADA headline everywhere. **B. Frame-level linear probe** on the cached
 frozen-CLIP DADA features against the real frame labels — the decisive
 experiment, ~30 min, separates "frozen CLIP cannot represent an accident frame"

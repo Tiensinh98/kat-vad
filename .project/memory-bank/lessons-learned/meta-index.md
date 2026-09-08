@@ -92,7 +92,7 @@ positives: released `best.ckpt` scored 0.5055 raw vs 0.6142 min-max, published
 `auc_macro` beside the micro number. **Mirror case (2026-09-06):** when
 all-normal clips carry most of the frames, micro rewards pure clip
 classification — DADA-2000 is 74 % such frames and a constant-score-per-clip
-oracle scores **0.9069** there. Compute that oracle and print it beside micro.
+oracle scores **0.9086** there. Compute that oracle and print it beside micro.
 → `core/metrics.py:resolve_score_norm`, `core/evaluate.py`, `core/tools/rescore.py`
 
 ### C13 [HIGH] Transform — a checkpoint is bound to the preprocessing that trained it
@@ -178,6 +178,29 @@ the frozen gate is the only gate, so every KIP-on run on this branch is a fixed
 → `core/kip/gate_shift.py`, plan Appendix C
   (`core/tests/test_kip_gate_types.py` is **branch `v3` only**)
 
+### C28 [CRITICAL] Data — a corpus can leak its label through clip length
+The reconstructed DADA-2000 trims accident videos around the accident and keeps
+normal-driving videos full length: abnormal clips are **max 17** stride-8 frames,
+all **107** test clips with T >= 18 are normal. A detector reading only the frame
+count (constant score = `-T`) scores **micro AUC 0.8654** — within 0.009 of the
+best trained arm. Compute a length-only baseline **and** the constant-score-per-clip
+oracle for every new corpus and print both beside any micro AUC; rebuild into
+fixed-length windows if length is predictive. Distinct from C12 (metric artifact)
+and C27 (receptive field).
+→ `core/data/dada.py:403`, `core/docs/DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md` §2
+
+### C29 [CRITICAL] Losses — DVS marks the *whole* anchor clip positive
+`compose_sequence` sets `pseudo[anchor_span] = 1.0` across the entire anchor and
+`supervised_loss` consumes it as a dense per-frame BCE. Correct only if an
+abnormal clip is ~entirely anomalous. On DADA the mean positive fraction is
+**0.351**, so **64.9 %** of anchor frames are trained to 1 against a 0
+annotation — and **no term in the objective pushes any frame of an abnormal clip
+down**. Result: normal frames inside abnormal clips score 0.4078 vs positives
+0.4076 (gap −0.0002), a +0.359 clip offset, `auc_macro` 0.53, argmax
+localization below base rate. Measure the corpus's positive fraction before
+enabling DVS; make the anchor interior an *ignore* target when it is not ≈1.
+→ `core/data/synthesis.py:83`, `core/losses/dvs.py:16`, `core/train.py:295-302`
+
 ### C7 [MEDIUM] Deps — don't call library internals that drift
 The LR schedule is an in-house `LambdaLR` rather than
 `transformers.get_scheduler`, to avoid HF internal-API churn across versions.
@@ -220,6 +243,10 @@ The LR schedule is an in-house `LambdaLR` rather than
 | plan a campaign on a corpus nobody has profiled, or wonder whether a benchmark can support a frame-level claim at all | `core/docs/EDA.md` §1, §3; **C27**, **C12** |
 | ask whether a null result is the representation's fault or the supervision's | `core/docs/EDA.md` §3 (the linear probe), `RESULTS_DADA.md` §10-B |
 | read a micro AUC as a localization result, or compare one to a published frame-level number | **C27**, C12, C8b |
+| train on a **new corpus**, or accept a corpus someone else reconstructed/trimmed | **C28**, C27, C12 — compute the length-only baseline first |
+| enable DVS (`theta`, `delta_m`) on a corpus whose abnormal clips are not trimmed to the anomaly | **C29** |
+| wonder why `auc_macro` sits at chance while micro AUC looks strong | **C28**, **C29**, C27, C12, `core/docs/DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md` |
+| argue that the frozen-CLIP backbone is the bottleneck | `core/docs/DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md` §7 — run the probe A/B before spending; a VideoMAE swap voids `H_mul` and every cache (C2, C13) |
 | add or change a loss | C7, `core/docs/TRAINING.md` (deviations) |
 | load or map a checkpoint | C5, C15 |
 | add a field to a saved checkpoint, or hit `torch.load` failing on old artifacts | **C15** |
@@ -233,12 +260,12 @@ The LR schedule is an in-house `LambdaLR` rather than
 
 - **Experiment discipline:** C14, C16, C17
 - **Env / platform:** C1, C3, **C21**
-- **Data & caches:** C2, C9, C10, C11, C13, **C18**, **C20**, **C23**, **C25**, **C26**
+- **Data & caches:** C2, C9, C10, C11, C13, **C18**, **C20**, **C23**, **C25**, **C26**, **C28**
 - **Comparability / protocol:** C8, C8b, C12, C13
-- **Metrics:** C12, **C22**, **C27**
+- **Metrics:** C12, **C22**, **C27**, **C28**
 - **Supply chain:** C4
 - **Model loading:** C5, C15
-- **Porting discipline:** C6, C7, **C19**
+- **Porting discipline:** C6, C7, **C19**, **C29**
 - **Architecture / gradient flow:** **C24**, **C27**
 
 Full catalog: `index.md`. Candidates awaiting validation: `pending.md`.

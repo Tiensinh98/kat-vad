@@ -122,4 +122,4 @@ the current headline.
   clip classifier, not a frame detector (`RESULTS_DADA.md` §5).
 - **On any corpus with all-normal test clips, report `auc_macro` and the
   constant-score-per-clip oracle beside the micro AUC** — the mirror of lesson
-  C12. DADA's oracle is 0.9069.
+  C12. DADA's oracle is 0.9086.

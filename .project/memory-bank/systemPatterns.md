@@ -149,7 +149,7 @@ Added after the DoTA protocol failure (2026-08-08) and hardened since.
 - **The constant-score-per-clip oracle bounds what micro AUC can mean.** Micro
   fails in *both* directions, not just DoTA's. On a corpus with many all-normal
   test clips it rewards pure clip classification: DADA-2000 is 74 % all-normal
-  frames, and a model emitting one constant score per clip scores **0.9069**
+  frames, and a model emitting one constant score per clip scores **0.9086**
   there while localizing nothing. Compute that oracle from the label vector alone
   and print it beside the micro number; if a measured AUC is within a few points
   of it, there is no localization result. Mirror of lesson C12.

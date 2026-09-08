@@ -684,8 +684,12 @@ arm was measurably *below* it.
 
 ### The measurement that settled it
 A model emitting **one constant score per clip** — no localization whatsoever —
-scores micro AUC **0.9069** on this test split, because 3,880 of 5,244 test
-frames (74%) come from all-normal `0_Normal_Driving` clips. The best arm reached
+scores micro AUC **0.9086** on this test split, because 3,896 of 5,244 test
+frames (74%) come from clips that are all-normal.
+*(Corrected 2026-09-08 from 0.9069 / 3,880: the original used the
+`0_Normal_Driving` subgroup count, which omits the 16 frames of the four
+vanished-window clips — abnormal in `meta.json`, all-zero after stride-8
+rounding, therefore all-normal clips for every metric. See [[lesson-28]].)* The best arm reached
 0.8739, i.e. **96% of that oracle**. There was nothing left over for
 localization to explain.
 
@@ -748,3 +752,135 @@ sequence length at the configured stride, before training. Gate the run on
 failure), [[lesson-2]] (stride is part of the cache identity, so changing it to
 fix this invalidates every cached feature and every metric measured on it).
 
+
+---
+
+## 28. A corpus can leak its label through clip length
+
+### What happened
+The DADA-2000 build the project trains on is a **reconstruction**, not the
+original >100 GB release. While diagnosing why every arm's `auc_macro` sat at
+chance (2026-09-08), the per-clip score curves were re-read from disk and the
+clip *lengths* were tabulated against the clip labels. They are almost
+separable.
+
+### The measurement that settled it
+On the 383-clip test split (383 `.npz` files, `constant_s2024`):
+
+| | abnormal | normal |
+|---|---:|---:|
+| n | 191 | 192 |
+| median T (stride-8 frames) | **7** | **19** |
+| max / min T | **17** | 1 |
+| clips with T >= 18 | **0** | **107** |
+
+A detector whose only input is `T`, emitting the constant score `-T` for every
+frame of the clip:
+
+```
+micro AUC = 0.8654    micro AP = 0.2630    macro AUC = 0.5000 by construction
+```
+
+Best trained arm: micro **0.8739**. The ruler is 0.0085 behind it, and ahead of
+four of the seven arms. `outputs/EDA/DADA2000/eda_report.md` §1.4 shows it is a
+corpus property, not a split artifact: 7.0 sampled frames per `CarAccident` clip
+against 20.6 per `0_Normal_Driving` clip.
+
+### Root cause
+The reconstruction trims accident videos around the accident and leaves normal
+driving videos at full length. The model has access to the leak: the temporal
+encoder's band mask and RoPE positions are length-dependent
+(`core/models/temporal_encoder.py:238`) and `core/inference.py:95` scores each
+clip at its true length with no padding, so the shortcut is learnable at train
+time and exploitable at test time.
+
+### Why nothing caught it
+`core.tools.eda` profiles clip length and label geometry **separately** — it
+reports the median T and the clip-level oracle, but never crosses length against
+the label. The corpus loads, the model trains, the loss falls, and the headline
+micro AUC reads as a strong in-domain result.
+
+### Why it is not lesson 12 or 27
+C12 is a **metric** artifact (micro pooling over a skewed label distribution).
+C27 is an **architecture** artifact (receptive field >= clip). C28 is a
+**data** artifact: the corpus carries the label in a non-visual channel that
+survives every model change. All three were live simultaneously on DADA, which
+is why the failure was so hard to attribute.
+
+### The rule
+Compute a length-only constant-score baseline for every new corpus before
+training on it, print it beside every micro AUC from that corpus, and treat any
+arm that fails to beat it as unmeasured. Fix by rebuilding into fixed-length
+windows with the anomaly at a random offset.
+
+---
+
+## 29. DVS marks the whole anchor clip positive
+
+### What happened
+The user's report was specific: "the model doesn't score normal frames with a
+low score, it still scores them high as abnormal frames." Reading the loss
+wiring end to end (2026-09-08) found the mechanism, and it is not a training
+failure — it is what the objective asks for.
+
+### The code
+`core/data/synthesis.py:83`:
+
+```python
+pseudo = torch.zeros(len(features), dtype=torch.float32)
+if anchor_is_abnormal and fillers:
+    pseudo[start : start + len(anchor_features)] = 1.0   # the WHOLE anchor clip
+```
+
+consumed by a **dense per-frame BCE** at `pseudo_sup_weight = 1.0`
+(`core/losses/dvs.py:16`, wired `core/train.py:302`). The docstring calls this
+"the known-window supervision of spec §6.1" — which is true only when an
+abnormal clip is approximately all anomaly.
+
+### The measurement that settled it
+DADA-2000 abnormal clips have a mean true positive fraction of **0.351**
+(median 0.333), so the dense BCE trains **64.9 %** of the anchor's frames to 1
+against a 0 annotation. And it is the *densest* gradient in the objective — every
+frame counts, unlike `L_MIL`, which touches one.
+
+Reading all four wired terms (`core/train.py:285-336`), **no term pushes any
+frame of an abnormal clip toward 0**:
+
+| Term | abnormal clip | normal clip |
+|---|---|---|
+| `mil_loss` | top-k (k=1 on 90 % of DADA clips) -> 1 | top-k -> 0 (suppresses the whole clip) |
+| `supervised_loss` | *all* anchor frames -> 1 | all frames -> 0 |
+| `pseudo_sup_mil_loss` | top-k inside the anchor span -> 1 | top-k -> 0 |
+| `multi_class_mil_loss` | top-k -> `CarAccident` | top-k -> `Normal` |
+
+The loss is perfectly satisfied by a per-clip constant, and the run converges on
+exactly that: `dvs_sup` falls **0.681 -> 0.027** over 500 steps, and the trained
+arm scores
+
+```
+positives in abnormal clips        0.4076
+negatives in abnormal clips        0.4078   <- gap -0.0002
+frames in all-normal clips         0.0493   <- clip offset +0.359
+```
+
+`auc_macro` 0.5292; the argmax frame is a true positive in 28.3 % of abnormal
+clips against a 35.1 % base rate.
+
+### What is correct here
+The masking is right: `dvs_rows` (`core/train.py:295`) excludes un-synthesized
+abnormal rows, whose `y^p` is legitimately all-zero. The defect is the
+**semantics of the span**, not the row selection.
+
+### The fix
+Make the anchor interior an **ignore** target for the dense BCE — filler frames
+stay hard negatives, and `pseudo_sup_mil_loss`'s in-span top-k supplies the
+positive pressure it was already designed to supply. Ship it as a config arm
+(`loss.dvs_anchor_mode = span | ignore`) defaulting to today's behavior, so the
+MSAD and PreVAD numbers stay reproducible. Consider a bottom-k MIL term on
+abnormal clips as the general antidote to "no downward pressure inside a
+positive bag".
+
+### The rule
+Check the mean positive fraction of an abnormal clip before enabling DVS on a
+new corpus, and never let a dense frame-level BCE consume a span label that is
+known to be wider than the anomaly.
