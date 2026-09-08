@@ -1,6 +1,17 @@
 # Progress
 
-**Last updated:** 2026-09-06 (v3 attribution + TAD + DADA-2000; counts re-measured)
+**Last updated:** 2026-09-08 (branch identity recorded: this is `main` = KAT-VAD
+**v1**; counts and test status re-measured on this tree)
+
+> **Branch:** `main`, tip `6a5f648` — the **v1** line. The v3 gate rebuild is on
+> branch `v3` (tip `bb1516c`), which has its own memory bank. See
+> [[activeContext]] for the full v1-vs-v3 table.
+>
+> **Everything under "Headline" and "Evolution of decisions" was measured with
+> the `v3` branch's code and is kept here deliberately** — `outputs/` is
+> gitignored and `core/docs/v3/RESULTS_V3_GATE_ATTRIBUTION.md` does not exist on
+> `main`, so for this branch these paragraphs *are* the record. They are history,
+> not a description of this tree's code.
 
 ## What works — verified in this tree
 
@@ -14,16 +25,29 @@
 | 5 | Train / inference / evaluate / visualize CLIs, ckpt-compat loader, Colab guide, synthetic E2E incl. kill-and-resume | ✅ 10 E2E tests |
 | — | MSAD **full** benchmark support (11 classes, not just the traffic slice) | ✅ `b9978ff` |
 | — | **PreVAD preprocessor** (`core/data/prevad.py`) + 36-class v6 definitions | ✅ 2026-08-24, 38 tests |
-| — | **v3 KIP gate rebuild** — 4 selectable `gate_type`s (`rank`/`mlp_frozen`/`mlp_ste`/`constant`), ECMR, inference graph without 3e/3f, gate diagnostics in every score `.npz` | ✅ 2026-08-30 |
-| — | **TAD adapter** — `--with-train-split` (P1) + `raft_extract --frames-dir` (P2) | ✅ 2026-09-02, 467 tests |
-| — | **DADA-2000 adapter** (`core/data/dada.py`) — real seeded train/test split, `--flat-frames-dir` symlink farm | ✅ 2026-09-03/04, 497 tests |
+| — | ~~**v3 KIP gate rebuild**~~ — 4 selectable `gate_type`s, ECMR, inference graph without 3e/3f, gate diagnostics in every score `.npz` | ✅ 2026-08-30 **on branch `v3` only — NOT in this tree** |
+| — | **TAD adapter** — `--with-train-split` (P1) + `raft_extract --frames-dir` (P2) | ✅ 2026-09-02 (its 467-test figure is `v3`'s) |
+| — | **DADA-2000 adapter** (`core/data/dada.py`) — real seeded train/test split, `--flat-frames-dir` symlink farm | ✅ 2026-09-03/04 (its 497-test figure is `v3`'s) |
+| — | **`core/eda/` pre-flight profiler** — 5 modules + `core/tools/eda.py` + `core/docs/EDA.md`; verdicts for C27 / C12 / vanished windows, §4.2 frame-level linear probe | ✅ 2026-09-06, **present on `main`**. Never run on real data — needs the Drive caches |
 
-**497 tests passing**, data-free, CPU-only (verified 2026-09-06). 221 at the
+**Measured on `main`, 2026-09-08: 79 Python files (54 source + 25 test),
+10,484 source LOC. 425 tests collected → 413 pass, 12 fail.** Data-free, CPU-only.
+`outputs/**` holds **62,254** per-clip `.npz` score files (on the user's disk;
+gitignored).
+
+**The 12 failures are a branch artifact, not a regression.**
+`core/tests/test_dada.py::TestDadaTrainsUnderEveryGate` (5) and
+`core/tests/test_tad.py::TestTadTrainsUnderEveryGate` (7) parametrize their arm
+matrix over `kip.gate_type`, a **v3-only** config field; `core/config.py:207`
+raises `KeyError: 'Unknown config key: kip.gate_type'` by design. Fix = collapse
+those classes to the single v1 configuration on `main`, **not** a partial port of
+`gate_type` (which would also need `ecmr.py`, the STE shift and the
+diagnostics — 12 loud failures would become one silent wrong gate).
+
+Test-count history (the later figures are the **`v3`** branch's): 221 at the
 2026-07-31 init → 284 with the DoTA adapter, `core/metrics.py`, `rescore.py` and
-`feature_cache.py` → 322 with the PreVAD adapter → 434 with the v3 gate rebuild →
-467 with TAD → **497** with DADA-2000. **76 Python files (48 source + 28 test),
-9,413 source LOC + 6,547 test LOC ≈ 16.0k.** `core/train.py` is 633 lines.
-`outputs/**` now holds **62,254** per-clip `.npz` score files.
+`feature_cache.py` → 322 with the PreVAD adapter → *(v3 only)* 434 with the gate
+rebuild → 467 with TAD → 497 with DADA-2000 → 537 with `core/eda/`.
 
 ## Current status
 
@@ -77,6 +101,30 @@ arms). **No arm has shown frame-level localization on DADA-2000.**
 corpus cost**. 82 % of the gap is the method class — fully-supervised fine-tuned
 VideoMAE at 10 FPS vs weakly-supervised frozen CLIP at 3.75 FPS — not the run.
 
+### Results ledger — every number, and which branch's code produced it
+
+Kept verbatim so `main` never loses the campaign record. **Code column = the
+branch whose `core/` produced the checkpoint.** `outputs/` is gitignored, so
+these rows plus `core/docs/RESULTS_*.md` are all that survives.
+
+| Campaign | Trained on | Headline number | Code |
+|---|---|---|---|
+| **MSAD reproduction** (`RESULTS_MSAD.md`, 2026-08-01) | MSAD-full, seed 2024, center-crop | KIP-off **AUC 0.9052 / AP 0.7249**; KIP-on **0.9064 / 0.7334**; released `best.ckpt` **0.8991 / 0.6811**; paper 0.9041 | **v1** |
+| **DoTA protocol fix** (`RESULTS_DOTA.md`, 2026-08-08) | — (eval only) | `best.ckpt` **0.5055 raw vs 0.6142 per-clip min-max**, published 0.6260 → pooling is decided by the label distribution (C12) | **v1** |
+| **`no_center_crop` rebuild** (`RESULTS_NCC.md`, 2026-08-12) | MSAD_ncc, seed 2024 | MSAD: off **0.8922**/AP 0.6587, on 0.8868/0.6574, `gate_a` 0.8949. DoTA_ncc: off **0.5607** (macro 0.5638), on **0.6519** (0.6746), `gate_a` 0.6012 | **v1** |
+| **Phase A, 3 seeds** (`RESULTS_PHASE_A.md`, 2026-08-16) | MSAD_ncc ×3 | DoTA Δ(on−off) **+0.0915 ± 0.0088**, 9/9 CIs exclude zero; MSAD null in all three; gate (b) re-stated against `best.ckpt` and **passes** | **v1** |
+| **Arm 4 + trajectory probe** (`RESULTS_ARM4_PROBE.md`, 2026-08-19) | MSAD_ncc ×3 | Δ vs warm-started KIP-off **+0.0988 ± 0.0148** (no shrinkage → warm-start confound closed); KIP-off flat 0.559–0.561 over a 33× `mil` range → **H3 rejected** | **v1** |
+| **PreVAD** (`RESULTS_PREVAD.md`) | — | Gate P0 defined; **KIP-on is unbuildable** (features only, no pixels) | **v1** |
+| **v3 gate attribution** (`RESULTS_V3_GATE_ATTRIBUTION.md`, 2026-09-01) — *doc absent on `main`* | MSAD-full, A2 ×3 seeds | **A2 (fixed 50 % shift, no flow/PMG/KIP-losses) ≡ full v1 KIP**: Δ = **+0.0109**, t95 **[−0.0588, +0.0805]**, 6/6 metrics include zero. **A2 − A0 = +0.1025 ± 0.0350**, t95 [+0.0154, +0.1896]. Archived V1 arm reproduces at **+0.0916 ± 0.0087**. **A1 (rank) − A2 = −0.0683**, CI [−0.0790, −0.0580]. **A2b − A2 = −0.0105** | **v3** |
+| **DADA-2000** (`v3/RESULTS_DADA.md`, 2026-09-06) — *doc present on `main`* | DADA-2000, 7 arms | Zero-shot DoTA **A2 − A0 = −0.0918** (2nd seed −0.1089) and **A1 − A2 = +0.0300** — *both signs inverted vs MSAD*. In-domain best **0.8739 micro** vs a **0.9069** constant-per-clip oracle, `auc_macro` **0.44–0.57 (chance)**. Spearman(flatness, DoTA micro) = **−0.82** | **v3** |
+| **Method-class gap** (2026-09-06) | — | SimpleTAD DADA→DoTA **80.3** vs our best-ever DoTA **0.6423**: **0.161 method ceiling + 0.035 corpus cost → 82 % is the method class** | — |
+
+**The two sentences that outlive every number:** *KIP's measured contribution is
+temporal smoothing*, and *a component whose sign flips with training clip length
+is a smoothing hyperparameter, not a motion mechanism.* On `main` this is not an
+abstract caveat — v1 **has no gate other than the frozen MLP**, so every KIP-on
+run on this branch is that fixed ~50 % shift by construction.
+
 ### Historical framing (2026-08-25, controls still valid, interpretation dead)
 
 On `no_center_crop` features, KIP-on beat KIP-off on DoTA (zero-shot from MSAD)
@@ -123,6 +171,24 @@ attributed it to any part of KIP:
   +0.09 on a within-clip localization benchmark is what a smoother buys.
 
 ## What's left
+
+### Branch hygiene on `main` (new 2026-09-08)
+- [ ] **Green the suite on `main`** — collapse `TestDadaTrainsUnderEveryGate` /
+      `TestTadTrainsUnderEveryGate` to the single v1 configuration (or mark the
+      v3 params `skipif` on absence of `kip.gate_type`). 12 failures → 0, no
+      coverage lost for the adapters themselves.
+- [ ] **Decide what `main` is allowed to grow into.** Current intent: `main`
+      stays v1 and owns the v1 story; gate architecture happens on `v3`. If that
+      changes, the port is `ecmr.py` + `gate_type` + the STE shift + diagnostics
+      **together**, never piecemeal.
+- [ ] **Cross-branch merge discipline.** `.ai-workflow/CLAUDE.md` and
+      `.ai-workflow/.project/memory-bank/*` are tracked and have deliberately
+      diverged; any `main`↔`v3` merge conflicts there must be resolved by branch
+      identity, not by "take theirs".
+- [ ] **The campaign notebooks are untracked on `main`.** `colab/` is gitignored
+      after the `collab/` → `colab/` rename, so `colab/{MSAD,DADA}/v3/train.py`
+      — the code that actually ran the arms — is not in git here. Decide whether
+      to whitelist `colab/**/*.py` or accept Drive as their only home.
 
 ### Immediate
 - [x] Record real MSAD metrics at `b9978ff` → **`core/docs/RESULTS_MSAD.md`**
@@ -248,6 +314,7 @@ attributed it to any part of KIP:
 | ~~Extraction transform differs from the baseline's `no_center_crop`~~ | `core/tools/extract_clip_features.py` (`--no-center-crop`) | **Resolved 2026-08-12** — pipeline moved to `no_center_crop` for internal field-of-view consistency between the appearance and flow branches (lesson 13), *not* for baseline parity (refuted, pending P1). All current results are `_ncc`. |
 | Checkpoints carry a pickled numpy RNG state | `core/train.py:389` (`_rng_payload`) | Artifacts stop loading when the runtime's numpy major version drifts (lesson 15). Worked around per `COLAB.md` §A4.0; fix deferred while arms are compared. |
 | Step checkpoints are spaced uniformly in steps, not in loss | `train.checkpoint_every_steps` | A trajectory probe cannot sample the early, high-loss part of training (lesson 16). Cost the A5 probe its low-convergence segment. |
+| **12 tests fail on `main`** | `core/tests/test_{dada,tad}.py::TestXTrainsUnderEveryGate` | The gate matrix is parametrized over `kip.gate_type`, a **v3-only** config field, so `core/config.py:207` raises `KeyError`. 425 collected → 413 pass. Branch artifact, not a regression; fix by collapsing the matrix to the v1 configuration on `main`. Never port `gate_type` alone. |
 | MPS training diverges on torch 2.4 | `core/train.py`, documented in `core/docs/TRAINING.md` | Local training must pin `train.device=cpu` |
 | **Score head's kernel spans a short clip** | `core/models/heads.py:21` (`ConvScoreHead`, `kernel_size=9`) | On DADA-2000 (median T = 9) every output timestep sees the whole clip, so the detector is structurally a **clip classifier**: flat curves, `auc_macro` at chance, inflated micro AUC. MSAD (T = 86) is unaffected, DoTA (T = 13) partly. Check `score_head_kernel` against a corpus's median length before training on it (`RESULTS_DADA.md` §5). |
 | **`mlp_ste` trains through NaNs under AMP** | `core/kip/gate_shift.py:99` (`shift_channels_straight_through`) | 33 of 500 steps NaN in `mil`/`mul_mil` on the DADA arm, over 17 of 20 epochs, while `kip_rec`/`kip_align` stay finite; no other arm at the same seed/batch/data. A4's DADA row is unreportable. Not root-caused (2026-09-06). |
@@ -310,3 +377,11 @@ attributed it to any part of KIP:
   the released features train a KIP-off trunk with no video and no flow, so the
   A/B can run on MSAD where flow exists. Answers the 1.5 %-of-design-point
   external-validity threat without waiting for raw video.
+
+- **2026-09-08** — **the branches are given separate identities.** `main` is the
+  **v1** line (frozen-MLP gate; all dataset adapters; `core/eda/`), `v3` is the
+  gate rebuild. The memory bank is tracked per branch and the two copies now
+  differ on purpose. Consequence adopted: **a result is recorded with the branch
+  whose code produced it** (see the results ledger above), because
+  `RESULTS_V3_GATE_ATTRIBUTION.md` does not exist on `main` and the numbers would
+  otherwise be lost to this branch entirely.

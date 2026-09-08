@@ -295,3 +295,31 @@ exists twice, but only DADA has produced a corrupted number so far.
 repair must be written separately and named (here: emit the vanished ids to a
 file and exclude them at scoring). Never record "flag X was not set" as if
 setting it were the fix.
+
+---
+
+## A fact about "the tree" is a fact about *a branch* (2026-09-08)
+
+**Observation:** `main` and `v3` diverged at `fac71a3`. The memory bank, the
+lesson catalog and `CLAUDE.md` were all committed to **both** branches with
+identical content, so on `main` they described `core/kip/ecmr.py`, four
+`gate_type`s, "84 Python files" and "537 tests green" — **none of which exist
+there**. The tree measured 79 files, 10,484 source LOC, and **12 failing tests**
+(`test_{dada,tad}.py::TestXTrainsUnderEveryGate`, `KeyError: 'Unknown config
+key: kip.gate_type'`). Two shipped runbooks on `main`
+(`v3/setup/{DADA,TAD}_V3_SETUP.md`) prescribe six arms that cannot parse on the
+branch that carries them. Nothing warned: docs and tests travel with a merge,
+config fields do not.
+
+**Why it is not yet a lesson:** gate 3 (RECURRING) — one occurrence so far. It is
+one branch split, though a costly one: the failure mode is a session planning
+against a component that is not in its own tree. A second divergence (or a
+merge that silently reunites the two memory banks) promotes it.
+
+**Candidate rule:** State the branch beside any count, file list or config flag a
+memory bank asserts, and re-measure them after a checkout rather than trusting
+the committed text. Before running a documented command, grep the flag in
+`core/config.py` **on the current branch**. Related: [[lesson-17]] (a run must
+record every flag that defines what it is) and the runbook-path candidate above —
+the same failure at the branch level.
+

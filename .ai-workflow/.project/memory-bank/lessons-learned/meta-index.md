@@ -5,6 +5,9 @@ discarded on the user's instruction; every lesson below was re-derived by
 reading this tree, with a file:line citation. Load this file before every
 IMPLEMENTATION or DEBUG task (~400 tokens).
 
+**Branch:** this is the `main` = **KAT-VAD v1** copy. Every lesson holds on both
+branches; only C24's *remedy* differs (see its last line).
+
 ## Critical lessons (inline — read every time)
 
 ### C1 [CRITICAL] Env — faiss must be single-threaded after torch is imported
@@ -169,7 +172,11 @@ Three campaigns called a fixed ~50 % smoother "motion-gated adaptive mixing".
 The obvious STE fix `s = u + (u.floor()-u).detach()` is a **no-op** — `s` is only
 read inside `channel < s`, and a comparison passes no gradient; apply the
 estimator to the selection *weights* instead.
-→ `core/kip/gate_shift.py`, `core/tests/test_kip_gate_types.py`, plan Appendix C
+**On `main` (v1) the fix is not applied and there is no `gate_type` to switch:**
+the frozen gate is the only gate, so every KIP-on run on this branch is a fixed
+~50 % shift. The four-gate rebuild lives on branch `v3`.
+→ `core/kip/gate_shift.py`, plan Appendix C
+  (`core/tests/test_kip_gate_types.py` is **branch `v3` only**)
 
 ### C7 [MEDIUM] Deps — don't call library internals that drift
 The LR schedule is an in-house `LambdaLR` rather than
@@ -205,7 +212,10 @@ The LR schedule is an in-house `LambdaLR` rather than
 | write `floor`/`round`/`argsort`/`argmax`/`topk`/`.long()` anywhere a gradient must pass | **C24** |
 | add a module you will describe as *learned*, *adaptive*, or *gated* | **C24** |
 | implement or review a straight-through estimator | **C24** |
-| set or change `kip.gate_type`, or read `s_t` | **C24**, `core/docs/TRAINING.md` (the KIP gate) |
+| set or change `kip.gate_type`, or read `s_t` | **C24**, `core/docs/TRAINING.md` (the KIP gate) — and note `gate_type` **does not exist on `main`** |
+| copy a command out of any `*_SETUP.md` runbook | check the flag exists in `core/config.py` **on this branch** first — the v3 arm ladders fail at parse on `main` (`KeyError: kip.gate_type`) |
+| wonder why 12 tests fail, or plan to "fix" `core/config.py` | [[activeContext]] branch section — it is the v3 gate matrix on a v1 tree, not a regression |
+| merge, rebase or cherry-pick between `main` and `v3` | [[activeContext]] — the memory bank and `CLAUDE.md` diverged **on purpose**; resolve by branch identity |
 | train on a **new corpus**, or change `frame_stride` / `score_head_kernel` / `temporal_window` / MIL top-k | **C27**, C2, `core/docs/v3/RESULTS_DADA.md` — and run `core.tools.eda` first (`core/docs/EDA.md`) |
 | plan a campaign on a corpus nobody has profiled, or wonder whether a benchmark can support a frame-level claim at all | `core/docs/EDA.md` §1, §3; **C27**, **C12** |
 | ask whether a null result is the representation's fault or the supervision's | `core/docs/EDA.md` §3 (the linear probe), `RESULTS_DADA.md` §10-B |

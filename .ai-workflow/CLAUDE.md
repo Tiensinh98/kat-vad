@@ -543,6 +543,22 @@ codebase-memory-mcp cli index_repository '{"repo_path": "/path/to/your-project"}
 
 **KAT-VAD** (Kinematics-Aware, definition-conditioned Traffic VAD) = the **LaGoVAD** weakly-supervised, language-definition-conditioned baseline **+** a novel **Kinematic Induction Pathway (KIP)** that induces optical-flow motion evidence at train time (RGB-only at inference) to close LaGoVAD's one weakness: no motion modeling (its lowest score is on the motion-dominated DoTA benchmark).
 
+### 14.0.1 WHICH BRANCH AM I ON? (READ FIRST — the tree differs)
+
+The repository carries **two live branches with different KIP code**. They share
+history up to `fac71a3`; the memory bank under `.project/memory-bank/` is tracked
+**per branch**, so the one you just loaded describes *this* branch only.
+
+| Branch | What the code is | KIP gate | Tests |
+| --- | --- | --- | --- |
+| **`main` (tip `6a5f648`)** | **KAT-VAD v1** — the original KIP: `PMGFlowHead` + `KinematicShift` (frozen 321-param MLP gate) + `MotionScoreHead`. Plus the DoTA / PreVAD / TAD / DADA adapters and `core/eda/`. | **v1 only.** No `kip.gate_type`, no `core/kip/ecmr.py`, no gate diagnostics, no train-only inference graph. | 425 collected, **413 pass / 12 fail** (see §14.5) |
+| **`v3` (tip `bb1516c`)** | v1 **+** the 2026-08-30 gate rebuild: four selectable `gate_type`s (`rank`/`mlp_frozen`/`mlp_ste`/`constant`), ECMR, `train_only_modules`, `--dump-kip-diag`. | v3, default `rank`. | 537 green |
+
+**Run `git branch --show-current` before acting on anything in §14.5.** Writing
+v3 code on `main` or v1 code on `v3` is the single easiest way to waste a day.
+**All measured results below were produced by the v3 branch's code** and are kept
+here because they are the project's durable record — `outputs/` is gitignored.
+
 ## 14.1 Source-of-Truth Docs (follow strictly — read before any code)
 
 | Doc | What it gives you | Read when |
@@ -551,12 +567,12 @@ codebase-memory-mcp cli index_repository '{"repo_path": "/path/to/your-project"}
 | `core/docs/KAT_VAD_IMPLEMENTATION_SPEC.md` | The "what/how": exact modules, per-step tensor shapes, losses, training/inference/eval, config flags, build order. | Writing or modifying any code |
 | `core/docs/REPORT_KIP_MSAD_DOTA_PREVAD.md` | The measured campaign write-up (renamed 2026-08-29). §12 = PreVAD trunk campaign. | Before citing any number |
 | `core/docs/RESULTS_PREVAD.md` | Gate P0, the PreVAD trunk, and why its KIP A/B is blocked. | Before touching PreVAD |
-| `core/docs/v3/KAT-VAD-ARCHITECTURE.md` | **The architecture, phase by phase**: input, output and intuition for P1–P7. Start here for "what is the model". | Understanding or changing the model |
-| `core/docs/v3/KAT-VAD_spec_v3.md` | **Current spec.** Changes A–K, each tied to a measured defect. Supersedes v2. | Before any architectural change |
-| `core/docs/v3/RESULTS_V3_GATE_ATTRIBUTION.md` | **The attribution result** (2026-09-01, MSAD-trained): the plain-TSM control reproduces the whole +0.09. | Before claiming KIP does anything |
+| `core/docs/v3/KAT-VAD-ARCHITECTURE.md` **(v3 branch only — absent on `main`)** | **The architecture, phase by phase**: input, output and intuition for P1–P7. Start here for "what is the model". | Understanding or changing the model |
+| `core/docs/v3/KAT-VAD_spec_v3.md` **(v3 branch only — absent on `main`)** | **Current spec.** Changes A–K, each tied to a measured defect. Supersedes v2. | Before any architectural change |
+| `core/docs/v3/RESULTS_V3_GATE_ATTRIBUTION.md` **(v3 branch only — on `main` the numbers survive ONLY in `.project/memory-bank/`)** | **The attribution result** (2026-09-01, MSAD-trained): the plain-TSM control reproduces the whole +0.09. | Before claiming KIP does anything |
 | `core/docs/v3/RESULTS_DADA.md` | **The DADA-2000 campaign** (2026-09-06): the ordering inverts, and the in-domain 0.86 is a clip-level number. | Before quoting any DADA number |
-| `core/docs/v3/KAT-VAD_audit_addendum_PreVAD.md` | Audit of the PreVAD campaign: what is valid, the attribution queue. | Before designing an experiment |
-| `core/docs/{TAD,DADA}_SETUP.md` + `core/docs/v3/setup/*.md` | Per-corpus data and arm runbooks (MSAD/DoTA, TAD, DADA-2000). | Before running a campaign |
+| `core/docs/v3/KAT-VAD_audit_addendum_PreVAD.md` **(v3 branch only)** | Audit of the PreVAD campaign: what is valid, the attribution queue. | Before designing an experiment |
+| `core/docs/{TAD,DADA,PREVAD}_SETUP.md` + `core/docs/EDA.md` + `core/docs/v3/setup/*.md` | Per-corpus data and arm runbooks. On `main` only `v3/setup/{DADA,TAD}_V3_SETUP.md` exist, and **their arm matrices prescribe `kip.gate_type`, which `main` cannot parse** — run those arms on `v3`. | Before running a campaign |
 | ~~`core/docs/v2/*`~~ | **Does not exist in this tree.** v3 was written to supersede it; the v2 files were never committed here. Do not cite them. | — |
 | `.project/plans/katvad-v3-kip-gate-rebuild.md` | **The live plan.** v3 Phase-3 rebuild, Phases 0–5 with measured appendices A–E. | **Start here for "what next"** |
 | ~~`.project/plans/katvad-v2-next-steps.md`~~ | **Does not exist in this tree** (same as the `v2/` docs). The v2 attribution tiers survive only as prose in `activeContext.md`. Do not cite it. | — |
@@ -609,21 +625,23 @@ Notation: `L` = sampled frames (variable), `D = 512` hidden size, `C` = #categor
 
 The **only splice** into LaGoVAD's forward pass: insert KIP between the temporal encoder and fusion, then route `v^k` (not `v^t`) into fusion `U` and `H_bin` (spec §6).
 
-## 14.5 Where the project stands (2026-09-06)
+## 14.5 Where the project stands (2026-09-08 — branch `main` = KAT-VAD **v1**)
 
-**Baseline of truth = commit `b9978ff`** ("feat: Include training/testing for MSAD full"). Treat it as the known-good state; change it deliberately, never incidentally. HEAD is `30a32eb`, branch `v3`.
+**Baseline of truth = commit `b9978ff`** ("feat: Include training/testing for MSAD full"). Treat it as the known-good state; change it deliberately, never incidentally. **This branch is `main`, tip `6a5f648` — the v1 line.** The v3 gate rebuild lives on branch `v3` (tip `bb1516c`); the two diverged at `fac71a3`. See §14.0.1.
 
-- **Code:** Phases 0–6 complete + DoTA zero-shot adapter, the offline metrics/rescore layer, the PreVAD preprocessor, the **v3 KIP gate rebuild** (four selectable `gate_type`s, the inference graph without 3e/3f, gate diagnostics in every score `.npz`), plus the **TAD** (2026-09-02) and **DADA-2000** (2026-09-03/04) adapters. **76 Python files (48 source + 28 test), 9,413 source LOC, 497 tests green** on CPU, data-free.
-- **Result — the +0.09 is attributed, and it is not motion.** MSAD-trained, zero-shot DoTA: **A2**, a fixed 50 % channel shift with no flow, no PMG head and no KIP losses, is statistically **indistinguishable from full v1 KIP** (Δ = +0.0109, t95 [−0.0588, +0.0805], n=3) while A2 − A0 = **+0.1025 ± 0.0350**. **KIP's measured contribution is temporal smoothing** (`RESULTS_V3_GATE_ATTRIBUTION.md`, 2026-09-01). The v3 `rank` gate is the *worst* KIP arm there (A1 − A2 = −0.0683). **MSAD stays a bounded null** — "any in-domain effect is < ≈1 AUC point at n=3", not "costs nothing".
+- **Code on `main` (v1):** Phases 0–6 complete + DoTA zero-shot adapter, the offline metrics/rescore layer, the PreVAD preprocessor, the **TAD** (2026-09-02) and **DADA-2000** (2026-09-03/04) adapters, and the **`core/eda/` pre-flight profiler** (2026-09-06). KIP is the **v1** module: `PMGFlowHead` → `KinematicShift` (frozen 321-param MLP gate) → `MotionScoreHead`. **79 Python files (54 source + 25 test), 10,484 source LOC** (measured 2026-09-08), CPU, data-free.
+- **NOT on `main` (v3 branch only):** `kip.gate_type` (`rank`/`mlp_frozen`/`mlp_ste`/`constant`), `core/kip/ecmr.py`, `train_only_modules`, `--dump-kip-diag`, the gate-type checkpoint guard, and the docs `v3/{KAT-VAD-ARCHITECTURE,KAT-VAD_spec_v3,RESULTS_V3_GATE_ATTRIBUTION,KAT-VAD_audit_addendum_PreVAD}.md` + `v3/setup/MSAD_DOTA_V3_SETUP.md`.
+- **`main` has 12 failing tests, and they are a known branch artifact.** `core/tests/test_{dada,tad}.py::TestXTrainsUnderEveryGate` were written on the v3 branch and parametrize over `kip.gate_type`; `core/config.py:207` raises `KeyError: Unknown config key: kip.gate_type` because v1 has no such field. **425 collected → 413 pass, 12 fail.** Nothing else fails. Fix = drop/skip the gate matrix on `main`, or port the v3 gate over. Do not read this as a data or model regression.
+- **Result — the +0.09 is attributed, and it is not motion.** *(Measured with the `v3` branch's code; kept here because it is the project's durable record. `main` cannot re-run the A1/A2/A3/A4 arms — no `gate_type`.)* MSAD-trained, zero-shot DoTA: **A2**, a fixed 50 % channel shift with no flow, no PMG head and no KIP losses, is statistically **indistinguishable from full v1 KIP** (Δ = +0.0109, t95 [−0.0588, +0.0805], n=3) while A2 − A0 = **+0.1025 ± 0.0350**. **KIP's measured contribution is temporal smoothing** (`RESULTS_V3_GATE_ATTRIBUTION.md`, 2026-09-01). The v3 `rank` gate is the *worst* KIP arm there (A1 − A2 = −0.0683) — and it does not exist on `main`. **MSAD stays a bounded null** — "any in-domain effect is < ≈1 AUC point at n=3", not "costs nothing".
 - **The smoother's sign depends on the training corpus.** On DADA-2000 (2026-09-06) the pre-registered ordering **inverts**: A2 − A0 = **−0.0918** on zero-shot DoTA and A1 − A2 = **+0.0300** — both signs flipped versus MSAD, confirmed by a second A2 seed. Mechanism: DADA's median clip is **9 stride-8 frames** under a `Conv1d(kernel=9)` score head, so the shift collapses the curve to a per-clip constant. A component whose sign flips with training clip length is a smoothing hyperparameter, not a motion mechanism. Ego-kinematics stays refuted (10/10 arm-seeds); H4′ CONFIRMED.
 - **Three tracks are live.** (1) **TAD replication** — code + runbooks shipped 2026-09-02, **nothing trained yet**; next is Gate T0 against `TAD_ZERO_SHOT_AUC = 89.56`. (2) **DADA-2000** — campaign **run and analysed**; open follow-ups are the frame-level linear probe (§10 of `RESULTS_DADA.md`) and the `mlp_ste` NaN defect. (3) **PreVAD trunk transfer** — `PREVAD_SETUP.md`, code prerequisites landed 2026-08-24, next step is Gate P0. **PreVAD can never host a KIP-on arm.**
-- **Evidence, in measurement order:** `RESULTS_MSAD` → `RESULTS_DOTA` → `RESULTS_NCC` → `RESULTS_PHASE_A` → `RESULTS_ARM4_PROBE` → `RESULTS_PREVAD` → **`v3/RESULTS_V3_GATE_ATTRIBUTION`** → **`v3/RESULTS_DADA`**, plus `REPORT_KIP_MSAD_DOTA_PREVAD.md` and the `v3/` spec trio. **`outputs/` is gitignored**, so those documents are the only durable record; the **62,254** per-clip `.npz` score files live on the user's disk/Drive.
+- **Evidence, in measurement order:** `RESULTS_MSAD` → `RESULTS_DOTA` → `RESULTS_NCC` → `RESULTS_PHASE_A` → `RESULTS_ARM4_PROBE` → `RESULTS_PREVAD` → **`v3/RESULTS_V3_GATE_ATTRIBUTION`** → **`v3/RESULTS_DADA`**, plus `REPORT_KIP_MSAD_DOTA_PREVAD.md` (and, on branch `v3`, the spec trio). **`outputs/` is gitignored**, so those documents are the only durable record — and on `main`, where `RESULTS_V3_GATE_ATTRIBUTION.md` is absent, `.project/memory-bank/{progress,activeContext}.md` is that record; the **62,254** per-clip `.npz` score files live on the user's disk/Drive.
 
 Detail lives in `.project/memory-bank/{activeContext,progress}.md` — read those, not this section, before acting.
 
 ### 14.5.1 Things not to get wrong
 
-- **The v1 gate MLP is never trained, and H4′ is now CONFIRMED.** `(ratio * max_shift).floor().long()` kills the gradient — all 6 tensors get `grad is None`. Worse, the gate is *measurably* near-constant: its input is min-max normalized, so `[0,1]` is the whole reachable domain, and sweeping it moves `s_t` by **0–4 channels out of 128** across 8 seeds (seed 0: exactly 0). **v1's "motion-gated adaptive temporal shift" was, in operation, a fixed ~50 % shift at `s ≈ 58–69`.** Never write "motion-gated" of `gate_type="mlp_frozen"`. Measured 2026-08-30, plan Appendix C. The v3 **rank gate** (`gate_type="rank"`, the default) spans the full `[0, 128]` on every clip and is parameter-free.
+- **The v1 gate MLP is never trained, and H4′ is now CONFIRMED.** `(ratio * max_shift).floor().long()` kills the gradient — all 6 tensors get `grad is None`. Worse, the gate is *measurably* near-constant: its input is min-max normalized, so `[0,1]` is the whole reachable domain, and sweeping it moves `s_t` by **0–4 channels out of 128** across 8 seeds (seed 0: exactly 0). **v1's "motion-gated adaptive temporal shift" was, in operation, a fixed ~50 % shift at `s ≈ 58–69`.** Never write "motion-gated" of `gate_type="mlp_frozen"`. Measured 2026-08-30, plan Appendix C. The v3 **rank gate** (`gate_type="rank"`, the default *on branch `v3`*) spans the full `[0, 128]` on every clip and is parameter-free. **On `main` there is no `gate_type` at all: the frozen-MLP gate is the only gate, so every KIP-on run on this branch is a fixed ~50 % shift by construction.**
 - **A feature cache is bound to the transform and stride that built it** (lesson 2/13). The pipeline is on `no_center_crop`; all current artifacts are `*_ncc`. Changing `preprocess_frames` or `FRAME_STRIDE` invalidates every cached feature *and every metric measured on it*.
 - **Pooling is decided by the label distribution, not the dataset name** (lesson 12). DoTA is ~all-abnormal → per-clip min-max; MSAD/PreVAD → raw. Mixing the two protocols in one table is how a released checkpoint reads as chance.
 - **A score head whose kernel spans the clip is a clip classifier.** `ConvScoreHead` is one `Conv1d(512→1, kernel_size=9)`; DADA-2000's median clip is **9** stride-8 frames (MSAD 86, DoTA 13), so every output timestep sees the whole clip. Result: flat curves, `auc_macro` at chance, and a micro AUC that is really video classification. **Check `score_head_kernel` against a new corpus's median sequence length before training on it.** (`RESULTS_DADA.md` §5.)
@@ -635,6 +653,8 @@ Detail lives in `.project/memory-bank/{activeContext,progress}.md` — read thos
   workaround (it trains the PMG head to predict zeros). Settled 2026-08-29 —
   do not reopen. PreVAD = KIP-off trunk + Gate P0 only (`PREVAD_SETUP.md` §7.4).
 - **`LaGoVAD-PreVAD/` is read-only**, and gate against the released checkpoint, not the paper's printed number (lesson 8b).
+- **A runbook on `main` is not runnable on `main` just because the file is there.** `core/docs/v3/setup/{DADA,TAD}_V3_SETUP.md` prescribe six arms keyed on `kip.gate_type`; this branch parses none of them. Check the flag exists in `core/config.py` before copy-pasting a runbook command.
+- **The memory bank is tracked per branch and the two copies have deliberately diverged** (`main` = v1, `v3` = v3). A `git merge` between them **will** conflict in `.ai-workflow/{CLAUDE.md,.project/memory-bank/*}` — resolve by branch identity, never by "take theirs".
 
 ## 14.6 Delivery Requirements
 

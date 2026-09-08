@@ -1,9 +1,112 @@
 # Active Context
 
-**Last Memory Bank Update:** 2026-09-06 (EDA package shipped; notebook audit;
-both DADA runbooks rewritten to as-run paths)
+> ## ⚠️ BRANCH IDENTITY — READ BEFORE ANYTHING ELSE
+>
+> **This memory bank is the `main` branch's copy, and `main` is KAT-VAD **v1**.**
+> The v3 KIP gate rebuild is **not** in this tree; it lives on branch **`v3`**,
+> which carries its own copy of this file. The memory bank is git-tracked per
+> branch and the two copies have **deliberately diverged** — never resolve a
+> merge between them with "take theirs".
+>
+> | | `main` (this branch) | `v3` |
+> |---|---|---|
+> | tip | `6a5f648` | `bb1516c` |
+> | diverged at | `fac71a3` ("docs: Update result for PreVAD") | same |
+> | KIP | **v1 only** — `PMGFlowHead` → `KinematicShift` (frozen 321-param MLP gate) → `MotionScoreHead` | v1 **+** four selectable `gate_type`s, ECMR, gate diagnostics |
+> | `kip.gate_type` | **does not exist** (`core/config.py` raises `KeyError`) | `rank` (default) / `mlp_frozen` / `mlp_ste` / `constant` |
+> | `core/kip/ecmr.py` | absent | present |
+> | `train_only_modules`, `--dump-kip-diag` | absent | present |
+> | tests | **425 collected → 413 pass, 12 fail** (see below) | 537 green |
+>
+> **Every measured result recorded below was produced by the `v3` branch's code.**
+> They are kept here on purpose: `outputs/` is gitignored and
+> `core/docs/v3/RESULTS_V3_GATE_ATTRIBUTION.md` **is absent on `main`**, so for
+> this branch *this file and `progress.md` are the only durable record of the
+> attribution campaign*. Do not delete them; do not re-run those arms here.
 
-## 2026-09-06 (latest) — `core/eda/` shipped: measure the corpus before the campaign
+**Last Memory Bank Update:** 2026-09-08 (branch split recorded: `main` = v1,
+`v3` = v3; all counts re-measured on this tree)
+
+## 2026-09-08 (latest) — `main` is the v1 branch; the memory bank now says so
+
+**No code changed.** This entry exists because the previous memory bank was the
+**v3** memory bank sitting on `main` — it described `ecmr.py`, four gate types,
+84 files and "537 tests green", none of which are in this tree.
+
+### What this tree actually contains (measured 2026-09-08)
+
+| Fact | `main` |
+|---|---|
+| Python files | **79** — 54 source + 25 test |
+| Source LOC | **10,484** |
+| Tests | **425 collected: 413 pass, 12 fail** |
+| KIP | v1: `pmg.py`, `gate_shift.py` (`KinematicShift`, frozen MLP gate), `motion_head.py`, `kip_module.py`, `losses.py` |
+| Adapters | MSAD, DoTA, PreVAD, **TAD**, **DADA-2000** — all present |
+| `core/eda/` | present (5 modules + `core/tools/eda.py` + `core/docs/EDA.md`) |
+| `core/docs/**` | **20** markdown files |
+| `core/docs/v3/` | **only** `RESULTS_DADA.md` + `setup/{DADA_V3_SETUP,TAD_V3_SETUP}.md` |
+
+**Absent here, present on `v3`:** `core/kip/ecmr.py`; `kip.gate_type` and
+`kip.const_shift_ratio` / `kip.gate_signal` in `core/config.py`;
+`KIP.train_only_modules`; `--dump-kip-diag` and the `kip_s` / `kip_gate_ratio` /
+`kip_m` columns in the score `.npz`; the gate-type guard in
+`core/models/ckpt_compat.py`; and the docs
+`v3/{KAT-VAD-ARCHITECTURE, KAT-VAD_spec_v3, RESULTS_V3_GATE_ATTRIBUTION,
+KAT-VAD_audit_addendum_PreVAD}.md` plus `v3/setup/MSAD_DOTA_V3_SETUP.md`.
+
+### The 12 failing tests are a branch artifact, not a regression
+
+```
+core/tests/test_dada.py::TestDadaTrainsUnderEveryGate  — 5 failures
+core/tests/test_tad.py::TestTadTrainsUnderEveryGate    — 7 failures
+KeyError: 'Unknown config key: kip.gate_type'   (core/config.py:207)
+```
+
+Both test classes were written during the v3 rebuild and parametrize the arm
+matrix over `kip.gate_type` (`v1_mlp_frozen`, `v1_mlp_ste`, `v3_rank`,
+`v3_constant`). `core/config.py` on `main` has no such field and **raises by
+design** — unknown keys are a hard error (a deliberate decision, see
+[[systemPatterns]]). Nothing about the data adapters, the model or the metrics is
+broken. Two honest fixes, neither done:
+
+1. **Skip the gate matrix on `main`** — collapse `TestXTrainsUnderEveryGate` to
+   the single v1 configuration and keep the DADA/TAD coverage.
+2. **Port the v3 gate to `main`** — only if `main` is meant to grow past v1,
+   which is *not* the current intent.
+
+**Do not "fix" this by adding `gate_type` to `core/config.py` alone.** The tests
+also expect `ecmr.py`, the STE shift and the diagnostics; a partial port would
+turn 12 loud failures into a silently wrong gate.
+
+### Runbooks on this branch that this branch cannot run
+
+`core/docs/v3/setup/DADA_V3_SETUP.md` (24 references) and `TAD_V3_SETUP.md` (23)
+prescribe the six-arm ladder A0–A4 keyed on `--set kip.gate_type=…`. **Every one
+of those commands fails on `main` at config parse.** `core/docs/DADA_SETUP.md`
+(6 references) and `TAD_SETUP.md` (1) have the same problem in their arm
+sections; their *data-build* sections are fine and are what `main` is for.
+**Run the arm ladder on `v3`. Build data on either.**
+
+### Working-tree state (uncommitted, at the time of writing)
+
+- `.gitignore`: `collab/` → `colab/`; the notebook directory was renamed on disk
+  (`collab/MSAD/train.py` shows as deleted). `colab/` is now **gitignored**, so
+  `colab/{MSAD,DADA}/v3/train.py` are untracked — the notebooks that ran the
+  campaigns are **not** in git on this branch.
+- `?? .project` — that is the symlink `.project → .ai-workflow/.project`. The
+  real, tracked memory bank is `.ai-workflow/.project/memory-bank/`. Adding the
+  symlink to git is not useful; the files behind it are already tracked.
+
+### What `main` is *for*, going forward
+
+`main` = the **v1 result line**: the frozen-gate KIP as originally specified,
+plus every dataset adapter and the EDA profiler. It is the branch that owns the
+v1 story — including the honest one, that v1's "motion-gated adaptive shift" was
+a fixed ~50 % smoother. Architecture work on the gate belongs on `v3`.
+
+---
+
+## 2026-09-06 — `core/eda/` shipped: measure the corpus before the campaign
 
 **New code.** Package `core/eda/` (5 modules) + CLI `core/tools/eda.py` +
 `core/tests/test_eda.py` (**40 tests**) + runbook `core/docs/EDA.md`.

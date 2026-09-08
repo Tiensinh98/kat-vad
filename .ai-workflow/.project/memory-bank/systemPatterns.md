@@ -1,7 +1,12 @@
 # System Patterns — architecture & design decisions
 
 **Created:** 2026-07-31 (re-init from `b9978ff`, verified against the tree)
-**Last reviewed:** 2026-09-06 (attribution result; TAD + DADA adapters; score-head receptive field)
+**Last reviewed:** 2026-09-08 (branch identity; v3-only components marked)
+
+> **Branch `main` = KAT-VAD v1.** Anything below marked **[v3 only]** is *not in
+> this tree* — it lives on branch `v3` (tip `bb1516c`). It is documented here
+> because the design argument is expensive to redo and because the measured
+> results depend on it.
 
 ## Forward pass
 
@@ -17,6 +22,8 @@ video ─► frozen CLIP ViT-B/16 ─► F (L×512)          core/tools/extract_
         │ KinematicShift  gate + adaptive shift        │  gate_shift.py
         │ MotionScoreHead ê_O → ŷ_O                    │  motion_head.py
         └──────────────► v^k (L×512) ◄────────────────┘  kip_module.py
+          on `main` the gate is the v1 frozen MLP, full stop:
+          no `gate_type`, no `ecmr.py`  →  [v3 only]
                                   │
    definition Z ─► frozen CLIP text + 32 soft prompts ─► z^t (C×512)   core/models/clip_text.py
                                   │
@@ -43,9 +50,11 @@ pre-path and `L_neg`; when off, `v^t` does. Text encoding is decoupled
    whole domain moves `s_t` by **0–4 channels out of 128** across 8 seeds (seed
    0: exactly 0). `mlp_frozen` and `constant` at `r = 0.5` agree to within half a
    channel on the mean. **Never write "motion-gated" of `gate_type="mlp_frozen"`.**
-   The decisive follow-up is the plain-TSM control, now one config flag.
+   The decisive follow-up is the plain-TSM control — one config flag **on `v3`**;
+   on `main` it needs a code edit, so **do not fake it with a hand-patched
+   `compute_shift_counts`** (lesson C17: the config would not record it).
    → lesson **24 [CRITICAL]**.
-2. **The v3 gate is parameter-free, and this changes no gradient edge.**
+2. **[v3 only — not in this tree] The v3 gate is parameter-free, and this changes no gradient edge.**
    `gate_type="rank"` (default) runs ECMR (causal EMA prototype → residual) into
    a within-clip rank map, spanning `[0, 128]` on every clip by construction —
    so a constant smoother is not expressible. `core/kip/ecmr.py`, 0 parameters.
@@ -94,10 +103,10 @@ pre-path and `L_neg`; when off, `v^t` does. Text encoding is decoupled
 | Versioned flow cache `cache/flow/v1/` | `core/flow/raft_extract.py` | the A10 projection is part of the cache identity; loaders fail loudly on mismatch |
 | In-house cosine-warmup LambdaLR | `core/train.py` | avoids `transformers.get_scheduler` internal-API drift |
 | Vectorized shift + loop oracle | `core/kip/gate_shift.py` | equivalence-tested; vectorized ≈8× faster on CPU |
-| Four selectable gate types sharing one floor/clamp/mask step | `core/kip/gate_shift.py`, `core/kip/ecmr.py` | `rank` / `mlp_frozen` / `mlp_ste` / `constant`; one `shift_counts_from_ratio` so cross-gate comparisons carry no implementation confound |
-| Train-only KIP submodules off the inference graph | `core/kip/kip_module.py` (`train_only_modules`) | 3e/3f not instantiated when `training=False`; 311,808 params at inference, 0 on the score path; curve is bit-identical across graphs |
-| Allowlist checkpoint loader, never `strict=False` | `core/models/ckpt_compat.py` (`load_kip_state_dict`) | drops exactly `kip.mhead.` / `kip.proj_flow.` / `kip.proj_rgb.`; refuses a gate-type mismatch both ways. **Cannot separate `rank` from `constant`** — identical key layout; needs the run manifest (lesson 17) |
-| Gate diagnostics into the existing `.npz` | `core/inference.py`, `core/evaluate.py` | `--dump-kip-diag`, on for eval/inference, never for training; `kip_s` int16 + four float32 columns; no new artifact format |
+| **[v3 only]** Four selectable gate types sharing one floor/clamp/mask step | `core/kip/gate_shift.py`, `core/kip/ecmr.py` — **absent on `main`** | `rank` / `mlp_frozen` / `mlp_ste` / `constant`; one `shift_counts_from_ratio` so cross-gate comparisons carry no implementation confound |
+| **[v3 only]** Train-only KIP submodules off the inference graph | `core/kip/kip_module.py` (`train_only_modules`) — **absent on `main`**; here `mhead` is always instantiated | 3e/3f not instantiated when `training=False`; 311,808 params at inference, 0 on the score path; curve is bit-identical across graphs |
+| Allowlist checkpoint loader, never `strict=False` | `core/models/ckpt_compat.py` (`load_kip_state_dict`) | drops exactly `kip.mhead.` / `kip.proj_flow.` / `kip.proj_rgb.`; **the gate-type mismatch guard is [v3 only]** — on `main` there is one gate, so a v3 checkpoint's `kip.*` keys will not map here. **Cannot separate `rank` from `constant`** — identical key layout; needs the run manifest (lesson 17) |
+| **[v3 only]** Gate diagnostics into the existing `.npz` | `core/inference.py`, `core/evaluate.py` — **absent on `main`**: no `--dump-kip-diag`, no `kip_s` column | `--dump-kip-diag`, on for eval/inference, never for training; `kip_s` int16 + four float32 columns; no new artifact format |
 | Fail-loud checkpoint mapping | `core/models/ckpt_compat.py` | unknown/missing/mis-shaped keys raise — no silent partial loads |
 | Pooling resolved from labels, not dataset name | `core/metrics.py:resolve_score_norm` | `--score-norm auto` picks per-clip min-max when normal videos fall below 5 % of the test set; a new all-abnormal benchmark cannot silently inherit the wrong protocol (lesson 12) |
 | Rescore from saved `.npz`, never re-infer | `core/tools/rescore.py` | model outputs are deterministic given features, so a protocol correction costs minutes instead of GPU hours |
@@ -163,9 +172,13 @@ The two conventions coexist; a loop over both needs to handle each.
 
 Arms currently defined: `gate_a` / `full_gate_a` / `gate_d0` (released
 `best.ckpt`), `kip_off` (cold), `kip_on` (warm from stage 1), `kip_off_warm` (the
-arm-4 control); and the v3 ladder **A0** `kipoff` / **A1** `rank` / **A2**
-`constant` / **A2b** `constant_pmg` / **A3** `mlp_frozen` / **A4** `mlp_ste`,
-identical in name across the MSAD, TAD and DADA campaigns so the rows line up. **A run's `config.yaml` does not record `--init-weights` or any path
+arm-4 control) — **these are the v1 arms and the only ones `main` can run**; and
+the v3 ladder **A0** `kipoff` / **A1** `rank` / **A2** `constant` / **A2b**
+`constant_pmg` / **A3** `mlp_frozen` / **A4** `mlp_ste`, identical in name across
+the MSAD, TAD and DADA campaigns so the rows line up. **A1–A4 require
+`kip.gate_type` and therefore branch `v3`.** Note the mapping: `main`'s `kip_on`
+*is* A3 `mlp_frozen` in v3's vocabulary, and (per the attribution) is
+statistically the same arm as A2 `constant`. **A run's `config.yaml` does not record `--init-weights` or any path
 flag** (lesson 17) — what distinguishes `kip_off` from `kip_off_warm` is visible
 only in the loss trace, so provenance has to be argued, not read.
 
@@ -238,18 +251,24 @@ trainable without any flow cache** (`core/docs/PREVAD_SETUP.md` §7).
 
 ## Testing pattern
 
-**497 tests** (verified 2026-09-06, zero failures), all data-free and CPU-only.
+**On `main` (verified 2026-09-08): 425 collected → 413 pass, 12 fail.** The 12
+are `TestDadaTrainsUnderEveryGate` (5) + `TestTadTrainsUnderEveryGate` (7),
+written on `v3` and parametrized over the v3-only `kip.gate_type`; `core/config.py`
+raises on unknown keys **by design**, which is the row above working correctly.
+Everything else is green. All data-free and CPU-only.
 Three tiers: unit (shapes, masks, gradients), **parity** against read-only
 baseline modules with 1:1 state-dict copies on random weights, and a **synthetic
 end-to-end** run (`core/tests/test_e2e_synthetic.py`) covering train →
 checkpoint → kill → resume → infer → eval → visualize on a fabricated
 mini-dataset. Grew 221 → 284 with the DoTA adapter, `core/metrics.py`,
-`rescore.py` and `feature_cache.py`; 284 → 322 with the PreVAD adapter; 322 → 434
-with the v3 gate rebuild; 434 → 467 with TAD; 467 → **497** with DADA-2000
-(`TestDadaTrainsUnderEveryGate` pins that every gate type trains on its output,
-so a DADA arm cannot fail for a data reason that was never exercised).
+`rescore.py` and `feature_cache.py`; 284 → 322 with the PreVAD adapter; then the
+branches split — the 434 / 467 / 497 / 537 figures are **`v3`'s**.
+`TestXTrainsUnderEveryGate` exists to pin that *every gate type* trains on the
+adapter's output, so a DADA/TAD arm cannot fail for a data reason that was never
+exercised; on `main` there is only one gate type, so the right repair is to
+collapse the matrix, not to delete the class.
 
-## Planned seams (not built — `.project/plans/katvad-v2-next-steps.md`)
+## Planned seams (not built — the v2 plan file does not exist in this tree; this section *is* the record)
 
 Recorded here because each one is a *design decision already argued*, and the
 argument is expensive to redo:

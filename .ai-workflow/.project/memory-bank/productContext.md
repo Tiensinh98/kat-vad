@@ -1,7 +1,12 @@
 # Product Context — why KAT-VAD exists
 
 **Created:** 2026-07-31 (re-init from `b9978ff`)
-**Last reviewed:** 2026-09-06 (attribution closed negatively; DADA inverts it)
+**Last reviewed:** 2026-09-08 (branch `main` = v1; product story unchanged)
+
+> **Branch note.** This is the `main` = **KAT-VAD v1** memory bank. The *product*
+> argument below is the project's and does not change with the branch. What does
+> change: on `main` the "kinematic gate" is **only** the frozen v1 MLP, so the
+> caveat below is not a caveat here — it is the whole gate.
 
 ## The problem
 
@@ -26,7 +31,7 @@ expensive for a deployable detector. KIP resolves that trade:
   representation (`L_KIP_rec`, `L_KIP_align`).
 - **A kinematic gate + adaptive temporal shift** mixes channels across time
   proportionally to predicted motion magnitude, producing `v^k`. **Caveat that
-  changes the story:** the gate's 321-parameter MLP is *never trained* — a hard
+  changes the story — and on `main` it is the only gate there is:** the gate's 321-parameter MLP is *never trained* — a hard
   `floor()` on the shift count kills the gradient (`core/kip/gate_shift.py:112`,
   verified: all 6 tensors get `grad is None`). The gate is input-adaptive but
   frozen at random init, so "motion-gated" describes the *input*, not a learned
@@ -49,7 +54,8 @@ are solid; the story attached to them is not.
   smoothing** — `core/docs/v3/RESULTS_V3_GATE_ATTRIBUTION.md`, 2026-09-01.
 - **Adding the actual motion machinery makes it worse, not better.** The v3
   `rank` gate (A1 − A2 = −0.0683) and real flow with all three auxiliary losses
-  (A2b − A2 = −0.0105) both *cost* AUC. **No component of KIP has been attributed
+  (A2b − A2 = −0.0105) both *cost* AUC. (Those arms were run on branch `v3`;
+  `main` cannot reproduce them — it has no `gate_type`.) **No component of KIP has been attributed
   a positive contribution.**
 - **The effect's sign depends on the training corpus.** On DADA-2000 it inverts:
   A2 − A0 = **−0.0918**, A1 − A2 = **+0.0300** (`v3/RESULTS_DADA.md`, 2026-09-06).

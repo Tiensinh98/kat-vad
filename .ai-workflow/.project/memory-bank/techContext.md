@@ -1,7 +1,11 @@
 # Tech Context — stack, setup, constraints
 
 **Created:** 2026-07-31 (re-init from `b9978ff`, read off `pyproject.toml`)
-**Last reviewed:** 2026-09-06 (counts re-measured; TAD + DADA adapters; v3 docs)
+**Last reviewed:** 2026-09-08 (branch `main` = v1; counts and test status
+re-measured on this tree)
+
+> **Branch `main` = KAT-VAD v1.** The stack, pins and constraints below are
+> branch-independent. Where a **path or flag** is v3-only it is marked.
 
 ## Stack
 
@@ -14,7 +18,9 @@
 
 ## Compute
 
-- **Dev:** macOS arm64, CPU. All code and all **497 tests** run data-free on CPU.
+- **Dev:** macOS arm64, CPU. All code and all tests run data-free on CPU — on
+  `main`, **425 collected: 413 pass, 12 fail** (the v3-only `gate_type` matrix,
+  see [[progress]]). `v3` is 537 green.
 - **Training:** Google Colab **A100 40 GB**. Long jobs are resumable and
   Drive-persisted; AMP and grad-accumulation are config flags.
 
@@ -27,18 +33,19 @@
 | `core/train.py` (633 L) | training loop, stage selection, resume |
 | `core/evaluate.py` / `core/inference.py` | sliding-window scoring, metrics |
 | `core/models/` | temporal encoder, fusion, heads, clip_text, ckpt_compat, kat_vad |
-| `core/kip/` | pmg, gate_shift (4 gate types), **ecmr**, motion_head, kip_module, losses |
+| `core/kip/` | pmg, **gate_shift (v1 `KinematicShift`, frozen MLP gate — one gate type)**, motion_head, kip_module, losses. **`ecmr.py` and the 4 gate types are branch `v3` only** |
 | `core/losses/` | mil, dvs, contrastive (baseline losses) |
 | `core/metrics.py` | pooling rules, micro/macro AUC + AP; torch-free so `rescore` can import it |
 | `core/data/` | msad, dota, prevad, **tad**, **dada**, dataset (DVS), synthesis, knn_cache, collate, definitions, video_io, dataset_files |
 | `core/flow/raft_extract.py` | RAFT → 23-d stats → seeded 256-d projection |
-| `core/tools/` | download, extract_clip_features, **feature_cache**, **rescore**, visualize |
-| `core/docs/` | 16 files: COLAB, DATA_LAYOUT, DOTA_EVAL, PREVAD_SETUP, **TAD_SETUP**, **DADA_SETUP**, TRAINING, proposal, spec, 6 × RESULTS_\*.md, REPORT_KIP_MSAD_DOTA_PREVAD |
-| `core/docs/v3/` | ARCHITECTURE, spec_v3, audit_addendum_PreVAD, **RESULTS_V3_GATE_ATTRIBUTION**, **RESULTS_DADA**, and `setup/` (MSAD_DOTA, TAD, DADA runbooks). **`core/docs/v2/` does not exist in this tree — do not cite it** |
+| `core/tools/` | download, extract_clip_features, **feature_cache**, **rescore**, visualize, **eda** |
+| `core/eda/` | corpus, labels, protocol, features, report — the pre-flight profiler (`python -m core.tools.eda report\|compare`), runbook `core/docs/EDA.md`. **Never run on real data yet** |
+| `core/docs/` | 17 files on `main`: COLAB, DATA_LAYOUT, DOTA_EVAL, **EDA**, PREVAD_SETUP, **TAD_SETUP**, **DADA_SETUP**, TRAINING, proposal, spec, 6 × RESULTS_\*.md, REPORT_KIP_MSAD_DOTA_PREVAD |
+| `core/docs/v3/` | **On `main`: only `RESULTS_DADA.md` + `setup/{DADA_V3_SETUP,TAD_V3_SETUP}.md`** (3 files). ARCHITECTURE, spec_v3, audit_addendum_PreVAD, RESULTS_V3_GATE_ATTRIBUTION and `setup/MSAD_DOTA_V3_SETUP.md` are **branch `v3` only**. `core/docs/v2/` does not exist on either branch — do not cite it |
 
-**Measured 2026-09-06:** **76 Python files** (48 source + 28 test files),
-**9,413 LOC** source + 6,547 LOC tests ≈ 16.0k total. `core/train.py` is 633
-lines. 24 markdown docs under `core/docs/**`.
+**Measured on `main`, 2026-09-08:** **79 Python files** (54 source + 25 test),
+**10,484 LOC** source. **20 markdown docs** under `core/docs/**`. (`v3` measures
+84 files / 11,157 source LOC / 537 tests — different tree, different numbers.)
 
 ## Environment roots
 
@@ -92,6 +99,9 @@ Colab points all four at Drive. Full contract: `core/docs/DATA_LAYOUT.md`.
 - **A run's `config.yaml` does not record its CLI paths or `--init-weights`**
   (`core/train.py:628` saves the config tree only). Arm provenance must be
   reconstructed from the loss trace. Lesson 17.
+- **On `main` there is exactly one gate, and it is the frozen one.** `kip.gate_type`,
+  `kip.gate_signal`, `kip.const_shift_ratio` and `core/kip/ecmr.py` are branch-`v3`
+  additions. A KIP-on run on `main` is, in operation, a fixed ~50 % channel shift.
 - **The gate MLP receives no gradient, permanently.** `(ratio * max_shift)
   .floor().long()` (`core/kip/gate_shift.py:112`) is not differentiable, so
   `KinematicShift.mlp`'s 321 parameters stay at random init for the whole run —
@@ -109,7 +119,7 @@ Colab points all four at Drive. Full contract: `core/docs/DATA_LAYOUT.md`.
   error, just `auc_macro` at chance under an inflated micro AUC. **Check
   `score_head_kernel` against a new corpus's median sequence length before
   training.** `core/docs/v3/RESULTS_DADA.md` §5.
-- **`gate_type=mlp_ste` produces NaNs under AMP.** 33 of 500 steps on the DADA
+- **[v3 only] `gate_type=mlp_ste` produces NaNs under AMP.** 33 of 500 steps on the DADA
   arm, in `mil` / `mul_mil`, while `kip_rec` / `kip_align` stayed finite; no other
   gate type at the same seed, batch and data. Suspect
   `shift_channels_straight_through` (`core/kip/gate_shift.py:99`) in fp16. Not
@@ -124,7 +134,10 @@ Colab points all four at Drive. Full contract: `core/docs/DATA_LAYOUT.md`.
 
 ```bash
 # tests
-source .venv/bin/activate && python -m pytest core/tests -q     # 497 passing (2026-09-06)
+source .venv/bin/activate && python -m pytest core/tests -q
+# on `main` (2026-09-08): 425 collected -> 413 pass, 12 fail.
+# The 12 are test_{dada,tad}.py::TestXTrainsUnderEveryGate, which parametrize
+# over `kip.gate_type` -- a branch-`v3`-only config field. Not a regression.
 
 # quality gates (before every commit)
 source .venv/bin/activate && ruff check * && mypy * && bandit * && pycycle * && pyright *
@@ -135,11 +148,15 @@ Colab run sequence (downloads → preprocess → extract → gate (a) → stage 
 stage 2 → eval): `core/docs/COLAB.md`. Its later sections are the experiment
 runbooks in order: § "no_center_crop rebuild" → § "Arm 4 + trajectory probe",
 each carrying a RUN banner pointing at the `RESULTS_*.md` it produced.
-**Per-corpus runbooks now live in `core/docs/v3/setup/`** — `MSAD_DOTA_V3_SETUP.md`
-(run), `DADA_V3_SETUP.md` (run, see `RESULTS_DADA.md`), `TAD_V3_SETUP.md`
-(**unrun**) — over the data runbooks `TAD_SETUP.md` / `DADA_SETUP.md`.
-`core/docs/PREVAD_SETUP.md` is still unrun. Training notebooks:
-`collab/{MSAD,DADA}/v3/train.py`.
+**Per-corpus runbooks live in `core/docs/v3/setup/`** — `DADA_V3_SETUP.md` (run,
+see `RESULTS_DADA.md`) and `TAD_V3_SETUP.md` (**unrun**) on `main`;
+`MSAD_DOTA_V3_SETUP.md` is on `v3` only — over the data runbooks `TAD_SETUP.md` /
+`DADA_SETUP.md`. `core/docs/PREVAD_SETUP.md` is still unrun.
+**Warning:** every arm command in those runbooks passes `--set kip.gate_type=…`
+and therefore **fails on `main` at config parse**; their data-build sections are
+fine. Run the arm ladder on `v3`. Training notebooks are
+`colab/{MSAD,DADA}/v3/train.py` — note `collab/` was renamed to `colab/` and
+`colab/` is **gitignored**, so on `main` they are untracked.
 
 **Analysis is offline.** Every reported number is recomputed from
 `{run}/scores/*.npz` via `core/tools/rescore.py` or a scratchpad bootstrap

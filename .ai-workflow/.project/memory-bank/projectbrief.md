@@ -1,7 +1,16 @@
 # Project Brief — KAT-VAD
 
 **Created:** 2026-07-31 (memory bank re-initialized from commit `b9978ff`)
-**Last reviewed:** 2026-09-06 (v3 attribution closed; TAD + DADA-2000 added)
+**Last reviewed:** 2026-09-08 (branch identity: this memory bank is `main` = **v1**)
+
+> **Branch:** `main` (tip `6a5f648`) is the **KAT-VAD v1** line — KIP as
+> originally specified: `PMGFlowHead` → `KinematicShift` with the frozen
+> 321-parameter MLP gate → `MotionScoreHead`. The v3 gate rebuild (four
+> `gate_type`s, ECMR, gate diagnostics) is on branch **`v3`** (tip `bb1516c`),
+> which carries its own memory bank. They diverged at `fac71a3`.
+> **The scope, gates and results below are the project's, not the branch's** —
+> they are recorded here in full so `main` keeps the campaign record. Where a
+> result was produced by v3 code, it says so.
 
 ## What this is
 
@@ -20,9 +29,9 @@ benchmark is the motion-dominated DoTA.
 | `core/docs/KAT_VAD_PROPOSAL.md` | The *why* — proposal, gap analysis, design justification |
 | `core/docs/KAT_VAD_IMPLEMENTATION_SPEC.md` | The *what/how* — modules, tensor shapes, losses, config flags |
 | `core/docs/REPORT_KIP_MSAD_DOTA_PREVAD.md` | The measured campaign write-up (renamed from `REPORT_KIP_MSAD_DOTA.md` on 2026-08-29) |
-| `core/docs/v3/KAT-VAD-ARCHITECTURE.md` | The architecture, phase by phase (P1–P7) |
-| `core/docs/v3/KAT-VAD_spec_v3.md` | **Current spec** — changes A–K, each tied to a measured defect. Supersedes v2 |
-| `core/docs/v3/RESULTS_V3_GATE_ATTRIBUTION.md` | **The attribution result** (2026-09-01) — read before claiming KIP does anything |
+| `core/docs/v3/KAT-VAD-ARCHITECTURE.md` **(branch `v3` only)** | The architecture, phase by phase (P1–P7) |
+| `core/docs/v3/KAT-VAD_spec_v3.md` **(branch `v3` only)** | **Current spec** for the v3 line — changes A–K, each tied to a measured defect. Supersedes v2 |
+| `core/docs/v3/RESULTS_V3_GATE_ATTRIBUTION.md` **(branch `v3` only — on `main` the numbers live in [[progress]]'s results ledger)** | **The attribution result** (2026-09-01) — read before claiming KIP does anything |
 | `core/docs/v3/RESULTS_DADA.md` | **The DADA-2000 campaign** (2026-09-06) — read before quoting any DADA number |
 | `.project/plans/katvad-v3-kip-gate-rebuild.md` | **The live plan** — v3 Phase-3 rebuild, phases 0–5, measured appendices A–E |
 | ~~`core/docs/v2/*`, `.project/plans/katvad-v2-next-steps.md`~~ | **Do not exist in this tree.** v3 supersedes them; do not cite them |
@@ -39,8 +48,11 @@ the spec did not. **A `RESULTS_*.md` measurement outranks both.**
 
 ## Scope
 
-**In scope (v1):** MSAD (traffic slice + full 11-class benchmark) training and
-evaluation; KIP on/off ablation; the reproduction gates. **DoTA zero-shot was
+**In scope on `main` (v1):** MSAD (traffic slice + full 11-class benchmark)
+training and evaluation; the **v1** KIP on/off ablation (one gate — the frozen
+MLP — so a KIP-on run here *is* the fixed ~50 % shift); the reproduction gates;
+the DoTA / PreVAD / TAD / DADA-2000 adapters; `core/eda/`. **Out of scope on
+`main`:** anything keyed on `kip.gate_type` — that is the `v3` branch. **DoTA zero-shot was
 pulled forward from Phase 7** (2026-08-01) and is now the benchmark that carries
 the result — it is where a motion pathway can show, and MSAD is where it cannot.
 
@@ -87,6 +99,10 @@ the current headline.
 ## Non-negotiables
 
 - `LaGoVAD-PreVAD/` is never modified.
+- **Branch discipline.** `main` = v1, `v3` = the gate rebuild. Do not write v3
+  gate code on `main`; do not assume a v3 doc or flag exists here. Check
+  `git branch --show-current` and `grep gate_type core/config.py` before running
+  any runbook command.
 - KIP's only splice into the baseline forward pass: between temporal encoder and
   fusion; `v^k` (not `v^t`) feeds fusion `U` and `H_bin`.
 - RAFT flow is train-time only — never on the inference/scoring path.
@@ -97,7 +113,8 @@ the current headline.
 - **The v1 gate MLP is never trained** (`core/kip/gate_shift.py:112`, verified:
   all 6 tensors `grad is None`) **and is measurably near-constant** — sweeping its
   entire reachable input domain moves `s_t` by 0–4 of 128 channels. **H4′ is
-  CONFIRMED**: never write "motion-gated" of `gate_type="mlp_frozen"`.
+  CONFIRMED**: never write "motion-gated" of `gate_type="mlp_frozen"` — and on
+  `main` that frozen gate is the *only* gate that exists.
 - **No component of KIP has been attributed a positive contribution** by any
   ablation. State that plainly; do not restate the +0.09 as a KIP result.
 - **Check `score_head_kernel` against a corpus's median sequence length before
