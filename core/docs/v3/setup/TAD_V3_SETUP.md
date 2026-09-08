@@ -12,9 +12,10 @@ the two are compared row for row.
 > **The two code prerequisites shipped 2026-09-02** (`TAD_SETUP.md` §0.3):
 > `core.data.tad --with-train-split` builds the weakly-supervised train split,
 > and `core.flow.raft_extract --frames-dir` builds `e_O` from frame folders.
-> Every arm below runs against the tree as it is. All four gate types are
-> covered by `core/tests/test_tad.py::TestTadTrainsUnderEveryGate`, so a TAD arm
-> cannot fail for a *data* reason that was never exercised.
+> Every arm below runs against branch `v3`, not this one. The train path is
+> covered by `core/tests/test_tad.py::TestTadTrains`, so a TAD arm cannot fail
+> for a *data* reason that was never exercised — but **on `main` that test
+> exercises the v1 gate only**, because `kip.gate_type` does not exist here.
 
 ---
 

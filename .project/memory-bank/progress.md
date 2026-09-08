@@ -31,18 +31,23 @@
 | — | **`core/eda/` pre-flight profiler** — 5 modules + `core/tools/eda.py` + `core/docs/EDA.md`; verdicts for C27 / C12 / vanished windows, §4.2 frame-level linear probe | ✅ 2026-09-06, **present on `main`**. Never run on real data — needs the Drive caches |
 
 **Measured on `main`, 2026-09-08: 79 Python files (54 source + 25 test),
-10,484 source LOC. 425 tests collected → 413 pass, 12 fail.** Data-free, CPU-only.
+10,484 source LOC. 418 tests collected → 418 pass, 0 fail.** Data-free, CPU-only.
 `outputs/**` holds **62,254** per-clip `.npz` score files (on the user's disk;
 gitignored).
 
-**The 12 failures are a branch artifact, not a regression.**
+**The suite went green on 2026-09-08 by collapsing the gate matrix.** It had
+been 425 collected → 413 pass, 12 fail:
 `core/tests/test_dada.py::TestDadaTrainsUnderEveryGate` (5) and
-`core/tests/test_tad.py::TestTadTrainsUnderEveryGate` (7) parametrize their arm
-matrix over `kip.gate_type`, a **v3-only** config field; `core/config.py:207`
-raises `KeyError: 'Unknown config key: kip.gate_type'` by design. Fix = collapse
-those classes to the single v1 configuration on `main`, **not** a partial port of
-`gate_type` (which would also need `ecmr.py`, the STE shift and the
-diagnostics — 12 loud failures would become one silent wrong gate).
+`core/tests/test_tad.py::TestTadTrainsUnderEveryGate` (7) parametrized their arm
+matrix over `kip.gate_type`, a **v3-only** config field, and `core/config.py:207`
+raised `KeyError: 'Unknown config key: kip.gate_type'` by design. The classes are
+now `TestDadaTrains` / `TestTadTrains`, running the one gate v1 ships
+(`kip.gate_signal=flow_norm`). **7 parametrizations removed, no coverage lost** —
+`test_kip_off_trains` (arm A0), `test_stage1_warmup_runs` and the
+`config.yaml`-recording assertions all survive; the latter now assert
+`gate_signal` instead of `gate_type`. This was deliberately **not** a partial
+port of `gate_type` (which would also need `ecmr.py`, the STE shift and the
+diagnostics — 12 loud failures would have become one silent wrong gate).
 
 Test-count history (the later figures are the **`v3`** branch's): 221 at the
 2026-07-31 init → 284 with the DoTA adapter, `core/metrics.py`, `rescore.py` and
@@ -173,10 +178,11 @@ attributed it to any part of KIP:
 ## What's left
 
 ### Branch hygiene on `main` (new 2026-09-08)
-- [ ] **Green the suite on `main`** — collapse `TestDadaTrainsUnderEveryGate` /
-      `TestTadTrainsUnderEveryGate` to the single v1 configuration (or mark the
-      v3 params `skipif` on absence of `kip.gate_type`). 12 failures → 0, no
-      coverage lost for the adapters themselves.
+- [x] **Green the suite on `main`** — done 2026-09-08. Collapsed
+      `TestDadaTrainsUnderEveryGate` / `TestTadTrainsUnderEveryGate` to the
+      single v1 configuration and renamed them `TestDadaTrains` / `TestTadTrains`.
+      12 failures → 0 (418 collected, 418 pass), no coverage lost for the
+      adapters themselves.
 - [ ] **Decide what `main` is allowed to grow into.** Current intent: `main`
       stays v1 and owns the v1 story; gate architecture happens on `v3`. If that
       changes, the port is `ecmr.py` + `gate_type` + the STE shift + diagnostics
@@ -314,7 +320,7 @@ attributed it to any part of KIP:
 | ~~Extraction transform differs from the baseline's `no_center_crop`~~ | `core/tools/extract_clip_features.py` (`--no-center-crop`) | **Resolved 2026-08-12** — pipeline moved to `no_center_crop` for internal field-of-view consistency between the appearance and flow branches (lesson 13), *not* for baseline parity (refuted, pending P1). All current results are `_ncc`. |
 | Checkpoints carry a pickled numpy RNG state | `core/train.py:389` (`_rng_payload`) | Artifacts stop loading when the runtime's numpy major version drifts (lesson 15). Worked around per `COLAB.md` §A4.0; fix deferred while arms are compared. |
 | Step checkpoints are spaced uniformly in steps, not in loss | `train.checkpoint_every_steps` | A trajectory probe cannot sample the early, high-loss part of training (lesson 16). Cost the A5 probe its low-convergence segment. |
-| **12 tests fail on `main`** | `core/tests/test_{dada,tad}.py::TestXTrainsUnderEveryGate` | The gate matrix is parametrized over `kip.gate_type`, a **v3-only** config field, so `core/config.py:207` raises `KeyError`. 425 collected → 413 pass. Branch artifact, not a regression; fix by collapsing the matrix to the v1 configuration on `main`. Never port `gate_type` alone. |
+| ~~12 tests fail on `main`~~ | `core/tests/test_{dada,tad}.py` | **Resolved 2026-09-08.** The gate matrix was parametrized over `kip.gate_type`, a **v3-only** config field, so `core/config.py:207` raised `KeyError` (425 collected → 413 pass). Collapsed to the v1 gate and renamed `TestDadaTrains` / `TestTadTrains`: **418 collected, 418 pass**. `gate_type` was *not* ported — a partial port needs `ecmr.py` + the STE shift + diagnostics or the gate is silently wrong. |
 | MPS training diverges on torch 2.4 | `core/train.py`, documented in `core/docs/TRAINING.md` | Local training must pin `train.device=cpu` |
 | **Score head's kernel spans a short clip** | `core/models/heads.py:21` (`ConvScoreHead`, `kernel_size=9`) | On DADA-2000 (median T = 9) every output timestep sees the whole clip, so the detector is structurally a **clip classifier**: flat curves, `auc_macro` at chance, inflated micro AUC. MSAD (T = 86) is unaffected, DoTA (T = 13) partly. Check `score_head_kernel` against a corpus's median length before training on it (`RESULTS_DADA.md` §5). |
 | **`mlp_ste` trains through NaNs under AMP** | `core/kip/gate_shift.py:99` (`shift_channels_straight_through`) | 33 of 500 steps NaN in `mil`/`mul_mil` on the DADA arm, over 17 of 20 epochs, while `kip_rec`/`kip_align` stay finite; no other arm at the same seed/batch/data. A4's DADA row is unreportable. Not root-caused (2026-09-06). |

@@ -19,8 +19,9 @@ re-measured on this tree)
 ## Compute
 
 - **Dev:** macOS arm64, CPU. All code and all tests run data-free on CPU — on
-  `main`, **425 collected: 413 pass, 12 fail** (the v3-only `gate_type` matrix,
-  see [[progress]]). `v3` is 537 green.
+  `main`, **418 collected, 418 pass** (green since 2026-09-08, when the v3-only
+  `gate_type` matrix was collapsed to the v1 gate; see [[progress]]).
+  `v3` is 537 green.
 - **Training:** Google Colab **A100 40 GB**. Long jobs are resumable and
   Drive-persisted; AMP and grad-accumulation are config flags.
 
@@ -135,9 +136,9 @@ Colab points all four at Drive. Full contract: `core/docs/DATA_LAYOUT.md`.
 ```bash
 # tests
 source .venv/bin/activate && python -m pytest core/tests -q
-# on `main` (2026-09-08): 425 collected -> 413 pass, 12 fail.
-# The 12 are test_{dada,tad}.py::TestXTrainsUnderEveryGate, which parametrize
-# over `kip.gate_type` -- a branch-`v3`-only config field. Not a regression.
+# on `main` (2026-09-08): 418 collected -> 418 pass, 0 fail.
+# The gate matrix in test_{dada,tad}.py was collapsed to the single v1 gate;
+# the `kip.gate_type` parametrization is branch-`v3`-only and stays there.
 
 # quality gates (before every commit)
 source .venv/bin/activate && ruff check * && mypy * && bandit * && pycycle * && pyright *

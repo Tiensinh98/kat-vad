@@ -251,11 +251,13 @@ trainable without any flow cache** (`core/docs/PREVAD_SETUP.md` §7).
 
 ## Testing pattern
 
-**On `main` (verified 2026-09-08): 425 collected → 413 pass, 12 fail.** The 12
-are `TestDadaTrainsUnderEveryGate` (5) + `TestTadTrainsUnderEveryGate` (7),
-written on `v3` and parametrized over the v3-only `kip.gate_type`; `core/config.py`
-raises on unknown keys **by design**, which is the row above working correctly.
-Everything else is green. All data-free and CPU-only.
+**On `main` (verified 2026-09-08): 418 collected → 418 pass, 0 fail.** The 12
+that used to fail were `TestDadaTrainsUnderEveryGate` (5) +
+`TestTadTrainsUnderEveryGate` (7), written on `v3` and parametrized over the
+v3-only `kip.gate_type`; `core/config.py` raises on unknown keys **by design**,
+which was the row above working correctly. They are now
+`TestDadaTrains` / `TestTadTrains`, exercising the one gate v1 ships. All
+data-free and CPU-only.
 Three tiers: unit (shapes, masks, gradients), **parity** against read-only
 baseline modules with 1:1 state-dict copies on random weights, and a **synthetic
 end-to-end** run (`core/tests/test_e2e_synthetic.py`) covering train →
@@ -263,10 +265,12 @@ checkpoint → kill → resume → infer → eval → visualize on a fabricated
 mini-dataset. Grew 221 → 284 with the DoTA adapter, `core/metrics.py`,
 `rescore.py` and `feature_cache.py`; 284 → 322 with the PreVAD adapter; then the
 branches split — the 434 / 467 / 497 / 537 figures are **`v3`'s**.
-`TestXTrainsUnderEveryGate` exists to pin that *every gate type* trains on the
-adapter's output, so a DADA/TAD arm cannot fail for a data reason that was never
-exercised; on `main` there is only one gate type, so the right repair is to
-collapse the matrix, not to delete the class.
+`TestDadaTrains` / `TestTadTrains` exist to pin that the adapter's output
+*trains*, so a DADA/TAD arm cannot fail for a data reason that was never
+exercised. On `v3` they are `TestXTrainsUnderEveryGate` and sweep the gate enum;
+on `main` there is only one gate type, so the matrix was collapsed rather than
+the class deleted — `test_kip_off_trains` (arm A0), `test_stage1_warmup_runs`
+and the `config.yaml`-recording tests all survive.
 
 ## Planned seams (not built — the v2 plan file does not exist in this tree; this section *is* the record)
 

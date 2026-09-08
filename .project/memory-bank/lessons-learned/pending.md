@@ -311,6 +311,19 @@ key: kip.gate_type'`). Two shipped runbooks on `main`
 branch that carries them. Nothing warned: docs and tests travel with a merge,
 config fields do not.
 
+**Repaired 2026-09-08 (the shape of the repair matters).** The 12 failures were
+resolved by **collapsing the v3-only parametrization, not deleting the class**:
+`TestDadaTrainsUnderEveryGate` / `TestTadTrainsUnderEveryGate` became
+`TestDadaTrains` / `TestTadTrains` over `V1_KIP_ARM =
+["--set", "kip.gate_signal=flow_norm"]`. 7 parametrizations removed, 425 → 418
+collected, **418 pass**. Deleting the classes would also have deleted
+`test_kip_off_trains` (arm A0), `test_stage1_warmup_runs` and the
+`config.yaml`-recording assertions — all v1-valid, and the only evidence that the
+TAD and DADA adapters emit trainable files, neither corpus having been trained
+yet. The other tempting repair — adding `gate_type` to `core/config.py` so the
+v3 params parse — was rejected: the v3 tests also need `ecmr.py`, the STE shift
+and the diagnostics, so it converts 12 loud failures into one silent wrong gate.
+
 **Why it is not yet a lesson:** gate 3 (RECURRING) — one occurrence so far. It is
 one branch split, though a costly one: the failure mode is a session planning
 against a component that is not in its own tree. A second divergence (or a
@@ -319,7 +332,10 @@ merge that silently reunites the two memory banks) promotes it.
 **Candidate rule:** State the branch beside any count, file list or config flag a
 memory bank asserts, and re-measure them after a checkout rather than trusting
 the committed text. Before running a documented command, grep the flag in
-`core/config.py` **on the current branch**. Related: [[lesson-17]] (a run must
-record every flag that defines what it is) and the runbook-path candidate above —
-the same failure at the branch level.
+`core/config.py` **on the current branch**. **When a test fails only because it
+exercises another branch's feature, narrow the parametrization to what this
+branch can express — never delete the enclosing test, and never port the config
+field alone to make it parse.** Related: [[lesson-17]] (a run must record every
+flag that defines what it is) and the runbook-path candidate above — the same
+failure at the branch level.
 

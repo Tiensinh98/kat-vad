@@ -16,7 +16,7 @@
 > | `kip.gate_type` | **does not exist** (`core/config.py` raises `KeyError`) | `rank` (default) / `mlp_frozen` / `mlp_ste` / `constant` |
 > | `core/kip/ecmr.py` | absent | present |
 > | `train_only_modules`, `--dump-kip-diag` | absent | present |
-> | tests | **425 collected → 413 pass, 12 fail** (see below) | 537 green |
+> | tests | **418 collected → 418 pass, 0 fail** (see below) | 537 green |
 >
 > **Every measured result recorded below was produced by the `v3` branch's code.**
 > They are kept here on purpose: `outputs/` is gitignored and
@@ -39,7 +39,7 @@
 |---|---|
 | Python files | **79** — 54 source + 25 test |
 | Source LOC | **10,484** |
-| Tests | **425 collected: 413 pass, 12 fail** |
+| Tests | **418 collected: 418 pass, 0 fail** (green 2026-09-08) |
 | KIP | v1: `pmg.py`, `gate_shift.py` (`KinematicShift`, frozen MLP gate), `motion_head.py`, `kip_module.py`, `losses.py` |
 | Adapters | MSAD, DoTA, PreVAD, **TAD**, **DADA-2000** — all present |
 | `core/eda/` | present (5 modules + `core/tools/eda.py` + `core/docs/EDA.md`) |
@@ -54,7 +54,7 @@
 `v3/{KAT-VAD-ARCHITECTURE, KAT-VAD_spec_v3, RESULTS_V3_GATE_ATTRIBUTION,
 KAT-VAD_audit_addendum_PreVAD}.md` plus `v3/setup/MSAD_DOTA_V3_SETUP.md`.
 
-### The 12 failing tests are a branch artifact, not a regression
+### The 12 failing tests were a branch artifact — collapsed, suite now green
 
 ```
 core/tests/test_dada.py::TestDadaTrainsUnderEveryGate  — 5 failures
@@ -62,21 +62,28 @@ core/tests/test_tad.py::TestTadTrainsUnderEveryGate    — 7 failures
 KeyError: 'Unknown config key: kip.gate_type'   (core/config.py:207)
 ```
 
-Both test classes were written during the v3 rebuild and parametrize the arm
+Both test classes were written during the v3 rebuild and parametrized the arm
 matrix over `kip.gate_type` (`v1_mlp_frozen`, `v1_mlp_ste`, `v3_rank`,
 `v3_constant`). `core/config.py` on `main` has no such field and **raises by
 design** — unknown keys are a hard error (a deliberate decision, see
-[[systemPatterns]]). Nothing about the data adapters, the model or the metrics is
-broken. Two honest fixes, neither done:
+[[systemPatterns]]). Nothing about the data adapters, the model or the metrics
+was broken.
 
-1. **Skip the gate matrix on `main`** — collapse `TestXTrainsUnderEveryGate` to
-   the single v1 configuration and keep the DADA/TAD coverage.
-2. **Port the v3 gate to `main`** — only if `main` is meant to grow past v1,
-   which is *not* the current intent.
+**Fixed 2026-09-08 by option 1 — collapse, not delete.** Both classes are now
+`TestDadaTrains` / `TestTadTrains` and run the one gate v1 ships,
+`V1_KIP_ARM = ["--set", "kip.gate_signal=flow_norm"]`. The v3-only
+parametrizations are gone (**7 of them**, 425 → 418 collected); everything that
+passed still passes: `test_kip_off_trains` (arm A0),
+`test_stage1_warmup_runs` (TAD stage 1, the A1/A2b/A3/A4 precondition) and the
+`config.yaml`-recording tests, which now assert `kip.gate_signal` instead of
+`kip.gate_type`. `ruff` and `mypy` clean on both files.
 
-**Do not "fix" this by adding `gate_type` to `core/config.py` alone.** The tests
-also expect `ecmr.py`, the STE shift and the diagnostics; a partial port would
-turn 12 loud failures into a silently wrong gate.
+The rejected alternative was **port the v3 gate to `main`** — only sane if `main`
+is meant to grow past v1, which is *not* the current intent.
+
+**Do not "fix" a future recurrence by adding `gate_type` to `core/config.py`
+alone.** The v3 tests also expect `ecmr.py`, the STE shift and the diagnostics; a
+partial port would turn 12 loud failures into a silently wrong gate.
 
 ### Runbooks on this branch that this branch cannot run
 

@@ -6,10 +6,9 @@ Two things are under test here:
   artifact before 2026-09-02 was built with must be bit-for-bit unchanged, and
   the new ``--with-train-split`` mode must derive weak labels from the split
   directory and refuse to guess when it cannot.
-* That the files it writes actually train, under the **v1** gate
-  (``mlp_frozen``) and the **v3** gate (``rank``) alike — plus the other two
-  members of the enum, so a TAD run cannot be blocked by a gate that was never
-  exercised on this dataset.
+* That the files it writes actually train, under the **v1** gate this branch
+  ships (the frozen MLP over the flow norm) — so a TAD run cannot be blocked
+  for a data reason that was never exercised on this dataset.
 
 No downloads: tiny PNG frame folders, synthetic CLIP/flow caches, stub text
 encoder, CPU.
@@ -376,25 +375,17 @@ def _train_argv(paths: dict[str, Path], out_dir: Path, extra: list[str]) -> list
     ]
 
 
-# v1 shipped `mlp_frozen`; v3 defaults to `rank`. Both, plus the rest of the
-# enum, must train on the files P1 writes — a gate that raises only on TAD
-# would block an arm of the campaign for a data reason, not a modelling one.
-GATE_ARMS = {
-    "v1_mlp_frozen": ["--set", "kip.gate_type=mlp_frozen",
-                      "--set", "kip.gate_signal=flow_norm"],
-    "v1_mlp_ste": ["--set", "kip.gate_type=mlp_ste",
-                   "--set", "kip.gate_signal=flow_norm"],
-    "v3_rank": ["--set", "kip.gate_type=rank"],
-    "v3_constant": ["--set", "kip.gate_type=constant",
-                    "--set", "kip.const_shift_ratio=0.5"],
-}
+# `main` is KAT-VAD v1 and ships exactly one gate: the frozen MLP over the flow
+# norm. The v3 gate matrix (`kip.gate_type` in {rank, mlp_frozen, mlp_ste,
+# constant}) lives on branch `v3`; `core/config.py` here has no such field and
+# raises on it by design, so parametrizing over it belongs on that branch.
+V1_KIP_ARM = ["--set", "kip.gate_signal=flow_norm"]
 
 
-class TestTadTrainsUnderEveryGate:
-    @pytest.mark.parametrize("arm", sorted(GATE_ARMS))
-    def test_stage2_trains(self, trainable_tad, tmp_path: Path, arm: str) -> None:
-        out = tmp_path / arm
-        train.main(_train_argv(trainable_tad, out, GATE_ARMS[arm]))
+class TestTadTrains:
+    def test_stage2_trains(self, trainable_tad, tmp_path: Path) -> None:
+        out = tmp_path / "v1"
+        train.main(_train_argv(trainable_tad, out, V1_KIP_ARM))
 
         assert (out / train.CHECKPOINT_LAST).exists()
         records = [
@@ -407,19 +398,18 @@ class TestTadTrainsUnderEveryGate:
         for record in records:
             for key, value in record.items():
                 if key not in ("epoch", "batch", "global_step"):
-                    assert np.isfinite(value), f"{key} not finite in {arm}: {record}"
+                    assert np.isfinite(value), f"{key} not finite: {record}"
 
-    @pytest.mark.parametrize("arm", ["v1_mlp_frozen", "v3_rank"])
-    def test_stage1_warmup_runs(self, trainable_tad, tmp_path: Path, arm: str) -> None:
+    def test_stage1_warmup_runs(self, trainable_tad, tmp_path: Path) -> None:
         """Stage 1 is the precondition for A1/A2b/A3/A4 and needs the flow cache."""
-        out = tmp_path / f"{arm}_stage1"
+        out = tmp_path / "v1_stage1"
         train.main(
-            _train_argv(trainable_tad, out, [*GATE_ARMS[arm], "--set", "train.stage=1"])
+            _train_argv(trainable_tad, out, [*V1_KIP_ARM, "--set", "train.stage=1"])
         )
         assert (out / train.CHECKPOINT_LAST).exists()
 
     def test_kip_off_trains(self, trainable_tad, tmp_path: Path) -> None:
-        """Arm A0 — the baseline every Δ subtracts from."""
+        """Arm A0 — the baseline every delta subtracts from."""
         out = tmp_path / "a0"
         train.main(
             _train_argv(trainable_tad, out, ["--set", "kip.enabled=false"])
@@ -431,7 +421,7 @@ class TestTadTrainsUnderEveryGate:
         import yaml
 
         out = tmp_path / "recorded"
-        train.main(_train_argv(trainable_tad, out, GATE_ARMS["v3_rank"]))
+        train.main(_train_argv(trainable_tad, out, V1_KIP_ARM))
         cfg = yaml.safe_load((out / "config.yaml").read_text(encoding="utf-8"))
-        assert cfg["kip"]["gate_type"] == "rank"
+        assert cfg["kip"]["gate_signal"] == "flow_norm"
         assert cfg["data"]["dataset"] == constants.TAD_DATASET

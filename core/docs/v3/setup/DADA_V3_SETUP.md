@@ -12,9 +12,11 @@ running a third training corpus is that all three campaigns compare row for
 row.
 
 > `core/data/dada.py` builds **both** splits unconditionally (no TAD-style
-> `--with-train-split` flag), and every KIP gate type trains on its output —
-> covered by `core/tests/test_dada.py::TestDadaTrainsUnderEveryGate`, so a
-> DADA-2000 arm cannot fail for a *data* reason that was never exercised.
+> `--with-train-split` flag), and its output trains — covered by
+> `core/tests/test_dada.py::TestDadaTrains`, so a DADA-2000 arm cannot fail for
+> a *data* reason that was never exercised. **On `main` that test exercises the
+> v1 gate only**; the `gate_type` matrix this runbook prescribes is covered on
+> branch `v3`, which is also the only branch that can parse it.
 
 ---
 

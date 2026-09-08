@@ -2,8 +2,8 @@
 
 Covers the three record kinds (annotated abnormal, weak abnormal, normal), the
 seeded train/test split, the CSV/frame-folder join and its failure modes, and
-that the files it writes actually train under every KIP gate in the enum --
-the same discipline ``core/tests/test_tad.py`` applies to TAD.
+that the files it writes actually train under this branch's KIP gate -- the
+same discipline ``core/tests/test_tad.py`` applies to TAD.
 
 No downloads: tiny PNG frame folders, a synthetic CSV, synthetic CLIP/flow
 caches, stub text encoder, CPU.
@@ -404,7 +404,7 @@ class TestCli:
 
 
 # ---------------------------------------------------------------------------
-# The files dada.py writes have to train, under every gate in the enum.
+# The files dada.py writes have to train, under the gate this branch ships.
 # ---------------------------------------------------------------------------
 
 
@@ -477,19 +477,17 @@ def _train_argv(paths: dict[str, Path], out_dir: Path, extra: list[str]) -> list
     ]
 
 
-GATE_ARMS = {
-    "v1_mlp_frozen": ["--set", "kip.gate_type=mlp_frozen", "--set", "kip.gate_signal=flow_norm"],
-    "v1_mlp_ste": ["--set", "kip.gate_type=mlp_ste", "--set", "kip.gate_signal=flow_norm"],
-    "v3_rank": ["--set", "kip.gate_type=rank"],
-    "v3_constant": ["--set", "kip.gate_type=constant", "--set", "kip.const_shift_ratio=0.5"],
-}
+# `main` is KAT-VAD v1 and ships exactly one gate: the frozen MLP over the flow
+# norm. The v3 gate matrix (`kip.gate_type` in {rank, mlp_frozen, mlp_ste,
+# constant}) lives on branch `v3`; `core/config.py` here has no such field and
+# raises on it by design, so parametrizing over it belongs on that branch.
+V1_KIP_ARM = ["--set", "kip.gate_signal=flow_norm"]
 
 
-class TestDadaTrainsUnderEveryGate:
-    @pytest.mark.parametrize("arm", sorted(GATE_ARMS))
-    def test_stage2_trains(self, trainable_dada, tmp_path: Path, arm: str) -> None:
-        out = tmp_path / arm
-        train.main(_train_argv(trainable_dada, out, GATE_ARMS[arm]))
+class TestDadaTrains:
+    def test_stage2_trains(self, trainable_dada, tmp_path: Path) -> None:
+        out = tmp_path / "v1"
+        train.main(_train_argv(trainable_dada, out, V1_KIP_ARM))
 
         assert (out / train.CHECKPOINT_LAST).exists()
         records = [
@@ -500,7 +498,7 @@ class TestDadaTrainsUnderEveryGate:
         for record in records:
             for key, value in record.items():
                 if key not in ("epoch", "batch", "global_step"):
-                    assert np.isfinite(value), f"{key} not finite in {arm}: {record}"
+                    assert np.isfinite(value), f"{key} not finite: {record}"
 
     def test_kip_off_trains(self, trainable_dada, tmp_path: Path) -> None:
         out = tmp_path / "a0"
@@ -511,8 +509,8 @@ class TestDadaTrainsUnderEveryGate:
         import yaml
 
         out = tmp_path / "recorded"
-        train.main(_train_argv(trainable_dada, out, GATE_ARMS["v3_rank"]))
+        train.main(_train_argv(trainable_dada, out, V1_KIP_ARM))
         cfg = yaml.safe_load((out / "config.yaml").read_text(encoding="utf-8"))
-        assert cfg["kip"]["gate_type"] == "rank"
+        assert cfg["kip"]["gate_signal"] == "flow_norm"
         assert cfg["data"]["dataset"] == constants.DADA_DATASET
         assert cfg["data"]["is_egocentric"] is True
