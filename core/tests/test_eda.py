@@ -4,8 +4,10 @@ The properties under test are the ones that decide whether a published number
 means what it says, so each is pinned against a hand-computed value rather than
 a golden file:
 
-* the constant-score-per-clip oracle reproduces ``RESULTS_DADA.md`` §4's 0.9069
-  on that document's exact frame counts;
+* the constant-score-per-clip oracle reproduces the DADA-2000 test split's 0.9086
+  (``RESULTS_DADA.md`` §4 printed 0.9069 from the wrong frame split; corrected 2026-09-08);
+* the length-only baseline (lesson **C28**) fires on DADA's trimmed-clip shape and
+  stays silent on a corpus whose classes share a length distribution;
 * the kernel-coverage and MIL-k tables reproduce §5's DADA / DoTA / MSAD rows;
 * a vanished anomaly window is *found*, because the campaign shipped four of
   them undetected.
@@ -174,13 +176,21 @@ class TestLabelGeometry:
 
 
 class TestProtocol:
-    def test_clip_oracle_reproduces_results_dada_0_9069(self) -> None:
-        """RESULTS_DADA.md §4: 476 positives, 3,880 all-normal frames, 888 negatives
-        inside abnormal clips -> the constant-score oracle scores 0.9069."""
-        abnormal = np.concatenate([np.ones(476, dtype=np.int8), np.zeros(888, dtype=np.int8)])
-        normal = np.zeros(3880, dtype=np.int8)
+    def test_clip_oracle_reproduces_the_dada_test_split(self) -> None:
+        """The DADA-2000 test split: 476 positives, 872 negatives inside abnormal
+        clips, 3,896 frames in all-normal clips -> the constant-score oracle
+        scores **0.9086**, which is what the run on disk measures.
+
+        RESULTS_DADA.md §4 printed 0.9069 because it used the 3,880-frame
+        ``0_Normal_Driving`` *subgroup* count instead of the all-normal-*clip*
+        count. The 16-frame difference is exactly the four vanished-window clips
+        (§8.3): abnormal in ``meta.json``, all-zero after stride-8 rounding, so
+        they are all-normal clips for every metric. Corrected 2026-09-08.
+        """
+        abnormal = np.concatenate([np.ones(476, dtype=np.int8), np.zeros(872, dtype=np.int8)])
+        normal = np.zeros(3896, dtype=np.int8)
         oracle = protocol.clip_constant_oracle([abnormal, normal])
-        assert oracle["auc_micro"] == pytest.approx(0.9069, abs=5e-5)
+        assert oracle["auc_micro"] == pytest.approx(0.9086, abs=5e-5)
         assert oracle["auc_macro"] == 0.5
 
     def test_oracle_is_one_when_no_all_normal_clips_exist(self) -> None:
@@ -188,6 +198,51 @@ class TestProtocol:
         # because there is no clip whose frames are all negative to rank below.
         mixed = [np.array([0, 1, 0], dtype=np.int8) for _ in range(4)]
         assert protocol.clip_constant_oracle(mixed)["auc_micro"] == pytest.approx(0.5)
+
+    def test_length_leak_fires_on_the_dada_shape(self) -> None:
+        """Lesson C28. DADA-2000's abnormal clips are trimmed (T <= 17) and its
+        normal clips are not (median 19), so a detector reading only the frame
+        count separates them. Shape reproduced in miniature: short abnormal
+        clips, long normal ones, disjoint ranges."""
+        labels = [np.array([0, 1, 0], dtype=np.int8) for _ in range(5)]
+        labels += [np.zeros(20, dtype=np.int8) for _ in range(5)]
+        leak = protocol.clip_length_leak(labels)
+        assert leak["direction"] == "shorter"
+        assert leak["auc_clip_level"] == pytest.approx(1.0)
+        assert leak["auc_micro"] > 0.9
+        assert leak["auc_macro"] == 0.5
+        # every normal clip is longer than the longest abnormal one
+        assert leak["disjoint_normal_clips"] == 5
+        assert leak["disjoint_normal_frames"] == 100
+
+    def test_length_leak_is_chance_when_lengths_carry_nothing(self) -> None:
+        """A corpus whose classes share a length distribution must not fire C28."""
+        labels = [np.array([0, 1, 0, 0], dtype=np.int8) for _ in range(6)]
+        labels += [np.zeros(4, dtype=np.int8) for _ in range(6)]
+        leak = protocol.clip_length_leak(labels)
+        assert leak["auc_clip_level"] == pytest.approx(0.5)
+        assert leak["disjoint_normal_clips"] == 0
+
+    def test_length_leak_detects_the_longer_direction_too(self) -> None:
+        """The leak is not always 'shorter = abnormal'; report whichever way it goes."""
+        labels = [np.concatenate([np.zeros(19, np.int8), np.ones(1, np.int8)]) for _ in range(4)]
+        labels += [np.zeros(3, dtype=np.int8) for _ in range(4)]
+        leak = protocol.clip_length_leak(labels)
+        assert leak["direction"] == "longer"
+        assert leak["auc_clip_level"] == pytest.approx(1.0)
+
+    def test_length_leak_raises_on_a_single_clip_class(self) -> None:
+        with pytest.raises(ValueError, match="single clip class"):
+            protocol.clip_length_leak([np.array([0, 1], dtype=np.int8) for _ in range(3)])
+
+    def test_protocol_report_survives_a_corpus_with_no_normal_clip(self, tmp_path: Path) -> None:
+        """The leak check must degrade, never break protocol_report (DoTA-like)."""
+        files = corpus.load_dataset_files(
+            write_dataset(tmp_path / "ds", {f"m{i}": [0, 1, 0] for i in range(4)}), "SYNTH"
+        )
+        report = protocol.protocol_report(files)
+        assert "skipped" in report["clip_length_leak"]
+        assert report["clip_constant_oracle"]["auc_micro"] == pytest.approx(0.5)
 
     def test_pair_decomposition_sums(self) -> None:
         arrays = [np.array([1, 0, 0], dtype=np.int8), np.zeros(5, dtype=np.int8)]

@@ -6,12 +6,19 @@ Lesson **C12** has two faces and this corpus set shows both:
   rather than localizing anything — hence the per-clip min-max protocol.
 * **DADA-2000** is the mirror: 74 % of its test frames come from clips that are
   negative in their entirety, so a model that emits **one constant score per
-  clip** and does zero localization scores **0.9069** micro. Any micro number
+  clip** and does zero localization scores **0.9086** micro. Any micro number
   there is mostly a video-classification score.
 
 :func:`clip_constant_oracle` computes that ceiling exactly, and
 :func:`pair_decomposition` says what fraction of the metric it can reach — both
 from labels alone, with no model involved.
+
+:func:`clip_length_leak` asks a harder question (lesson **C28**): can the clip's
+*length* alone predict its label? On the reconstructed DADA-2000 it can — a
+constant score of ``-T`` per clip reaches **micro AUC 0.8654**, within 0.009 of
+the best trained arm — because the build trims accident videos and leaves normal
+ones full length. A corpus that fails this check leaks its label through a
+channel no model change can remove.
 """
 
 from __future__ import annotations
@@ -74,6 +81,62 @@ def clip_constant_oracle(labels: list[np.ndarray]) -> dict[str, Any]:
         "ap_micro": frame_ap(scores, flat),
         "auc_macro": 0.5,
         "definition": "constant score per clip = clip label; zero within-clip ranking",
+    }
+
+
+def clip_length_leak(labels: list[np.ndarray]) -> dict[str, Any]:
+    """Can the clip's **length** alone predict its label? (lesson **C28**)
+
+    A corpus reconstructed by trimming abnormal videos around the event, while
+    leaving normal videos at full length, encodes its label in the frame count.
+    That channel survives every model, loss and backbone change, and a model can
+    read it: attention masks and positional encodings are length-dependent, and
+    clips are scored at their true length.
+
+    Scores every frame of a clip with the clip's own length (signed so that the
+    predictive direction is positive), i.e. a constant-score-per-clip detector
+    that has seen no pixels at all. Whatever this reaches is free, and any arm
+    that fails to beat it is unmeasured.
+    """
+    if not labels:
+        raise ValueError("No label arrays; cannot compute the length leak")
+    lengths = np.array([float(a.size) for a in labels], dtype=np.float64)
+    clip_labels = np.array([int(a.max() > 0) for a in labels], dtype=np.int64)
+    if clip_labels.min() == clip_labels.max():
+        raise ValueError("Test set has a single clip class; length leak undefined")
+    flat = np.concatenate(labels).astype(np.int64)
+    if flat.min() == flat.max():
+        raise ValueError("Test set has a single frame class; length leak undefined")
+
+    auc_longer = frame_auc(lengths, clip_labels)
+    longer_is_abnormal = auc_longer >= 0.5
+    signed = lengths if longer_is_abnormal else -lengths
+    frame_scores = np.concatenate(
+        [np.full(a.size, s) for a, s in zip(labels, signed, strict=True)]
+    )
+
+    abnormal = lengths[clip_labels == 1]
+    normal = lengths[clip_labels == 0]
+    # Normal clips lying outside the abnormal length range on the normal side:
+    # separable for free, by a threshold, with no pixels read.
+    disjoint = (
+        normal < abnormal.min() if longer_is_abnormal else normal > abnormal.max()
+    )
+    disjoint_frames = int(lengths[clip_labels == 0][disjoint].sum())
+    return {
+        "auc_clip_level": max(auc_longer, 1.0 - auc_longer),
+        "direction": "longer" if longer_is_abnormal else "shorter",
+        "auc_micro": frame_auc(frame_scores, flat),
+        "ap_micro": frame_ap(frame_scores, flat),
+        "auc_macro": 0.5,
+        "abnormal_length": describe(abnormal.tolist(), "abnormal clip length T"),
+        "normal_length": describe(normal.tolist(), "normal clip length T"),
+        "disjoint_normal_clips": int(disjoint.sum()),
+        "disjoint_normal_frames": disjoint_frames,
+        "definition": (
+            "constant score per clip = clip length (signed to the predictive "
+            "direction); zero within-clip ranking, no pixels read"
+        ),
     }
 
 
@@ -182,9 +245,15 @@ def curve_flatness(scores: list[np.ndarray]) -> dict[str, Any]:
 def protocol_report(files: DatasetFiles, scores_dir: Path | None = None) -> dict[str, Any]:
     """Everything in this module. ``scores_dir`` adds the model-curve flatness block."""
     labels = files.test_label_arrays()
+    try:
+        length_leak: dict[str, Any] = clip_length_leak(labels)
+    except ValueError as exc:  # single-class test split: the check has no meaning
+        LOGGER.warning("Skipping the clip-length leak check: %s", exc)
+        length_leak = {"skipped": str(exc)}
     report: dict[str, Any] = {
         "frame_share": frame_share(labels),
         "clip_constant_oracle": clip_constant_oracle(labels),
+        "clip_length_leak": length_leak,
         "pair_decomposition": pair_decomposition(labels),
         "macro_resolution": macro_resolution(labels),
         "score_norm_auto": score_norm_resolution(labels),
@@ -204,6 +273,7 @@ def protocol_report(files: DatasetFiles, scores_dir: Path | None = None) -> dict
 
 __all__ = [
     "clip_constant_oracle",
+    "clip_length_leak",
     "curve_flatness",
     "frame_share",
     "load_score_curves",

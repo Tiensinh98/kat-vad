@@ -29,6 +29,7 @@ LOGGER = logging.getLogger(__name__)
 FULLY_COVERED_WARN_FRACTION = 0.25  # lesson C27 fires above this
 K1_WARN_FRACTION = 0.5  # MIL degenerates to a plain max on this share of clips
 ORACLE_WARN_AUC = 0.75  # a clip classifier already gets this much of micro
+LENGTH_LEAK_WARN_AUC = 0.65  # clip length alone predicts the label above this (C28)
 BETWEEN_WITHIN_WARN = 5.0  # feature/score variance dominated by scene identity
 PROBE_SIGNAL_AUC = 0.60  # a macro AUC above this counts as real frame-level signal
 
@@ -124,6 +125,20 @@ def _verdicts(report: dict[str, Any]) -> list[dict[str, str]]:
             "Report auc_macro as the headline and print this oracle beside any "
             "micro number. Never place a micro number from this corpus next to a "
             "published frame-level AUC.",
+        )
+    leak = proto.get("clip_length_leak", {})
+    if leak.get("auc_clip_level", 0.0) >= LENGTH_LEAK_WARN_AUC:
+        add(
+            "CRITICAL", "Clip length alone predicts the label (lesson C28)",
+            f"A constant-score-per-clip detector reading only the clip's frame "
+            f"count scores clip-level AUC {leak['auc_clip_level']:.4f} and micro "
+            f"AUC {leak['auc_micro']:.4f} — {leak['direction']} clips are the "
+            f"abnormal ones. {_fmt(leak['disjoint_normal_clips'])} normal clips "
+            f"({_fmt(leak['disjoint_normal_frames'])} frames) fall outside the "
+            "abnormal length range entirely.",
+            "Rebuild the corpus into fixed-length windows with the anomaly at a "
+            "random offset. Until then, print this baseline beside every micro "
+            "AUC and treat any arm that fails to beat it as unmeasured.",
         )
     flat = proto.get("scored_run", {}).get("flatness", {})
     if flat.get("between_over_within") and flat["between_over_within"] >= BETWEEN_WITHIN_WARN:
@@ -322,6 +337,7 @@ def render_markdown(report: dict[str, Any]) -> str:
     if "protocol" in report:
         p = report["protocol"]
         fs, oracle, pairs = p["frame_share"], p["clip_constant_oracle"], p["pair_decomposition"]
+        leak = p.get("clip_length_leak", {})
         lines += [
             "## 3. What the metric measures", "",
             "### 3.1 Where the frames live", "",
@@ -349,7 +365,38 @@ def render_markdown(report: dict[str, Any]) -> str:
             "",
             "**Print this oracle beside every micro AUC measured on this corpus.**",
             "",
-            "### 3.3 Per-clip AUC resolution", "",
+            "### 3.3 The clip-length leak (lesson C28)", "",
+        ]
+        if "auc_clip_level" in leak:
+            lines += [
+                "A constant-score-per-clip detector whose **only** input is the "
+                "clip's frame count — no pixels, no model — scores:",
+                "",
+                f"- clip-level AUC **{_fmt(leak['auc_clip_level'])}** "
+                f"(**{leak['direction']}** clips are the abnormal ones); "
+                f"micro AUC **{_fmt(leak['auc_micro'])}**, micro AP "
+                f"**{_fmt(leak['ap_micro'])}**, macro AUC **0.5000** by construction",
+                f"- abnormal clip length T: median "
+                f"**{_fmt(leak['abnormal_length']['percentiles']['p50'], 1)}**, "
+                f"min {_fmt(leak['abnormal_length']['percentiles']['p0'], 1)}, "
+                f"max **{_fmt(leak['abnormal_length']['percentiles']['p100'], 1)}**",
+                f"- normal clip length T: median "
+                f"**{_fmt(leak['normal_length']['percentiles']['p50'], 1)}**, "
+                f"min {_fmt(leak['normal_length']['percentiles']['p0'], 1)}, "
+                f"max {_fmt(leak['normal_length']['percentiles']['p100'], 1)}",
+                f"- normal clips outside the abnormal length range entirely: "
+                f"**{_fmt(leak['disjoint_normal_clips'])}** "
+                f"({_fmt(leak['disjoint_normal_frames'])} frames)",
+                "",
+                "**Any arm that does not beat this baseline is unmeasured.**",
+                "",
+            ]
+        else:
+            lines += [
+                f"Not computed: {leak.get('skipped', 'unavailable')}.", "",
+            ]
+        lines += [
+            "### 3.4 Per-clip AUC resolution", "",
             f"- two-class clips (the only ones `auc_macro` averages): "
             f"**{_fmt(p['macro_resolution']['two_class_clips'])}**; single-class: "
             f"{_fmt(p['macro_resolution']['single_class_clips'])}",
@@ -371,7 +418,7 @@ def render_markdown(report: dict[str, Any]) -> str:
             run = p["scored_run"]
             fl = run["flatness"]
             lines += [
-                "### 3.4 A scored run's curves", "",
+                "### 3.5 A scored run's curves", "",
                 f"`{run['scores_dir']}` — {_fmt(run['clips'])} clips, "
                 f"auc_macro **{_fmt(run['auc_macro'])}** over {run['auc_macro_videos']} clips",
                 "",
@@ -561,6 +608,10 @@ def compare_reports(reports: list[dict[str, Any]]) -> str:
         row("vanished windows", lambda r: r["labels"]["vanished_windows"]["count"]),
         row("**clip-oracle micro AUC**",
             lambda r: r["protocol"]["clip_constant_oracle"]["auc_micro"]),
+        row("**length-only micro AUC**",
+            lambda r: r["protocol"]["clip_length_leak"]["auc_micro"]),
+        row("length-only clip AUC",
+            lambda r: r["protocol"]["clip_length_leak"]["auc_clip_level"]),
         row("cross-clip pair fraction",
             lambda r: r["protocol"]["pair_decomposition"]["cross_clip_fraction"], 4),
         row("score-norm auto resolves to",
@@ -576,7 +627,9 @@ def compare_reports(reports: list[dict[str, Any]]) -> str:
         "",
         "A corpus whose clip-oracle micro AUC is high and whose median T is at or "
         "below the score-head kernel cannot support a frame-level claim, whatever "
-        "its micro AUC says (lessons C12, C27).",
+        "its micro AUC says (lessons C12, C27). A corpus whose length-only micro "
+        "AUC is high does not support one at all: the label is readable without "
+        "the pixels (lesson C28).",
         "",
     ]
     return "\n".join(lines) + "\n"
