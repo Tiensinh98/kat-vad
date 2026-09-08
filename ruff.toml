@@ -1,7 +1,7 @@
 # Ruff configuration for KAT-VAD. LaGoVAD-PreVAD/ is a read-only baseline — never linted.
 target-version = "py310"
 line-length = 100
-extend-exclude = ["LaGoVAD-PreVAD", ".ai-workflow", ".venv"]
+extend-exclude = ["LaGoVAD-PreVAD", ".venv"]
 
 [lint]
 select = [

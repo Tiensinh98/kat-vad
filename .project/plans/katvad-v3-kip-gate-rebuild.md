@@ -473,8 +473,6 @@ T5.1 was scoped to repointing the `core/docs/v2/` rows. While doing it, **`.proj
 
 So `CLAUDE.md` §14.1 was directing every session to two source-of-truth documents *and* a plan file, none of which are on disk. Both classes are now marked with an explicit "does not exist in this tree — do not cite" row rather than silently deleted, so the next reader who remembers them learns why they are gone.
 
-**`CLAUDE.md` is gitignored** (`.gitignore:43`) and is a symlink into `.ai-workflow/`. The edits landed and persist locally, but they will not appear in any commit — by this repo's design, not by omission.
-
 ### F.2 Docs corrected, with the reason recorded in place
 
 | Doc | Correction |

@@ -181,8 +181,8 @@ attributed it to any part of KIP:
       stays v1 and owns the v1 story; gate architecture happens on `v3`. If that
       changes, the port is `ecmr.py` + `gate_type` + the STE shift + diagnostics
       **together**, never piecemeal.
-- [ ] **Cross-branch merge discipline.** `.ai-workflow/CLAUDE.md` and
-      `.ai-workflow/.project/memory-bank/*` are tracked and have deliberately
+- [ ] **Cross-branch merge discipline.** `CLAUDE.md` and
+      `.project/memory-bank/*` are tracked and have deliberately
       diverged; any `main`↔`v3` merge conflicts there must be resolved by branch
       identity, not by "take theirs".
 - [ ] **The campaign notebooks are untracked on `main`.** `colab/` is gitignored

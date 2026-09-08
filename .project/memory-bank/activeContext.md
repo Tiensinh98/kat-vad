@@ -93,8 +93,7 @@ sections; their *data-build* sections are fine and are what `main` is for.
   (`collab/MSAD/train.py` shows as deleted). `colab/` is now **gitignored**, so
   `colab/{MSAD,DADA}/v3/train.py` are untracked — the notebooks that ran the
   campaigns are **not** in git on this branch.
-- `?? .project` — that is the symlink `.project → .ai-workflow/.project`. The
-  real, tracked memory bank is `.ai-workflow/.project/memory-bank/`. Adding the
+- The real, tracked memory bank is `.project/memory-bank/`. Adding the
   symlink to git is not useful; the files behind it are already tracked.
 
 ### What `main` is *for*, going forward
@@ -625,10 +624,7 @@ Nothing was carried over from the previous memory bank.
 
 ## What happened to the previous memory bank
 
-`.project/memory-bank/` was found empty at the start of this session (`.project`
-is a symlink to `.ai-workflow/.project`, and the whole tree is gitignored, so
-there is no git history to recover from). A sibling directory
-`../code copy/.ai-workflow/.project/memory-bank/` still holds the old files —
+A sibling directory `.project/memory-bank/` still holds the old files —
 including a `lessons-learned/` catalog and a large `activeContext.md` describing
 later experiments (a "p17" feature-cache re-ablation, gate re-measurements).
 
