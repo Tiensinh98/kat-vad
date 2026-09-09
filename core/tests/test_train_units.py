@@ -16,6 +16,7 @@ import pytest
 import torch
 import torchmetrics
 
+from core import constants
 from core.config import Config
 from core.data.definitions import DatasetSpecVerbalizer, dataset_abbr, verbalize_class_name
 from core.inference import expand_to_frames, sliding_window_scores
@@ -235,6 +236,56 @@ class TestLossGating:
         trainer = _make_trainer(tmp_path)
         losses = trainer.compute_losses(self._batch(trainer))
         assert "cap_contrastive" not in losses
+
+    # --- Phase 1 arms (DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md §6) --------
+    def test_phase1_arms_are_off_by_default(self, tmp_path: Path) -> None:
+        """A new term must not appear until someone asks for it."""
+        trainer = _make_trainer(tmp_path)
+        assert trainer.cfg.loss.dvs_anchor_mode == constants.DVS_ANCHOR_MODE_SPAN
+        assert trainer.cfg.loss.bottomk_weight == 0.0
+        assert "bottomk" not in trainer.compute_losses(self._batch(trainer))
+
+    def test_bottomk_arm_adds_a_finite_term(self, tmp_path: Path) -> None:
+        trainer = _make_trainer(tmp_path, loss__bottomk_weight=0.5)
+        losses = trainer.compute_losses(self._batch(trainer))
+        assert "bottomk" in losses and torch.isfinite(losses["bottomk"])
+        assert torch.isfinite(losses["total"])
+
+    def test_dvs_ignore_arm_changes_dvs_sup(self, tmp_path: Path) -> None:
+        """The arm must actually move the loss it targets, not silently no-op.
+
+        theta = 0 forces every abnormal anchor to be spliced, so ``y^p`` is
+        guaranteed to carry positives -- exactly the rows lesson **C29** is
+        about. Same weights, same batch: any difference is the arm itself.
+        """
+        values: dict[str, float] = {}
+        batch = None
+        for mode in constants.DVS_ANCHOR_MODE_CHOICES:
+            trainer = _make_trainer(
+                tmp_path / mode,
+                loss__dvs_anchor_mode=mode,
+                dvs__theta=0.0,
+                dvs__theta_ego=0.0,
+            )
+            if batch is None:
+                batch = self._batch(trainer)
+                pseudo = batch["pseudo_frame_label"]
+                assert isinstance(pseudo, torch.Tensor)
+                assert float(pseudo.sum()) > 0, (
+                    "fixture drew no synthesized abnormal row; test is vacuous"
+                )
+            losses = trainer.compute_losses(batch)
+            assert torch.isfinite(losses["dvs_sup"])
+            values[mode] = float(losses["dvs_sup"])
+        assert values[constants.DVS_ANCHOR_MODE_SPAN] != pytest.approx(
+            values[constants.DVS_ANCHOR_MODE_IGNORE]
+        ), "loss.dvs_anchor_mode=ignore did not reach supervised_loss"
+
+    def test_invalid_dvs_anchor_mode_raises(self, tmp_path: Path) -> None:
+        """A typo must fail loudly, not leave the arm quietly off."""
+        trainer = _make_trainer(tmp_path, loss__dvs_anchor_mode="middle")
+        with pytest.raises(ValueError, match="dvs_anchor_mode"):
+            trainer.compute_losses(self._batch(trainer))
 
     def test_stage1_trains_kip_only(self, tmp_path: Path) -> None:
         trainer = _make_trainer(tmp_path, train__stage=1)

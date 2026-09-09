@@ -16,6 +16,7 @@ total = L_MIL                                   (mil_loss; cls + cap branches)
       + lambda_rec              · L_KIP_rec
       + lambda_align            · L_KIP_align
       + gamma_kin               · L_kin         (main scores = sigmoid, detached)
+      + bottomk_weight          · L_bottomk     (abnormal_bottomk_loss)  [arm, 0]
 ```
 
 Stage 1 (`train.stage=1`) trains **KIP only** (everything else
@@ -24,6 +25,30 @@ no text encoding happens at all.
 
 KIP ablation gating (spec §10): `kip.enabled=false` → pure baseline;
 `kip.pmg_only=true` → rec+align only; `kip.use_lkin=false` → no `L_kin`.
+
+### Phase 1 arms — both default to the baseline
+
+Added 2026-09-09 from `DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md` §6. Neither
+changes a single number unless you switch it on; the default graph and the
+logged loss keys are byte-identical to before.
+
+| Flag | Default | What it does |
+|---|---|---|
+| `loss.dvs_anchor_mode` | `span` | `span` = baseline: the whole spliced anchor is a dense positive in `supervised_loss`. **`ignore`** drops the anchor interior from that BCE — filler frames stay hard negatives and `pseudo_sup_mil_loss` supplies the positive pressure through its in-span top-k. Lesson **C29**. |
+| `loss.bottomk_weight` | `0.0` | Weight of `abnormal_bottomk_loss`: pushes the **lowest**-k frames of each *abnormal* clip toward 0. The only term in the objective that lowers a frame inside a positive bag. Normal clips are excluded — `L_MIL` already bounds them. |
+| `loss.bottomk_topk_pct` | `16` | `k = max(1, L // this)` for that term. |
+
+**Why `ignore` exists.** `compose_sequence` marks the entire anchor clip
+positive, which is right only when an abnormal clip is ~all anomaly. On
+DADA-2000 the mean true positive fraction of an abnormal clip is **0.351**, so
+the dense BCE trains **64.9 %** of those frames to 1 against a 0 annotation —
+and it is the densest gradient in the objective. Measured consequence: normal
+frames inside abnormal clips scored **0.4078** against **0.4076** for true
+positives. Check the corpus's positive fraction (`core.tools.eda`, §2) before
+leaving this on `span`.
+
+`loss.dvs_anchor_mode` is validated at the point of use and **raises** on a
+typo — an unrecognized value must not leave the arm silently off.
 
 ## Documented deviations from the baseline
 
@@ -34,7 +59,8 @@ KIP ablation gating (spec §10): `kip.enabled=false` → pure baseline;
    rows to `supervised_loss` would BCE every frame toward 0 and fight `L_MIL`,
    so `train.py` applies the pair only to rows that are **normal or
    synthesized**. If reproduction gate (b) misses, this is the first knob to
-   revisit (plan §6).
+   revisit (plan §6). **The row gating is correct; the *span semantics* are
+   the open problem** — see `loss.dvs_anchor_mode` above and lesson **C29**.
 2. **Captions on description-less datasets.** MSAD ships no per-video
    descriptions, so the caption branch (`cap_*` losses + `L_neg`) is inactive
    by default — the baseline behaves identically when `desc_label` is empty.
@@ -83,6 +109,25 @@ definitions per window; `--no-verbalize` disables). Micro AUC/AP are computed
 over all concatenated sampled frames — equivalent under the uniform ×stride
 clip→frame expansion (`core.inference.expand_to_frames`). AUC_A, the MCC
 family and mAP@IoU raise `NotImplementedError` until Phase 7.
+
+### Length-controlled evaluation (`--equalize-length`, lesson C28)
+
+`core.evaluate --equalize-length N [--equalize-anchor center|start|end]` crops
+every scored clip to exactly `N` sampled frames and **drops** the shorter ones,
+so clip length carries no label information. Padding is deliberately not
+offered: it would fabricate frames and interact with `ConvScoreHead`'s
+`padding_mode="replicate"`.
+
+Use it wherever the corpus's length distribution differs by class. On the
+reconstructed DADA-2000 a detector reading only the frame count scores micro
+AUC **0.8654**, so the uncontrolled number is not interpretable. `--equalize-anchor`
+picks which window survives — **`end` on DADA-2000**, where the accident sits at
+the end of the clip; `center` (the default) is the corpus-agnostic choice.
+
+The run logs, and `results.json` records under `equalize`, how many clips were
+kept vs dropped and **what fraction of the positive frames survived the crop**.
+Read that retention number before reading the AUC: a control that deletes the
+anomalies measures nothing.
 
 ## Checkpoint compatibility (gate a)
 

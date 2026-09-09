@@ -16,7 +16,7 @@
 > | `kip.gate_type` | **does not exist** (`core/config.py` raises `KeyError`) | `rank` (default) / `mlp_frozen` / `mlp_ste` / `constant` |
 > | `core/kip/ecmr.py` | absent | present |
 > | `train_only_modules`, `--dump-kip-diag` | absent | present |
-> | tests | **423 collected → 423 pass, 0 fail** (418 + 5 from Phase 0, 2026-09-08) | 537 green |
+> | tests | **439 collected → 439 pass, 0 fail** (2026-09-09, after Phase 1) | 537 green |
 >
 > **Every measured result recorded below was produced by the `v3` branch's code.**
 > They are kept here on purpose: `outputs/` is gitignored and
@@ -27,7 +27,104 @@
 **Last Memory Bank Update:** 2026-09-08 (branch split recorded: `main` = v1,
 `v3` = v3; all counts re-measured on this tree)
 
-## 2026-09-08 (latest, second entry) — Phase 0 shipped: the reporting is fixed and two published numbers were wrong
+## 2026-09-09 (latest) — Phase 1 shipped: three arms, all default-off
+
+**Suite: 439 collected, 439 pass** (423 + 16). `ruff` / `mypy` / `pyright` /
+`pycycle` clean; `bandit` 0 High. Files touched: `core/constants.py`,
+`core/config.py`, `core/losses/{dvs,mil,__init__}.py`, `core/train.py`,
+`core/evaluate.py`, `core/docs/{TRAINING,DIAGNOSIS_...}.md`, 3 test files.
+
+### The EDA re-run confirmed the C28 check works
+
+The user re-ran `core.tools.eda` on Colab. **DADA**: a 5th verdict now fires —
+`[CRITICAL] Clip length alone predicts the label (C28)`, clip AUC **0.8105**,
+micro **0.8654**, **107** normal clips (3,157 frames) outside the abnormal
+length range. **DoTA**: §3.3 reads 0.5280 / 0.4993 / **0** disjoint clips and
+**no C28 verdict**. The check is discriminative, not always-on — C28 is a defect
+of the *reconstructed DADA build*, not of dashcam corpora.
+*(Stale: `outputs/eda/DADA2000_A2_s2024/` is from Sep 8, pre-C28 code. Re-run
+`EDA.md` §2.1 if the scored-run block is wanted with §3.3.)*
+
+### What shipped
+
+| Arm | Flag (default) | Effect |
+|---|---|---|
+| 1.1 (C29) | `loss.dvs_anchor_mode` = **`span`** \| `ignore` | `ignore` drops the anchor interior from the dense DVS BCE; fillers stay hard negatives, `pseudo_sup_mil_loss` supplies the positives |
+| 1.2 | `loss.bottomk_weight` = **`0.0`** (+ `bottomk_topk_pct` = 16) | `abnormal_bottomk_loss`: the only term that lowers a frame inside a positive bag; normal clips excluded (`L_MIL` already bounds them) |
+| 1.3 (C28) | `--equalize-length N`, `--equalize-anchor center\|start\|end` | Eval-only control: one length for every clip, shorter ones dropped, retention recorded |
+| 1.4 | — | **Deferred to Phase 2** on purpose: `mil_topk_pct` does nothing at median T = 9 |
+
+### The constraint that shaped the design
+
+The blast-radius trace surfaced that `supervised_loss` / `mil_loss` are asserted
+against the **vendored LaGoVAD reference** by `core/tests/test_baseline_parity.py`.
+So every new parameter is **keyword-only with a baseline default**, and the
+bottom-k term is *skipped* at weight 0 rather than computed and multiplied by
+zero — the default graph and the logged loss keys stay byte-identical. A bad
+`dvs_anchor_mode` **raises**; a typo must not leave an arm silently off.
+
+Two numerical guards: `supervised_loss` divides by `mask.sum().clamp(min=1.0)`
+(all-positive row under `ignore` → 0 *with* a grad_fn, not NaN; unreachable in
+the default mode, so parity is exact), and `abnormal_bottomk_loss` returns
+`logits.sum() * 0.0` on an all-normal batch.
+
+### ⚠️ The codebase-memory graph under-reports callers
+
+`trace_path` on `supervised_loss` returned **empty**; a Cypher `MATCH
+(caller)-[:CALLS]->(f)` found only the **test** callers and **missed
+`core/train.py` entirely** for `supervised_loss`, `pseudo_sup_mil_loss`,
+`mil_loss` and `multi_class_mil_loss`. The real callers were found by reading.
+**Do not treat `trace_path` output as a complete blast radius on this repo** —
+confirm with `grep` before concluding a symbol is safe to change. Re-indexing
+after this commit may or may not fix it; the gap was present on a "ready" index
+with 2,656 nodes.
+
+### The runbook is written and every command was parse-tested
+
+`core/docs/DADA_SETUP.md` **§10.2** is the Phase 1 campaign, runnable on `main`:
+**§10.2.0** the free eval-only C28 control on the existing A0 checkpoint;
+**§10.2.1** four training arms (P0 control / P1 `dvs_anchor_mode=ignore` /
+P2 `bottomk_weight=1.0` / P3 both) on a **KIP-off trunk** — no flow cache, no
+stage 1; **§10.2.2** three evals per arm (DADA raw, DADA eq5, DoTA zero-shot);
+**§10.2.3** the report-back table; **§10.2.4** pre-registered readings.
+
+Every `--set` in §10.2 was run through `load_config` on this branch, both shell
+blocks were expanded in bash, and `kip.gate_type` was confirmed to still raise.
+**§10.1's A2 block is now marked ⛔ unrunnable on `main`** — it uses
+`kip.gate_type`, `kip.const_shift_ratio` and `kip.disable_pmg`, none of which
+exist here. `main`'s full KIP flag set is
+`kip.{enabled, pmg_only, use_gate_shift, use_lkin, gate_signal, on_raw_features}`.
+
+**P0 exists because A0 was trained on `v3`.** Diffing a `main` arm against
+`RESULTS_DADA.md`'s 0.7050 / 0.5190 would be a cross-branch comparison. If P0
+lands far from those, that gap is itself the finding.
+
+**`bottomk_weight=1.0`** is a symmetry prior (same top-/bottom-k BCE as `L_MIL`,
+opposite direction), **not tuned**; only a stability failure justifies 0.5.
+
+### The eq5 control — measured geometry, so the run can be checked
+
+`--equalize-length 5 --equalize-anchor end` on DADA: **331/383** clips kept
+(52 dropped), 162 abnormal kept of which **156** still hold a positive,
+**346/476** positives retained (72.7 %), **155** two-class clips for macro.
+Length-only baseline becomes **0.5000 exactly**; the clip oracle falls
+0.9086 → **0.8342**. So it removes **C28, not C12** — `auc_macro` stays the
+honest metric. `N=7` was rejected: only 105 two-class clips left.
+`anchor=end` because DADA's accident sits at the clip end.
+
+### Pre-registered readings are in the doc, not here
+
+`DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md` §6 Phase 1 now carries the run commands
+and a falsification table for each arm. **Judge all three on `auc_macro` and the
+clip-mean-removed micro, never raw micro** — 1.1 and 1.2 are expected to *lower*
+raw micro while improving the model. And expect both to under-deliver until
+Phase 2: at median T = 9 under a 9-tap head and a global temporal window, no
+loss can buy resolution the architecture does not have. Phase 1 isolates that
+claim for free.
+
+---
+
+## 2026-09-08 — Phase 0 shipped: the reporting is fixed and two published numbers were wrong
 
 **Code changed** (first code change on this branch since the test collapse):
 `core/eda/protocol.py`, `core/eda/report.py`, `core/tests/test_eda.py`.

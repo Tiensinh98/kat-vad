@@ -31,9 +31,9 @@
 | — | **`core/eda/` pre-flight profiler** — 5 modules + `core/tools/eda.py` + `core/docs/EDA.md`; verdicts for C27 / C12 / vanished windows, §4.2 frame-level linear probe | ✅ 2026-09-06, **present on `main`**. Never run on real data — needs the Drive caches |
 
 **Measured on `main`, 2026-09-08: 79 Python files (54 source + 25 test),
-10,607 source LOC. 423 tests collected → 423 pass, 0 fail.** Data-free, CPU-only.
-*(LOC and test count re-measured 2026-09-08 after Phase 0 added
-`protocol.clip_length_leak` and its five tests.)*
+10,828 source LOC. 439 tests collected → 439 pass, 0 fail.** Data-free, CPU-only.
+*(Re-measured 2026-09-09 after Phase 1 added the three DADA arms:
+`loss.dvs_anchor_mode`, `loss.bottomk_weight`, `--equalize-length`.)*
 `outputs/**` holds **62,254** per-clip `.npz` score files (on the user's disk;
 gitignored).
 

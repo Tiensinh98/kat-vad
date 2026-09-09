@@ -15,7 +15,7 @@ import numpy as np
 import pytest
 import torch
 
-from core import evaluate, inference, train
+from core import constants, evaluate, inference, train
 from core.tests.fixtures import FixtureLayout, build_fixture
 from core.tools import visualize
 
@@ -238,6 +238,54 @@ class TestInferenceEvalViz:
         assert sample["sim"].shape[0] == length
         assert np.isfinite(sample["score"]).all()
         assert (sample["score"] >= 0).all() and (sample["score"] <= 1).all()
+
+    def test_equalize_window_anchors(self) -> None:
+        """Lesson C28 control: which N-frame window survives (pure, no data)."""
+        assert evaluate.equalize_window(10, 4, constants.EQUALIZE_ANCHOR_START) == (0, 4)
+        assert evaluate.equalize_window(10, 4, constants.EQUALIZE_ANCHOR_END) == (6, 10)
+        assert evaluate.equalize_window(10, 4, constants.EQUALIZE_ANCHOR_CENTER) == (3, 7)
+        # exact fit keeps everything, whatever the anchor
+        for anchor in constants.EQUALIZE_ANCHOR_CHOICES:
+            assert evaluate.equalize_window(5, 5, anchor) == (0, 5)
+
+    def test_equalize_window_rejects_bad_input(self) -> None:
+        with pytest.raises(ValueError, match="anchor must be one of"):
+            evaluate.equalize_window(10, 4, "middle")
+        with pytest.raises(ValueError, match="must be positive"):
+            evaluate.equalize_window(10, 0, constants.EQUALIZE_ANCHOR_CENTER)
+        with pytest.raises(ValueError, match="shorter than target"):
+            evaluate.equalize_window(3, 4, constants.EQUALIZE_ANCHOR_CENTER)
+
+    def test_evaluate_equalize_length_crops_and_records(
+        self, fixture: FixtureLayout, trained: Path, tmp_path: Path
+    ) -> None:
+        """Every scored clip ends up the same length, and the run says so."""
+        out = tmp_path / "eval_eq"
+        target = 3
+        evaluate.main([
+            "--ckpt", str(trained),
+            "--data-dir", str(fixture.data_dir),
+            "--clip-dir", str(fixture.clip_dir),
+            "--output-dir", str(out),
+            "--text-encoder", "stub",
+            "--set", "train.device=cpu",
+            "--save-scores",
+            "--equalize-length", str(target),
+            "--equalize-anchor", constants.EQUALIZE_ANCHOR_END,
+        ])
+        with (out / evaluate.RESULTS_FILENAME).open("r", encoding="utf-8") as fh:
+            results = json.load(fh)
+        eq = results["equalize"]
+        assert eq["length"] == target
+        assert eq["anchor"] == constants.EQUALIZE_ANCHOR_END
+        assert eq["clips_kept"] + eq["clips_dropped"] == len(fixture.test_ids)
+        assert results["num_videos"] == eq["clips_kept"]
+        assert results["num_videos_total"] == len(fixture.test_ids)
+        # the point of the control: no length variation is left to read
+        for npz in (out / evaluate.SCORES_DIRNAME).glob("*.npz"):
+            with np.load(npz) as payload:
+                assert payload["score"].shape == (target,)
+                assert payload["gt"].shape == (target,)
 
     def test_evaluate_cli_and_visualize(
         self, fixture: FixtureLayout, trained: Path, tmp_path: Path

@@ -192,7 +192,7 @@
     "command": "source .venv/bin/activate && ruff check * && mypy * && bandit * && pycycle * && pyright *",
     "pycycle_invocation": "cd core && pycycle --here",
     "test_command": "source .venv/bin/activate && python -m pytest core/tests -q",
-    "expected_test_count": 423,
+    "expected_test_count": 439,
     "run_before": [
       "commit"
     ]

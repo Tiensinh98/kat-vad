@@ -640,27 +640,21 @@ E=20          # never varies, across arms or stages
 > 2025` re-draws the corpus, and every cross-seed Δ then compares two different
 > datasets. Build the labels once; sweep `train.seed` only.
 
-**A2 — plain-TSM control.** All six flags required; `disable_pmg=true` alone
-does not remove the pathway, the three loss flags do (lesson **14**).
+**A2 — plain-TSM control. ⛔ THIS BLOCK DOES NOT RUN ON `main`.**
 
 ```bash
-%%bash
-cd /content/drive/MyDrive/Thesis-V3/kat-vad
-S=2024 ; E=20
-
-python -m core.train \
-  --set train.stage=2 --set train.amp=true --set data.dataset=DADA2000 \
-  --set data.is_egocentric=true \
-  --set train.num_epochs=$E --set train.checkpoint_every_steps=100 \
-  --set train.seed=$S \
-  --set kip.gate_type=constant --set kip.const_shift_ratio=0.5 \
-  --set kip.disable_pmg=true \
-  --set loss.lambda_rec=0 --set loss.lambda_align=0 --set kip.use_lkin=false \
-  --data-dir  "$KATVAD_DATA_ROOT/DADA2000" \
-  --clip-dir  "$KATVAD_CACHE_ROOT/clip/DADA2000" \
-  --knn-cache "$KATVAD_CACHE_ROOT/knn/DADA2000/knn_cache.npz" \
-  --output-dir "$KATVAD_OUTPUT_ROOT/DADA2000/constant_s$S/stage2_kip_on"
+#  --set kip.gate_type=constant      <- does not exist on main
+#  --set kip.const_shift_ratio=0.5   <- does not exist on main
+#  --set kip.disable_pmg=true        <- does not exist on main
+#  => KeyError: 'Unknown config key: kip.gate_type'  (core/config.py:207)
 ```
+
+`main` ships KIP **v1**, whose only gate is the frozen 321-parameter MLP; the
+four selectable `gate_type`s live on branch **`v3`**. Run A2 there
+(`git checkout v3`), or use §10.2's KIP-off trunk, which needs none of these
+flags. `main`'s full KIP flag set is `kip.{enabled, pmg_only, use_gate_shift,
+use_lkin, gate_signal, on_raw_features}` — **grep `core/config.py` on the branch
+you are on before pasting any arm command** (lesson C28's sibling rule).
 
 **A0 — KIP-off baseline.** The arm every Δ subtracts from.
 
@@ -725,6 +719,208 @@ copy-paste block each.** Do not reconstruct them from this page.
 
 ---
 
+## 10.2 Phase 1 campaign — the three arms from `DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md`
+
+**Runs on `main`. Every flag below exists in this branch's `core/config.py`** —
+verified 2026-09-09. Nothing here needs the flow cache (§8) or a stage-1 run.
+
+Why the trunk is KIP-off: KIP's measured contribution is temporal smoothing, its
+sign flips with training clip length, and lesson **14** forbids tuning it. Phase 1
+is about the **loss** and the **eval protocol**, so it is run on the arm with no
+KIP confound — which is also the arm that transfers best to DoTA (macro 0.6254).
+
+### 10.2.0 Step 0 — the free one. No training at all.
+
+`--equalize-length` is eval-only, so the C28 control can be run **today**, on the
+A0 checkpoint you already have. Do this first; it answers the biggest question
+for zero GPU-hours.
+
+```bash
+%%bash
+cd /content/drive/MyDrive/Thesis-V3/kat-vad
+S=2024
+CKPT="$KATVAD_OUTPUT_ROOT/DADA2000/kipoff_s$S/stage2/checkpoint_last.pt"
+
+python -m core.evaluate --ckpt "$CKPT" --set kip.enabled=false \
+  --set data.dataset=DADA2000 \
+  --data-dir "$KATVAD_DATA_ROOT/DADA2000" \
+  --clip-dir "$KATVAD_CACHE_ROOT/clip/DADA2000" \
+  --score-norm auto --save-scores \
+  --equalize-length 5 --equalize-anchor end \
+  --output-dir "$KATVAD_OUTPUT_ROOT/DADA2000/kipoff_s$S/eval_dada_eq5"
+```
+
+> **Only the KIP-off checkpoint is guaranteed loadable on `main`.** The
+> `constant` / `rank` / `mlp_*` checkpoints were trained on branch `v3`, whose
+> KIP state dict differs; `ckpt_compat` will **raise** rather than load them
+> partially (lesson **C5** — that raise is the feature). To length-control those
+> arms, run this block on `v3`.
+
+**`--equalize-anchor end`, not `center` or `start`.** DADA's accident sits at the
+end of the clip; a `start` crop deletes most of the positives.
+
+**Expected geometry at `N=5, anchor=end`** — measured from the label file, so
+your run must match these or something is wrong:
+
+| | value |
+|---|---|
+| clips kept / total | **331 / 383** (52 dropped as shorter than 5) |
+| abnormal clips kept | 162, of which **156** still hold a positive after the crop |
+| frames | 5,244 → **1,655** |
+| positive frames retained | **346 / 476** (72.7 %) |
+| two-class clips for `auc_macro` | **155** (was 190) |
+| **length-only baseline** | **0.5000** — exactly, by construction |
+| clip-level oracle | 0.9086 → **0.8342** |
+
+`N=7` is the alternative (262 clips, 315/476 positives) but leaves only **105**
+two-class clips, which makes `auc_macro` noisy. **`N=5` is the prescribed run.**
+
+> **What this control does and does not remove.** It removes **C28** (length) —
+> the length-only baseline is exactly 0.5 afterwards. It does **not** remove
+> **C12**: all-normal clips still dominate, so the clip oracle is still 0.8342.
+> `auc_macro` remains the honest metric. A micro AUC from this run is *less*
+> contaminated, not clean.
+
+### 10.2.1 The four training arms
+
+One control plus one arm per Phase 1 fix, then both together. Identical in every
+respect but the flag on the marked line — that is what makes the Δ a Δ.
+
+```bash
+%%bash
+cd /content/drive/MyDrive/Thesis-V3/kat-vad
+S=2024 ; E=20
+
+COMMON="--set train.stage=2 --set train.amp=true --set data.dataset=DADA2000 \
+  --set data.is_egocentric=true \
+  --set train.num_epochs=$E --set train.checkpoint_every_steps=100 \
+  --set train.seed=$S --set kip.enabled=false \
+  --data-dir  $KATVAD_DATA_ROOT/DADA2000 \
+  --clip-dir  $KATVAD_CACHE_ROOT/clip/DADA2000 \
+  --knn-cache $KATVAD_CACHE_ROOT/knn/DADA2000/knn_cache.npz"
+
+# P0 — control. Reproduces A0 on THIS branch. Do not skip it.
+python -m core.train $COMMON \
+  --output-dir "$KATVAD_OUTPUT_ROOT/DADA2000/p1_ctrl_s$S/stage2"
+
+# P1 — 1.1, DVS anchor interior ignored (lesson C29)
+python -m core.train $COMMON \
+  --set loss.dvs_anchor_mode=ignore \
+  --output-dir "$KATVAD_OUTPUT_ROOT/DADA2000/p1_dvsignore_s$S/stage2"
+
+# P2 — 1.2, bottom-k pressure inside abnormal clips
+python -m core.train $COMMON \
+  --set loss.bottomk_weight=1.0 --set loss.bottomk_topk_pct=16 \
+  --output-dir "$KATVAD_OUTPUT_ROOT/DADA2000/p1_bottomk_s$S/stage2"
+
+# P3 — both
+python -m core.train $COMMON \
+  --set loss.dvs_anchor_mode=ignore \
+  --set loss.bottomk_weight=1.0 --set loss.bottomk_topk_pct=16 \
+  --output-dir "$KATVAD_OUTPUT_ROOT/DADA2000/p1_both_s$S/stage2"
+```
+
+**Why P0 exists.** The A0 number in `RESULTS_DADA.md` (DADA micro 0.7050, macro
+0.5190, DoTA macro 0.6254) was produced by the **`v3`** branch's code. A Δ taken
+against it from a `main` run is a cross-branch comparison, not a Δ. P0 is the
+control these three arms are subtracted from; if P0 lands far from 0.7050/0.5190,
+say so before reading anything else — that gap is itself a finding.
+
+**Why `bottomk_weight=1.0`.** Symmetry with `L_MIL`: the two terms are the same
+kind of top-/bottom-k BCE on the same clips in opposite directions, so equal
+weight is the principled prior. It is **not** tuned, and per lesson **14** it must
+not be swept against the resulting AUC. If training destabilizes (`total` climbing,
+NaNs), report that and drop to 0.5 — a stability fix, stated as such.
+
+**`loss.*` flags are train-time only** and must **not** be repeated at eval; only
+`kip.*` architecture flags repeat, and here that is just `kip.enabled=false`.
+
+### 10.2.2 Evaluation — three per arm
+
+```bash
+%%bash
+cd /content/drive/MyDrive/Thesis-V3/kat-vad
+S=2024
+for ARM in p1_ctrl p1_dvsignore p1_bottomk p1_both ; do
+  D="$KATVAD_OUTPUT_ROOT/DADA2000/${ARM}_s$S"
+  CKPT="$D/stage2/checkpoint_last.pt"
+  GATE="--set kip.enabled=false"
+
+  # (a) in-domain, uncontrolled — for comparison with the existing table only
+  python -m core.evaluate --ckpt "$CKPT" $GATE --set data.dataset=DADA2000 \
+    --data-dir "$KATVAD_DATA_ROOT/DADA2000" \
+    --clip-dir "$KATVAD_CACHE_ROOT/clip/DADA2000" \
+    --score-norm auto --save-scores --output-dir "$D/eval_dada"
+
+  # (b) in-domain, LENGTH-CONTROLLED — the number that means something
+  python -m core.evaluate --ckpt "$CKPT" $GATE --set data.dataset=DADA2000 \
+    --data-dir "$KATVAD_DATA_ROOT/DADA2000" \
+    --clip-dir "$KATVAD_CACHE_ROOT/clip/DADA2000" \
+    --score-norm auto --save-scores \
+    --equalize-length 5 --equalize-anchor end \
+    --output-dir "$D/eval_dada_eq5"
+
+  # (c) zero-shot DoTA — the honest generalization column
+  python -m core.evaluate --ckpt "$CKPT" $GATE --set data.dataset=DoTA \
+    --data-dir "$KATVAD_DATA_ROOT/DoTA/labels_s8" \
+    --clip-dir "$KATVAD_CACHE_ROOT/clip/DoTA_s8_ncc" \
+    --score-norm auto --save-scores --output-dir "$D/eval_dota"
+done
+```
+
+Then re-profile one arm's curves so the flatness diagnostic is current:
+
+```bash
+%%bash
+python -m core.tools.eda report --dataset DADA2000 \
+  --data-dir "$KATVAD_DATA_ROOT/DADA2000" \
+  --clip-dir "$KATVAD_CACHE_ROOT/clip/DADA2000" \
+  --scores-dir "$KATVAD_OUTPUT_ROOT/DADA2000/p1_both_s2024/eval_dada/scores" \
+  --output-dir "$KATVAD_OUTPUT_ROOT/eda/DADA2000_P1both_s2024"
+```
+
+### 10.2.3 What to send back
+
+Paste this table filled in, plus the `equalize` block from each
+`eval_dada_eq5/results.json` and any arm whose `metrics.jsonl` shows a NaN.
+
+| Arm | DADA micro | **DADA macro** | **eq5 micro** | **eq5 macro** | DoTA micro | **DoTA macro** |
+|---|---|---|---|---|---|---|
+| P0 control | | | | | | |
+| P1 dvs-ignore | | | | | | |
+| P2 bottom-k | | | | | | |
+| P3 both | | | | | | |
+| *reference: length-only* | 0.8654 | 0.5000 | **0.5000** | 0.5000 | — | — |
+| *reference: clip oracle* | 0.9086 | 0.5000 | 0.8342 | 0.5000 | 0.5017 | 0.5000 |
+
+The bold columns are the ones that decide anything. Also useful, one line each:
+`auc_macro_videos` per run (it drops to ~155 under eq5), and the final `mil`,
+`dvs_sup` and `bottomk` values from `stage2/metrics.jsonl`.
+
+### 10.2.4 Reading the result — pre-registered, so write it down first
+
+| Arm | Predicted if the diagnosis is right | Falsified if |
+|---|---|---|
+| **eq5, any arm** | micro collapses from ~0.86 toward the 0.8342 oracle or below; the length channel is gone | micro holds near 0.87 → length was not the channel; look for another leak |
+| **P1 dvs-ignore** | the within-abnormal-clip gap (today **−0.0002**) turns positive; `auc_macro` rises; **in-domain micro falls** | gap stays ~0 → the whole-anchor label was not binding; R2 dominates |
+| **P2 bottom-k** | within-clip score range widens from ~0.11; `auc_macro` rises | curves stay flat → R2 is binding: at T = 9 the head *cannot* separate frames, and no loss can make it |
+| **P3 both** | at least as good as the better single arm | worse than both → the two terms fight; report it, do not tune |
+
+**Judge on `auc_macro` and the eq5 columns. Never on raw DADA micro** — that is
+the metric all three defects inflate, and P1/P2 are *expected* to lower it while
+improving the model. An arm that raises raw micro and leaves `auc_macro` at
+chance has learned the shortcut better, not the task.
+
+**Expect modest results, and that is still informative.** At median T = 9 under a
+9-tap score head and a `temporal_window=25` encoder, every output frame is a
+function of every input frame — a better loss cannot buy resolution the
+architecture does not have. If `auc_macro` stays at chance across all four arms,
+that **confirms R2 as the binding constraint** and makes Phase 2 (the corpus
+rebuild: fixed-length windows, stride 2, kernel 3, window 9) mandatory rather
+than optional. Phase 1 is cheap and it isolates that claim.
+
+---
+
 ## 11. Pitfalls, mapped to lessons
 
 | Don't | Why | Lesson |
@@ -744,6 +940,13 @@ copy-paste block each.** Do not reconstruct them from this page.
 | Assume `clip/DADA2000_ncc` or `knn/DADA2000_ncc` exists | Earlier drafts of this doc prescribed those names; nothing was ever built there | §7, §9 |
 | Reconstruct `type{T}_vid{V}` with an assumed pad width | Folder padding is not verified for this archive; `dada.py` joins by parsed int instead | §1 |
 | Assume the score `.npz` set is complete | `evaluate --save-scores` is not atomic (lesson **11b**) | **11b** |
+| Paste §10.1's A2 block on `main` | `kip.gate_type` / `const_shift_ratio` / `disable_pmg` do not exist here; it dies at config parse | §10.1, **C28**-sibling |
+| Quote a Phase 1 result from raw DADA micro | That is the metric all three defects inflate; P1/P2 are *expected* to lower it while improving the model | §10.2.4, **C12**, **C27**, **C28** |
+| Skip the P0 control and diff against `RESULTS_DADA.md`'s A0 | A0 was trained by the **`v3`** branch; a cross-branch Δ is not a Δ | §10.2.1, **C17** |
+| Repeat `loss.*` flags at eval | Train-time only; they change neither the eval graph nor the state dict | §10.1, §10.2.2 |
+| Sweep `bottomk_weight` against the resulting AUC | That is fitting the benchmark; 1.0 is a symmetry prior, and only a *stability* failure justifies changing it | §10.2.1, **14** |
+| Read an `--equalize-length` run as clean | It removes **C28** (length), not **C12** (all-normal clips): the clip oracle is still 0.8342 there | §10.2.0, **C12** |
+| Length-control a `constant`/`rank`/`mlp_*` checkpoint on `main` | Those were trained on `v3`; `ckpt_compat` raises rather than loading them partially | §10.2.0, **C5** |
 | Point §7/§8's `--frames-dir` at `/content/dada` instead of the flat dir | `type<N>_vid<N>` repeats across fault directories; the extractors key on bare folder name and would silently mis-extract, no error | §1, §5 |
 
 ---

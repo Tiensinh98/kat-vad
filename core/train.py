@@ -54,7 +54,7 @@ from core.kip.losses import (
 )
 from core.losses.contrastive import CapContrastLoss
 from core.losses.dvs import pseudo_sup_mil_loss, supervised_loss
-from core.losses.mil import mil_loss, multi_class_mil_loss
+from core.losses.mil import abnormal_bottomk_loss, mil_loss, multi_class_mil_loss
 from core.models.kat_vad import KATVAD
 from core.models.text_encoding import (
     TEXT_ENCODER_CHOICES,
@@ -291,22 +291,49 @@ class Trainer:
             )
         losses["mil"] = loss_bin
 
+        # Phase 1.2 — bottom-k MIL: the only term that lowers a frame inside an
+        # abnormal clip. Skipped entirely at weight 0 so the default graph and
+        # the logged loss keys are byte-identical to the baseline.
+        if loss_cfg.bottomk_weight > 0.0:
+            loss_bottom = abnormal_bottomk_loss(
+                outputs["cls_bin_logits"], labels, lengths,
+                topk_pct=loss_cfg.bottomk_topk_pct,
+            )
+            if "cap_bin_logits" in outputs:
+                loss_bottom = loss_bottom + abnormal_bottomk_loss(
+                    outputs["cap_bin_logits"], labels, lengths,
+                    topk_pct=loss_cfg.bottomk_topk_pct,
+                )
+            losses["bottomk"] = loss_bottom
+
         # L_dvs pair — only rows whose y^p is meaningful (normal or synthesized)
         dvs_rows = ((labels < 0.5) | is_synth.bool()).nonzero(as_tuple=True)[0]
         if dvs_rows.numel() > 0:
+            # Phase 1.1 (C29) — validated here, loudly: a typo must not silently
+            # leave the arm off (lesson C5's spirit on the loss path).
+            if loss_cfg.dvs_anchor_mode not in constants.DVS_ANCHOR_MODE_CHOICES:
+                raise ValueError(
+                    f"loss.dvs_anchor_mode must be one of "
+                    f"{constants.DVS_ANCHOR_MODE_CHOICES}, got "
+                    f"{loss_cfg.dvs_anchor_mode!r}"
+                )
+            ignore_positive = (
+                loss_cfg.dvs_anchor_mode == constants.DVS_ANCHOR_MODE_IGNORE
+            )
             sub = (
                 outputs["cls_bin_logits"][dvs_rows],
                 pseudo[dvs_rows],
                 lengths[dvs_rows],
             )
-            losses["dvs_sup"] = supervised_loss(*sub)
+            losses["dvs_sup"] = supervised_loss(*sub, ignore_positive=ignore_positive)
             losses["dvs_sup_mil"] = pseudo_sup_mil_loss(
                 *sub, topk_pct=loss_cfg.sup_mil_topk_pct
             )
             if "cap_bin_logits" in outputs:
                 cap_sub = outputs["cap_bin_logits"][dvs_rows]
                 losses["dvs_sup"] = losses["dvs_sup"] + supervised_loss(
-                    cap_sub, pseudo[dvs_rows], lengths[dvs_rows]
+                    cap_sub, pseudo[dvs_rows], lengths[dvs_rows],
+                    ignore_positive=ignore_positive,
                 )
                 losses["dvs_sup_mil"] = losses["dvs_sup_mil"] + pseudo_sup_mil_loss(
                     cap_sub,
@@ -369,6 +396,8 @@ class Trainer:
             )
 
         total = losses["mil"] + loss_cfg.mul_weight * losses["mul_mil"]
+        if "bottomk" in losses:
+            total = total + loss_cfg.bottomk_weight * losses["bottomk"]
         if "dvs_sup" in losses:
             total = total + loss_cfg.pseudo_sup_weight * losses["dvs_sup"]
             total = total + loss_cfg.pseudo_sup_mil_weight * losses["dvs_sup_mil"]

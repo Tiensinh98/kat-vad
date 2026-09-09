@@ -17,6 +17,13 @@ the two protocols stay comparable. To recompute these from an existing run's
 ``scores/`` directory without re-running inference, use
 ``python -m core.tools.rescore``.
 
+``--equalize-length N`` is the lesson **C28** control: it crops every clip to
+exactly ``N`` sampled frames and drops the shorter ones, so clip length carries
+no label information and the resulting AUC is what the model earns from the
+pixels alone. On the reconstructed DADA-2000 a detector reading only the frame
+count scores micro AUC 0.8654, so the uncontrolled number is not interpretable
+(``core/docs/DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md`` §2, §4.1).
+
 MCC family / AUC_A / mAP@IoU are Phase-7 scope and intentionally stubbed.
 """
 
@@ -70,6 +77,32 @@ def map_at_iou(*_args: np.ndarray) -> dict[str, float]:
     raise NotImplementedError("mAP@IoU is Phase-7 scope (spec §10)")
 
 
+def equalize_window(length: int, target: int, anchor: str) -> tuple[int, int]:
+    """``[start, end)`` of the ``target``-frame window kept from a ``length`` clip.
+
+    Lesson **C28**: with every scored clip the same length, clip length carries
+    no label information, so whatever AUC survives was earned from the features.
+    Clips shorter than ``target`` cannot be cropped and are dropped by the
+    caller — padding them would fabricate frames and interact with the score
+    head's ``padding_mode="replicate"``.
+    """
+    if anchor not in constants.EQUALIZE_ANCHOR_CHOICES:
+        raise ValueError(
+            f"anchor must be one of {constants.EQUALIZE_ANCHOR_CHOICES}, got {anchor!r}"
+        )
+    if target <= 0:
+        raise ValueError(f"--equalize-length must be positive, got {target}")
+    if length < target:
+        raise ValueError(f"Clip of {length} frames is shorter than target {target}")
+    if anchor == constants.EQUALIZE_ANCHOR_START:
+        start = 0
+    elif anchor == constants.EQUALIZE_ANCHOR_END:
+        start = length - target
+    else:
+        start = (length - target) // 2
+    return start, start + target
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Evaluate KAT-VAD (spec §10)")
     parser.add_argument("--config", type=Path, default=None)
@@ -89,6 +122,17 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         help="encode raw class names instead of sampled definitions")
     parser.add_argument("--save-scores", action="store_true",
                         help="write per-video score .npz files for visualization")
+    parser.add_argument(
+        "--equalize-length", type=int, default=None,
+        help="Lesson C28 control: crop every clip to exactly this many sampled "
+             "frames and drop shorter ones, so clip length cannot carry the label",
+    )
+    parser.add_argument(
+        "--equalize-anchor", choices=constants.EQUALIZE_ANCHOR_CHOICES,
+        default=constants.EQUALIZE_ANCHOR_CENTER,
+        help="Which window to keep under --equalize-length (default: center). "
+             "Use 'end' where the event sits at the clip end, as on DADA-2000",
+    )
     parser.add_argument("--score-norm", choices=constants.SCORE_NORM_CHOICES,
                         default=constants.SCORE_NORM_AUTO,
                         help="per-video score pooling before the micro metric "
@@ -125,13 +169,27 @@ def main(argv: list[str] | None = None) -> None:
     all_labels: list[np.ndarray] = []
     per_video: dict[str, dict[str, float]] = {}
     scores_dir = args.output_dir / SCORES_DIRNAME
+    dropped_short: list[str] = []
+    positives_before = 0
+    positives_after = 0
     for i in range(len(dataset)):
         item = dataset[i]
         video_id: str = item["video_id"]
+        feats, frame_label = item["v_feat"], item["frame_label"]
+        if args.equalize_length is not None:
+            positives_before += int(frame_label.sum())
+            if len(frame_label) < args.equalize_length:
+                dropped_short.append(video_id)
+                continue
+            start, end = equalize_window(
+                len(frame_label), args.equalize_length, args.equalize_anchor
+            )
+            feats, frame_label = feats[start:end], frame_label[start:end]
+            positives_after += int(frame_label.sum())
         score, sim = sliding_window_scores(
-            model, item["v_feat"], class_feats_fn, cfg.data.max_vis_len
+            model, feats, class_feats_fn, cfg.data.max_vis_len
         )
-        gt = item["frame_label"].numpy()
+        gt = frame_label.numpy()
         scores_np = score.numpy()
         all_scores.append(scores_np)
         all_labels.append(gt)
@@ -144,14 +202,41 @@ def main(argv: list[str] | None = None) -> None:
             score_to_npz(scores_dir, video_id, score, sim, class_names, gt=gt)
         LOGGER.info("scored %s (%d sampled frames)", video_id, len(gt))
 
+    if args.equalize_length is not None:
+        LOGGER.warning(
+            "C28 length control: kept %d/%d clips at exactly %d frames "
+            "(anchor=%s); dropped %d shorter clips; positives retained %d/%d "
+            "(%.1f%%)",
+            len(all_scores), len(dataset), args.equalize_length,
+            args.equalize_anchor, len(dropped_short),
+            positives_after, positives_before,
+            100.0 * positives_after / positives_before if positives_before else 0.0,
+        )
+        if not all_scores:
+            raise ValueError(
+                f"--equalize-length {args.equalize_length} dropped every clip; "
+                "pick a length at or below the corpus median"
+            )
+
     metrics = pooled_metrics(all_scores, all_labels, args.score_norm)
-    results = {
+    results: dict[str, object] = {
         "dataset": dataset_name,
-        "num_videos": len(dataset),
+        "num_videos": len(all_scores),
+        "num_videos_total": len(dataset),
         **metrics,
         "checkpoint": str(args.ckpt or args.baseline_ckpt),
         "per_video": per_video,
     }
+    if args.equalize_length is not None:
+        results["equalize"] = {
+            "length": args.equalize_length,
+            "anchor": args.equalize_anchor,
+            "clips_kept": len(all_scores),
+            "clips_dropped": len(dropped_short),
+            "dropped_ids": sorted(dropped_short),
+            "positive_frames_before": positives_before,
+            "positive_frames_after": positives_after,
+        }
     args.output_dir.mkdir(parents=True, exist_ok=True)
     results_path = args.output_dir / RESULTS_FILENAME
     with results_path.open("w", encoding="utf-8") as fh:
@@ -160,7 +245,8 @@ def main(argv: list[str] | None = None) -> None:
         "AUC %.4f | AP %.4f | norm=%s (raw AUC %.4f) | macro AUC %.4f over %d/%d "
         "videos -> %s",
         results["auc"], results["ap"], results["score_norm"], results["auc_raw"],
-        results["auc_macro"], results["auc_macro_videos"], len(dataset), results_path,
+        results["auc_macro"], results["auc_macro_videos"], len(all_scores),
+        results_path,
     )
 
 

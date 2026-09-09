@@ -13,19 +13,43 @@ from torch import Tensor
 from core import constants
 
 
-def supervised_loss(logits: Tensor, frame_labels: Tensor, lengths: Tensor) -> Tensor:
+def supervised_loss(
+    logits: Tensor,
+    frame_labels: Tensor,
+    lengths: Tensor,
+    *,
+    ignore_positive: bool = False,
+) -> Tensor:
     """Length-masked frame-level BCE against DVS pseudo labels.
 
     ``logits (B, T)``, ``frame_labels (B, T)`` in {0, 1}, ``lengths (B,)``.
+
+    ``ignore_positive`` (lesson **C29**, Phase 1.1) drops the pseudo-*positive*
+    frames from the dense BCE, turning ``y^p`` into a 3-valued target
+    ``{0, ignore}``. ``compose_sequence`` marks the **entire** spliced anchor
+    clip positive, which is right only when an abnormal clip is ~all anomaly;
+    on DADA-2000 the mean true positive fraction is 0.351, so 64.9 % of those
+    frames are trained to 1 against a 0 annotation. With this flag the filler
+    frames stay hard negatives and the positive pressure comes from
+    :func:`pseudo_sup_mil_loss`, whose top-k is already restricted to the span.
+
+    Keyword-only with a ``False`` default: the three-positional-argument call
+    is byte-identical to the baseline, which ``test_baseline_parity`` asserts.
     """
     mask = (
         torch.arange(logits.shape[1], device=logits.device)[None, :]
         < lengths[:, None]
     ).to(logits.dtype)
+    if ignore_positive:
+        mask = mask * (frame_labels < 0.5).to(mask.dtype)
     loss = F.binary_cross_entropy_with_logits(
         logits, frame_labels.to(logits.dtype), reduction="none"
     )
-    return (loss * mask).sum() / mask.sum()
+    # An all-positive row under ``ignore_positive`` leaves an empty mask; the
+    # numerator is then 0 too, so clamping keeps the term at 0 *with* a grad_fn
+    # instead of returning NaN. Never reached when ignore_positive is False
+    # (lengths >= 1), so baseline parity is exact.
+    return (loss * mask).sum() / mask.sum().clamp(min=1.0)
 
 
 def pseudo_sup_mil_loss(

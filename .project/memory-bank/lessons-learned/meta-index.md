@@ -186,8 +186,9 @@ count (constant score = `-T`) scores **micro AUC 0.8654** — within 0.009 of th
 best trained arm. Compute a length-only baseline **and** the constant-score-per-clip
 oracle for every new corpus and print both beside any micro AUC; rebuild into
 fixed-length windows if length is predictive. Distinct from C12 (metric artifact)
-and C27 (receptive field).
-→ `core/data/dada.py:403`, `core/docs/DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md` §2
+and C27 (receptive field). **Shipped:** `core.tools.eda` §3.3 + CRITICAL verdict;
+`core.evaluate --equalize-length N --equalize-anchor {center,start,end}` is the control.
+→ `core/data/dada.py:403`, `core/eda/protocol.py:clip_length_leak`, `core/evaluate.py:equalize_window`
 
 ### C29 [CRITICAL] Losses — DVS marks the *whole* anchor clip positive
 `compose_sequence` sets `pseudo[anchor_span] = 1.0` across the entire anchor and
@@ -199,7 +200,9 @@ down**. Result: normal frames inside abnormal clips score 0.4078 vs positives
 0.4076 (gap −0.0002), a +0.359 clip offset, `auc_macro` 0.53, argmax
 localization below base rate. Measure the corpus's positive fraction before
 enabling DVS; make the anchor interior an *ignore* target when it is not ≈1.
-→ `core/data/synthesis.py:83`, `core/losses/dvs.py:16`, `core/train.py:295-302`
+**Shipped 2026-09-09 as arms, both default-off:** `loss.dvs_anchor_mode=ignore`
+and `loss.bottomk_weight>0` (`abnormal_bottomk_loss`). A bad mode string raises.
+→ `core/data/synthesis.py:83`, `core/losses/dvs.py:16`, `core/losses/mil.py:47`, `core/train.py:295-302`
 
 ### C7 [MEDIUM] Deps — don't call library internals that drift
 The LR schedule is an in-house `LambdaLR` rather than
@@ -244,7 +247,8 @@ The LR schedule is an in-house `LambdaLR` rather than
 | ask whether a null result is the representation's fault or the supervision's | `core/docs/EDA.md` §3 (the linear probe), `RESULTS_DADA.md` §10-B |
 | read a micro AUC as a localization result, or compare one to a published frame-level number | **C27**, C12, C8b |
 | train on a **new corpus**, or accept a corpus someone else reconstructed/trimmed | **C28**, C27, C12 — compute the length-only baseline first |
-| enable DVS (`theta`, `delta_m`) on a corpus whose abnormal clips are not trimmed to the anomaly | **C29** |
+| enable DVS (`theta`, `delta_m`) on a corpus whose abnormal clips are not trimmed to the anomaly | **C29** — and consider `loss.dvs_anchor_mode=ignore` |
+| add a parameter to a loss that `test_baseline_parity` asserts | make it **keyword-only with a baseline default**, or the LaGoVAD parity assertion breaks (C6, C29) |
 | wonder why `auc_macro` sits at chance while micro AUC looks strong | **C28**, **C29**, C27, C12, `core/docs/DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md` |
 | argue that the frozen-CLIP backbone is the bottleneck | `core/docs/DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md` §7 — run the probe A/B before spending; a VideoMAE swap voids `H_mul` and every cache (C2, C13) |
 | add or change a loss | C7, `core/docs/TRAINING.md` (deviations) |

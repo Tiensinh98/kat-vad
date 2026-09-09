@@ -164,6 +164,33 @@ PSEUDO_LABEL_IGNORE = -100  # additive mask pushing non-annotated frames out of 
 NEG_INF_MASK_VALUE = -1e4
 LOGIT_EPS = 1e-6  # torch.logit clamp: BCE-on-probs as autocast-safe BCE-with-logits
 
+# Phase 1 arms (DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md §6). Both default to the
+# baseline behavior; enabling either is an experiment, never a silent change.
+# --- 1.1 DVS anchor semantics (lesson C29) -------------------------------
+# "span"   = baseline: the whole spliced anchor clip is a dense positive.
+# "ignore" = the anchor interior is dropped from the dense BCE; filler frames
+#            stay hard negatives and `pseudo_sup_mil_loss` supplies the
+#            positive pressure via its in-span top-k. Use on any corpus whose
+#            abnormal clips are not ~entirely anomalous.
+DVS_ANCHOR_MODE_SPAN = "span"
+DVS_ANCHOR_MODE_IGNORE = "ignore"
+DVS_ANCHOR_MODE_CHOICES = (DVS_ANCHOR_MODE_SPAN, DVS_ANCHOR_MODE_IGNORE)
+# --- 1.2 bottom-k MIL: downward pressure inside abnormal clips -----------
+BOTTOMK_MIL_TOPK_PCT = 16  # k = max(1, L // this), the lowest-k frames
+BOTTOMK_WEIGHT = 0.0  # OFF by default: a new term is an arm, not a default
+# --- 1.3 length-controlled evaluation (lesson C28) -----------------------
+# Crop every scored clip to a common length so clip length carries no label
+# information. The anchor decides which window survives; DADA-2000's accident
+# sits at the end of the clip, so "start" would drop most positives.
+EQUALIZE_ANCHOR_START = "start"
+EQUALIZE_ANCHOR_CENTER = "center"
+EQUALIZE_ANCHOR_END = "end"
+EQUALIZE_ANCHOR_CHOICES = (
+    EQUALIZE_ANCHOR_CENTER,
+    EQUALIZE_ANCHOR_START,
+    EQUALIZE_ANCHOR_END,
+)
+
 # ---------------------------------------------------------------------------
 # DVS — dynamic video synthesis (spec §6.1; θ = no-synthesis probability)
 # ---------------------------------------------------------------------------

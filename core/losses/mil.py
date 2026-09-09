@@ -44,6 +44,42 @@ def mil_loss(
     )
 
 
+def abnormal_bottomk_loss(
+    logits: Tensor,
+    labels: Tensor,
+    lengths: Tensor,
+    topk_num: int | None = None,
+    topk_pct: int | None = constants.BOTTOMK_MIL_TOPK_PCT,
+) -> Tensor:
+    """Push the **lowest**-k frames of each *abnormal* video toward 0 (Phase 1.2).
+
+    ``logits (B, T)``, ``labels (B,)`` in {0, 1}, ``lengths (B,)``.
+
+    The wired objective contains no term that lowers *any* frame of an abnormal
+    clip: :func:`mil_loss` raises its top-k, :func:`pseudo_sup_mil_loss` raises
+    the top-k inside the span, and :func:`multi_class_mil_loss` raises the top-k
+    toward the anomaly class. A per-clip constant therefore satisfies the loss
+    completely, which is what DADA-2000 measured (normal frames inside abnormal
+    clips scored 0.4078 against 0.4076 for true positives). This adds the
+    missing pressure: an abnormal bag must contain *some* normal instance.
+
+    Normal videos are excluded — :func:`mil_loss` already drives their maximum
+    to 0, which bounds every frame; adding them here would double-count.
+
+    Weight defaults to 0 (``constants.BOTTOMK_WEIGHT``): this is an arm.
+    """
+    rows = [b for b in range(logits.shape[0]) if float(labels[b]) > 0.5]
+    if not rows:  # all-normal batch: contribute 0, keep the graph connected
+        return logits.sum() * 0.0
+    video_logits = []
+    for b in rows:
+        n = int(lengths[b])
+        k = _topk_k(n, topk_pct, topk_num)
+        video_logits.append(logits[b, :n].topk(k, largest=False).values.mean())
+    stacked = torch.stack(video_logits)
+    return F.binary_cross_entropy_with_logits(stacked, torch.zeros_like(stacked))
+
+
 def multi_class_mil_loss(
     logits: Tensor,
     labels: Tensor,
@@ -84,4 +120,9 @@ def multi_class_mil_loss_v2(
     return F.cross_entropy(torch.stack(video_logits), labels)
 
 
-__all__ = ["mil_loss", "multi_class_mil_loss", "multi_class_mil_loss_v2"]
+__all__ = [
+    "abnormal_bottomk_loss",
+    "mil_loss",
+    "multi_class_mil_loss",
+    "multi_class_mil_loss_v2",
+]

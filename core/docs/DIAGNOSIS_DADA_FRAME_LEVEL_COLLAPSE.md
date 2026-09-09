@@ -297,14 +297,72 @@ arm because the four clips are single-class and were already skipped):
 **0.5280**, micro **0.4993**, and **zero** clips separable by length — same
 function, same `.npz` files.
 
-### Phase 1 — code fixes that need no re-extraction (small, local)
+### Phase 1 — code fixes that need no re-extraction — ✅ **SHIPPED 2026-09-09**
 
-| # | Fix | Detail | Risk |
+Three config-gated arms, **all defaulting to today's behavior**. The default
+loss graph and the logged loss keys are byte-identical to before, so every
+MSAD / DoTA / PreVAD / DADA number already measured stays reproducible.
+**439 tests collected, 439 pass** (423 + 16); `ruff` / `mypy` / `pyright` /
+`bandit` / `pycycle` clean.
+
+| # | Fix | Flag (default) | Where |
 |---|---|---|---|
-| 1.1 | **Stop DVS from labeling the anchor interior positive.** Give `supervised_loss` a 3-valued target `{0, 1, ignore}`: filler frames stay hard negatives, anchor frames become `ignore`, and the positive pressure comes from `pseudo_sup_mil_loss`, which already restricts its top-k to the anchor span. | `core/data/synthesis.py:83`, `core/losses/dvs.py:16`, `core/train.py:302` | Changes the loss for **every** corpus. Must be an arm (`loss.dvs_anchor_mode = span\|ignore`), defaulting to today's behavior, so MSAD/PreVAD numbers stay reproducible. `trace_call_path` on `supervised_loss` before touching it. |
-| 1.2 | **Add downward pressure inside abnormal clips.** A bottom-k MIL term: the lowest-k frames of an abnormal clip are pushed toward 0. ~10 LOC; `multi_class_mil_loss_v2` (`core/losses/mil.py:67`) already has the bottom-k idiom. | `core/losses/mil.py` | New loss term → new hyperparameter. Ship weight 0 by default; enable only as an arm. |
-| 1.3 | **Length-controlled evaluation.** Re-score the test split with every clip truncated/padded to a common T, to measure how much of the clip-AUC is the R1 leak. | `core/evaluate.py` (eval-only flag) | None to training. Answers "does the model actually use length?" with a number. |
-| 1.4 | Lower `mil_topk_pct` so k > 1 — only meaningful together with Phase 2. | config | — |
+| 1.1 | Anchor interior dropped from the dense DVS BCE — fillers stay hard negatives, `pseudo_sup_mil_loss` supplies the positives (C29) | `loss.dvs_anchor_mode` = **`span`** \| `ignore` | `core/losses/dvs.py:supervised_loss` (keyword-only `ignore_positive`), `core/train.py` |
+| 1.2 | Bottom-k MIL: the lowest-k frames of an *abnormal* clip pushed toward 0 — the only term that lowers a frame inside a positive bag | `loss.bottomk_weight` = **`0.0`**, `loss.bottomk_topk_pct` = `16` | `core/losses/mil.py:abnormal_bottomk_loss` |
+| 1.3 | Length-controlled eval: crop every clip to a common T, drop shorter ones (C28) | `--equalize-length N`, `--equalize-anchor center\|start\|end` | `core/evaluate.py:equalize_window` |
+| 1.4 | Lower `mil_topk_pct` so k > 1 | config only — **defer to Phase 2**, it does nothing at median T = 9 | — |
+
+**Design constraints that shaped this** (from the blast-radius trace):
+`supervised_loss` and `mil_loss` are asserted against the vendored LaGoVAD
+reference by `core/tests/test_baseline_parity.py`. Every new parameter is
+therefore **keyword-only with a baseline default**, and the bottom-k term is
+skipped entirely at weight 0 rather than computed and multiplied by zero.
+`loss.dvs_anchor_mode` **raises** on an unrecognized value — a typo must not
+leave the arm silently off.
+
+Two guards worth knowing: `supervised_loss` now divides by
+`mask.sum().clamp(min=1.0)`, so an all-positive row under `ignore` returns 0
+**with a grad_fn** instead of NaN (unreachable in the default mode, so parity is
+exact); and `abnormal_bottomk_loss` returns `logits.sum() * 0.0` on an
+all-normal batch, keeping the graph connected.
+
+#### How to run the arms
+
+```bash
+# 1.1 — DVS anchor ignored
+python -m core.train ... --set loss.dvs_anchor_mode=ignore
+
+# 1.2 — bottom-k pressure inside abnormal clips
+python -m core.train ... --set loss.bottomk_weight=0.5 --set loss.bottomk_topk_pct=8
+
+# 1.3 — the C28 control, eval only, no retraining
+python -m core.evaluate ... --equalize-length 7 --equalize-anchor end
+```
+
+`--equalize-anchor end` on DADA-2000: the accident sits at the end of the clip,
+so a `start` crop would delete most positives. The run logs and `results.json`
+record clips kept/dropped **and the fraction of positive frames that survived** —
+read that before reading the AUC.
+
+#### Pre-registered readings — write the answer down before running (lesson 14)
+
+| Arm | Prediction if the diagnosis is right | Falsified if |
+|---|---|---|
+| 1.3 at T = 7, anchor `end` | Clip-level AUC falls toward chance; micro falls sharply from 0.8756; `auc_macro` roughly unchanged | micro holds up → length was not the channel, look for another leak |
+| 1.1 `ignore` | The within-abnormal-clip gap (today **−0.0002**) turns positive; `auc_macro` rises; in-domain micro **falls** (it was the leak + the clip offset) | the gap stays ~0 → the whole-anchor label was not the binding constraint; R2 (receptive field) dominates, so wait for Phase 2 |
+| 1.2 `bottomk_weight>0` | Within-clip score range widens; `auc_macro` rises | curves stay flat → confirms R2 is binding: the head *cannot* separate frames at T = 9, and no loss can make it |
+
+**Judge all three on `auc_macro` and the clip-mean-removed micro, never on raw
+micro.** Raw micro is the metric all three defects inflate, and 1.1/1.2 are
+expected to *lower* it while improving the model.
+
+**Expect 1.1 and 1.2 to under-deliver until Phase 2.** At median T = 9 with a
+9-tap head and a global temporal window, the network cannot give two frames of
+one clip different scores for any reason but position — a better loss cannot
+buy resolution the architecture does not have. Phase 1 is worth running first
+because it is free and it *isolates* that claim; if `auc_macro` stays at chance
+under both arms, R2 is confirmed as the binding constraint and Phase 2 is
+mandatory rather than optional.
 
 ### Phase 2 — rebuild the DADA corpus and cache (fires lesson **C2**)
 

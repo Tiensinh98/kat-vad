@@ -79,6 +79,14 @@ class LossConfig:
     contrastive_neg_mining: str = "n3"  # "vanilla" | "n3"
     contrastive_temp: float = constants.CONTRASTIVE_TEMP
     use_yp_anchor: bool = True
+    # --- Phase 1 arms (DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md §6) ---------
+    # Both default to the baseline; flipping either is an experiment.
+    # 1.1 (C29): "span" = the whole spliced anchor is a dense positive
+    # (baseline); "ignore" = drop the anchor interior from the dense BCE.
+    dvs_anchor_mode: str = constants.DVS_ANCHOR_MODE_SPAN
+    # 1.2: weight of the bottom-k MIL term on abnormal clips (0 = off).
+    bottomk_weight: float = constants.BOTTOMK_WEIGHT
+    bottomk_topk_pct: int = constants.BOTTOMK_MIL_TOPK_PCT
     # Derive per-video captions from the class-definition verbalizer when the
     # dataset ships no descriptions (MSAD). Off = baseline-faithful (caption
     # branch + L_neg inactive). Caveat: same-class captions become InfoNCE
