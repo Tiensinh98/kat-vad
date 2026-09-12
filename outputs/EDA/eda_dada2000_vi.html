@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EDA — DADA-2000</title>
+<style>
+:root{
+  --bg:#fbfaf8; --panel:#ffffff; --ink:#1c1a17; --muted:#5d5850; --line:#e3ded6;
+  --accent:#8a5a2b; --accent-soft:#f3ebe0;
+  --crit:#a62b2b; --crit-bg:#fbeceb; --high:#a86a10; --high-bg:#fdf3e2;
+  --info:#26607a; --info-bg:#e9f2f6; --ok:#2c6b46; --ok-bg:#e9f4ee;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#16151a; --panel:#1e1d23; --ink:#eae6df; --muted:#a49e94; --line:#332f38;
+    --accent:#d9a066; --accent-soft:#2a2530;
+    --crit:#f08a80; --crit-bg:#33201f; --high:#e0b45f; --high-bg:#312817;
+    --info:#7fc0d8; --info-bg:#17272e; --ok:#7fc79b; --ok-bg:#18291f;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans",Helvetica,Arial,sans-serif;
+  font-size:16px;line-height:1.65}
+.wrap{max-width:1000px;margin:0 auto;padding:0 20px;padding-block:32px}
+header.hero{border-bottom:2px solid var(--line);padding-bottom:20px;margin-bottom:8px}
+.kicker{font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:700}
+h1{font-size:2rem;line-height:1.2;margin:.3em 0 .2em}
+h2{font-size:1.35rem;margin:2.4em 0 .5em;padding-top:.4em;border-top:1px solid var(--line)}
+h3{font-size:1.05rem;margin:1.8em 0 .4em;color:var(--accent)}
+h4{font-size:.95rem;margin:1.2em 0 .3em}
+p{margin:.7em 0}
+.sub{color:var(--muted);font-size:.95rem}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.87em;
+  background:var(--accent-soft);padding:.12em .38em;border-radius:4px}
+.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:999px;
+  padding:4px 12px;font-size:.8rem;color:var(--muted)}
+.chip b{color:var(--ink)}
+nav.toc{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 18px;margin:24px 0}
+nav.toc ol{margin:.3em 0;padding-left:1.3em;columns:2;column-gap:28px}
+nav.toc li{margin:.2em 0;break-inside:avoid}
+nav.toc a{color:var(--ink);text-decoration:none;border-bottom:1px dotted var(--line)}
+nav.toc a:hover{color:var(--accent)}
+.tldr{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);
+  border-radius:8px;padding:16px 20px;margin:20px 0}
+.tldr ul{margin:.4em 0;padding-left:1.2em}
+.tldr li{margin:.35em 0}
+.verdict{border-radius:8px;padding:14px 18px;margin:14px 0;border:1px solid transparent}
+.verdict .tag{display:inline-block;font-size:.72rem;font-weight:800;letter-spacing:.1em;
+  padding:2px 9px;border-radius:4px;margin-right:8px;vertical-align:2px}
+.v-crit{background:var(--crit-bg);border-color:var(--crit)}
+.v-crit .tag{background:var(--crit);color:#fff}
+.v-high{background:var(--high-bg);border-color:var(--high)}
+.v-high .tag{background:var(--high);color:#fff}
+.v-info{background:var(--info-bg);border-color:var(--info)}
+.v-info .tag{background:var(--info);color:#fff}
+.v-ok{background:var(--ok-bg);border-color:var(--ok)}
+.v-ok .tag{background:var(--ok);color:#fff}
+.verdict h4{margin:.2em 0 .35em;display:inline;font-size:1rem}
+.verdict p{margin:.45em 0;font-size:.94rem}
+.verdict .fix{font-size:.9rem;color:var(--muted)}
+.tablewrap{overflow-x:auto;margin:14px 0;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:.9rem;min-width:min(100%,520px)}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{background:var(--accent-soft);font-weight:700;font-size:.82rem;letter-spacing:.02em}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tbody tr:last-child td{border-bottom:none}
+tr.hl td{background:var(--accent-soft);font-weight:600}
+figure{margin:22px 0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+figure img{display:block;width:100%;height:auto;max-width:100%;border-radius:6px;background:#fff}
+figcaption{font-size:.88rem;color:var(--muted);margin-top:10px;border-top:1px dashed var(--line);padding-top:10px}
+figcaption b{color:var(--ink)}
+.note{background:var(--info-bg);border-left:3px solid var(--info);padding:10px 16px;
+  border-radius:0 6px 6px 0;margin:14px 0;font-size:.93rem}
+.warn{background:var(--crit-bg);border-left:3px solid var(--crit);padding:10px 16px;
+  border-radius:0 6px 6px 0;margin:14px 0;font-size:.93rem}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:16px 0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.card .big{font-size:1.7rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}
+.card .lbl{font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.card .cmt{font-size:.86rem;color:var(--muted);margin-top:6px}
+.card.bad .big{color:var(--crit)} .card.good .big{color:var(--ok)} .card.neutral .big{color:var(--accent)}
+details{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 16px;margin:14px 0}
+summary{cursor:pointer;font-weight:600;font-size:.93rem}
+details pre{overflow-x:auto;font-size:.85rem;background:var(--accent-soft);padding:10px;border-radius:6px}
+footer{margin-top:48px;padding-top:16px;border-top:2px solid var(--line);color:var(--muted);font-size:.85rem}
+.glossary dt{font-weight:700;margin-top:.9em;color:var(--accent)}
+.glossary dd{margin:.2em 0 0 0;font-size:.93rem;color:var(--ink)}
+a{color:var(--accent)}
+@media (max-width:640px){nav.toc ol{columns:1} h1{font-size:1.5rem} .wrap{padding-block:20px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="kicker">KAT-VAD · Phân tích dữ liệu thăm dò (EDA)</div>
+  <h1>DADA-2000 — Báo cáo EDA chi tiết</h1>
+  <p class="sub">Mọi con số trong tài liệu này là <b>thuộc tính của dữ liệu nằm trên đĩa</b>, không phải kết quả của bất kỳ mô hình nào. Không có checkpoint nào được nạp, không có tham số nào được huấn luyện.</p>
+  <div class="meta">
+    <span class="chip">Thư mục dữ liệu: <b>data/DADA2000</b></span>
+    <span class="chip">Score-head kernel: <b>9</b></span>
+    <span class="chip">MIL top-k: <b>16%</b></span>
+    <span class="chip">Frame stride: <b>8</b></span>
+    <span class="chip">Nhánh: <b>main (KAT-VAD v1)</b></span>
+    <span class="chip">Ngày lập: <b>2026-09-10</b></span>
+  </div>
+</header>
+
+<nav class="toc">
+  <b>Mục lục</b>
+  <ol>
+    <li><a href="#tldr">Tóm tắt cho người bận</a></li>
+    <li><a href="#verdicts">Kết luận phán quyết (6 verdict)</a></li>
+    <li><a href="#corpus">Hình dạng corpus</a></li>
+    <li><a href="#recept">Trường tiếp nhận của score head</a></li>
+    <li><a href="#mil">Sàn MIL top-k</a></li>
+    <li><a href="#subgroup">Phân nhóm theo metadata</a></li>
+    <li><a href="#labels">Hình học nhãn</a></li>
+    <li><a href="#metric">Chỉ số thực sự đo cái gì</a></li>
+    <li><a href="#leak">Rò rỉ nhãn qua độ dài clip</a></li>
+    <li><a href="#features">Đặc trưng CLIP đóng băng</a></li>
+    <li><a href="#probe">Trần biểu diễn (linear probe)</a></li>
+    <li><a href="#flow">Mô tả tử RAFT flow</a></li>
+    <li><a href="#action">Việc phải làm</a></li>
+    <li><a href="#glossary">Thuật ngữ</a></li>
+  </ol>
+</nav>
+
+<section id="tldr">
+<h2>1. Tóm tắt cho người bận</h2>
+<div class="tldr">
+<ul>
+  <li><b>Corpus DADA-2000 tái dựng này không đủ điều kiện để đưa ra bất kỳ tuyên bố nào ở mức frame.</b> Ba lỗi độc lập cùng chồng lên nhau, và cả ba đều nằm trong <i>dữ liệu</i>, không nằm trong mô hình.</li>
+  <li><b>Nhãn bị rò rỉ qua độ dài clip.</b> Một "bộ phát hiện" chỉ đọc số frame của clip — không nhìn một pixel nào — đạt micro AUC <b>0.8654</b>. Bất kỳ arm nào không vượt con số này thì coi như <i>chưa được đo</i>.</li>
+  <li><b>Micro AUC ở đây gần như hoàn toàn là phân loại clip.</b> Một oracle gán một điểm hằng số cho mỗi clip, không định vị gì cả, đạt micro AUC <b>0.9086</b>. 99.9% các cặp positive/negative nằm vắt qua hai clip khác nhau.</li>
+  <li><b>Score head nuốt trọn clip.</b> Median clip chỉ có <b>9</b> frame sau khi lấy mẫu stride-8, đúng bằng kernel size 9 của <code>ConvScoreHead</code>. 55.4% clip test nằm gọn trong một timestep đầu ra duy nhất — về mặt kiến trúc, mô hình <i>không thể</i> tạo ra đường cong có biến thiên trong những clip đó.</li>
+  <li><b>Bản thân đặc trưng cũng không mang tín hiệu mức frame.</b> Một linear probe <i>có giám sát</i> — tức trần trên của mọi head đặt lên đặc trưng này — chỉ đạt macro AUC <b>0.5228</b>, tức xấp xỉ ngẫu nhiên.</li>
+  <li><b>Hệ quả cho dự án:</b> đây là lý do gốc rễ khiến chiến dịch DADA cho <code>auc_macro</code> ở mức may rủi. Không có biến thể KIP nào sửa được — cần <i>rebuild corpus</i> (cửa sổ độ dài cố định) và/hoặc stride mịn hơn, chứ không phải một loss mới.</li>
+</ul>
+</div>
+
+<div class="grid2">
+  <div class="card bad"><div class="lbl">Length-only micro AUC</div><div class="big">0.8654</div><div class="cmt">Chỉ đọc số frame. Không pixel, không model.</div></div>
+  <div class="card bad"><div class="lbl">Clip-oracle micro AUC</div><div class="big">0.9086</div><div class="cmt">Xếp hạng clip hoàn hảo, định vị bằng 0.</div></div>
+  <div class="card bad"><div class="lbl">Frame probe macro AUC</div><div class="big">0.5228</div><div class="cmt">Trần có giám sát của đặc trưng. Gần như ngẫu nhiên.</div></div>
+  <div class="card neutral"><div class="lbl">Median clip length T</div><div class="big">9</div><div class="cmt">Bằng đúng kernel size của score head.</div></div>
+</div>
+</section>
+
+<section id="verdicts">
+<h2>2. Sáu phán quyết do công cụ EDA phát ra</h2>
+<p>Công cụ <code>core.tools.eda</code> tự động phát verdict khi một ngưỡng bị vượt. DADA-2000 kích hoạt <b>bốn CRITICAL</b> và <b>hai HIGH</b>. Đọc theo thứ tự: hai cái đầu là lỗi kiến trúc–dữ liệu, ba cái sau là lỗi diễn giải chỉ số, cái cuối là trần biểu diễn.</p>
+
+<div class="verdict v-crit">
+  <span class="tag">CRITICAL</span><h4>Score head trải rộng bằng cả clip (bài học C27)</h4>
+  <p><b>Đo được:</b> 55.4% clip test có <code>T &lt;= kernel_size = 9</code> (median T = 9); 24.3% tổng số frame nằm trong các clip đó. Mỗi timestep đầu ra ở đó "nhìn thấy" toàn bộ clip.</p>
+  <p class="fix"><b>Cách xử lý:</b> hạ <code>model.score_head_kernel</code> (thử 3), hoặc hạ <code>frame_stride</code> để median T lớn hơn hẳn 9. Cả hai đều kích hoạt bài học C2 — mọi cache đặc trưng hiện có sẽ bị vô hiệu.</p>
+</div>
+
+<div class="verdict v-high">
+  <span class="tag">HIGH</span><h4>MIL top-k thoái hoá thành một phép max thuần tuý</h4>
+  <p><b>Đo được:</b> 90.3% clip nhận <code>k = 1</code> tại <code>mil_topk_pct = 16</code>: mỗi clip mỗi bước chỉ đóng góp đúng <i>một</i> frame được giám sát.</p>
+  <p class="fix"><b>Cách xử lý:</b> hạ <code>loss.mil_topk_pct</code>, hoặc chấp nhận rằng giám sát ở đây là mức clip và ngừng đọc các tuyên bố mức frame vào nó.</p>
+</div>
+
+<div class="verdict v-high">
+  <span class="tag">HIGH</span><h4>Clip abnormal nhưng vector nhãn toàn 0</h4>
+  <p><b>Đo được:</b> 4 clip được khai báo abnormal trong <code>meta.json</code> nhưng không còn frame positive nào sau khi lấy mẫu. Mọi chỉ số đang đếm chúng như clip normal.</p>
+  <p class="fix"><b>Cách xử lý:</b> loại chúng ở thời điểm chấm điểm (<code>DADA_SETUP.md</code> §5.1). <b>Không</b> "sửa" bằng <code>--strict</code>: cờ đó ném lỗi chứ không vá dữ liệu.</p>
+</div>
+
+<div class="verdict v-crit">
+  <span class="tag">CRITICAL</span><h4>Micro AUC ở đây chủ yếu là phân loại clip (bài học C12)</h4>
+  <p><b>Đo được:</b> oracle gán điểm hằng số theo clip đạt micro AUC <b>0.9086</b> với năng lực định vị bằng 0; 99.9% cặp positive/negative vắt qua hai clip.</p>
+  <p class="fix"><b>Cách xử lý:</b> lấy <code>auc_macro</code> làm số headline và luôn in oracle này bên cạnh mọi micro AUC. Tuyệt đối không đặt một micro AUC của corpus này cạnh một con số frame-level đã công bố.</p>
+</div>
+
+<div class="verdict v-crit">
+  <span class="tag">CRITICAL</span><h4>Độ dài clip một mình đã dự đoán được nhãn (bài học C28)</h4>
+  <p><b>Đo được:</b> bộ phát hiện chỉ đọc số frame của clip (điểm hằng số <code>= -T</code>) đạt clip-level AUC <b>0.8105</b> và micro AUC <b>0.8654</b> — clip <i>ngắn hơn</i> chính là clip abnormal. Có <b>107</b> clip normal (3,157 frame) nằm hoàn toàn ngoài dải độ dài của nhóm abnormal.</p>
+  <p class="fix"><b>Cách xử lý:</b> rebuild corpus thành các cửa sổ độ dài cố định với vị trí bất thường đặt ở offset ngẫu nhiên. Trước khi làm được điều đó, in baseline này cạnh mọi micro AUC và coi mọi arm không vượt nó là <i>chưa đo được gì</i>.</p>
+</div>
+
+<div class="verdict v-crit">
+  <span class="tag">CRITICAL</span><h4>Đặc trưng không mang tín hiệu mức frame</h4>
+  <p><b>Đo được:</b> ngay cả linear probe <i>có giám sát</i> cũng chỉ đạt macro AUC <b>0.5228</b>, trong khi probe mức clip đạt <b>0.6799</b>.</p>
+  <p class="fix"><b>Cách xử lý:</b> không head nào đặt trên đặc trưng này định vị được. Công việc mức frame trên corpus này cần một backbone khác hoặc stride mịn hơn — <i>không phải</i> thêm một biến thể KIP (xem <code>RESULTS_DADA.md</code> §6, §10-C).</p>
+</div>
+</section>
+
+<section id="corpus">
+<h2>3. Hình dạng corpus</h2>
+<p>Bảng dưới là tổng lượng dữ liệu thực sự vào được pipeline sau khi lấy mẫu stride-8. Chú ý sự cân bằng gần như hoàn hảo giữa abnormal/normal ở mức <i>clip</i> — và sự mất cân bằng nghiêm trọng ở mức <i>frame</i>.</p>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Split</th><th class="num">Clip</th><th class="num">Abnormal</th><th class="num">Normal</th><th class="num">Frame (đã lấy mẫu)</th></tr></thead>
+<tbody>
+<tr><td>train</td><td class="num">1,530</td><td class="num">780</td><td class="num">750</td><td class="num">—</td></tr>
+<tr><td>test</td><td class="num">383</td><td class="num">191</td><td class="num">192</td><td class="num">5,244</td></tr>
+</tbody></table>
+</div>
+<p>Frame positive trong tập test: <b>476</b>, tức <b>9.08%</b> tổng số frame đã lấy mẫu. Tập DVS (dynamic video synthesis, gấp đôi số clip abnormal của train) có độ dài <b>1,560</b> → <b>25 bước/epoch</b> ở batch 64.</p>
+<div class="note"><b>Đọc gì từ đây:</b> ở mức clip, bài toán trông cân bằng 50/50 và "dễ". Ở mức frame, chỉ 9.08% là positive. Khoảng cách giữa hai tỉ lệ này chính là chỗ cho một mô hình lười trốn vào: chỉ cần đoán đúng <i>clip nào</i> là abnormal, không cần biết <i>frame nào</i>.</div>
+
+<h3 id="lenhist">3.1. Phân bố độ dài clip</h3>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Phân bố</th><th class="num">n</th><th class="num">mean</th><th class="num">p5</th><th class="num">p25</th><th class="num">p50</th><th class="num">p75</th><th class="num">p95</th><th class="num">min</th><th class="num">max</th></tr></thead>
+<tbody>
+<tr class="hl"><td>test (đã lấy mẫu)</td><td class="num">383</td><td class="num">13.69</td><td class="num">3.0</td><td class="num">6.0</td><td class="num">9.0</td><td class="num">19.0</td><td class="num">37.9</td><td class="num">1.0</td><td class="num">72.0</td></tr>
+<tr><td>train (đã lấy mẫu)</td><td class="num">1,530</td><td class="num">13.13</td><td class="num">3.0</td><td class="num">6.0</td><td class="num">9.0</td><td class="num">18.0</td><td class="num">36.0</td><td class="num">1.0</td><td class="num">73.0</td></tr>
+<tr><td>thô (trước stride)</td><td class="num">1,913</td><td class="num">102.27</td><td class="num">24.0</td><td class="num">41.0</td><td class="num">68.0</td><td class="num">139.0</td><td class="num">289.0</td><td class="num">4.0</td><td class="num">579.0</td></tr>
+</tbody></table>
+</div>
+<p>Phân bố cực kỳ lệch phải: trung bình 13.69 nhưng median chỉ 9, và p5 = 3 frame. Có clip chỉ còn <b>1</b> frame sau khi lấy mẫu — một chuỗi thời gian một điểm thì mọi khái niệm "định vị theo thời gian" đều vô nghĩa.</p>
+</section>
+
+<section id="recept">
+<h2>4. Trường tiếp nhận của score head — bài học C27</h2>
+<figure>
+  <img src="DADA2000/plots/clip_length_hist.png" alt="Histogram độ dài clip DADA2000 với đường kernel = 9">
+  <figcaption><b>Hình 1 — Độ dài clip so với trường tiếp nhận.</b> Trục hoành: số frame đã lấy mẫu của mỗi clip test. Đường đứt đỏ là kernel size 9 của <code>ConvScoreHead</code>. Toàn bộ khối cao nhất của histogram (đỉnh ~63 và ~66 clip ở vùng 4–8 frame) nằm <i>bên trái</i> đường đỏ: với những clip này, một phép <code>Conv1d(512→1, kernel_size=9)</code> chỉ tạo ra một timestep đầu ra duy nhất và timestep đó tổng hợp toàn bộ clip. Đuôi phải kéo tới 72 frame là các clip lái xe bình thường không bị cắt.</figcaption>
+</figure>
+<ul>
+  <li>Median clip length: <b>9</b> frame đã lấy mẫu.</li>
+  <li>Median tỉ lệ clip nằm gọn trong một timestep đầu ra: <b>100.0%</b>.</li>
+  <li>Số clip nằm hoàn toàn trong kernel: <b>212</b> (<b>55.4%</b>), chứa <b>24.3%</b> tổng số frame test.</li>
+  <li>Thống kê clip ngắn: <code>T&lt;=3</code> → 23 · <code>T&lt;=5</code> → 86 · <code>T&lt;=9</code> → 212 · <code>T&lt;=13</code> → 256 · <code>T&lt;=17</code> → 276.</li>
+</ul>
+<div class="warn"><b>Đây là lỗi kiến trúc, không phải lỗi huấn luyện.</b> Với 55.4% clip test, đường cong bất thường đầu ra bị ép thành hằng số theo thời gian <i>trước khi</i> bất kỳ trọng số nào được học. Không có loss nào, không có gate KIP nào mua lại được độ phân giải mà kiến trúc không có. Đây chính là cơ chế đứng sau kết quả đảo dấu của smoother trên DADA (A2 − A0 = −0.0918).</div>
+</section>
+
+<section id="mil">
+<h2>5. Sàn MIL top-k</h2>
+<p>Loss MIL lấy trung bình <code>k</code> frame có điểm cao nhất trong mỗi bag. Trong tree này, <code>k = max(1, T // topk_pct)</code> với <code>topk_pct = 16</code> (<code>core/losses/mil.py:16-22</code>) — lưu ý đây là phép <b>chia nguyên</b>, không phải nhân phần trăm, nên tên biến dễ gây hiểu nhầm: thực chất nó lấy <b>1/16 ≈ 6.25%</b> số frame. Với median T = 9 thì <code>9 // 16 = 0 → k = 1</code>. Muốn có <code>k = 2</code> cần <code>T ≥ 32</code>:</p>
+<ul>
+  <li>Clip có <code>k = 1</code> (loss suy biến thành max thuần tuý): <b>346</b> (<b>90.3%</b>).</li>
+  <li>Median k: <b>1.0</b>. Phân bố k: <code>{1: 346, 2: 29, 3: 7, 4: 1}</code>.</li>
+</ul>
+<div class="note"><b>Hệ quả:</b> phân bố k khớp chính xác với công thức — 29 clip có <code>T ∈ [32,47]</code> cho k=2, 7 clip có <code>T ∈ [48,63]</code> cho k=3, và đúng 1 clip (T=72) cho k=4. Ở 90.3% clip còn lại, tín hiệu giám sát mỗi bước là <i>một</i> frame duy nhất — frame mà mô hình đang tự tin nhất. Đó là định nghĩa của giám sát mức clip. Bất kỳ tuyên bố "mô hình học định vị theo frame" nào trên cấu hình này đều không có cơ sở trong hàm mục tiêu.</div>
+</section>
+
+<section id="subgroup">
+<h2>6. Phân nhóm theo metadata</h2>
+<h3>6.1. Theo <code>fault_label</code></h3>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Nhóm</th><th class="num">Clip</th><th class="num">Train</th><th class="num">Test</th><th class="num">Frame test</th><th class="num">Frame positive</th><th class="num">Tỉ lệ positive</th></tr></thead>
+<tbody>
+<tr><td>0_Non_Ego_Fault</td><td class="num">567</td><td class="num">454</td><td class="num">113</td><td class="num">799</td><td class="num">272</td><td class="num">34.04%</td></tr>
+<tr><td>0_Normal_Driving</td><td class="num">938</td><td class="num">750</td><td class="num">188</td><td class="num">3,880</td><td class="num">0</td><td class="num">0.00%</td></tr>
+<tr><td>1_Ego_Fault</td><td class="num">408</td><td class="num">326</td><td class="num">82</td><td class="num">565</td><td class="num">204</td><td class="num">36.11%</td></tr>
+</tbody></table>
+</div>
+<div class="warn"><b>Nhìn cột "Frame test".</b> 188 clip lái xe bình thường mang <b>3,880</b> frame, trong khi 195 clip tai nạn chỉ mang <b>1,364</b> frame. Clip normal dài gấp gần ba lần clip abnormal. Đây chính là cơ chế vật lý của rò rỉ C28 ở §9 — nó nhìn thấy được ngay trong bảng phân nhóm này.</div>
+
+<h3>6.2. Theo <code>ego_involve</code></h3>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Nhóm</th><th class="num">Clip</th><th class="num">Train</th><th class="num">Test</th><th class="num">Frame test</th><th class="num">Frame positive</th><th class="num">Tỉ lệ positive</th></tr></thead>
+<tbody>
+<tr><td>False (không liên quan xe ego)</td><td class="num">1,505</td><td class="num">1,204</td><td class="num">301</td><td class="num">4,679</td><td class="num">272</td><td class="num">5.81%</td></tr>
+<tr><td>True (xe ego liên quan)</td><td class="num">408</td><td class="num">326</td><td class="num">82</td><td class="num">565</td><td class="num">204</td><td class="num">36.11%</td></tr>
+</tbody></table>
+</div>
+<p>Nhóm <code>False</code> gộp cả clip lái xe bình thường lẫn tai nạn không do xe ego, nên tỉ lệ positive bị pha loãng xuống 5.81%. Với KAT-VAD, đây là phân nhóm đáng quan tâm nhất về mặt giả thuyết: KIP được thiết kế quanh động học ego, nên nếu KIP có tác dụng thật thì nó phải nổi lên rõ hơn ở nhóm <code>True</code>. (Trong 10/10 arm-seed đã đo, giả thuyết ego-kinematics đã bị bác bỏ.)</p>
+
+<h3>6.3. Theo <code>class_name</code></h3>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Nhóm</th><th class="num">Clip</th><th class="num">Train</th><th class="num">Test</th><th class="num">Frame test</th><th class="num">Frame positive</th><th class="num">Tỉ lệ positive</th></tr></thead>
+<tbody>
+<tr><td>CarAccident</td><td class="num">975</td><td class="num">780</td><td class="num">195</td><td class="num">1,364</td><td class="num">476</td><td class="num">34.90%</td></tr>
+<tr><td>Normal</td><td class="num">938</td><td class="num">750</td><td class="num">188</td><td class="num">3,880</td><td class="num">0</td><td class="num">0.00%</td></tr>
+</tbody></table>
+</div>
+<p>Chỉ có <b>2</b> lớp ngữ nghĩa. Đối chiếu với DoTA (20 nhóm <code>anomaly_class</code>), DADA gần như không cung cấp tín hiệu cho nhánh <code>H_mul</code> phân loại đa lớp có điều kiện theo định nghĩa ngôn ngữ — điều kiện hoá định nghĩa gần như suy biến thành nhị phân.</p>
+</section>
+
+<section id="labels">
+<h2>7. Hình học nhãn</h2>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Phân bố</th><th class="num">n</th><th class="num">mean</th><th class="num">p5</th><th class="num">p25</th><th class="num">p50</th><th class="num">p75</th><th class="num">p95</th><th class="num">min</th><th class="num">max</th></tr></thead>
+<tbody>
+<tr><td>positive / clip test</td><td class="num">383</td><td class="num">1.24</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">0.0</td><td class="num">2.0</td><td class="num">4.0</td><td class="num">0.0</td><td class="num">7.0</td></tr>
+<tr class="hl"><td>positive / clip abnormal</td><td class="num">191</td><td class="num">2.49</td><td class="num">1.0</td><td class="num">1.0</td><td class="num">2.0</td><td class="num">3.0</td><td class="num">5.0</td><td class="num">1.0</td><td class="num">7.0</td></tr>
+<tr class="hl"><td>tỉ lệ positive trong clip abnormal</td><td class="num">191</td><td class="num">0.35</td><td class="num">0.2</td><td class="num">0.2</td><td class="num">0.3</td><td class="num">0.4</td><td class="num">0.6</td><td class="num">0.1</td><td class="num">1.0</td></tr>
+<tr><td>số span / clip abnormal</td><td class="num">191</td><td class="num">1.00</td><td class="num">1.0</td><td class="num">1.0</td><td class="num">1.0</td><td class="num">1.0</td><td class="num">1.0</td><td class="num">1.0</td><td class="num">1.0</td></tr>
+<tr><td>độ dài span</td><td class="num">191</td><td class="num">2.49</td><td class="num">1.0</td><td class="num">1.0</td><td class="num">2.0</td><td class="num">3.0</td><td class="num">5.0</td><td class="num">1.0</td><td class="num">7.0</td></tr>
+</tbody></table>
+</div>
+
+<figure>
+  <img src="DADA2000/plots/positives_per_clip_hist.png" alt="Histogram số frame positive mỗi clip abnormal của DADA2000">
+  <figcaption><b>Hình 2 — Số frame positive trên mỗi clip abnormal.</b> Phân bố dồn mạnh về bên trái: 54 clip chỉ có <i>đúng một</i> frame positive, 52 clip có 2, 49 clip có 3. Đuôi phải tắt hẳn ở 7 frame. Nói cách khác, "sự kiện bất thường" trên DADA sau khi lấy mẫu stride-8 thường chỉ là <b>1–3 điểm</b> trong chuỗi thời gian — nhỏ hơn cả kernel 9 của score head một bậc độ lớn.</figcaption>
+</figure>
+
+<ul>
+  <li>Clip abnormal có <b>đúng một</b> frame positive: <b>54</b>.</li>
+  <li>Clip abnormal có ≤ 2 frame positive: <b>106</b> (tức 55% số clip abnormal).</li>
+  <li>Clip abnormal nhiều span: <b>0</b> — bài học C18 không áp dụng ở đây (nếu &gt; 0 thì phải điền từng span độc lập).</li>
+  <li><b>Clip abnormal bị mất sạch cửa sổ nhãn: 4.</b></li>
+</ul>
+
+<details>
+<summary>4 id có cửa sổ nhãn biến mất — phải loại khi chấm điểm</summary>
+<pre>0_Non_Ego_Fault__type1_vid017
+0_Non_Ego_Fault__type1_vid052
+0_Non_Ego_Fault__type6_vid112
+1_Ego_Fault__type1_vid024</pre>
+</details>
+
+<div class="warn"><b>Tỉ lệ positive trung bình trong clip abnormal chỉ là 0.35.</b> Con số này là lý do trực tiếp của bài học <b>C29</b>: <code>compose_sequence</code> gán <code>pseudo[anchor_span] = 1.0</code> cho <i>toàn bộ</i> anchor clip, nên <b>64.9%</b> số frame anchor đang bị huấn luyện để tiến về 1 trong khi nhãn thật của chúng là 0. Đó là lý do arm <code>loss.dvs_anchor_mode=ignore</code> đã được ship (mặc định tắt) trong Phase 1.</div>
+</section>
+
+<section id="metric">
+<h2>8. Chỉ số thực sự đo cái gì</h2>
+
+<h3>8.1. Frame nằm ở đâu</h3>
+<figure>
+  <img src="DADA2000/plots/frame_share.png" alt="Biểu đồ cột phân bổ frame theo loại clip của DADA2000">
+  <figcaption><b>Hình 3 — Frame phân bổ theo loại clip.</b> Cột xám <code>all_normal</code> cao <b>3,896</b> frame (74.29%), cột xanh <code>mixed</code> chỉ <b>1,347</b> frame (25.69%), và <code>all_positive</code> gần như không nhìn thấy (1 frame). Ba phần tư số frame trong tập test nằm trong những clip <i>không hề chứa</i> một bất thường nào. Micro AUC gộp toàn bộ các frame này vào một bảng xếp hạng duy nhất, nên phần lớn "công việc" mà chỉ số này chấm điểm chỉ là tách clip normal khỏi clip abnormal.</figcaption>
+</figure>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Loại clip</th><th class="num">Clip</th><th class="num">Frame</th><th class="num">Tỉ lệ frame</th></tr></thead>
+<tbody>
+<tr><td>all_normal (toàn bộ normal)</td><td class="num">192</td><td class="num">3,896</td><td class="num">74.29%</td></tr>
+<tr><td>mixed (có cả hai)</td><td class="num">190</td><td class="num">1,347</td><td class="num">25.69%</td></tr>
+<tr><td>all_positive (toàn bộ positive)</td><td class="num">1</td><td class="num">1</td><td class="num">0.02%</td></tr>
+</tbody></table>
+</div>
+
+<h3>8.2. Oracle mức clip — bài học C12</h3>
+<p>Giả sử một mô hình phát ra <b>đúng một điểm hằng số cho mỗi clip</b>, xếp hạng các clip hoàn hảo và <i>không định vị gì cả</i>. Nó đạt:</p>
+<div class="grid2">
+  <div class="card bad"><div class="lbl">micro AUC</div><div class="big">0.9086</div><div class="cmt">Trông như kết quả SOTA.</div></div>
+  <div class="card neutral"><div class="lbl">micro AP</div><div class="big">0.3531</div></div>
+  <div class="card good"><div class="lbl">macro AUC</div><div class="big">0.5000</div><div class="cmt">Theo định nghĩa — và đây mới là sự thật.</div></div>
+  <div class="card bad"><div class="lbl">Cặp vắt qua 2 clip</div><div class="big">99.90%</div><div class="cmt">2,267,288 / 2,269,568 cặp.</div></div>
+</div>
+<p>Chỉ <b>0.10%</b> số cặp positive/negative có thể thắng được bằng năng lực định vị. 99.9% còn lại chỉ cần biết clip nào là clip tai nạn.</p>
+<div class="warn"><b>Quy tắc bắt buộc:</b> in oracle này bên cạnh <i>mọi</i> micro AUC đo trên corpus này. Một arm đạt micro 0.87 trên DADA đang <i>kém hơn</i> một oracle không biết định vị.</div>
+
+<h3 id="leak">8.3. Rò rỉ nhãn qua độ dài clip — bài học C28</h3>
+<p>Đây là phát hiện nghiêm trọng nhất của toàn bộ báo cáo. Một "bộ phát hiện" mà <b>đầu vào duy nhất là số frame của clip</b> — không pixel, không CLIP, không mô hình, chỉ cần <code>score = -T</code> — đạt:</p>
+<div class="grid2">
+  <div class="card bad"><div class="lbl">clip-level AUC</div><div class="big">0.8105</div><div class="cmt">Clip <b>ngắn hơn</b> là clip abnormal.</div></div>
+  <div class="card bad"><div class="lbl">micro AUC</div><div class="big">0.8654</div><div class="cmt">Chỉ kém arm tốt nhất đã huấn luyện ~0.009.</div></div>
+  <div class="card neutral"><div class="lbl">micro AP</div><div class="big">0.2630</div></div>
+  <div class="card good"><div class="lbl">macro AUC</div><div class="big">0.5000</div><div class="cmt">Theo định nghĩa.</div></div>
+</div>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Độ dài clip T</th><th class="num">median</th><th class="num">min</th><th class="num">max</th></tr></thead>
+<tbody>
+<tr><td>Clip abnormal</td><td class="num">7.0</td><td class="num">1.0</td><td class="num">17.0</td></tr>
+<tr><td>Clip normal</td><td class="num">19.0</td><td class="num">1.0</td><td class="num">72.0</td></tr>
+</tbody></table>
+</div>
+<p><b>107</b> clip normal (chứa <b>3,157</b> frame) có <code>T &gt;= 18</code>, tức nằm hoàn toàn ngoài dải độ dài tối đa của nhóm abnormal. Chúng có thể được phân loại đúng 100% mà không cần nhìn một pixel nào.</p>
+<div class="warn"><b>Nguyên nhân gốc:</b> bản DADA-2000 tái dựng này <b>cắt</b> video tai nạn quanh thời điểm tai nạn nhưng <b>giữ nguyên độ dài</b> video lái xe bình thường. Nhãn do đó nằm trong metadata của file, không nằm trong nội dung video. Đây là khuyết tật của <i>bản dựng lại</i>, không phải đặc tính của corpus dashcam nói chung — DoTA chạy cùng đúng phép kiểm tra này cho clip AUC 0.5280 và <b>0</b> clip tách rời, tức không kích hoạt C28.</div>
+<p><b>Biện pháp kiểm soát đã ship:</b> <code>core.evaluate --equalize-length N --equalize-anchor {center,start,end}</code>. Ở cấu hình <code>N=5, anchor=end</code> trên DADA: giữ 331/383 clip, 156/162 clip abnormal còn giữ được positive, 346/476 positive được giữ (72.7%), 155 clip hai lớp cho macro. Baseline chỉ-độ-dài tụt về <b>0.5000 chính xác</b> và clip oracle rơi 0.9086 → <b>0.8342</b>. Tức là phép này khử được C28 chứ <i>không</i> khử C12.</p>
+
+<h3>8.4. Độ phân giải AUC trên từng clip</h3>
+<p>Một clip có <code>p</code> positive và <code>n</code> negative chỉ có <code>p×n</code> cặp có thể xếp thứ tự, nên AUC của clip đó chỉ nhận giá trị trên một lưới bước <code>1/(p×n)</code>. Lưới thô làm cho <code>auc_macro</code> trung thực nhưng có độ phân giải thấp — luôn trích dẫn nó kèm các con số đếm này.</p>
+<ul>
+  <li>Clip hai lớp (những clip duy nhất mà <code>auc_macro</code> lấy trung bình): <b>190</b>; clip một lớp: <b>193</b>.</li>
+  <li>Bước lưới AUC trung bình: <b>0.15</b> (median 0.1, max 1.0). Nghĩa là ở một clip điển hình, AUC chỉ nhảy theo từng nấc 0.1.</li>
+  <li><code>--score-norm auto</code> phân giải thành <b>none</b> (tỉ lệ clip normal 0.501 &gt; ngưỡng 0.05).</li>
+</ul>
+<div class="note"><b>Lưu ý về giao thức chuẩn hoá điểm (bài học C12):</b> DADA có ~50% clip normal nên dùng điểm thô (<code>none</code>); DoTA gần như toàn abnormal nên dùng min-max theo clip. <b>Không bao giờ</b> trộn hai giao thức này vào cùng một bảng kết quả.</div>
+</section>
+
+<section id="features">
+<h2>9. Đặc trưng CLIP đóng băng đã cache</h2>
+<p>Thư mục cache: <code>cache/clip/DADA2000</code> — tìm thấy đủ 383/383 clip test.</p>
+<ul>
+  <li><b>5,244</b> frame × <b>512</b> chiều; L2-norm trung bình <b>9.91</b>.</li>
+  <li>Số chiều giữ 90% phương sai: <b>419</b> / 512 — đặc trưng gần như đẳng hướng, không có vài chiều nào thống trị.</li>
+</ul>
+
+<h3>9.1. Tự tương quan theo thời gian</h3>
+<figure>
+  <img src="DADA2000/plots/temporal_autocorrelation.png" alt="Đường tự tương quan thời gian của đặc trưng CLIP trên DADA2000">
+  <figcaption><b>Hình 4 — Cosine trung bình giữa frame <code>t</code> và <code>t+lag</code>.</b> Đường gần như phẳng ở mức rất cao: 0.963 tại lag 1 và vẫn còn 0.931 tại lag 8. Nói cách khác, sau 8 frame đã lấy mẫu (tức 64 frame gốc), biểu diễn CLIP hầu như <i>không đổi</i>. Đặc trưng đang mã hoá "đây là con đường nào, xe màu gì" chứ không mã hoá "cái gì đang chuyển động".</figcaption>
+</figure>
+<div class="tablewrap">
+<table>
+<thead><tr><th>lag (frame đã lấy mẫu)</th><th class="num">1</th><th class="num">2</th><th class="num">3</th><th class="num">4</th><th class="num">5</th><th class="num">6</th><th class="num">7</th><th class="num">8</th></tr></thead>
+<tbody><tr><td>cosine trung bình</td><td class="num">0.963</td><td class="num">0.953</td><td class="num">0.950</td><td class="num">0.942</td><td class="num">0.939</td><td class="num">0.939</td><td class="num">0.934</td><td class="num">0.931</td></tr></tbody>
+</table>
+</div>
+<p>Tỉ lệ phương sai <b>giữa các clip / trong một clip</b> = <b>2.72</b>. Giá trị cao nghĩa là embedding mã hoá <i>danh tính cảnh</i> mạnh hơn nhiều so với <i>động học</i> — đúng như kỳ vọng với CLIP ảnh tĩnh đóng băng, và đúng là động lực ban đầu để xây KIP.</p>
+
+<h3 id="probe">9.2. Linear probe có giám sát — trần biểu diễn</h3>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Probe</th><th class="num">AUC</th><th class="num">macro AUC</th><th class="num">AP</th><th class="num">AP baseline</th><th class="num">folds</th><th class="num">Đơn vị</th></tr></thead>
+<tbody>
+<tr class="hl"><td>mức frame</td><td class="num">0.5429</td><td class="num">0.5228</td><td class="num">0.1058</td><td class="num">0.0908</td><td class="num">5</td><td class="num">5,244 frame</td></tr>
+<tr><td>mức clip (mean-pool)</td><td class="num">0.6799</td><td class="num">—</td><td class="num">0.6670</td><td class="num">0.4987</td><td class="num">5</td><td class="num">383 clip</td></tr>
+</tbody></table>
+</div>
+<p>Cross-validation được gộp nhóm theo clip, nên không frame nào tự chấm điểm cho chính clip của mình. Đây là <b>trần có giám sát</b> của đặc trưng: một arm đã huấn luyện không thể kỳ vọng vượt qua nó, và nếu tụt sâu bên dưới nó thì vấn đề nằm ở <i>giám sát</i> chứ không ở <i>biểu diễn</i>.</p>
+<div class="warn"><b>Đây là kết luận đắt giá nhất của báo cáo.</b> Frame probe đạt macro AUC 0.5228 — gần như ngẫu nhiên — trong khi clip probe đạt 0.6799. Đặc trưng CLIP đóng băng <i>có</i> biết clip nào là clip tai nạn, nhưng <i>không</i> biết frame nào. Vì probe này đã là trần trên, nên mọi head — KIP, gate, loss mới, kernel nhỏ hơn — đều không thể định vị trên corpus này. Muốn làm frame-level trên DADA thì phải đổi backbone hoặc đổi stride, và cả hai đều kích hoạt C2/C13 (vô hiệu toàn bộ cache và mọi số đã đo trên nó).</div>
+</section>
+
+<section id="flow">
+<h2>10. Mô tả tử RAFT optical flow (chỉ split train)</h2>
+<ul>
+  <li><b>1,530</b> clip, <b>20,087</b> frame, <b>23</b> chiều thô; số chiều chết: <b>0</b>; frame không hữu hạn: <b>0</b>.</li>
+  <li>23 chiều hữu hiệu, <b>toàn cục theo frame, không có nội dung không gian</b>.</li>
+  <li>Flow chỉ tồn tại ở thời điểm huấn luyện, và split train không mang nhãn mức frame, nên <i>không thể</i> tính tương quan flow–nhãn.</li>
+</ul>
+<div class="note"><b>Nhắc lại một điều rất dễ nói sai:</b> mục tiêu flow chỉ là 23 đại lượng vô hướng toàn cục theo frame, được nâng lên 256 chiều bằng một phép chiếu ngẫu nhiên cố định (<code>core/flow/raft_extract.py:52-81</code>). Hãy nói "23 chiều hữu hiệu", và <b>không bao giờ</b> tuyên bố KIP định vị được bất cứ thứ gì trong <i>không gian</i>.</div>
+</section>
+
+<section id="action">
+<h2>11. Việc phải làm — và việc không nên làm</h2>
+<h3>11.1. So sánh chéo với DoTA</h3>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Thuộc tính</th><th class="num">DADA2000</th><th class="num">DoTA</th><th>Ý nghĩa</th></tr></thead>
+<tbody>
+<tr><td>Clip test</td><td class="num">383</td><td class="num">1,397</td><td>DoTA lớn hơn 3.6×</td></tr>
+<tr><td>Frame test</td><td class="num">5,244</td><td class="num">18,369</td><td></td></tr>
+<tr><td>Clip test toàn normal</td><td class="num">192</td><td class="num">3</td><td>Hai chế độ hoàn toàn khác nhau</td></tr>
+<tr><td>Tỉ lệ frame trong clip toàn normal</td><td class="num">0.7429</td><td class="num">0.0023</td><td>DADA: 3/4 frame là "nhiễu nền"</td></tr>
+<tr class="hl"><td>Median clip length T</td><td class="num">9.0</td><td class="num">13.0</td><td>DADA bằng đúng kernel</td></tr>
+<tr><td>Tỉ lệ clip có T ≤ kernel</td><td class="num">0.5535</td><td class="num">0.1195</td><td>C27 chỉ nghiêm trọng ở DADA</td></tr>
+<tr><td>Tỉ lệ clip ở MIL k = 1</td><td class="num">0.9034</td><td class="num">0.9986</td><td>Cả hai đều suy biến</td></tr>
+<tr class="hl"><td>Clip-oracle micro AUC</td><td class="num">0.9086</td><td class="num">0.5017</td><td>Micro chỉ vô nghĩa ở DADA</td></tr>
+<tr class="hl"><td>Length-only micro AUC</td><td class="num">0.8654</td><td class="num">0.4993</td><td>C28 chỉ cháy ở DADA</td></tr>
+<tr><td>score-norm auto</td><td>none</td><td>minmax</td><td>Không được trộn hai giao thức</td></tr>
+<tr class="hl"><td>Frame probe macro AUC</td><td class="num">0.5228</td><td class="num">0.6708</td><td>DoTA có tín hiệu, DADA không</td></tr>
+</tbody></table>
+</div>
+
+<h3>11.2. Nên làm</h3>
+<ol>
+  <li><b>Luôn báo cáo <code>auc_macro</code> làm số headline</b>, kèm cả hai baseline (clip oracle + length-only) trong cùng một bảng.</li>
+  <li><b>Loại 4 clip có cửa sổ nhãn biến mất</b> khi chấm điểm.</li>
+  <li><b>Chạy đối chứng <code>--equalize-length 5 --equalize-anchor end</code></b> song song với mọi eval DADA — nó miễn phí (chỉ eval) và khử được C28.</li>
+  <li><b>Phase 2: rebuild corpus</b> thành cửa sổ độ dài cố định với bất thường ở offset ngẫu nhiên. Đây là việc duy nhất thực sự sửa được C28, và nó kích hoạt C2 (phải trích xuất lại toàn bộ cache).</li>
+  <li><b>Phase 3: quyết định backbone</b> dựa trên A/B của probe, theo quy tắc đã đăng ký trước trong <code>DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md</code> §7.</li>
+</ol>
+
+<h3>11.3. Không nên làm</h3>
+<ul>
+  <li><b>Không</b> đặt bất kỳ micro AUC nào của DADA cạnh một con số frame-level đã công bố.</li>
+  <li><b>Không</b> tinh chỉnh KIP dựa trên delta đo trên corpus này (bài học 14) — corpus đang bị lỗi ở tầng dữ liệu.</li>
+  <li><b>Không</b> dùng <code>--strict</code> để "sửa" 4 clip nhãn rỗng: cờ đó ném lỗi chứ không vá.</li>
+  <li><b>Không</b> kết luận rằng backbone là nút thắt <i>trước khi</i> chạy A/B của probe — nhưng cũng đừng bỏ qua rằng frame probe 0.5228 đã là bằng chứng rất mạnh theo hướng đó.</li>
+</ul>
+</section>
+
+<section id="glossary">
+<h2>12. Thuật ngữ</h2>
+<dl class="glossary">
+  <dt>micro AUC</dt><dd>Gộp toàn bộ frame của mọi clip vào một bảng xếp hạng duy nhất rồi tính AUC. Nhạy với chênh lệch thang điểm <i>giữa</i> các clip, nên có thể cao ngất chỉ nhờ phân loại clip.</dd>
+  <dt>macro AUC (<code>auc_macro</code>)</dt><dd>Tính AUC riêng trong từng clip rồi lấy trung bình. Chỉ đo năng lực <i>định vị trong clip</i>. Đây là số trung thực trên corpus này.</dd>
+  <dt>clip oracle</dt><dd>Mô hình giả định phát ra một điểm hằng số cho mỗi clip, xếp hạng clip hoàn hảo, không định vị. Dùng làm sàn để biết micro AUC "miễn phí" là bao nhiêu.</dd>
+  <dt>length-only baseline</dt><dd>Bộ phát hiện chỉ đọc số frame của clip. Nếu nó ghi điểm cao thì nhãn đang rò rỉ qua metadata (bài học C28).</dd>
+  <dt>receptive field / trường tiếp nhận</dt><dd>Số frame đầu vào mà một timestep đầu ra "nhìn thấy". Ở đây bằng <code>score_head_kernel = 9</code>.</dd>
+  <dt>MIL top-k</dt><dd>Multiple Instance Learning: lấy trung bình <code>k</code> frame điểm cao nhất trong mỗi bag làm điểm của bag. Khi <code>k = 1</code>, nó suy biến thành phép max.</dd>
+  <dt>linear probe</dt><dd>Bộ phân loại tuyến tính huấn luyện có giám sát ngay trên đặc trưng đóng băng. Ước lượng <i>trần trên</i> của thông tin có trong biểu diễn.</dd>
+  <dt>DVS</dt><dd>Dynamic Video Synthesis: ghép clip abnormal (anchor) với clip normal (filler) để tạo chuỗi giả có nhãn dày.</dd>
+  <dt>span</dt><dd>Một khoảng liên tục <code>[start, end)</code> được đánh dấu bất thường trong annotation.</dd>
+</dl>
+</section>
+
+<footer>
+  <p><b>Nguồn:</b> <code>outputs/eda/DADA2000/eda_report.md</code> · <code>eda_report.json</code> · <code>plots/*.png</code>, sinh bởi <code>core.tools.eda</code>. Đối chiếu chéo: <code>outputs/eda/compare_dada_dota.md</code>.</p>
+  <p><b>Tài liệu liên quan:</b> <code>core/docs/EDA.md</code> · <code>core/docs/DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md</code> · <code>core/docs/v3/RESULTS_DADA.md</code> · <code>core/docs/DADA_SETUP.md</code> §5.1, §10.2.</p>
+  <p>Bài học liên quan: <b>C2</b> (cache gắn với transform) · <b>C12</b> (micro AUC) · <b>C18</b> (multi-span) · <b>C27</b> (trường tiếp nhận) · <b>C28</b> (rò rỉ độ dài) · <b>C29</b> (nhãn anchor của DVS).</p>
+</footer>
+
+</div>
+</body>
+</html>
