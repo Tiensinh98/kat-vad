@@ -135,7 +135,6 @@ class TrainConfig:
     seed: int = constants.SEED
     amp: bool = False
     grad_accum_steps: int = 1
-    checkpoint_every_steps: int = 0  # 0 = per-epoch only
     device: str = "auto"
     stage0_warmup: bool = False
     stage05_hntune: bool = False

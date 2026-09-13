@@ -364,8 +364,11 @@ start fresh.
   hold model/optim/sched/scaler plus all RNG states.
 - **Time-boxed sessions:** add `--stop-after-epochs N` to cap what this
   invocation runs without shrinking the LR schedule horizon.
-- **Mid-epoch checkpoints:** `--set train.checkpoint_every_steps=N`
-  (recommended on Colab; Drive keeps the file when the VM dies).
+- **Mid-epoch checkpoints: removed (2026-09-13).** `checkpoint_every_steps`
+  no longer exists; a run's only artifact is `checkpoint_last.pt`, written
+  atomically at each epoch boundary. Passing the old flag raises
+  `KeyError: Unknown config key: train.checkpoint_every_steps`. Time-box with
+  `--stop-after-epochs N` instead.
 - A100 knobs: `train.amp=true`; `--set train.grad_accum_steps=K` exists but
   is moot at batch 8.
 
@@ -599,8 +602,10 @@ the number that matters scientifically is still **Δ(on − off) with its CI**.
 > confounds closed: Δ(on − off_warm) = +0.0988 ± 0.0148 (nine CIs excluding
 > zero), H3 rejected at matched convergence. §A5.0 was correctly skipped — a
 > plain `torch.load` worked in that session. Kept here as the runbook of record.
-> Next time, set `checkpoint_every_steps` denser early: the probe had no
-> checkpoint below step 100, where 94 % of the loss range lives (lesson 16).
+> Next time, the probe needs checkpoints denser early: it had none below step
+> 100, where 94 % of the loss range lives (lesson 16). **Note (2026-09-13):**
+> `checkpoint_every_steps` has since been removed, so a future trajectory probe
+> needs the knob reintroduced deliberately — see `TRAINING.md`.
 
 **Why:** Phase A settled H2 — the DoTA gain replicates across seeds 2024/2025/
 2026 at Δ +0.0916 ± 0.0088, every CI excluding zero (`RESULTS_PHASE_A.md`). Two
@@ -746,7 +751,7 @@ for S in 2024 2025 2026; do
     --set kip.enabled=false \
     --set data.dataset=MSAD-full \
     --set train.num_epochs=125 \
-    --set train.checkpoint_every_steps=100 \
+    \
     --set train.seed=$S \
     --init-weights "$SRC/stage1/checkpoint_last_nokip.pt" \
     --data-dir "$KATVAD_DATA_ROOT/MSAD" \

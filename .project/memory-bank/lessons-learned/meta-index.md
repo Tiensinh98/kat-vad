@@ -265,7 +265,9 @@ The LR schedule is an in-house `LambdaLR` rather than
 | normalize/pool score curves, or compare `evaluate` against `rescore` | **C22** |
 | recompute a metric offline that a tool already reported | **C22b** |
 | join `scores/*.npz` to metadata by id | **C23** |
-| score a checkpoint you did not train, or change an image transform | C13 |
+| score a checkpoint you did not train, or change an image transform | C13, **C34** |
+| evaluate an ablation arm, or write an eval command for a ladder of arms | **C34** — the architecture comes from the checkpoint; a `temporal_window` mismatch does NOT raise |
+| see `size mismatch for ...` from `load_state_dict` | **C34** — and check which sibling fields are mask-only, they failed silently |
 | run, record, or act on an ablation / A/B delta | C14 |
 | launch a training run with `--init-weights` or any non-default path | **C17** |
 | set `checkpoint_every_steps`, or plot a metric against train loss | C16 |
@@ -274,7 +276,8 @@ The LR schedule is an in-house `LambdaLR` rather than
 | use a frame folder's bare name as `video_id`, or point `--frames-dir` at a multi-category root | **C26** |
 | hand a numpy array straight to a torch model | **C25** |
 | add or resume a long-running per-item cache | C11 |
-| write **any** artifact file (scores, metrics, checkpoints), not just a resumable cache | **C11b** |
+| write **any** artifact file (scores, metrics, checkpoints), not just a resumable cache | **C11b**, **C11c** |
+| call `torch.save` / `np.save` / `np.savez` onto a path a later run will read | **C11c** — stage to `.part`, `fsync`, `replace`; a writer is not fixed until a test kills it mid-write |
 | join `scores/*.npz` counts against `results.json`, or compute a Δ across arms | **C11b**, **C23** |
 | ingest an unzipped dataset, or drop items from an eval set | C10, **C20** |
 | write a shell cell that touches every file in a dataset | **C20** |

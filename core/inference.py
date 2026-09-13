@@ -14,11 +14,13 @@ sigmoids, and ``class_names``. ``core/evaluate.py`` and
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import logging
 import random
 from collections.abc import Callable, Iterator
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import torch
@@ -46,21 +48,117 @@ LOGGER = logging.getLogger(__name__)
 ClassFeatsFn = Callable[[], Tensor]
 
 
+ARCH_SECTIONS = ("model", "kip")
+
+
+def _section_from_dict(section: Any, data: dict[str, Any], name: str) -> Any:
+    """Rebuild one config dataclass from a checkpoint's stored dict.
+
+    Unknown keys **raise** (lesson C5): a checkpoint asking for a field this
+    branch does not have was built by a different architecture, and silently
+    dropping the field would score it as something it is not — the `main` vs
+    `v3` `kip.gate_type` split is exactly this case. Missing keys fall back to
+    the dataclass default with a warning: those are checkpoints that predate a
+    field, and the default is what they were trained under.
+    """
+    known = {f.name for f in dataclasses.fields(section)}
+    unknown = sorted(set(data) - known)
+    if unknown:
+        raise KeyError(
+            f"Checkpoint config section {name!r} has key(s) this build cannot "
+            f"honour: {unknown}. The checkpoint was trained by a different "
+            f"architecture (check the branch it came from) — scoring it here "
+            f"would silently evaluate a different model."
+        )
+    missing = sorted(known - set(data))
+    if missing:
+        LOGGER.warning(
+            "Checkpoint config section %r predates field(s) %s; using this "
+            "build's defaults for them",
+            name, missing,
+        )
+    return type(section)(**{**dataclasses.asdict(section), **data})
+
+
+def adopt_checkpoint_architecture(
+    cfg: Config, payload: dict[str, Any], overrides: list[str]
+) -> None:
+    """Point ``cfg``'s architecture sections at the ones the checkpoint was built with.
+
+    A checkpoint is bound to the architecture config that trained it, and only
+    *some* of that config is load-bearing for ``load_state_dict``:
+    ``score_head_kernel`` changes a conv's shape, so a mismatch raises loudly —
+    but ``temporal_window`` only sizes an attention **mask**, so a mismatch
+    loads clean and silently scores the arm with the wrong receptive field. An
+    eval that rebuilds the model from CLI defaults therefore reverts exactly the
+    treatments an ablation exists to measure, and reports a number for it
+    (lesson C34).
+
+    The checkpoint is authoritative. An explicit ``--set model.*`` / ``--set
+    kip.*`` that disagrees with it is a user error, not a preference, so it
+    raises rather than being quietly overridden.
+    """
+    stored = payload.get("config")
+    if not isinstance(stored, dict):
+        LOGGER.warning(
+            "Checkpoint carries no config; building the architecture from CLI "
+            "defaults. Verify score_head_kernel/temporal_window by hand — a "
+            "mismatch in the latter does NOT raise (lesson C34)."
+        )
+        return
+
+    explicit = {o.split("=", 1)[0] for o in overrides if "=" in o}
+    for name in ARCH_SECTIONS:
+        data = stored.get(name)
+        if not isinstance(data, dict):
+            continue
+        current = getattr(cfg, name)
+        adopted = _section_from_dict(current, data, name)
+        for field_ in dataclasses.fields(current):
+            was, now = getattr(current, field_.name), getattr(adopted, field_.name)
+            if was == now:
+                continue
+            dotted = f"{name}.{field_.name}"
+            if dotted in explicit:
+                raise ValueError(
+                    f"--set {dotted}={was!r} contradicts the checkpoint, which "
+                    f"was trained with {dotted}={now!r}. The checkpoint defines "
+                    f"the architecture: drop the flag."
+                )
+            LOGGER.info(
+                "Architecture from checkpoint: %s = %r (CLI default was %r)",
+                dotted, now, was,
+            )
+        setattr(cfg, name, adopted)
+
+
 def load_model_for_scoring(
     cfg: Config,
     device: torch.device,
     ckpt: Path | None,
     baseline_ckpt: Path | None,
     text_encoder: str,
+    overrides: list[str] | None = None,
 ) -> KATVAD:
-    """Build a KATVAD in eval mode from ours or a LaGoVAD checkpoint."""
+    """Build a KATVAD in eval mode from ours or a LaGoVAD checkpoint.
+
+    ``cfg``'s ``model`` and ``kip`` sections are **replaced in place** by the
+    ones stored in ``ckpt`` before the model is built, so everything downstream
+    (e.g. ``cfg.model.hidden_dim`` for the text encoder) sees the architecture
+    that was actually trained.
+    """
     if (ckpt is None) == (baseline_ckpt is None):
         raise ValueError("Provide exactly one of --ckpt / --baseline-ckpt")
     needs_clip = text_encoder == TEXT_ENCODER_CLIP
-    model = KATVAD.from_config(cfg, load_clip=needs_clip)
+    payload: dict[str, Any] | None = None
     if ckpt is not None:
         payload = torch.load(ckpt, map_location="cpu", weights_only=False)  # nosec B614 - own ckpt
-        state = payload.get("model", payload)
+        if isinstance(payload, dict):
+            adopt_checkpoint_architecture(cfg, payload, overrides or [])
+    model = KATVAD.from_config(cfg, load_clip=needs_clip)
+    if ckpt is not None:
+        assert payload is not None  # nosec B101 - narrowing for type-checkers
+        state = payload.get("model", payload) if isinstance(payload, dict) else payload
         model.load_state_dict(state)
         LOGGER.info("Loaded KAT-VAD checkpoint %s", ckpt)
     else:
@@ -207,7 +305,9 @@ def main(argv: list[str] | None = None) -> None:
     device = resolve_device(cfg.train.device)
 
     class_names = resolve_class_names(args.defs, args.class_names)
-    model = load_model_for_scoring(cfg, device, args.ckpt, args.baseline_ckpt, args.text_encoder)
+    model = load_model_for_scoring(
+        cfg, device, args.ckpt, args.baseline_ckpt, args.text_encoder, args.overrides
+    )
     text_encode_fn = make_text_encoder(model, args.text_encoder, device, dim=cfg.model.hidden_dim)
     verbalizer = None
     if not args.no_verbalize:

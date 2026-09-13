@@ -151,7 +151,9 @@ def main(argv: list[str] | None = None) -> None:
 
     dataset = FeatureEvalDataset(data_dir, clip_dir)
     class_names = load_class_names(data_dir)
-    model = load_model_for_scoring(cfg, device, args.ckpt, args.baseline_ckpt, args.text_encoder)
+    model = load_model_for_scoring(
+        cfg, device, args.ckpt, args.baseline_ckpt, args.text_encoder, args.overrides
+    )
     text_encode_fn = make_text_encoder(model, args.text_encoder, device, dim=cfg.model.hidden_dim)
     # Seeded **per item**, not per run (lesson C30). Definition sampling is
     # per-window, so one shared RNG makes every clip's conditioning depend on

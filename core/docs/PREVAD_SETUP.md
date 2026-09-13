@@ -741,16 +741,14 @@ permutation, `--resume` replays the exact remaining data/DVS stream, mid-epoch
 included; weights match a straight run within FP tolerance. `--resume` and
 `--init-weights` are mutually exclusive (`core/train.py:581`).
 
-**But the default granularity is one epoch, and epoch 0 saves nothing.**
-`train.checkpoint_every_steps` defaults to **0 = per-epoch only**
-(`core/config.py:130`), so the sole artifact is `checkpoint_last.pt`, written at
-each epoch boundary (`core/train.py:522`). Kill the run during epoch 0 and there
-is nothing to resume from — the whole session is lost. Add step checkpoints only
-if an epoch turns out slow: `checkpoint_every_steps=N` writes
-`checkpoint_step_{N}.pt` **and** `checkpoint_last.pt` on every hit
-(`core/train.py:513-519`). **Measured 2026-08-25: one checkpoint is 459 MB**
-(model + optimizer + scheduler + scaler), so `checkpoint_every_steps=100` over
-this run means 133 files ≈ **61 GB** on Drive. Leave it at 0.
+**But the granularity is one epoch, and epoch 0 saves nothing.** The sole
+artifact is `checkpoint_last.pt`, written atomically at each epoch boundary.
+Kill the run during epoch 0 and there is nothing to resume from — the whole
+session is lost. **`train.checkpoint_every_steps` was removed on 2026-09-13**
+and passing it now raises; the reason it is not missed is the same measurement
+that argued against it here: **one checkpoint is 459 MB** (model + optimizer +
+scheduler + scaler), so step checkpoints every 100 steps over this run would
+have meant 133 files ≈ **61 GB** on Drive. Time-box with `--stop-after-epochs`.
 
 **Time-box it, do not kill it.** `--stop-after-epochs N` finishes epoch N
 cleanly, saves, and returns without touching the LR-schedule horizon

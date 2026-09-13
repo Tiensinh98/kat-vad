@@ -24,6 +24,7 @@ import contextlib
 import json
 import logging
 import math
+import os
 import random
 from pathlib import Path
 from typing import Any
@@ -91,7 +92,9 @@ def warm_start_model(model: torch.nn.Module, path: Path) -> None:
     model legitimately lacks (built with ``load_clip=False``) and which keeps
     its pinned pretrained weights in the target.
     """
-    payload = torch.load(path, map_location="cpu", weights_only=False)  # nosec B614 - own ckpt
+    payload = torch.load(
+        path, map_location="cpu", weights_only=False
+    )  # nosec B614 - own ckpt
     state: dict[str, Tensor] = payload["model"]
     own_keys = set(model.state_dict().keys())
     ckpt_keys = set(state.keys())
@@ -110,7 +113,9 @@ def warm_start_model(model: torch.nn.Module, path: Path) -> None:
     LOGGER.info(
         "Warm-started model weights from %s (source epoch=%s step=%s); "
         "optimizer/schedule/counters start fresh",
-        path, payload.get("epoch"), payload.get("global_step"),
+        path,
+        payload.get("epoch"),
+        payload.get("global_step"),
     )
 
 
@@ -173,7 +178,8 @@ class Trainer:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         self.verbalizer = DatasetSpecVerbalizer(
-            dataset_abbr(cfg.data.dataset), rng=random.Random(cfg.train.seed)  # nosec B311
+            dataset_abbr(cfg.data.dataset),
+            rng=random.Random(cfg.train.seed),  # nosec B311
         )
         self.cap_contrast = CapContrastLoss(
             cfg.loss.contrastive_neg_mining, cfg.loss.contrastive_temp
@@ -287,7 +293,10 @@ class Trainer:
         )
         if "cap_bin_logits" in outputs:
             loss_bin = loss_bin + mil_loss(
-                outputs["cap_bin_logits"], labels, lengths, topk_pct=loss_cfg.mil_topk_pct
+                outputs["cap_bin_logits"],
+                labels,
+                lengths,
+                topk_pct=loss_cfg.mil_topk_pct,
             )
         losses["mil"] = loss_bin
 
@@ -296,12 +305,16 @@ class Trainer:
         # the logged loss keys are byte-identical to the baseline.
         if loss_cfg.bottomk_weight > 0.0:
             loss_bottom = abnormal_bottomk_loss(
-                outputs["cls_bin_logits"], labels, lengths,
+                outputs["cls_bin_logits"],
+                labels,
+                lengths,
                 topk_pct=loss_cfg.bottomk_topk_pct,
             )
             if "cap_bin_logits" in outputs:
                 loss_bottom = loss_bottom + abnormal_bottomk_loss(
-                    outputs["cap_bin_logits"], labels, lengths,
+                    outputs["cap_bin_logits"],
+                    labels,
+                    lengths,
                     topk_pct=loss_cfg.bottomk_topk_pct,
                 )
             losses["bottomk"] = loss_bottom
@@ -332,7 +345,9 @@ class Trainer:
             if "cap_bin_logits" in outputs:
                 cap_sub = outputs["cap_bin_logits"][dvs_rows]
                 losses["dvs_sup"] = losses["dvs_sup"] + supervised_loss(
-                    cap_sub, pseudo[dvs_rows], lengths[dvs_rows],
+                    cap_sub,
+                    pseudo[dvs_rows],
+                    lengths[dvs_rows],
                     ignore_positive=ignore_positive,
                 )
                 losses["dvs_sup_mil"] = losses["dvs_sup_mil"] + pseudo_sup_mil_loss(
@@ -348,7 +363,9 @@ class Trainer:
         )
         if "cap_sim_mat" in outputs and cap_labels is not None:
             loss_mul = loss_mul + multi_class_mil_loss(
-                outputs["cap_sim_mat"], cap_labels, lengths,
+                outputs["cap_sim_mat"],
+                cap_labels,
+                lengths,
                 topk_pct=loss_cfg.mul_mil_topk_pct,
             )
         losses["mul_mil"] = loss_mul
@@ -417,8 +434,12 @@ class Trainer:
             "python": random.getstate(),
             "numpy": np.random.get_state(),
             "torch": torch.get_rng_state(),
-            "cuda": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
-            "mps": torch.mps.get_rng_state() if torch.backends.mps.is_available() else None,
+            "cuda": (
+                torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
+            ),
+            "mps": (
+                torch.mps.get_rng_state() if torch.backends.mps.is_available() else None
+            ),
             "dataset": self.dataset._rng.getstate(),
             "verbalizer": self.verbalizer._rng.getstate(),
         }
@@ -435,26 +456,52 @@ class Trainer:
         self.verbalizer._rng.setstate(payload["verbalizer"])
 
     def save_checkpoint(self, path: Path, batches_done: int = 0) -> None:
+        """Write the run's checkpoint atomically (lesson C11/C11b).
+
+        ``torch.save`` straight onto ``path`` opens the target ``"wb"`` — which
+        truncates it to zero bytes — and only then streams several GB of tensors
+        into it. A process killed inside that window (a Colab timeout, an OOM
+        kill, two training commands competing for one GPU) leaves exactly the
+        0-byte or half-written ``checkpoint_last.pt`` that is indistinguishable
+        from a finished one until something tries to load it.
+
+        Staging to a ``.part`` sibling and renaming makes the target either the
+        previous checkpoint or the new one, never a torn file. ``fsync`` before
+        the rename because Drive's FUSE layer can acknowledge a write whose
+        bytes never land (lesson C10).
+        """
         path.parent.mkdir(parents=True, exist_ok=True)
-        torch.save(
-            {
-                "model": self.model.state_dict(),
-                "optimizer": self.optimizer.state_dict(),
-                "scheduler": self.scheduler.state_dict(),
-                "scaler": self.scaler.state_dict(),
-                "epoch": self.epoch,
-                "global_step": self.global_step,
-                "batches_done": batches_done,
-                "config": self.cfg.to_dict(),
-                "class_names": self.class_names,
-                "rng": self._rng_payload(),
-            },
+        staged = path.with_name(path.name + constants.CACHE_PART_SUFFIX)
+        with staged.open("wb") as handle:
+            torch.save(
+                {
+                    "model": self.model.state_dict(),
+                    "optimizer": self.optimizer.state_dict(),
+                    "scheduler": self.scheduler.state_dict(),
+                    "scaler": self.scaler.state_dict(),
+                    "epoch": self.epoch,
+                    "global_step": self.global_step,
+                    "batches_done": batches_done,
+                    "config": self.cfg.to_dict(),
+                    "class_names": self.class_names,
+                    "rng": self._rng_payload(),
+                },
+                handle,
+            )
+            handle.flush()
+            os.fsync(handle.fileno())
+        staged.replace(path)
+        LOGGER.info(
+            "Checkpoint saved: %s (epoch=%d step=%d)",
             path,
+            self.epoch,
+            self.global_step,
         )
-        LOGGER.info("Checkpoint saved: %s (epoch=%d step=%d)", path, self.epoch, self.global_step)
 
     def load_checkpoint(self, path: Path) -> None:
-        payload = torch.load(path, map_location="cpu", weights_only=False)  # nosec B614 - own ckpt
+        payload = torch.load(
+            path, map_location="cpu", weights_only=False
+        )  # nosec B614 - own ckpt
         self.model.load_state_dict(payload["model"])
         self.optimizer.load_state_dict(payload["optimizer"])
         self.scheduler.load_state_dict(payload["scheduler"])
@@ -465,7 +512,10 @@ class Trainer:
         self._restore_rng(payload["rng"])
         LOGGER.info(
             "Resumed from %s (epoch=%d step=%d batches_done=%d)",
-            path, self.epoch, self.global_step, self._resume_batches_done,
+            path,
+            self.epoch,
+            self.global_step,
+            self._resume_batches_done,
         )
 
     # ------------------------------------------------------------------ train
@@ -509,9 +559,8 @@ class Trainer:
                 self.scaler.scale(total).backward()
 
                 is_boundary = (
-                    (batch_idx + 1) % cfg_t.grad_accum_steps == 0
-                    or batch_idx == num_batches - 1
-                )
+                    batch_idx + 1
+                ) % cfg_t.grad_accum_steps == 0 or batch_idx == num_batches - 1
                 if is_boundary:
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
@@ -531,32 +580,32 @@ class Trainer:
                 if batch_idx % self.log_every == 0:
                     LOGGER.info(
                         "epoch %d batch %d/%d loss %.4f",
-                        epoch, batch_idx, num_batches, record["total"],
+                        epoch,
+                        batch_idx,
+                        num_batches,
+                        record["total"],
                     )
 
-                if (
-                    cfg_t.checkpoint_every_steps > 0
-                    and is_boundary
-                    and self.global_step % cfg_t.checkpoint_every_steps == 0
-                ):
-                    self.save_checkpoint(
-                        self.output_dir / f"checkpoint_step_{self.global_step}.pt",
-                        batches_done=batch_idx + 1,
-                    )
-                    self.save_checkpoint(
-                        self.output_dir / CHECKPOINT_LAST, batches_done=batch_idx + 1
-                    )
-
+            # No mid-epoch checkpoints: CHECKPOINT_LAST, written once per epoch,
+            # is the run's only artifact. Step checkpoints cost ~1.4 GB each on
+            # Drive and every extra write is another window in which a killed
+            # process can leave a torn file. `train.checkpoint_every_steps` was
+            # removed rather than defaulted off, so a runbook that still passes
+            # it fails loudly at parse instead of silently doing nothing.
             self.epoch = epoch + 1
             self.save_checkpoint(self.output_dir / CHECKPOINT_LAST)
             mean_loss = float(np.mean(epoch_losses)) if epoch_losses else float("nan")
             LOGGER.info("epoch %d done: mean loss %.4f", epoch, mean_loss)
             if stop_after_epochs is not None and epochs_this_run >= stop_after_epochs:
-                LOGGER.info("Stopping after %d epoch(s) this run (resume to continue)",
-                            epochs_this_run)
+                LOGGER.info(
+                    "Stopping after %d epoch(s) this run (resume to continue)",
+                    epochs_this_run,
+                )
                 return
 
-        LOGGER.info("Training complete: %d epochs, %d steps", self.epoch, self.global_step)
+        LOGGER.info(
+            "Training complete: %d epochs, %d steps", self.epoch, self.global_step
+        )
 
 
 def load_class_names(data_dir: Path) -> list[str]:
@@ -574,49 +623,93 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Train KAT-VAD (spec §8)")
     parser.add_argument("--config", type=Path, default=None, help="YAML config path")
     parser.add_argument(
-        "--set", dest="overrides", action="append", default=[],
-        metavar="SECTION.KEY=VALUE", help="config override (repeatable)",
+        "--set",
+        dest="overrides",
+        action="append",
+        default=[],
+        metavar="SECTION.KEY=VALUE",
+        help="config override (repeatable)",
     )
-    parser.add_argument("--data-dir", type=Path, default=None,
-                        help="dataset dir with labels/defs (default: data root + dataset)")
-    parser.add_argument("--clip-dir", type=Path, default=None,
-                        help="CLIP feature cache dir (default: cache/clip/<dataset>)")
-    parser.add_argument("--flow-dir", type=Path, default=None,
-                        help="flow cache dir (default: cache/flow/v1/<dataset>)")
-    parser.add_argument("--knn-cache", type=Path, default=None,
-                        help="DVS KNN cache .npz (optional)")
-    parser.add_argument("--output-dir", type=Path, required=True,
-                        help="checkpoints + metrics destination (Drive on Colab)")
-    parser.add_argument("--resume", type=Path, default=None,
-                        help="checkpoint to resume from (e.g. <output>/checkpoint_last.pt)")
-    parser.add_argument("--init-weights", type=Path, default=None,
-                        help="checkpoint whose MODEL WEIGHTS seed this run "
-                             "(stage 1 → stage 2 warm-start); optimizer, LR "
-                             "schedule and counters start fresh")
-    parser.add_argument("--stop-after-epochs", type=int, default=None,
-                        help="cap epochs completed by THIS invocation (time-boxed "
-                             "sessions); schedule horizon stays train.num_epochs")
-    parser.add_argument("--text-encoder", choices=TEXT_ENCODER_CHOICES,
-                        default=TEXT_ENCODER_CLIP,
-                        help="'clip' needs HF weights; 'stub' is the data-free smoke mode")
+    parser.add_argument(
+        "--data-dir",
+        type=Path,
+        default=None,
+        help="dataset dir with labels/defs (default: data root + dataset)",
+    )
+    parser.add_argument(
+        "--clip-dir",
+        type=Path,
+        default=None,
+        help="CLIP feature cache dir (default: cache/clip/<dataset>)",
+    )
+    parser.add_argument(
+        "--flow-dir",
+        type=Path,
+        default=None,
+        help="flow cache dir (default: cache/flow/v1/<dataset>)",
+    )
+    parser.add_argument(
+        "--knn-cache", type=Path, default=None, help="DVS KNN cache .npz (optional)"
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        required=True,
+        help="checkpoints + metrics destination (Drive on Colab)",
+    )
+    parser.add_argument(
+        "--resume",
+        type=Path,
+        default=None,
+        help="checkpoint to resume from (e.g. <output>/checkpoint_last.pt)",
+    )
+    parser.add_argument(
+        "--init-weights",
+        type=Path,
+        default=None,
+        help="checkpoint whose MODEL WEIGHTS seed this run "
+        "(stage 1 → stage 2 warm-start); optimizer, LR "
+        "schedule and counters start fresh",
+    )
+    parser.add_argument(
+        "--stop-after-epochs",
+        type=int,
+        default=None,
+        help="cap epochs completed by THIS invocation (time-boxed "
+        "sessions); schedule horizon stays train.num_epochs",
+    )
+    parser.add_argument(
+        "--text-encoder",
+        choices=TEXT_ENCODER_CHOICES,
+        default=TEXT_ENCODER_CLIP,
+        help="'clip' needs HF weights; 'stub' is the data-free smoke mode",
+    )
     parser.add_argument("--log-every", type=int, default=10)
     return parser
 
 
 def main(argv: list[str] | None = None) -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+    )
     parser = build_arg_parser()
     args = parser.parse_args(argv)
     if args.resume is not None and args.init_weights is not None:
-        parser.error("--resume and --init-weights are mutually exclusive: "
-                     "resume continues a run, init-weights starts a new one")
+        parser.error(
+            "--resume and --init-weights are mutually exclusive: "
+            "resume continues a run, init-weights starts a new one"
+        )
     cfg = load_config(args.config, args.overrides)
     set_global_seed(cfg.train.seed)
 
     dataset_name = cfg.data.dataset
     data_dir = args.data_dir if args.data_dir else constants.DATA_ROOT / dataset_name
-    clip_dir = args.clip_dir if args.clip_dir else constants.CLIP_CACHE_DIR / dataset_name
-    flow_dir = args.flow_dir if args.flow_dir else constants.FLOW_CACHE_DIR / dataset_name
+    clip_dir = (
+        args.clip_dir if args.clip_dir else constants.CLIP_CACHE_DIR / dataset_name
+    )
+    flow_dir = (
+        args.flow_dir if args.flow_dir else constants.FLOW_CACHE_DIR / dataset_name
+    )
 
     knn_cache = load_knn_cache(args.knn_cache) if args.knn_cache else None
     require_flow = cfg.kip.enabled
@@ -634,7 +727,9 @@ def main(argv: list[str] | None = None) -> None:
     class_names = load_class_names(data_dir)
 
     device = resolve_device(cfg.train.device)
-    needs_clip = args.text_encoder == TEXT_ENCODER_CLIP and cfg.train.stage == STAGE_FULL
+    needs_clip = (
+        args.text_encoder == TEXT_ENCODER_CLIP and cfg.train.stage == STAGE_FULL
+    )
     model = KATVAD.from_config(cfg, load_clip=needs_clip)
     text_encode_fn = make_text_encoder(
         model, args.text_encoder, device, dim=cfg.model.hidden_dim

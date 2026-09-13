@@ -73,13 +73,17 @@ typo — an unrecognized value must not leave the arm silently off.
 
 ## Resumability contract
 
-Checkpoints (`checkpoint_last.pt`, optional `checkpoint_step_*.pt` via
-`train.checkpoint_every_steps`) store model/optimizer/scheduler/scaler,
-epoch, global step, `batches_done` within the epoch, config, class names and
+A run writes exactly one checkpoint, `checkpoint_last.pt`, at each epoch
+boundary; `train.checkpoint_every_steps` and `checkpoint_step_*.pt` were
+**removed on 2026-09-13** (see "Checkpoint writes" below). It stores
+model/optimizer/scheduler/scaler, epoch, global step, `batches_done` within
+the epoch, config, class names and
 **all RNG states** (python / numpy / torch / cuda / mps / dataset-DVS /
 verbalizer). Batches are drawn from a per-epoch seeded permutation with a
 manual loop (no DataLoader worker processes), so `--resume` reproduces the
-exact remaining batch sequence — mid-epoch step checkpoints included.
+exact remaining batch sequence. (`batches_done` is retained so checkpoints
+written before 2026-09-13 still resume correctly; new ones always record 0,
+because a save now only happens at an epoch boundary.)
 Weights after resume match a straight run within FP tolerance
 (`core/tests/test_e2e_synthetic.py::TestKillAndResume`); strictly bitwise
 equality is not guaranteed on backends with nondeterministic parallel
@@ -87,6 +91,39 @@ reductions (e.g. Apple Accelerate BLAS threads internally regardless of
 `torch.set_num_threads`), where identical op streams differ at ULP level.
 `--stop-after-epochs N` time-boxes one invocation without changing the
 LR-schedule horizon.
+
+## Checkpoint writes
+
+**One checkpoint per run, written atomically.** `Trainer.save_checkpoint`
+stages the payload to a `checkpoint_last.pt.part` sibling, `fsync`s it, and
+only then renames it onto the target.
+
+This is not decoration. `torch.save` straight onto the target opens it `"wb"`,
+which truncates it to **zero bytes**, and only then streams several GB of
+tensors in. A process killed inside that window leaves a 0-byte or half-written
+`checkpoint_last.pt` that no existence check can distinguish from a finished
+one — the failure surfaces hours later, at load time, with the run gone. The
+window is wide on Colab and widens further when several training commands share
+one GPU, because memory pressure is exactly what triggers the kill. Drive's
+FUSE layer can also acknowledge a write whose bytes never land, hence the
+`fsync` (lesson **C10**). After the rename the target is either the previous
+checkpoint or the new one, never a torn file (lessons **C11 / C11b**).
+
+`train.checkpoint_every_steps` was **removed**, not defaulted off. A config key
+that parses and silently does nothing is the failure mode lessons **C19** and
+**C24** are both about, so an old runbook that still passes it now fails loudly:
+
+```
+KeyError: Unknown config key: train.checkpoint_every_steps
+```
+
+Reintroducing step checkpoints for a trajectory probe is a deliberate change —
+mind lesson **16** (step-uniform checkpoints undersample the loss range) and
+the 459 MB-per-file cost measured in `PREVAD_SETUP.md`.
+
+Pinned by `core/tests/test_e2e_synthetic.py::TestKillAndResume`:
+`test_checkpoint_last_is_the_only_checkpoint`,
+`test_checkpoint_every_steps_is_rejected`, `test_checkpoint_write_is_atomic`.
 
 **Device warning (pending lesson P6):** on this repo's graph, torch 2.4 **MPS
 training diverges** (stage-1 `L_KIP_rec` climbs while CPU converges on

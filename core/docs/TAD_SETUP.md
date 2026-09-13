@@ -623,10 +623,11 @@ Use that `num_epochs` for **both** stage 1 and stage 2, and for **every arm** �
 an arm trained for a different number of steps is not a control. Warm-up stays
 at 20 steps, peak LR 5e-5, unchanged from the baseline.
 
-`checkpoint_every_steps=100` costs ~1.4 GB per stage-2 run on Drive. Keep the
-step checkpoints until the analysis has used them, then prune. Note lesson
-**16**: step-uniform checkpoints undersample the loss range, so they are for
-resume, not for a trajectory probe.
+**Step checkpoints no longer exist** (removed 2026-09-13): a stage-2 run
+writes only `checkpoint_last.pt`, so the ~1.4 GB per run this section used to
+warn about is gone. Lesson **16** still stands for any future trajectory probe —
+step-uniform checkpoints undersample the loss range — but such a probe now needs
+the knob reintroduced deliberately rather than switched on.
 
 ---
 

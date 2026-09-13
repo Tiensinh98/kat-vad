@@ -106,6 +106,28 @@ tree. Add new ones per CLAUDE.md §7 (duplicate check → 5 gates → here +
 `core/tools/feature_cache.py` gave the *extractors* atomic writes; `core.evaluate --save-scores` still does a plain `np.savez`. The v3 gate-attribution campaign found `outputs/v3/DoTA_rank_s2024/eval_dota/scores/qzMjfBx1KI0_003085.npz` at **0 bytes** — one clip of 1,397, in the arm the campaign existed to test. It is worse than a truncated cache because scores are *paired*: an arm missing one clip cannot be compared to any other arm until that clip is dropped from all of them, so a single silent 0-byte file perturbs every Δ in the study rather than one number. `results.json` was written from in-memory arrays and reports all 1,397, so the run looks complete from its own summary. **Extend the atomic-write rule to every artifact writer, not just the resumable ones**, and have any offline analysis assert the score-file count against `results.json:num_videos` before computing a delta.
 **Files:** core/evaluate.py (`--save-scores`), core/docs/v3/RESULTS_V3_GATE_ATTRIBUTION.md §1.2
 
+### 11c — amendment (2026-09-13): the third writer was the checkpoint, and it was the expensive one
+11b said "extend the atomic-write rule to **every** artifact writer". It was not
+extended: `Trainer.save_checkpoint` still did `torch.save(payload, path)`
+straight onto the target. `torch.save` opens the target `"wb"` — truncating it
+to **zero bytes** — and only then streams ~459 MB of tensors in, so a process
+killed inside that window leaves a 0-byte or half-written `checkpoint_last.pt`.
+The user hit this repeatedly on Colab, and reported it got worse when several
+training commands ran at once — which is the mechanism, not a coincidence:
+memory pressure is exactly what triggers the kill, and every extra writer widens
+the window. This is the **most** expensive instance of the three, because unlike
+a cache entry or one score file a lost checkpoint is the entire run: hours of
+GPU with nothing to resume from, and the loss is silent until something tries to
+load it. Fixed by staging to a `.part` sibling, `fsync`, then `Path.replace`
+(the `feature_cache.save_array` pattern), so the target is always either the
+previous checkpoint or the new one. Shipped with the removal of
+`train.checkpoint_every_steps` — **removed, not defaulted off**, so a runbook
+still passing it raises `KeyError` instead of silently doing nothing (C19/C24).
+**The general rule, restated because stating it once did not work:** a writer is
+not covered by this lesson until a test kills it mid-write and asserts the
+target survived. All three instances passed review as "obviously fine".
+**Files:** core/train.py:save_checkpoint, core/docs/TRAINING.md ("Checkpoint writes"), core/tests/test_e2e_synthetic.py::TestKillAndResume
+
 ## 12. [CRITICAL] Metrics - micro AUC over an all-abnormal test set measures the wrong thing
 **Triggers:** dota, auc, pooling, normalize, micro, all-abnormal, localization, concatenate scores, chance level, zero-shot eval
 **Problem:** Micro AUC concatenates every video's frames into one ranking, so each clip's absolute score scale enters the metric. When the test set contains normal videos that scale is signal; on an all-abnormal set (DoTA: 1,394/1,397 clips abnormal, ~33% positive frames) the task is purely *within-clip* localization, the between-clip scale is noise, and a confident clip's negatives outrank a hesitant clip's positives. Measured cost: LaGoVAD's released checkpoint scored 0.5055 (chance) raw vs 0.6142 min-max, against a published 0.6260 — the model was fine, the metric was not. **The mirror case is worse, added 2026-09-06:** when the test set is *dominated by all-normal clips* the between-clip scale is not merely signal, it is the whole metric. DADA-2000's test split is 74% frames from `0_Normal_Driving` clips, so a model emitting one **constant score per clip** — zero localization — scores micro AUC **0.9086**; our best arm reached 0.8739 with `auc_macro` at chance (0.44-0.57 across seven arms). A micro number that high reads as a frame-level result and is a video-classification result.
@@ -292,3 +314,11 @@ Second measured instance, and a method. The v3 campaign recomputed every arm off
 **Good:** derive the metric's attainable range from the corpus's own class mix and positive fraction *before* writing the threshold down, record the derivation beside it, and if the range is degenerate say so and gate on a different quantity — here the two-class window count, which is `auc_macro`'s sample size and moves with the thing actually being fixed.
 **Rule:** Derive a pre-registered metric's attainable range from the corpus's class mix before setting the threshold, and record that derivation beside the number.
 **Files:** .project/plans/katvad-dada-phase2-corpus-rebuild.md §1, core/docs/DADA_SETUP.md §10.3.4, core/eda/protocol.py:clip_constant_oracle
+
+## 34. [CRITICAL] Comparability — a checkpoint is bound to the architecture config that built it, and only some of that config raises
+**Triggers:** evaluate, load_state_dict, size mismatch, score_head_kernel, temporal_window, ablation arm, --set model, eval flags, arm ladder, from_config
+**Problem:** `core/evaluate.py` built the model with `KATVAD.from_config(cfg)` from **CLI defaults** and then loaded the checkpoint into it, so every `model.*` an arm was trained with was reverted at scoring time. The DADA W-ladder made the asymmetry visible in one run: `w2_k3`/`w4_all` (`score_head_kernel=3`) changed a conv weight's shape and died with `size mismatch ... torch.Size([1, 512, 3]) vs torch.Size([1, 512, 9])` — loud, no bad number — while `w1_tw9` (`temporal_window=9`) feeds only an attention **mask** (`temporal_encoder.py:238`), changes no parameter shape, loaded clean, and **scored the arm with the receptive field it was trained not to have**. The crash was the lucky half; the silent arm is the one that produces a publishable-looking delta for a treatment that was never applied. Sibling of [[lesson-13]] (transform) and [[lesson-14]] (measuring an open defect) one level up: the config that builds the module graph, not the one that builds the features.
+**Bad:** `model = KATVAD.from_config(cfg); model.load_state_dict(torch.load(ckpt)["model"])`, with the arm's flags left to the runbook to repeat — and `results.json` recording the checkpoint but not the flags (lesson 17).
+**Good:** rebuild the architecture sections from the checkpoint's own stored `config` before constructing the model, log every field adopted, raise on an explicit `--set model.*`/`--set kip.*` that contradicts it, and raise on a stored key this build does not have (a `v3` `kip.gate_type` checkpoint must not silently score on `main`).
+**Rule:** Build an evaluation model from the architecture config stored in its checkpoint, never from the CLI, and never assume a config mismatch will announce itself — only shape-bearing fields raise.
+**Files:** core/inference.py:adopt_checkpoint_architecture, core/models/temporal_encoder.py:238, core/docs/DADA_SETUP.md §10.3.7, core/tests/test_e2e_synthetic.py::TestCheckpointArchitecture

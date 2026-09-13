@@ -10,12 +10,14 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest import mock
 
 import numpy as np
 import pytest
 import torch
 
 from core import constants, evaluate, inference, train
+from core.config import load_config
 from core.tests.fixtures import FixtureLayout, build_fixture
 from core.tools import visualize
 
@@ -188,29 +190,62 @@ class TestKillAndResume:
                 msg=f"weight drift in {key}",
             )
 
-    def test_mid_epoch_step_checkpoint_resumes(
+    def test_checkpoint_last_is_the_only_checkpoint(
         self, fixture: FixtureLayout, tmp_path: Path
     ) -> None:
-        # run A: 1 epoch straight (2 optimizer steps: 6 samples / batch 4)
-        out_a = tmp_path / "straight1"
-        train.main(_train_args(fixture, out_a, epochs=1))
-        # run B: checkpoint every step; resume from the *first* step's checkpoint
-        out_b = tmp_path / "midresume"
-        train.main([
-            *_train_args(fixture, out_b, epochs=1),
-            "--set", "train.checkpoint_every_steps=1",
-        ])
-        step1 = out_b / "checkpoint_step_1.pt"
-        assert step1.exists()
-        out_c = tmp_path / "midresume_continued"
-        train.main([*_train_args(fixture, out_c, epochs=1), "--resume", str(step1)])
-        state_a = torch.load(out_a / train.CHECKPOINT_LAST, map_location="cpu", weights_only=False)
-        state_c = torch.load(out_c / train.CHECKPOINT_LAST, map_location="cpu", weights_only=False)
-        for key, tensor in state_a["model"].items():
-            torch.testing.assert_close(
-                state_c["model"][key], tensor, atol=RESUME_ATOL, rtol=RESUME_RTOL,
-                msg=f"weight drift in {key}",
-            )
+        """No step checkpoints, and no ``.part`` staging file left behind."""
+        out = tmp_path / "only_last"
+        train.main(_train_args(fixture, out, epochs=EPOCHS))
+
+        assert (out / train.CHECKPOINT_LAST).exists()
+        assert (out / train.CHECKPOINT_LAST).stat().st_size > 0
+        written = sorted(q.name for q in out.iterdir() if q.suffix == ".pt")
+        assert written == [train.CHECKPOINT_LAST], f"unexpected checkpoints: {written}"
+        leftovers = [q.name for q in out.iterdir() if constants.CACHE_PART_SUFFIX in q.name]
+        assert leftovers == [], f"staging files left behind: {leftovers}"
+
+    def test_checkpoint_every_steps_is_rejected(
+        self, fixture: FixtureLayout, tmp_path: Path
+    ) -> None:
+        """The knob was removed, not defaulted off: an old runbook must fail loud.
+
+        A config key that parses and silently does nothing is the failure mode
+        lessons C19 and C24 are both about.
+        """
+        with pytest.raises(KeyError, match=r"train\.checkpoint_every_steps"):
+            train.main([
+                *_train_args(fixture, tmp_path / "rejected", epochs=1),
+                "--set", "train.checkpoint_every_steps=1",
+            ])
+
+    def test_checkpoint_write_is_atomic(self, fixture: FixtureLayout, tmp_path: Path) -> None:
+        """A save killed mid-write leaves the previous checkpoint intact.
+
+        Pins the C11b fix directly: the torn payload lands in the ``.part``
+        sibling, so ``checkpoint_last.pt`` is never the 0-byte file that used to
+        survive a Colab timeout and only surface hours later at load time.
+        """
+        out = tmp_path / "atomic"
+        train.main(_train_args(fixture, out, epochs=1))
+        target = out / train.CHECKPOINT_LAST
+        good_bytes = target.read_bytes()
+
+        staged = target.with_name(target.name + constants.CACHE_PART_SUFFIX)
+        real_save = torch.save
+
+        def die_mid_save(obj: object, handle: object, *args: object, **kw: object) -> None:
+            real_save(obj, handle, *args, **kw)  # type: ignore[arg-type]
+            raise RuntimeError("killed mid-save (simulated Colab timeout)")
+
+        with mock.patch.object(torch, "save", die_mid_save):
+            with pytest.raises(RuntimeError, match="killed mid-save"):
+                train.main([
+                    *_train_args(fixture, out, epochs=EPOCHS),
+                    "--resume", str(target),
+                ])
+
+        assert target.read_bytes() == good_bytes, "target was clobbered by a failed save"
+        assert staged.exists(), "the torn write should have landed in .part"
 
 
 class TestInferenceEvalViz:
@@ -440,3 +475,81 @@ class TestInferenceEvalViz:
             "--set", "train.device=cpu",
         ])
         assert (out / evaluate.RESULTS_FILENAME).exists()
+
+
+class TestCheckpointArchitecture:
+    """Lesson C34: eval must rebuild the architecture the checkpoint was trained with.
+
+    Two failure modes with opposite loudness, which is the whole point:
+    ``score_head_kernel`` changes a conv weight's shape and raises on load, while
+    ``temporal_window`` only sizes an attention mask and loads clean — silently
+    scoring the arm with the receptive field it was trained to *not* have.
+    """
+
+    def _trained_with(
+        self, fixture: FixtureLayout, out: Path, extra: list[str]
+    ) -> Path:
+        train.main(_train_args(fixture, out, epochs=1, extra=extra))
+        return out / train.CHECKPOINT_LAST
+
+    def _eval_args(self, fixture: FixtureLayout, ckpt: Path, out: Path) -> list[str]:
+        return [
+            "--ckpt", str(ckpt),
+            "--data-dir", str(fixture.data_dir),
+            "--clip-dir", str(fixture.clip_dir),
+            "--output-dir", str(out),
+            "--text-encoder", "stub",
+            "--set", "train.device=cpu",
+        ]
+
+    def test_shape_changing_field_no_longer_needs_a_flag(
+        self, fixture: FixtureLayout, tmp_path: Path
+    ) -> None:
+        """The reported crash: kernel 3 checkpoint, eval with no --set, used to raise."""
+        ckpt = self._trained_with(
+            fixture, tmp_path / "k3", ["--set", "model.score_head_kernel=3"]
+        )
+        evaluate.main(self._eval_args(fixture, ckpt, tmp_path / "eval_k3"))
+        assert (tmp_path / "eval_k3" / "results.json").exists()
+
+    def test_silent_field_is_restored_from_the_checkpoint(
+        self, fixture: FixtureLayout, tmp_path: Path
+    ) -> None:
+        """The dangerous one: temporal_window mismatch never raised, it just scored wrong."""
+        ckpt = self._trained_with(
+            fixture, tmp_path / "tw3", ["--set", "model.temporal_window=3"]
+        )
+        cfg = load_config(None, ["train.device=cpu"])
+        assert cfg.model.temporal_window != 3, "fixture must differ from the CLI default"
+        model = inference.load_model_for_scoring(
+            cfg, torch.device("cpu"), ckpt, None, "stub", ["train.device=cpu"]
+        )
+        assert model.temporal_encoder.window_size == 3
+        assert cfg.model.temporal_window == 3, "cfg must be corrected for downstream users"
+
+    def test_contradicting_override_raises(
+        self, fixture: FixtureLayout, tmp_path: Path
+    ) -> None:
+        ckpt = self._trained_with(
+            fixture, tmp_path / "k3b", ["--set", "model.score_head_kernel=3"]
+        )
+        cfg = load_config(None, ["model.score_head_kernel=9"])
+        with pytest.raises(ValueError, match="contradicts the checkpoint"):
+            inference.load_model_for_scoring(
+                cfg, torch.device("cpu"), ckpt, None, "stub",
+                ["model.score_head_kernel=9"],
+            )
+
+    def test_unknown_architecture_key_raises(
+        self, fixture: FixtureLayout, tmp_path: Path
+    ) -> None:
+        """A checkpoint from a branch with extra fields (e.g. v3's kip.gate_type)."""
+        ckpt = self._trained_with(fixture, tmp_path / "alien", [])
+        payload = torch.load(ckpt, map_location="cpu", weights_only=False)
+        payload["config"]["kip"]["gate_type"] = "rank"
+        torch.save(payload, ckpt)
+        cfg = load_config(None, ["train.device=cpu"])
+        with pytest.raises(KeyError, match="gate_type"):
+            inference.load_model_for_scoring(
+                cfg, torch.device("cpu"), ckpt, None, "stub", []
+            )

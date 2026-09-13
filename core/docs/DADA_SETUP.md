@@ -666,7 +666,7 @@ S=2024 ; E=20
 python -m core.train \
   --set train.stage=2 --set train.amp=true --set data.dataset=DADA2000 \
   --set data.is_egocentric=true \
-  --set train.num_epochs=$E --set train.checkpoint_every_steps=100 \
+  --set train.num_epochs=$E \
   --set train.seed=$S \
   --set kip.enabled=false \
   --data-dir  "$KATVAD_DATA_ROOT/DADA2000" \
@@ -793,7 +793,7 @@ S=2024 ; E=20
 
 COMMON="--set train.stage=2 --set train.amp=true --set data.dataset=DADA2000 \
   --set data.is_egocentric=true \
-  --set train.num_epochs=$E --set train.checkpoint_every_steps=100 \
+  --set train.num_epochs=$E \
   --set train.seed=$S --set kip.enabled=false \
   --data-dir  $KATVAD_DATA_ROOT/DADA2000 \
   --clip-dir  $KATVAD_CACHE_ROOT/clip/DADA2000 \
@@ -1127,7 +1127,7 @@ cd /content/drive/MyDrive/Thesis/kat-vad
 S=2024 ; E=20
 COMMON="--set train.stage=2 --set train.amp=true --set data.dataset=DADA2000 \
   --set data.is_egocentric=true --set data.frame_stride=1 \
-  --set train.num_epochs=$E --set train.checkpoint_every_steps=200 \
+  --set train.num_epochs=$E \
   --set train.seed=$S --set kip.enabled=false \
   --data-dir  $KATVAD_DATA_ROOT/DADA2000_w24s1 \
   --clip-dir  $KATVAD_CACHE_ROOT/clip/DADA2000_s1 \
@@ -1198,9 +1198,33 @@ for ARM in w0 w1_tw9 w2_k3 w3_topk8 w4_all ; do
 done
 ```
 
-**Keep these cells in `colab/DADA/v1/train.py` for every arm.** Phase 1 lost three
-arms' eval commands to hand-editing (`RESULTS_DADA_PHASE1.md` section 8.3);
-`results.json` records the checkpoint but not the flags (lesson **C17**).
+**Do NOT add the arm's `--set model.*` flags here.** Since 2026-09-13
+`core.evaluate` rebuilds the architecture from the checkpoint's own stored
+config (`inference.adopt_checkpoint_architecture`), logging each field it
+adopts; an explicit `--set model.*` that contradicts the checkpoint now **raises**.
+The commands above are therefore identical for every arm, which is the point.
+
+> ### ⚠️ This section was wrong before 2026-09-13 — check what you already ran
+>
+> The eval command carries no `model.*` override, so the model used to be built
+> from **CLI defaults** regardless of what the arm was trained with. The two
+> failure modes had opposite loudness:
+>
+> | arm | trained with | at eval, pre-fix | |
+> |---|---|---|---|
+> | `w0` | — | — | ✅ valid |
+> | `w1_tw9` | `model.temporal_window=9` | mask-only field, **loaded clean at 25** | ❌ **silently scored the wrong arm** |
+> | `w2_k3` | `model.score_head_kernel=3` | conv shape mismatch, `RuntimeError` | ✅ crashed, no bad number |
+> | `w3_topk8` | `loss.mil_topk_pct=8` | loss-only, unused at eval | ✅ valid |
+> | `w4_all` | all three | crashed on the kernel | ✅ crashed, no bad number |
+>
+> **Any `w1_tw9` result produced before this date must be discarded and re-run.**
+> The crash you saw on `w2`/`w4` was the lucky half: a shape mismatch raises, a
+> receptive-field mismatch does not (lesson **C34**).
+
+Phase 1 lost three arms' eval commands to hand-editing
+(`RESULTS_DADA_PHASE1.md` section 8.3); `results.json` records the checkpoint
+but not the flags (lesson **C17**).
 
 WARNING: **DoTA's cache is stride 8 while the W-arms train at stride 1.** That is a
 deliberate domain shift *and* a stride shift; say so when reporting the transfer
