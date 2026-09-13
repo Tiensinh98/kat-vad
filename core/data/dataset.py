@@ -8,6 +8,11 @@ Samples are variable-length (truncated to ``vis_max_len``, never padded);
 batch padding + masks come from :func:`core.data.collate.collate_variable_length`.
 
 ``FeatureEvalDataset`` serves frame-labeled test videos at full length.
+
+Both datasets read their feature rows through :class:`core.data.windows.FeatureSlicer`,
+so a corpus rebuilt into fixed-length windows (``windows.json`` present, lesson
+**C28**) resolves each item id to a slice of its source clip's cached ``.npy``.
+Without that file the slicer is the identity and nothing changes.
 """
 
 from __future__ import annotations
@@ -27,6 +32,7 @@ from core import constants
 from core.config import DVSConfig
 from core.data.msad import ABNORMAL_CLASS, NORMAL_CLASS
 from core.data.synthesis import choose_filler_ids, compose_sequence, truncate_sample
+from core.data.windows import FeatureSlicer, load_windows
 
 LOGGER = logging.getLogger(__name__)
 
@@ -58,6 +64,7 @@ class DVSFeatureDataset(Dataset[dict[str, Any]]):
     ) -> None:
         self.clip_dir = clip_dir
         self.flow_dir = flow_dir
+        self.slicer = FeatureSlicer(load_windows(data_dir))
         self.dvs = dvs if dvs is not None else DVSConfig()
         self.vis_max_len = vis_max_len
         self.require_flow = require_flow
@@ -96,7 +103,7 @@ class DVSFeatureDataset(Dataset[dict[str, Any]]):
 
     def _load_features(self, video_id: str) -> Tensor:
         return torch.from_numpy(
-            np.load(self.clip_dir / f"{video_id}.npy").astype(np.float32)
+            self.slicer.load(self.clip_dir, video_id).astype(np.float32)
         )
 
     def _load_flow(self, video_id: str, length: int) -> Tensor:
@@ -104,12 +111,14 @@ class DVSFeatureDataset(Dataset[dict[str, Any]]):
             return torch.zeros(length, constants.FLOW_DIM)
         if self.flow_dir is None:
             raise ValueError("require_flow=True but no flow_dir configured")
-        path = self.flow_dir / f"{video_id}.npy"
+        path = self.flow_dir / f"{self.slicer.source_of(video_id)}.npy"
         if not path.exists():
             raise FileNotFoundError(
                 f"Missing flow cache {path}; run raft_extract or set require_flow=False"
             )
-        flow = torch.from_numpy(np.load(path).astype(np.float32))
+        # Sliced by the same window as the appearance rows -- an offset between
+        # the two branches is lesson C13 in miniature.
+        flow = torch.from_numpy(self.slicer.load(self.flow_dir, video_id).astype(np.float32))
         if len(flow) != length:
             raise ValueError(
                 f"Flow/feature length mismatch for {video_id}: {len(flow)} vs {length}"
@@ -172,6 +181,7 @@ class FeatureEvalDataset(Dataset[dict[str, Any]]):
 
     def __init__(self, data_dir: Path, clip_dir: Path) -> None:
         self.clip_dir = clip_dir
+        self.slicer = FeatureSlicer(load_windows(data_dir))
         frame_labels: dict[str, list[int]] = _load_json(
             data_dir / constants.FRAME_LABELS_TEST_FILENAME
         )
@@ -186,7 +196,7 @@ class FeatureEvalDataset(Dataset[dict[str, Any]]):
     def __getitem__(self, index: int) -> dict[str, Any]:
         video_id = self.video_ids[index]
         features = torch.from_numpy(
-            np.load(self.clip_dir / f"{video_id}.npy").astype(np.float32)
+            self.slicer.load(self.clip_dir, video_id).astype(np.float32)
         )
         labels = torch.tensor(self.frame_labels[video_id], dtype=torch.float32)
         length = min(len(features), len(labels))

@@ -105,10 +105,11 @@ def _verdicts(report: dict[str, Any]) -> list[dict[str, str]]:
         )
     van = report.get("labels", {}).get("vanished_windows", {})
     if van.get("count", 0):
+        unit = van.get("unit", "clip")
         add(
-            "HIGH", "Abnormal clips with an all-zero label vector",
-            f"{van['count']} clips declared abnormal in meta.json have no positive "
-            "sampled frame; every metric counts them as normal.",
+            "HIGH", f"Abnormal {unit}s with an all-zero label vector",
+            f"{van['count']} {unit}s declared abnormal in meta.json have no positive "
+            "sampled frame anywhere; every metric counts them as normal.",
             "Exclude them at scoring time (core/docs/DADA_SETUP.md §5.1). Do NOT "
             "'fix' this with --strict: that flag raises, it does not repair.",
         )
@@ -324,10 +325,17 @@ def render_markdown(report: dict[str, Any]) -> str:
             f"**{_fmt(pos['abnormal_clips_with_two_or_fewer'])}**",
             f"- multi-span abnormal clips: **{_fmt(lab['spans']['multi_span_clips'])}** "
             "(lesson C18 applies if > 0)",
-            f"- **abnormal clips whose window vanished: "
-            f"{_fmt(lab['vanished_windows']['count'])}**",
-            "",
+            f"- **abnormal {lab['vanished_windows'].get('unit', 'clip')}s whose "
+            f"window vanished: {_fmt(lab['vanished_windows']['count'])}**",
         ]
+        negatives = lab["vanished_windows"].get("negative_windows_of_abnormal_clips", 0)
+        if negatives:
+            lines.append(
+                f"- windows of abnormal clips holding no positive frame: "
+                f"**{_fmt(negatives)}** — these are *correct negatives*, not vanished "
+                "windows; producing them is the point of re-sharding"
+            )
+        lines.append("")
         if lab["vanished_windows"]["video_ids"]:
             lines += [
                 "<details><summary>Vanished-window ids (exclude these at scoring)</summary>",

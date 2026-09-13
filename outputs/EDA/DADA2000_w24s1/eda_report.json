@@ -1,0 +1,559 @@
+{
+  "corpus": {
+    "classes": [
+      "Normal",
+      "CarAccident"
+    ],
+    "kernel_coverage_test": {
+      "clips": 1161,
+      "clips_at_or_below": {
+        "T<=13": 0,
+        "T<=17": 0,
+        "T<=3": 0,
+        "T<=5": 0,
+        "T<=9": 0
+      },
+      "clips_fully_covered": 0,
+      "fraction_frames_fully_covered": 0.0,
+      "fraction_fully_covered": 0.0,
+      "frames_in_fully_covered_clips": 0,
+      "kernel": 9,
+      "mean_coverage": 0.375,
+      "median_coverage": 0.375,
+      "median_length": 24.0
+    },
+    "lengths": {
+      "raw_total_frames": {
+        "mean": 124.33943370165746,
+        "n": 5792,
+        "name": "raw frames per clip (pre-stride)",
+        "percentiles": {
+          "p0": 24.0,
+          "p100": 579.0,
+          "p25": 59.0,
+          "p5": 36.55000000000001,
+          "p50": 89.5,
+          "p75": 167.0,
+          "p95": 316.0
+        },
+        "std": 89.69163589742105
+      },
+      "test_sampled": {
+        "mean": 24.0,
+        "n": 1161,
+        "name": "test sampled frames per clip",
+        "percentiles": {
+          "p0": 24.0,
+          "p100": 24.0,
+          "p25": 24.0,
+          "p5": 24.0,
+          "p50": 24.0,
+          "p75": 24.0,
+          "p95": 24.0
+        },
+        "std": 0.0
+      },
+      "train_sampled": {
+        "mean": 24.0,
+        "n": 4631,
+        "name": "train sampled frames per clip",
+        "percentiles": {
+          "p0": 24.0,
+          "p100": 24.0,
+          "p25": 24.0,
+          "p5": 24.0,
+          "p50": 24.0,
+          "p75": 24.0,
+          "p95": 24.0
+        },
+        "std": 0.0
+      }
+    },
+    "mil_topk_floor_test": {
+      "clips": 1161,
+      "clips_at_k1": 1161,
+      "fraction_at_k1": 1.0,
+      "k_distribution": {
+        "1": 1161
+      },
+      "median_k": 1.0,
+      "topk_pct": 16
+    },
+    "splits": {
+      "dvs_dataset_len": 2962,
+      "split_leak_ids": [],
+      "steps_per_epoch_at_batch_64": 47,
+      "test_abnormal": 406,
+      "test_clips": 1161,
+      "test_normal": 755,
+      "test_positive_frames": 5016,
+      "test_sampled_frames": 27864,
+      "train_abnormal": 1481,
+      "train_abnormal_fraction": 0.3198013388037141,
+      "train_clips": 4631,
+      "train_normal": 3150
+    },
+    "subgroups": {
+      "anomaly_class": {
+        "groups": {},
+        "key": "anomaly_class",
+        "present": false
+      },
+      "class_name": {
+        "groups": {
+          "CarAccident": {
+            "clips": 2451,
+            "test_clips": 512,
+            "test_frames": 12288,
+            "test_positive_fraction": 0.408203125,
+            "test_positive_frames": 5016,
+            "train_clips": 1939
+          },
+          "Normal": {
+            "clips": 3341,
+            "test_clips": 649,
+            "test_frames": 15576,
+            "test_positive_fraction": 0.0,
+            "test_positive_frames": 0,
+            "train_clips": 2692
+          }
+        },
+        "key": "class_name",
+        "num_groups": 2,
+        "present": true
+      },
+      "ego_involve": {
+        "groups": {
+          "False": {
+            "clips": 4718,
+            "test_clips": 948,
+            "test_frames": 22752,
+            "test_positive_fraction": 0.12851617440225035,
+            "test_positive_frames": 2924,
+            "train_clips": 3770
+          },
+          "True": {
+            "clips": 1074,
+            "test_clips": 213,
+            "test_frames": 5112,
+            "test_positive_fraction": 0.40923317683881066,
+            "test_positive_frames": 2092,
+            "train_clips": 861
+          }
+        },
+        "key": "ego_involve",
+        "num_groups": 2,
+        "present": true
+      },
+      "fault_label": {
+        "groups": {
+          "0_Non_Ego_Fault": {
+            "clips": 1377,
+            "test_clips": 299,
+            "test_frames": 7176,
+            "test_positive_fraction": 0.40746934225195097,
+            "test_positive_frames": 2924,
+            "train_clips": 1078
+          },
+          "0_Normal_Driving": {
+            "clips": 3341,
+            "test_clips": 649,
+            "test_frames": 15576,
+            "test_positive_fraction": 0.0,
+            "test_positive_frames": 0,
+            "train_clips": 2692
+          },
+          "1_Ego_Fault": {
+            "clips": 1074,
+            "test_clips": 213,
+            "test_frames": 5112,
+            "test_positive_fraction": 0.40923317683881066,
+            "test_positive_frames": 2092,
+            "train_clips": 861
+          }
+        },
+        "key": "fault_label",
+        "num_groups": 3,
+        "present": true
+      },
+      "split": {
+        "groups": {
+          "test": {
+            "clips": 1161,
+            "test_clips": 1161,
+            "test_frames": 27864,
+            "test_positive_fraction": 0.18001722652885443,
+            "test_positive_frames": 5016,
+            "train_clips": 0
+          },
+          "train": {
+            "clips": 4631,
+            "test_clips": 0,
+            "test_frames": 0,
+            "test_positive_fraction": null,
+            "test_positive_frames": 0,
+            "train_clips": 4631
+          }
+        },
+        "key": "split",
+        "num_groups": 2,
+        "present": true
+      }
+    }
+  },
+  "data_dir": "/content/drive/MyDrive/Thesis/data/DADA2000_w24s1",
+  "dataset": "DADA2000",
+  "features": {
+    "clip_dir": "/content/drive/MyDrive/Thesis/cache/clip/DADA2000_s1",
+    "clip_linear_probe": {
+      "abnormal_clips": 406,
+      "ap": 0.4419588040370869,
+      "ap_baseline": 0.3496985357450474,
+      "auc": 0.5869017714416207,
+      "clips": 1161,
+      "folds": 5,
+      "ran": true
+    },
+    "coverage": {
+      "found": 1161,
+      "missing": 0,
+      "missing_examples": [],
+      "requested": 1161
+    },
+    "frame_linear_probe": {
+      "ap_baseline": 0.18001722652885443,
+      "ap_micro": 0.21096096965364103,
+      "auc_macro": 0.5146227336583331,
+      "auc_macro_videos": 370,
+      "auc_micro": 0.5563992580185982,
+      "clips": 1161,
+      "folds": 5,
+      "frames": 27864,
+      "interpretation": "auc_macro well above 0.5 means the frozen features DO carry a frame-level accident signal and the deficit is supervision; at 0.5 the representation itself is the ceiling (RESULTS_DADA.md \u00a710-B)",
+      "positive_frames": 5016,
+      "ran": true
+    },
+    "stats": {
+      "clips": 1161,
+      "dim": 512,
+      "effective_dims_90pct_variance": 419,
+      "frames": 27864,
+      "l2_norm": {
+        "mean": 9.89663330505129,
+        "n": 27864,
+        "name": "per-frame L2 norm",
+        "percentiles": {
+          "p0": 8.694698333740234,
+          "p100": 11.49760913848877,
+          "p25": 9.694385051727295,
+          "p5": 9.423698043823242,
+          "p50": 9.874861717224121,
+          "p75": 10.084238767623901,
+          "p95": 10.423272895812987
+        },
+        "std": 0.30527417827165626
+      },
+      "per_dim_variance": {
+        "mean": 0.041641283278295305,
+        "n": 512,
+        "name": "per-dimension variance",
+        "percentiles": {
+          "p0": 0.003671173471957445,
+          "p100": 0.3600209355354309,
+          "p25": 0.02715489687398076,
+          "p5": 0.021551865618675947,
+          "p50": 0.03176710568368435,
+          "p75": 0.03986785467714071,
+          "p95": 0.09506754502654073
+        },
+        "std": 0.03692643915464347
+      }
+    },
+    "temporal_autocorrelation": {
+      "cosine_by_lag": {
+        "lag1": {
+          "mean": 0.9885372892728045,
+          "pairs": 26703,
+          "std": 0.010596007303621653
+        },
+        "lag2": {
+          "mean": 0.9820363122041388,
+          "pairs": 25542,
+          "std": 0.013221747039119975
+        },
+        "lag3": {
+          "mean": 0.9772774907055365,
+          "pairs": 24381,
+          "std": 0.015007163904385138
+        },
+        "lag4": {
+          "mean": 0.9735626648665501,
+          "pairs": 23220,
+          "std": 0.0162795102517478
+        },
+        "lag5": {
+          "mean": 0.9704800515919768,
+          "pairs": 22059,
+          "std": 0.017316291823988094
+        },
+        "lag6": {
+          "mean": 0.9678484721495918,
+          "pairs": 20898,
+          "std": 0.0183288180194626
+        },
+        "lag7": {
+          "mean": 0.9655314179945845,
+          "pairs": 19737,
+          "std": 0.019145071498410573
+        },
+        "lag8": {
+          "mean": 0.96351413268028,
+          "pairs": 18576,
+          "std": 0.019850558268966603
+        }
+      },
+      "max_lag": 8
+    },
+    "variance_decomposition": {
+      "between_clip_variance": 0.035389579832553864,
+      "between_over_within": 5.660708379450543,
+      "clips": 1161,
+      "within_clip_variance": 0.006251793496556867
+    }
+  },
+  "frame_stride_assumed": 8,
+  "labels": {
+    "positives": {
+      "abnormal_clips": {
+        "mean": 12.354679802955665,
+        "n": 406,
+        "name": "positive frames per abnormal test clip",
+        "percentiles": {
+          "p0": 1.0,
+          "p100": 24.0,
+          "p25": 7.0,
+          "p5": 2.0,
+          "p50": 12.0,
+          "p75": 18.0,
+          "p95": 24.0
+        },
+        "std": 6.757394437005791
+      },
+      "abnormal_clips_with_one_positive": 16,
+      "abnormal_clips_with_two_or_fewer": 26,
+      "all_clips": {
+        "mean": 4.320413436692506,
+        "n": 1161,
+        "name": "positive frames per test clip",
+        "percentiles": {
+          "p0": 0.0,
+          "p100": 24.0,
+          "p25": 0.0,
+          "p5": 0.0,
+          "p50": 0.0,
+          "p75": 8.0,
+          "p95": 21.0
+        },
+        "std": 7.118947930669131
+      },
+      "positive_fraction_within_abnormal": {
+        "mean": 0.5147783251231527,
+        "n": 406,
+        "name": "positive fraction within abnormal clips",
+        "percentiles": {
+          "p0": 0.041666666666666664,
+          "p100": 1.0,
+          "p25": 0.2916666666666667,
+          "p5": 0.08333333333333333,
+          "p50": 0.5,
+          "p75": 0.75,
+          "p95": 1.0
+        },
+        "std": 0.28155810154190797
+      }
+    },
+    "spans": {
+      "multi_span_clips": 0,
+      "multi_span_examples": [],
+      "span_length": {
+        "mean": 12.354679802955665,
+        "n": 406,
+        "name": "span length (sampled frames)",
+        "percentiles": {
+          "p0": 1.0,
+          "p100": 24.0,
+          "p25": 7.0,
+          "p5": 2.0,
+          "p50": 12.0,
+          "p75": 18.0,
+          "p95": 24.0
+        },
+        "std": 6.757394437005791
+      },
+      "spans_per_abnormal_clip": {
+        "mean": 1.0,
+        "n": 406,
+        "name": "spans per abnormal test clip",
+        "percentiles": {
+          "p0": 1.0,
+          "p100": 1.0,
+          "p25": 1.0,
+          "p5": 1.0,
+          "p50": 1.0,
+          "p75": 1.0,
+          "p95": 1.0
+        },
+        "std": 0.0
+      }
+    },
+    "vanished_windows": {
+      "clips_without_explicit_span_field": 0,
+      "count": 3,
+      "negative_windows_of_abnormal_clips": 103,
+      "unit": "source clip",
+      "video_ids": [
+        "0_Non_Ego_Fault__type13_vid002",
+        "0_Non_Ego_Fault__type1_vid017",
+        "0_Non_Ego_Fault__type6_vid112"
+      ]
+    }
+  },
+  "mil_topk_pct": 16,
+  "protocol": {
+    "clip_constant_oracle": {
+      "ap_micro": 0.5147783251231527,
+      "auc_macro": 0.5,
+      "auc_micro": 0.8965336134453782,
+      "definition": "constant score per clip = clip label; zero within-clip ranking"
+    },
+    "clip_length_leak": {
+      "abnormal_length": {
+        "mean": 24.0,
+        "n": 406,
+        "name": "abnormal clip length T",
+        "percentiles": {
+          "p0": 24.0,
+          "p100": 24.0,
+          "p25": 24.0,
+          "p5": 24.0,
+          "p50": 24.0,
+          "p75": 24.0,
+          "p95": 24.0
+        },
+        "std": 0.0
+      },
+      "ap_micro": 0.18001722652885443,
+      "auc_clip_level": 0.5,
+      "auc_macro": 0.5,
+      "auc_micro": 0.5,
+      "definition": "constant score per clip = clip length (signed to the predictive direction); zero within-clip ranking, no pixels read",
+      "direction": "longer",
+      "disjoint_normal_clips": 0,
+      "disjoint_normal_frames": 0,
+      "normal_length": {
+        "mean": 24.0,
+        "n": 755,
+        "name": "normal clip length T",
+        "percentiles": {
+          "p0": 24.0,
+          "p100": 24.0,
+          "p25": 24.0,
+          "p5": 24.0,
+          "p50": 24.0,
+          "p75": 24.0,
+          "p95": 24.0
+        },
+        "std": 0.0
+      }
+    },
+    "frame_share": {
+      "clips": {
+        "all_normal": 755,
+        "all_positive": 36,
+        "mixed": 370
+      },
+      "frame_fraction": {
+        "all_normal": 0.6503014642549526,
+        "all_positive": 0.031007751937984496,
+        "mixed": 0.3186907838070629
+      },
+      "frames": {
+        "all_normal": 18120,
+        "all_positive": 864,
+        "mixed": 8880
+      },
+      "total_frames": 27864
+    },
+    "macro_resolution": {
+      "auc_grid_step": {
+        "mean": 0.011881584348689614,
+        "n": 370,
+        "name": "per-clip AUC resolution (1 / (pos * neg))",
+        "percentiles": {
+          "p0": 0.006944444444444444,
+          "p100": 0.043478260869565216,
+          "p25": 0.007407407407407408,
+          "p5": 0.006944444444444444,
+          "p50": 0.008403361344537815,
+          "p75": 0.0125,
+          "p95": 0.043478260869565216
+        },
+        "std": 0.008983500924693756
+      },
+      "single_class_clips": 791,
+      "two_class_clips": 370
+    },
+    "pair_decomposition": {
+      "cross_clip_fraction": 0.9996520762411822,
+      "cross_clip_pairs": 114565694,
+      "total_pairs": 114605568,
+      "within_clip_fraction": 0.00034792375881772164,
+      "within_clip_pairs": 39874
+    },
+    "score_norm_auto": {
+      "normal_clip_fraction": 0.6503014642549526,
+      "resolves_to": "none",
+      "threshold": 0.05
+    }
+  },
+  "score_head_kernel": 9,
+  "sections": [
+    "corpus",
+    "labels",
+    "protocol",
+    "features",
+    "scores"
+  ],
+  "verdicts": [
+    {
+      "action": "Lower loss.mil_topk_pct, or accept that supervision is clip-level here and stop reading frame-level claims into it.",
+      "detail": "100.0% of clips get k = 1 at mil_topk_pct = 16: one supervised frame per clip per step.",
+      "level": "HIGH",
+      "title": "MIL top-k degenerates to a plain max"
+    },
+    {
+      "action": "Exclude them at scoring time (core/docs/DADA_SETUP.md \u00a75.1). Do NOT 'fix' this with --strict: that flag raises, it does not repair.",
+      "detail": "3 source clips declared abnormal in meta.json have no positive sampled frame anywhere; every metric counts them as normal.",
+      "level": "HIGH",
+      "title": "Abnormal source clips with an all-zero label vector"
+    },
+    {
+      "action": "Report auc_macro as the headline and print this oracle beside any micro number. Never place a micro number from this corpus next to a published frame-level AUC.",
+      "detail": "A constant-score-per-clip oracle scores micro AUC 0.8965 with zero localization; 100.0% of the positive/negative pairs span two clips.",
+      "level": "CRITICAL",
+      "title": "Micro AUC here is mostly clip classification (lesson C12)"
+    },
+    {
+      "action": "Temporal dynamics are a small part of this embedding; a head reading them is working against the representation's own scale.",
+      "detail": "Between-clip / within-clip feature variance = 5.7.",
+      "level": "INFO",
+      "title": "Frozen features are dominated by scene identity"
+    },
+    {
+      "action": "No head on these features can localize. Frame-level work on this corpus needs a different backbone or a finer stride -- not another KIP variant (RESULTS_DADA.md \u00a76, \u00a710-C).",
+      "detail": "Even a supervised linear probe reaches only auc_macro 0.5146, while the clip-level probe reaches 0.5869.",
+      "level": "CRITICAL",
+      "title": "The features carry no frame-level signal"
+    }
+  ]
+}

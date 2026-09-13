@@ -297,7 +297,18 @@ arm because the four clips are single-class and were already skipped):
 **0.5280**, micro **0.4993**, and **zero** clips separable by length — same
 function, same `.npz` files.
 
-### Phase 1 — code fixes that need no re-extraction — ✅ **SHIPPED 2026-09-09**
+### Phase 1 — code fixes that need no re-extraction — ✅ **SHIPPED 2026-09-09**, **MEASURED 2026-09-12**
+
+> **Outcome: both loss arms failed their own pre-registered predictions, and
+> that settles the question.** `auc_macro` did not rise (0.5190 → 0.5134 /
+> 0.5104 / 0.5097), the within-abnormal-clip gap did not turn positive
+> (+0.0085 → +0.0038 / +0.0045 / +0.0013), the within-clip range **narrowed**
+> 20–37 %, and zero-shot DoTA transfer degrades monotonically with intervention
+> strength. Under the length control every arm's `auc_macro` is **below chance**.
+> The exit condition below is met in its stronger form → **Phase 2 is mandatory**.
+> Full write-up: **`core/docs/RESULTS_DADA_PHASE1.md`**. Plan:
+> **`.project/plans/katvad-dada-phase2-corpus-rebuild.md`**.
+> Keep all three flags default-off — they cost performance on this corpus.
 
 Three config-gated arms, **all defaulting to today's behavior**. The default
 loss graph and the logged loss keys are byte-identical to before, so every
@@ -336,7 +347,9 @@ python -m core.train ... --set loss.dvs_anchor_mode=ignore
 python -m core.train ... --set loss.bottomk_weight=0.5 --set loss.bottomk_topk_pct=8
 
 # 1.3 — the C28 control, eval only, no retraining
-python -m core.evaluate ... --equalize-length 7 --equalize-anchor end
+python -m core.evaluate ... --equalize-length 5 --equalize-anchor end
+# N=5, not 7: at N=7 only 105 two-class clips survive, too few for macro.
+# N=5 keeps 331/383 clips and 346/476 positives (72.7 %).
 ```
 
 `--equalize-anchor end` on DADA-2000: the accident sits at the end of the clip,
@@ -346,16 +359,32 @@ read that before reading the AUC.
 
 #### Pre-registered readings — write the answer down before running (lesson 14)
 
-| Arm | Prediction if the diagnosis is right | Falsified if |
-|---|---|---|
-| 1.3 at T = 7, anchor `end` | Clip-level AUC falls toward chance; micro falls sharply from 0.8756; `auc_macro` roughly unchanged | micro holds up → length was not the channel, look for another leak |
-| 1.1 `ignore` | The within-abnormal-clip gap (today **−0.0002**) turns positive; `auc_macro` rises; in-domain micro **falls** (it was the leak + the clip offset) | the gap stays ~0 → the whole-anchor label was not the binding constraint; R2 (receptive field) dominates, so wait for Phase 2 |
-| 1.2 `bottomk_weight>0` | Within-clip score range widens; `auc_macro` rises | curves stay flat → confirms R2 is binding: the head *cannot* separate frames at T = 9, and no loss can make it |
+| Arm | Prediction if the diagnosis is right | Falsified if | **Measured 2026-09-12 (n=1, seed 2024, KIP-off trunk)** |
+|---|---|---|---|
+| 1.3 at T = 5, anchor `end` | Clip-level AUC falls toward chance; micro falls sharply; `auc_macro` roughly unchanged | micro holds up → length was not the channel, look for another leak | **PARTLY FALSIFIED.** Ruler → **0.5000 exactly** (leak closed); micro 0.7050 → 0.6403; clip-level AUC only 0.7665 → 0.7405; but `auc_macro` 0.5190 → **0.4237**, *below chance* on all four arms, with `d = gap/σ` = **−0.23 to −0.33**. The curve inside the accident window is mildly **inverted** — the residue of a positional ramp, which is R2's signature |
+| 1.1 `ignore` | The within-abnormal-clip gap (today **−0.0002**) turns positive; `auc_macro` rises; in-domain micro **falls** (it was the leak + the clip offset) | the gap stays ~0 → the whole-anchor label was not the binding constraint; R2 (receptive field) dominates, so wait for Phase 2 | **FALSIFIED → the stated branch.** Gap **+0.0085 → +0.0038** (control was already positive, and `ignore` *shrank* it); `auc_macro` **−0.0056**; micro fell as predicted. The whole-anchor label is not the binding constraint |
+| 1.2 `bottomk_weight>0` | Within-clip score range widens; `auc_macro` rises | curves stay flat → confirms R2 is binding: the head *cannot* separate frames at T = 9, and no loss can make it | **FALSIFIED → the stated branch.** Range **0.1473 → 0.1179** (−20 %); `auc_macro` **−0.0086**. R2 confirmed binding |
+
+**Why both losses failed, mechanically** (`RESULTS_DADA_PHASE1.md` §4): each one
+does exactly what its gradient says and nothing more. `ignore` removes the dense
+target from 64.9 % of anchor frames → fewer frames pushed up → `mean_pos` 0.1160
+→ 0.0771. `bottomk` pushes the lowest-k frames down with nothing raising the rest
+→ `mean_pos` → 0.0953. Both **shrink the score scale** instead of widening
+separation, and the scale-invariant contrast `d = gap/σ` falls monotonically
+**+0.164 → +0.091 / +0.108 → +0.039**. Lesson **C31** was written from this.
+
+**C29 is not refuted** — DVS does label the whole anchor positive, and that
+description is unchanged. Phase 1 shows it is not the *bottleneck*. Keep the lesson.
+
+**Defect found while measuring:** `--equalize-length` shifts the verbalizer RNG
+stream (the 52 dropped clips change every later clip's definition sample), worth
+**±0.003 AUC** on any raw-vs-equalized comparison. Lesson **C30**, fixed.
 
 **Judge all three on `auc_macro` and the clip-mean-removed micro, never on raw
 micro.** Raw micro is the metric all three defects inflate, and 1.1/1.2 are
 expected to *lower* it while improving the model.
 
+**This expectation held.** (Written before the run; recorded here unchanged.)
 **Expect 1.1 and 1.2 to under-deliver until Phase 2.** At median T = 9 with a
 9-tap head and a global temporal window, the network cannot give two frames of
 one clip different scores for any reason but position — a better loss cannot
@@ -364,7 +393,13 @@ because it is free and it *isolates* that claim; if `auc_macro` stays at chance
 under both arms, R2 is confirmed as the binding constraint and Phase 2 is
 mandatory rather than optional.
 
-### Phase 2 — rebuild the DADA corpus and cache (fires lesson **C2**)
+### Phase 2 — rebuild the DADA corpus and cache (fires lesson **C2**) — **MANDATORY as of 2026-09-12**
+
+Phase 1's exit condition fired. The live plan splits the six changes below
+into **2a** (2.1 + 2.6: fixed-length windows into a new cache, then
+re-baseline) and **2b** (2.2–2.5 as an attributable ladder), because six
+simultaneous changes produce one unattributable number — lesson **C14**.
+See `.project/plans/katvad-dada-phase2-corpus-rebuild.md`.
 
 This invalidates **every** DADA cache and **every number in `RESULTS_DADA.md`**.
 Do it deliberately, once, and re-measure the baseline before comparing anything.

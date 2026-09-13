@@ -32,7 +32,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import random
 from pathlib import Path
 
 import numpy as np
@@ -40,7 +39,7 @@ import numpy as np
 from core import constants
 from core.config import load_config
 from core.data.dataset import FeatureEvalDataset
-from core.data.definitions import DatasetSpecVerbalizer, dataset_abbr
+from core.data.definitions import dataset_abbr, item_verbalizer
 from core.device import resolve_device
 from core.inference import (
     load_model_for_scoring,
@@ -154,16 +153,13 @@ def main(argv: list[str] | None = None) -> None:
     class_names = load_class_names(data_dir)
     model = load_model_for_scoring(cfg, device, args.ckpt, args.baseline_ckpt, args.text_encoder)
     text_encode_fn = make_text_encoder(model, args.text_encoder, device, dim=cfg.model.hidden_dim)
-    verbalizer = None
-    if not args.no_verbalize:
-        # Seeded: definition sampling is per-window, and an unseeded verbalizer
-        # makes eval non-reproducible (measured: ±0.003 AUC, ±0.3 per-video
-        # max_score across identical runs on the 28-video MSAD slice).
-        verbalizer = DatasetSpecVerbalizer(
-            dataset_abbr(dataset_name),
-            rng=random.Random(constants.SEED),  # nosec B311 - not security-sensitive
-        )
-    class_feats_fn = make_class_feats_fn(text_encode_fn, class_names, verbalizer)
+    # Seeded **per item**, not per run (lesson C30). Definition sampling is
+    # per-window, so one shared RNG makes every clip's conditioning depend on
+    # which clips ran before it: `--equalize-length` skips 52 of 383 DADA clips
+    # and 32 of the 34 unaffected curves moved by up to 0.0033 (~0.003 AUC).
+    # `item_verbalizer` keys the stream on the video id, so any subset of a test
+    # set reproduces the full run's curves bit-for-bit.
+    verbalizer_dataset = None if args.no_verbalize else dataset_abbr(dataset_name)
 
     all_scores: list[np.ndarray] = []
     all_labels: list[np.ndarray] = []
@@ -186,6 +182,13 @@ def main(argv: list[str] | None = None) -> None:
             )
             feats, frame_label = feats[start:end], frame_label[start:end]
             positives_after += int(frame_label.sum())
+        class_feats_fn = make_class_feats_fn(
+            text_encode_fn,
+            class_names,
+            None
+            if verbalizer_dataset is None
+            else item_verbalizer(verbalizer_dataset, video_id),
+        )
         score, sim = sliding_window_scores(
             model, feats, class_feats_fn, cfg.data.max_vis_len
         )

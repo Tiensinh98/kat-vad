@@ -71,9 +71,17 @@ from core.data.dataset_files import (
     write_dataset_files,
     write_test_ids,
     write_train_ids,
+    write_windows,
 )
 from core.data.definitions import DATASET_CLS_DEFS, dataset_abbr
 from core.data.video_io import list_frame_folders, list_frame_images, video_id_from_path
+from core.data.windows import (
+    Window,
+    cap_windows,
+    plan_windows,
+    slice_labels,
+    window_id,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -98,6 +106,22 @@ ALL_DIRNAMES = (*FAULT_DIRNAMES, constants.DADA_NORMAL_DIRNAME)
 
 TEST_RATIO_ABNORMAL = 0.2
 TEST_RATIO_NORMAL = 0.2
+
+# --- fixed-length windows (Phase 2a, lesson C28) --------------------------
+# What to do with a **weak** abnormal clip (folder with no CSV row, so the
+# anomaly's position is unknown) when the corpus is re-sharded into windows.
+# "drop" is the default: windowing exists to make the label well-posed, and
+# spreading an unlocalized video label over several windows re-creates lesson
+# C29 one level up -- most windows would be trained to 1 with no anomaly in them.
+WINDOW_WEAK_DROP = "drop"
+WINDOW_WEAK_ALL_POSITIVE = "all-positive"
+WINDOW_WEAK_MODES = (WINDOW_WEAK_DROP, WINDOW_WEAK_ALL_POSITIVE)
+
+# Below this fraction of abnormal source clips surviving the re-shard, the window
+# is longer than the class it has to preserve and the build is logged as a warning
+# (lesson C32). Measured: --window-length 32 at stride 2 kept 25.3% of DADA's
+# abnormal clips and cost ~69% of the abnormal training signal.
+WINDOW_ABNORMAL_RETENTION_WARN = 0.9
 
 
 @dataclass(frozen=True)
@@ -432,6 +456,111 @@ def build_frame_labels(
     return frame_labels
 
 
+def plan_record_windows(
+    records: list[DadaRecord],
+    stride: int,
+    window_length: int,
+    window_stride: int,
+    min_positive: int = constants.WINDOW_MIN_POSITIVE,
+    weak_mode: str = WINDOW_WEAK_DROP,
+    max_per_clip: int = constants.WINDOW_MAX_PER_CLIP,
+) -> tuple[dict[str, Window], dict[str, list[int]], dict[str, DadaRecord]]:
+    """Re-shard ``records`` into equal-length windows (lesson **C28**).
+
+    Returns ``(windows, frame_labels, record_by_window)``, all keyed by window
+    id. A clip too short for one full window contributes **nothing** -- never a
+    padded window (lesson **C27**: padding fabricates frames the score head then
+    smooths over). A window's label is derived from its own sliced frame labels,
+    so an abnormal clip's normal prefix becomes genuine negative windows, which is
+    the whole point.
+
+    ``weak_mode`` decides abnormal clips with no annotated span: ``drop`` (default)
+    leaves them out, ``all-positive`` marks every one of their windows abnormal --
+    honest weak supervision at clip level, label noise at window level.
+
+    ``max_per_clip`` caps how many windows one source contributes (evenly spaced,
+    see :func:`core.data.windows.cap_windows`). A fixed hop alone gives each clip
+    windows in proportion to its length, which on DADA-2000 manufactures a 10:1
+    class imbalance the clip-level corpus never had (lesson **C32**).
+    """
+    if weak_mode not in WINDOW_WEAK_MODES:
+        raise ValueError(
+            f"weak_mode must be one of {WINDOW_WEAK_MODES}, got {weak_mode!r}"
+        )
+    if min_positive < 1:
+        raise ValueError(f"min_positive must be >= 1, got {min_positive}")
+
+    windows: dict[str, Window] = {}
+    frame_labels: dict[str, list[int]] = {}
+    record_by_window: dict[str, DadaRecord] = {}
+    too_short: list[str] = []
+    dropped_weak: list[str] = []
+
+    for record in records:
+        if record.is_abnormal and not record.has_window and weak_mode == WINDOW_WEAK_DROP:
+            dropped_weak.append(record.video_id)
+            continue
+        source_labels = sampled_frame_labels(record, stride)
+        planned = plan_windows(
+            record.video_id, len(source_labels), window_length, window_stride
+        )
+        if not planned:
+            too_short.append(record.video_id)
+            continue
+        planned = cap_windows(planned, max_per_clip)
+        for index, window in enumerate(planned):
+            wid = window_id(record.video_id, index)
+            windows[wid] = window
+            frame_labels[wid] = slice_labels(source_labels, window)
+            record_by_window[wid] = record
+
+    kept_sources = {w.source for w in windows.values()}
+    abnormal_records = [r for r in records if r.is_abnormal]
+    abnormal_kept = sum(1 for r in abnormal_records if r.video_id in kept_sources)
+    LOGGER.info(
+        "Windowing: %d windows of %d frames (hop %d, <=%d per clip) over %d/%d "
+        "clips; dropped %d too short, %d weak-abnormal (%s)",
+        len(windows), window_length, window_stride, max_per_clip,
+        len(kept_sources), len(records),
+        len(too_short), len(dropped_weak), weak_mode,
+    )
+    if abnormal_records:
+        retention = abnormal_kept / len(abnormal_records)
+        log = LOGGER.info if retention >= WINDOW_ABNORMAL_RETENTION_WARN else LOGGER.warning
+        log(
+            "Abnormal source retention: %d/%d (%.1f%%)%s",
+            abnormal_kept, len(abnormal_records), 100 * retention,
+            "" if retention >= WINDOW_ABNORMAL_RETENTION_WARN else
+            f" -- below {100 * WINDOW_ABNORMAL_RETENTION_WARN:.0f}%: --window-length "
+            f"{window_length} is longer than a typical abnormal clip, which on a "
+            "corpus with trimmed accident clips throws most of them away (C32)",
+        )
+    if too_short:
+        LOGGER.warning(
+            "%d clips are shorter than %d sampled frames and contribute no window: "
+            "%s -- they are NOT padded (lesson C27)",
+            len(too_short), window_length, sorted(too_short)[:5],
+        )
+    if not windows:
+        raise ValueError(
+            f"No clip is at least {window_length} sampled frames long at stride "
+            f"{stride}; lower --window-length or the frame stride"
+        )
+    return windows, frame_labels, record_by_window
+
+
+def window_label(frame_labels: list[int], record: DadaRecord, min_positive: int) -> int:
+    """Video-level weak label for one window.
+
+    A window of an *annotated* clip is abnormal iff it actually contains the
+    anomaly; a window of a weak-abnormal clip (position unknown, kept only under
+    ``all-positive``) inherits its clip's label.
+    """
+    if record.is_abnormal and not record.has_window:
+        return 1
+    return int(sum(frame_labels) >= min_positive)
+
+
 def split_records(
     candidates: list[DadaRecord],
     seed: int = constants.SEED,
@@ -520,6 +649,109 @@ def _meta(
     return meta
 
 
+def _windowed_meta(
+    windows: dict[str, Window],
+    frame_labels: dict[str, list[int]],
+    record_by_window: dict[str, DadaRecord],
+    test_ids: set[str],
+) -> dict[str, dict[str, object]]:
+    """``meta.json`` for a windowed corpus -- one row per window (lesson **C17**).
+
+    Records ``source``/``start``/``end`` so any downstream table can re-derive the
+    geometry, and keeps the source clip's span/accident_frac for diagnostics.
+    """
+    meta: dict[str, dict[str, object]] = {}
+    for wid, window in sorted(windows.items()):
+        record = record_by_window[wid]
+        labels = frame_labels[wid]
+        meta[wid] = {
+            "class_name": record.class_name,
+            "fault_label": record.fault_label,
+            "ego_involve": record.is_ego,
+            "split": "test" if wid in test_ids else "train",
+            "source": window.source,
+            "start": window.start,
+            "end": window.end,
+            "total_frames": record.total_frames,
+            "sampled_frames": len(labels),
+            "positive_frames": sum(labels),
+            "source_is_abnormal": record.is_abnormal,
+            "normalized_span": list(record.span) if record.span is not None else None,
+            "accident_frac": record.accident_frac,
+        }
+    return meta
+
+
+def _write_windowed(
+    out_dir: Path,
+    train: list[DadaRecord],
+    test: list[DadaRecord],
+    stride: int,
+    class_names: set[str],
+    window_length: int,
+    window_stride: int,
+    min_positive: int,
+    weak_mode: str,
+    max_per_clip: int,
+) -> None:
+    """Write the windowed corpus: four standard files keyed by window id + ``windows.json``."""
+    train_windows, train_labels, train_records = plan_record_windows(
+        train, stride, window_length, window_stride, min_positive, weak_mode, max_per_clip
+    )
+    test_windows, test_labels, test_records = plan_record_windows(
+        test, stride, window_length, window_stride, min_positive, weak_mode, max_per_clip
+    )
+    shared = {w.source for w in train_windows.values()} & {
+        w.source for w in test_windows.values()
+    }
+    if shared:
+        raise ValueError(
+            f"{len(shared)} source clips have windows in BOTH splits "
+            f"({sorted(shared)[:3]}); the split must be by source clip, never by window"
+        )
+    labels_train = {
+        wid: window_label(labels, train_records[wid], min_positive)
+        for wid, labels in train_labels.items()
+    }
+    n_abnormal = sum(labels_train.values())
+    if not 0 < n_abnormal < len(labels_train):
+        raise ValueError(
+            f"Windowed train split has {n_abnormal} abnormal of {len(labels_train)} "
+            "windows; DVSFeatureDataset needs both classes. Lower "
+            "--window-min-positive or --window-length"
+        )
+    windows = {**train_windows, **test_windows}
+    two_class = sum(1 for lab in test_labels.values() if 0 < sum(lab) < len(lab))
+    LOGGER.info(
+        "Windowed corpus: train %d windows (%d abnormal) / test %d windows "
+        "(%d abnormal, %d two-class -> auc_macro population)",
+        len(labels_train), n_abnormal, len(test_labels),
+        sum(1 for lab in test_labels.values() if sum(lab) > 0), two_class,
+    )
+    if two_class == 0:
+        raise ValueError(
+            "No test window contains both classes, so auc_macro is undefined. "
+            "Raise --window-length or lower the frame stride"
+        )
+    write_dataset_files(
+        out_dir,
+        labels_train=labels_train,
+        frame_labels_test=test_labels,
+        defs=class_name_list(class_names),
+        meta=_windowed_meta(
+            windows,
+            {**train_labels, **test_labels},
+            {**train_records, **test_records},
+            set(test_labels),
+        ),
+    )
+    write_windows(out_dir, windows)
+    # Source ids, not window ids: these feed extract_clip_features / raft_extract,
+    # which write one .npy per source clip and know nothing about windows.
+    write_train_ids(out_dir, sorted({w.source for w in train_windows.values()}))
+    write_test_ids(out_dir, sorted({w.source for w in test_windows.values()}))
+
+
 def preprocess(
     metadata: Path,
     frames_dir: Path,
@@ -534,8 +766,20 @@ def preprocess(
     strict: bool = False,
     flat_frames_dir: Path | None = None,
     dry_run: bool = False,
+    window_length: int | None = None,
+    window_stride: int = constants.WINDOW_STRIDE,
+    window_min_positive: int = constants.WINDOW_MIN_POSITIVE,
+    window_weak_mode: str = WINDOW_WEAK_DROP,
+    window_max_per_clip: int = constants.WINDOW_MAX_PER_CLIP,
 ) -> tuple[list[DadaRecord], list[DadaRecord]]:
-    """Build the standard dataset files for DADA-2000; returns ``(train, test)``."""
+    """Build the standard dataset files for DADA-2000; returns ``(train, test)``.
+
+    With ``window_length`` set, the corpus is re-sharded into equal-length
+    windows (lesson **C28**) and a fifth file, ``windows.json``, is written; every
+    id in the other four files is then a **window** id. ``train_ids.txt`` /
+    ``test_ids.txt`` keep **source** ids either way, because they feed the frame
+    extractors, which write one ``.npy`` per source clip.
+    """
     folders_by_fault = {
         name: frame_folders_by_type_vid(frames_dir / name) for name in FAULT_DIRNAMES
     }
@@ -571,15 +815,22 @@ def preprocess(
         LOGGER.info("Dry run: no files written")
         return train, test
 
-    write_dataset_files(
-        out_dir,
-        labels_train={r.video_id: int(r.is_abnormal) for r in train},
-        frame_labels_test=frame_labels_test,
-        defs=class_name_list(class_names),
-        meta=_meta(train, test, frame_labels_test, stride),
-    )
-    write_train_ids(out_dir, [r.video_id for r in train])
-    write_test_ids(out_dir, [r.video_id for r in test])
+    if window_length is None:
+        write_dataset_files(
+            out_dir,
+            labels_train={r.video_id: int(r.is_abnormal) for r in train},
+            frame_labels_test=frame_labels_test,
+            defs=class_name_list(class_names),
+            meta=_meta(train, test, frame_labels_test, stride),
+        )
+        write_train_ids(out_dir, [r.video_id for r in train])
+        write_test_ids(out_dir, [r.video_id for r in test])
+    else:
+        _write_windowed(
+            out_dir, train, test, stride, class_names,
+            window_length, window_stride, window_min_positive, window_weak_mode,
+            window_max_per_clip,
+        )
     if flat_frames_dir is not None:
         materialize_flat_dir(train + test, folders_by_fault, normal_dir, flat_frames_dir)
     return train, test
@@ -614,6 +865,36 @@ def build_arg_parser() -> argparse.ArgumentParser:
                              "works around type<N>_vid<N> folder names repeating across "
                              "the three fault-attribution directories")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--window-length", type=int, default=None,
+        help="Lesson C28 (Phase 2a): re-shard every clip into windows of exactly "
+             "this many SAMPLED frames, so clip length cannot carry the label. "
+             "Writes windows.json and keys the other four files by window id. "
+             f"Omit for the classic one-item-per-clip corpus (try {constants.WINDOW_LENGTH})",
+    )
+    parser.add_argument(
+        "--window-stride", type=int, default=constants.WINDOW_STRIDE,
+        help="hop between consecutive windows in sampled frames "
+             f"(default {constants.WINDOW_STRIDE}; equal to --window-length = no overlap)",
+    )
+    parser.add_argument(
+        "--window-min-positive", type=int, default=constants.WINDOW_MIN_POSITIVE,
+        help="a window is abnormal iff it holds at least this many positive frames "
+             f"(default {constants.WINDOW_MIN_POSITIVE})",
+    )
+    parser.add_argument(
+        "--window-max-per-clip", type=int, default=constants.WINDOW_MAX_PER_CLIP,
+        help="cap on windows contributed by ONE source clip, evenly spaced "
+             f"(default {constants.WINDOW_MAX_PER_CLIP}). Without it a fixed hop "
+             "gives each clip windows in proportion to its length, manufacturing "
+             "a class imbalance on a corpus whose normal clips are longer (C32)",
+    )
+    parser.add_argument(
+        "--window-weak-mode", choices=WINDOW_WEAK_MODES, default=WINDOW_WEAK_DROP,
+        help="abnormal clips with no annotated span: 'drop' (default) leaves them "
+             "out of a windowed build; 'all-positive' marks every one of their "
+             "windows abnormal, which is honest at clip level and noisy at window level",
+    )
     return parser
 
 
@@ -634,6 +915,11 @@ def main(argv: list[str] | None = None) -> None:
         strict=args.strict,
         flat_frames_dir=args.flat_frames_dir,
         dry_run=args.dry_run,
+        window_length=args.window_length,
+        window_stride=args.window_stride,
+        window_min_positive=args.window_min_positive,
+        window_weak_mode=args.window_weak_mode,
+        window_max_per_clip=args.window_max_per_clip,
     )
 
 

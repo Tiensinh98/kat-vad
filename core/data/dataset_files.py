@@ -9,6 +9,11 @@ by writing the same four files under ``data/{DATASET}/`` (see
     defs.json                [class_name, ...]        Normal first
     meta.json                {video_id: {...}}        diagnostics only
 
+and, for a corpus rebuilt into fixed-length windows (Phase 2a, lesson **C28**),
+one optional fifth file -- every id above is then a *window* id::
+
+    windows.json   {window_id: {"source", "start", "end"}}   optional
+
 Only the *derivation* of those payloads is dataset-specific; the layout,
 frame-sampling arithmetic and JSON conventions live here so the two
 preprocessors cannot drift apart.
@@ -22,6 +27,7 @@ from pathlib import Path
 from typing import Any
 
 from core import constants
+from core.data.windows import Window, windows_payload
 
 LOGGER = logging.getLogger(__name__)
 
@@ -69,6 +75,24 @@ def write_dataset_files(
         LOGGER.info("Wrote %s", target)
 
 
+def write_windows(out_dir: Path, windows: dict[str, Window]) -> Path:
+    """Write ``windows.json``; the file's *presence* is what turns windowing on.
+
+    Deliberately separate from :func:`write_dataset_files`: a corpus without
+    windows must not grow an empty ``windows.json``, because
+    :func:`core.data.windows.load_windows` keys off existence alone and an empty
+    map would make every id unresolvable.
+    """
+    if not windows:
+        raise ValueError("Refusing to write an empty windows.json; omit the file instead")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    target = out_dir / constants.WINDOWS_FILENAME
+    with target.open("w", encoding="utf-8") as fh:
+        json.dump(windows_payload(windows), fh, indent=2, sort_keys=True)
+    LOGGER.info("Wrote %s (%d windows)", target, len(windows))
+    return target
+
+
 def _write_ids(target: Path, video_ids: list[str]) -> Path:
     """Write one video id per line, newline-terminated."""
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -101,4 +125,5 @@ __all__ = [
     "write_dataset_files",
     "write_test_ids",
     "write_train_ids",
+    "write_windows",
 ]

@@ -13,6 +13,7 @@ from core.data import (
     SPECIAL_ABNORMAL_CLS,
     DatasetSpecVerbalizer,
     collate_variable_length,
+    item_verbalizer,
     pad_and_stack,
     padding_mask,
     resample_or_pad_feature_length,
@@ -123,6 +124,36 @@ class TestVerbalizer:
         first = DatasetSpecVerbalizer("prevad", rng=random.Random(7))("Car Accident")
         second = DatasetSpecVerbalizer("prevad", rng=random.Random(7))("Car Accident")
         assert first == second
+
+    def test_shared_rng_makes_one_item_depend_on_the_previous_ones(self) -> None:
+        """The defect lesson C30 is about, pinned so the fix cannot be undone.
+
+        One verbalizer for a whole run means skipping an item shifts every later
+        item's definition -- which is how ``--equalize-length`` changed the scores
+        of clips it did not crop.
+        """
+        shared = DatasetSpecVerbalizer("dota", rng=random.Random(11))
+        full_run = [str(shared("CarAccident")) for _ in range(4)]
+        shifted = DatasetSpecVerbalizer("dota", rng=random.Random(11))
+        str(shifted("CarAccident"))  # one item scored that the other run skipped
+        subset_run = [str(shifted("CarAccident")) for _ in range(3)]
+        assert full_run[1:] == subset_run  # the shift, made explicit
+        assert full_run[:3] != subset_run
+
+    def test_item_verbalizer_is_independent_of_the_set_it_ran_in(self) -> None:
+        """Lesson C30's fix: the stream is keyed on the item id, so any subset matches."""
+        ids = ["clipA", "clipB", "clipC"]
+        full = {i: str(item_verbalizer("dota", i)("CarAccident")) for i in ids}
+        subset = {i: str(item_verbalizer("dota", i)("CarAccident")) for i in ids[1:]}
+        assert all(full[i] == subset[i] for i in ids[1:])
+
+    def test_item_verbalizer_differs_across_items_and_survives_processes(self) -> None:
+        texts = {str(item_verbalizer("dota", f"clip{i}")("CarAccident")) for i in range(12)}
+        assert len(texts) > 1, "a constant stream would defeat per-window sampling"
+        # crc32, not hash(): PYTHONHASHSEED must not change a measured number
+        assert str(item_verbalizer("dota", "clipA")("CarAccident")) == str(
+            item_verbalizer("dota", "clipA")("CarAccident")
+        )
 
     def test_dada_shares_dota_definitions(self) -> None:
         assert DATASET_CLS_DEFS["dada"] is DATASET_CLS_DEFS["dota"]

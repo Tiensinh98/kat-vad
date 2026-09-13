@@ -10,13 +10,13 @@
 >
 > | | `main` (this branch) | `v3` |
 > |---|---|---|
-> | tip | `6a5f648` | `bb1516c` |
+> | tip | `814c177` (was `6a5f648` when this table was written) | `bb1516c` |
 > | diverged at | `fac71a3` ("docs: Update result for PreVAD") | same |
 > | KIP | **v1 only** — `PMGFlowHead` → `KinematicShift` (frozen 321-param MLP gate) → `MotionScoreHead` | v1 **+** four selectable `gate_type`s, ECMR, gate diagnostics |
 > | `kip.gate_type` | **does not exist** (`core/config.py` raises `KeyError`) | `rank` (default) / `mlp_frozen` / `mlp_ste` / `constant` |
 > | `core/kip/ecmr.py` | absent | present |
 > | `train_only_modules`, `--dump-kip-diag` | absent | present |
-> | tests | **439 collected → 439 pass, 0 fail** (2026-09-09, after Phase 1) | 537 green |
+> | tests | **508 collected → 508 pass, 0 fail** (2026-09-13, after the Gate-W repair) | 537 green |
 >
 > **Every measured result recorded below was produced by the `v3` branch's code.**
 > They are kept here on purpose: `outputs/` is gitignored and
@@ -24,10 +24,195 @@
 > this branch *this file and `progress.md` are the only durable record of the
 > attribution campaign*. Do not delete them; do not re-run those arms here.
 
-**Last Memory Bank Update:** 2026-09-08 (branch split recorded: `main` = v1,
-`v3` = v3; all counts re-measured on this tree)
+**Last Memory Bank Update:** 2026-09-13 (first windowed rebuild failed Gate W;
+geometry corrected, 4 code fixes, lessons C32/C33 added)
 
-## 2026-09-09 (latest) — Phase 1 shipped: three arms, all default-off
+## 2026-09-13 (latest) — the first windowed rebuild FAILED Gate W; geometry corrected
+
+**Suite: 508 collected, 508 pass** (493 + 15). `ruff` / `mypy` (81 files) /
+`pyright` / `pycycle` clean; `bandit` 0 High. **No training happened.**
+
+### What the user ran, and what it measured
+
+`DADA_SETUP.md` §10.3 as written on 2026-09-12: `--window-length 32 --stride 2`
+→ `data/DADA2000_w32s2`, then `core.tools.eda`.
+
+| criterion | result | |
+|---|---|---|
+| length leak (E1/W-1) | clip-length AUC **0.5000**, micro **0.5000**, 0 separable clips, **C28 verdict gone** | ✅ |
+| clip oracle (E2) | **0.9766** — *up* from 0.9086 | ❌ |
+| two-class test windows | **57** (stride-8 corpus had 190) | ❌ |
+| abnormal-source retention | **25.3 %** | ❌ |
+| class ratio | **327 abnormal : 3,244 normal** windows (was ~1:1 at clip level) | ❌ |
+| C27 head span | kernel 9 covers **28.1 %**, 0 clips inside it (was 100 %) | ✅ real win |
+| MIL k=1 fraction | **0 %** (was 90 %) | ✅ real win |
+
+**Cause (lesson C32).** DADA's accident clips are trimmed to a raw median of
+**49 frames**; a 32-frame window at stride 2 needs **64** raw frames, so the
+no-padding rule deleted three-quarters of the abnormal class. Abnormal training
+windows fell to **253** (from ~800 clips; `DVS length 506 → 8 steps/epoch` vs
+Phase 1's ~25). Meanwhile a fixed hop gave 3×-longer normal clips ~4× more windows
+each. **The geometry had been sized from the corpus-wide median (~36 sampled
+frames), which is the *normal* class's median.** A rebuild can close the defect it
+targets and destroy the corpus in the same step.
+
+**E2 was also a bad criterion (lesson C33).** The oracle is
+`(F_norm + 0.5·X)/(F_norm + X)` — reproduces 0.9086 and 0.9766 exactly — so
+`< 0.75` needs abnormal clips to hold **≥ 62 %** of all test frames. Unreachable;
+a balanced test set scores 0.811. It is now **printed, not gated**.
+
+### Corrected geometry: `--stride 1 --window-length 24 --window-stride 12 --window-max-per-clip 4`
+
+Sized from the **abnormal** distribution (n=975 abnormal / 938 normal sources,
+`data/DADA2000/meta.json`): abnormal raw p5/p25/**p50**/p75 = 22/35/**49**/64;
+normal = 29/79/**139**/209. A 24-raw-frame window keeps **94.2 %** of abnormal
+clips (32 → 81.8 %, 48 → 51.7 %, 64 → **25.3 %**).
+
+**Why stride 1, not 2:** at stride 2 the only window short enough is 12 frames, and
+at T=12 `score_head_kernel=9` (75 % of the window), `temporal_window=9` (75 %) and
+`mil_topk_pct=8` (k=1) are *all* degenerate — nothing left to ablate. A 24-frame
+window at stride 1 keeps the **same clips** with twice the resolution inside each,
+at 2× extraction (~209 k frames, 2–4 h Colab). Paths: `data/DADA2000_w24s1`,
+`cache/clip/DADA2000_s1`, `cache/knn/DADA2000_w24s1`.
+
+At T=24, W0's `temporal_window=25` (100 % span) and `mil_topk_pct=16` (k=1) are
+**deliberately** degenerate — W0 is the baseline the ladder subtracts from, and W1
+and W3 are precisely the arms that undo them. The EDA report now says which knobs
+are degenerate in §1.2/§1.3 before you train.
+
+### Four code fixes — three were my bugs, found by this run
+
+1. **`--window-max-per-clip`** (`cap_windows`, default 4, **evenly spaced** — a
+   head-biased cap would drop DADA's clip-end accident). Plus
+   `plan_record_windows` now logs `Abnormal source retention: N/M (X%)` and
+   **warns below 90 %** naming C32.
+2. **`core/eda/features.py` was not window-aware** → it looked up
+   `clip_dir/{window_id}.npy` in a source-keyed cache and reported **760 of 760
+   missing**, silently killing §4, §4.1 and the linear probe. Now routed through
+   `FeatureSlicer` (features *and* `.stats.npy` flow, same window).
+3. **The probes leaked across overlapping windows.** `frame_linear_probe` /
+   `clip_linear_probe` used `GroupKFold` with **one group per item**; two windows
+   of one clip share 12 of 24 real frames, so they would land in different folds
+   and the probe would train and test on the same rows — inflating the exact
+   representation ceiling the **Phase 3 backbone decision** rests on. Now grouped
+   by **source clip** (`_source_groups`). This is the one that would have done
+   lasting damage.
+4. **`vanished_windows` mis-fired.** A zero-positive window of an abnormal source
+   is a *correct negative window* — producing them is the point of re-sharding.
+   The check is now per **source clip** (flagging only clips with no positive
+   anywhere) and reports the negative-window count separately. The HIGH verdict on
+   three `__w000` ids in the user's report was spurious.
+
+`DatasetFiles` gained `windows` / `is_windowed` / `slicer` / `source_of`, loaded
+from `windows.json` by `load_dataset_files`.
+
+### Gate W is now four criteria (`DADA_SETUP.md` §10.3.4)
+
+W-1 length leak < 0.55 · **W-2 two-class windows ≥ 150** · **W-3 abnormal retention
+≥ 90 %** · **W-4 class ratio ≤ 1:3**. Failing any is a pre-registered stop. Expect
+the oracle at ≈ **0.84** after the fix (from the formula at a 1:1.3 ratio) — print
+it, do not gate on it.
+
+**Next (GPU, user):** rebuild at the corrected geometry → read the two log lines →
+extract at stride 1 → KNN → re-run Gate W → only then W0.
+
+---
+
+## 2026-09-12 — Phase 1 is MEASURED (both losses failed), and Phase 2a code shipped
+
+**Suite: 493 collected, 493 pass** (439 + 54). `ruff` / `mypy` (81 files) / `pyright`
+(0 errors) / `pycycle` clean; `bandit` 0 High (7 pre-existing Medium, all
+`torch.load` in tests). Branch `main`, on top of tip `814c177`.
+
+### Phase 1 result: both loss arms failed their own pre-registered predictions
+
+Written up in **`core/docs/RESULTS_DADA_PHASE1.md`**; `DIAGNOSIS_...md` §6 Phase 1
+now carries the filled-in falsification table. Five arms at seed 2024, KIP-off
+trunk, in `outputs/v1/DADA2000/2024/`. **All 13 `results.json` reproduce offline
+from the saved `.npz` to < 5e-7** (C22b discipline).
+
+| arm | DADA micro | macro | clip-mean removed | **d = gap/σ** | DoTA macro |
+|---|---:|---:|---:|---:|---:|
+| `p1_ctrl` (P0) | 0.7050 | **0.5190** | 0.4912 | **+0.164** | **0.6254** |
+| `p1_dvsignore` | 0.6896 | 0.5134 | 0.4794 | +0.091 | 0.6132 |
+| `p1_bottomk` | 0.6902 | 0.5104 | 0.4858 | +0.108 | 0.6053 |
+| `p1_both` | 0.6764 | 0.5097 | 0.4785 | +0.039 | 0.5952 |
+
+Length-controlled (eq5, 331/383 clips): the ruler falls to **0.5000 exactly** and
+the oracle to 0.8342 — the control works — but **`auc_macro` is below chance on
+every arm (0.4237–0.4333)** with `d` = −0.23 to −0.33. Inside the accident window
+the curve is mildly *inverted*, which is what a positional ramp looks like once you
+crop to the clip end. **Mechanism:** both losses *shrink the score scale* rather
+than widen separation (`mean_pos` 0.1160 → 0.0771/0.0953 → 0.0635), and `d` falls
+with it, so it is not a rescaling artifact. **n = 1 seed** — report the sign
+pattern (monotone across 7 metrics × 3 protocols), never the individual Δs.
+
+**C29 is not refuted** and must not be deleted: DVS does label the whole anchor
+positive. It is simply not the bottleneck. Amended in `index.md` / `meta-index.md`.
+
+### The cross-branch caveat is retired for KIP-off
+
+`p1_ctrl` reproduces v3's A0 to 4 dp (0.7050 / 0.5190 / DoTA 0.6254), and the
+mis-pointed `kipoff` eval (it read `$KATVAD_OUTPUT_ROOT_V3/DADA2000/kipoff_s2024/`)
+produced **331/331 bitwise identical** curves to `p1_ctrl`, max |Δ| = 0. Two
+branches, two trainings, identical float32 output. So a `main`-vs-`v3` Δ **is** a Δ
+**for `kip.enabled=false` only**. `kipoff` was otherwise a duplicate of P0 and
+`main`'s own `kipoff/stage2` was never evaluated.
+
+### Two lessons promoted (all 5 gates)
+
+* **C30 [HIGH]** — an eval-time sampler seeded once per run couples every item's
+  result to which other items were scored. `core/evaluate.py` built the verbalizer
+  above the loop while sampling per window, so `--equalize-length`'s 52 dropped
+  clips shifted every later clip: **32 of the 34 `T == 5` clips moved** (max
+  0.0033, ~±0.003 AUC) although their crop is the identity. **Fixed** —
+  `item_verbalizer(dataset, item_id)` keys the stream on the id via `crc32` (not
+  `hash()`, which is salted per process). Two pins: a unit test that demonstrates
+  the shared-stream shift, and an e2e subset test **verified to fail on the
+  pre-fix code**. Trigger-map row added.
+* **C31 [MEDIUM]** — a loss that lowers scores is not a loss that creates contrast;
+  report `gap / within-clip σ`, never the raw gap. Phase 1's own success criteria
+  were scale-dependent, which is how it was nearly misread.
+
+### Phase 2a code shipped (no GPU work done)
+
+Plan: **`.project/plans/katvad-dada-phase2-corpus-rebuild.md`** — §6 Phase 2 split
+into **2a** (fixed-length windows + fresh cache + re-baseline W0) and **2b** (the
+four resolution knobs as a 5-arm ladder), because six simultaneous changes are
+unattributable (**C14**). Exit criteria E1–E5 pre-registered.
+
+**The design decision worth remembering: a window is a *slice*, not a file.** The
+feature cache stays one `.npy` per **source** clip; a new optional fifth dataset
+file, **`windows.json`** (`{window_id: {source, start, end}}`), maps window ids to
+slices, and `core/data/windows.py:FeatureSlicer` is the single resolver used by
+`DVSFeatureDataset` (features **and** flow, same window — C13), `FeatureEvalDataset`
+and `knn_cache.build_key`. So changing the window geometry is a seconds-long
+preprocessor re-run, not a re-extraction, and no frame is stored twice. **The file's
+presence is the switch** — absent, every loader is byte-identical to before, which
+is why MSAD/DoTA/TAD/PreVAD are untouched. An *empty* `windows.json` is refused at
+write time rather than making every id unresolvable.
+
+Rules enforced by tests: no padding ever (a short clip contributes no window);
+windows never cross a clip; split is **by source clip** (raises otherwise);
+`train_ids.txt` / `test_ids.txt` keep **source** ids because they feed the
+extractors; a window's label comes from its own sliced labels, so an abnormal
+clip's normal stretch becomes genuine negatives. Weak-abnormal clips (no annotated
+span) are **dropped** by default — `--window-weak-mode all-positive` keeps them and
+accepts the label noise, which is C29 one level up.
+
+New CLI: `core.data.dada --window-length 32 --window-stride 16
+--window-min-positive 1 --window-weak-mode drop`. Runbook **`DADA_SETUP.md` §10.3**
+(9 steps, every `--set` parse-tested on this branch, all paths new — fires **C2**).
+Contract in `DATA_LAYOUT.md`. 2b needs **no code**: `model.temporal_window`,
+`model.score_head_kernel`, `loss.mil_topk_pct`, `data.frame_stride` all exist here.
+
+**Next (GPU, user):** §10.3.1 rebuild → §10.3.2 re-extract CLIP at stride 2 into
+`cache/clip/DADA2000_s2` → §10.3.3 KNN → **§10.3.4 Gate W (E1/E2) before training
+anything** → W0 → the 2b ladder.
+
+---
+
+## 2026-09-09 — Phase 1 shipped: three arms, all default-off
 
 **Suite: 439 collected, 439 pass** (423 + 16). `ruff` / `mypy` / `pyright` /
 `pycycle` clean; `bandit` 0 High. Files touched: `core/constants.py`,

@@ -884,3 +884,254 @@ positive bag".
 Check the mean positive fraction of an abnormal clip before enabling DVS on a
 new corpus, and never let a dense frame-level BCE consume a span label that is
 known to be wider than the anomaly.
+
+---
+
+## 30. An eval-time sampler seeded once per run couples every item's result to which other items were scored
+
+### What happened
+Phase 1's C28 length control (`core.evaluate --equalize-length 5
+--equalize-anchor end`) was expected to differ from the unfiltered eval only by
+the crop. It also differs by the **text conditioning**.
+
+`core/evaluate.py:159-164` constructs the verbalizer once, above the scoring
+loop:
+
+```python
+verbalizer = DatasetSpecVerbalizer(
+    dataset_abbr(dataset_name),
+    rng=random.Random(constants.SEED),
+)
+class_feats_fn = make_class_feats_fn(text_encode_fn, class_names, verbalizer)
+```
+
+`make_class_feats_fn` samples a definition sentence **per scored window**, so
+every clip advances a single shared RNG. The equalize branch added in `814c177`
+sits *before* `sliding_window_scores` and `continue`s on a short clip:
+
+```python
+if len(frame_label) < args.equalize_length:
+    dropped_short.append(video_id)
+    continue          # <-- consumes no draws; every later clip shifts
+```
+
+52 of 383 DADA clips take that branch, and shorter windows draw fewer samples,
+so clip *k*'s conditioning in the eq5 run is not clip *k*'s conditioning in the
+raw run.
+
+### The measurement that isolated it
+34 test clips have `T == 5` exactly. For those, `equalize_window(5, 5, "end")`
+returns `(0, 5)` — the crop is the identity and the model input is byte-identical.
+**32 of 34 curves still differ**, max |Δ| = 0.0033 (p1_ctrl), 0.0025–0.0029 on
+the other arms. Two clips match by coincidence. All four arms show it, including
+`p1_ctrl`, whose *both* evals ran on post-`814c177` code — so it is not version
+skew.
+
+Corroborating datum from the other direction: `kipoff/eval_dada_eq5` and
+`p1_ctrl/eval_dada_eq5` are **331/331 bitwise identical**. Two different
+checkpoint paths, same code path, same drop set → same RNG stream → identical
+output. The stream, not the weights, is what the filter perturbs.
+
+### Why nothing caught it
+The seed is *present*, and the comment above it explicitly claims
+reproducibility — it was added after an earlier unseeded-verbalizer bug
+(±0.003 AUC, ±0.3 per-video `max_score` on the MSAD slice). The fix made a run
+reproducible **against itself**, which is what was tested. Nobody asked whether
+item *k*'s result was independent of items *0..k-1*, and no linter or type
+checker can see a stream dependency.
+
+### Blast radius
+Only comparisons **across item subsets** are affected: raw vs `--equalize-length`,
+or any future subset flag. Comparisons *within* one protocol share the drop set
+and are exact, so the Phase 1 arm ladder (`RESULTS_DADA_PHASE1.md` §3–§6) is
+valid. The magnitude, ±0.003 AUC, is ~⅓ of the raw-vs-eq5 deltas and ~10× smaller
+than the C28 leak it was built to control — so the control is still worth having,
+it just cannot be read as a pure crop effect.
+
+### The fix
+Rebuild the sampler per item from a stable key, inside the loop, so the draw
+depends on the item and nothing else:
+
+```python
+for i in range(len(dataset)):
+    ...
+    class_feats_fn = make_class_feats_fn(
+        text_encode_fn, class_names,
+        DatasetSpecVerbalizer(abbr, rng=random.Random(constants.SEED + i)),
+    )
+```
+
+Pin it with a test that scores a set, scores a subset, and asserts the shared
+curves are bit-identical.
+
+### The rule
+Seed any eval-time sampler per scored item, never once per run, so that skipping
+an item cannot change another item's result.
+
+---
+
+## 31. A loss that lowers scores is not a loss that creates contrast
+
+### What happened
+Phase 1 shipped two losses whose purpose was to create **within-clip
+separation** on DADA-2000, and pre-registered two success criteria for them
+(`DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md` §6):
+
+* 1.1 `dvs_anchor_mode=ignore` — "the within-abnormal-clip gap turns positive"
+* 1.2 `bottomk_weight>0` — "within-clip score range widens"
+
+Both criteria are **scale-dependent**, and both losses change the scale.
+
+### The measurement
+
+| arm | mean score (pos) | mean within-clip range | mean σ | gap | **d = gap/σ** |
+|---|---:|---:|---:|---:|---:|
+| P0 control | 0.1160 | 0.1473 | 0.0521 | +0.0085 | **+0.164** |
+| P1 `ignore` | 0.0771 | 0.1198 | 0.0425 | +0.0038 | +0.091 |
+| P2 `bottomk` | 0.0953 | 0.1179 | 0.0414 | +0.0045 | +0.108 |
+| P3 both | 0.0635 | 0.0925 | 0.0326 | +0.0013 | +0.039 |
+
+Read as raw gaps this is ambiguous: gap and scale both shrank, so "worse
+separation" and "same separation, quieter model" are indistinguishable.
+Normalized it is decisive — `d` collapses 76 % on P3, and `auc_macro` agrees
+(0.5190 → 0.5097), which is the point: `d` tracks the metric the arms were
+supposed to move, and the raw gap does not.
+
+### Why this was predictable from the gradients
+Each term does exactly what it says and no more. `ignore` deletes the upward BCE
+target on 64.9 % of anchor frames — fewer frames pushed up, lower scale.
+`bottomk` pushes the lowest-k frames of an abnormal clip down with **nothing**
+raising the rest harder — lower scale again. Shrinkage was the expected outcome;
+the pre-registered readout simply could not tell it apart from success.
+
+### Where else this shape appears
+[[lesson-29]]'s headline is "positives 0.4076 vs negatives-in-abnormal 0.4078,
+gap −0.0002" — a raw gap, with no scale beside it. It is still correct (the
+conclusion there was "no separation", and `d ≈ 0` either way), but the number as
+written cannot be compared to Phase 1's, because the two runs have different
+score scales. Quote `d` when comparing across arms or campaigns.
+
+### The rule
+Report a within-clip positive/negative gap divided by the mean within-clip score
+std, and print the raw score scale beside it, whenever comparing loss arms.
+
+---
+
+## 32. A fixed-length re-shard must be sized against the shortest class it has to preserve
+
+### What happened
+Phase 2a rebuilt DADA-2000 into fixed-length windows to close [[lesson-28]]. The
+plan chose `--window-length 32 --stride 2` from this line of reasoning:
+
+> median source clip is ~36 sampled frames at stride 2, so a 32-frame window
+> gives 1-3 windows per clip
+
+That median is the **corpus-wide** median, which on DADA is the normal class's
+median. The class that binds is the abnormal one, and C28 had already said why:
+accident clips are *trimmed around the accident*. Measured from
+`data/DADA2000/meta.json` (n = 975 abnormal / 938 normal source clips):
+
+| raw frames | p5 | p25 | **p50** | p75 |
+|---|---:|---:|---:|---:|
+| abnormal | 22 | 35 | **49** | 64 |
+| normal | 29 | 79 | **139** | 209 |
+
+A 32-frame window at stride 2 needs **64 raw frames** — the abnormal p75. So:
+
+| window (raw frames) | abnormal kept | windows/abnormal clip | normal kept | windows/normal clip |
+|---|---:|---:|---:|---:|
+| 24 | **94.2 %** | 3.1 | 96.1 % | 11.9 |
+| 32 | 81.8 % | 2.2 | 91.9 % | 8.9 |
+| 48 | 51.7 % | 1.5 | 86.9 % | 5.8 |
+| **64 (as built)** | **25.3 %** | 1.2 | 81.7 % | 4.2 |
+
+### The two failure modes, and they compound
+1. **Deletion.** 74.7 % of abnormal clips produced no window at all (the
+   no-padding rule is correct — padding would fabricate frames, [[lesson-27]] —
+   so a too-long window silently *is* a filter). Abnormal training windows: **253**,
+   against ~800 abnormal clips before. `DVS dataset length 506 -> 8 steps/epoch`
+   where the Phase 1 arms ran ~25.
+2. **Manufactured imbalance.** With a fixed hop, windows-per-clip scales with clip
+   length, and DADA's normal clips are 3x longer. Result: **327 abnormal vs 3,244
+   normal** windows from a clip corpus that was ~1:1.
+
+### Why the gate did not catch it
+Because the gate checked the thing the rebuild was *for*. C28 was closed
+perfectly — clip-length AUC **0.5000**, length-only micro **0.5000**, zero clips
+separable by length, the CRITICAL verdict gone from the EDA report. Meanwhile:
+
+| | stride-8 corpus | rebuilt corpus |
+|---|---:|---:|
+| clip oracle micro | 0.9086 | **0.9766** |
+| frames in all-normal clips | 74 % | **92.5 %** |
+| two-class test clips (`auc_macro`'s sample size) | 190 | **57** |
+
+A rebuild can close the defect it targets and destroy the corpus in the same step.
+
+### The fix
+Two code changes, both now enforced:
+
+* `core/data/windows.py:cap_windows` + `--window-max-per-clip` (default 4) — keeps
+  at most N windows per source, **evenly spaced**. Evenly spaced, not the first N:
+  DADA's accident sits at the clip end, so a head-biased cap would drop it.
+* `core/data/dada.py:plan_record_windows` logs
+  `Abnormal source retention: N/M (X%)` and warns below
+  `WINDOW_ABNORMAL_RETENTION_WARN = 0.9`, naming this lesson.
+
+And the geometry: **stride 1, window 24, hop 12, cap 4** — the same clips as
+window 12 at stride 2 (94.2 % retention) but with twice the temporal resolution
+inside each window, which matters because at 12 frames `score_head_kernel=9`,
+`temporal_window=9` and `mil_topk_pct=8` are all degenerate again and there is
+nothing left to ablate.
+
+### The rule
+Size a fixed-length window against the shortest class's length distribution, cap
+windows per source clip, and gate the rebuild on class retention and the two-class
+count rather than on the leak metric alone.
+
+---
+
+## 33. A pre-registered threshold is only rigorous if it is reachable
+
+### What happened
+Phase 2's Gate W pre-registered two criteria. E1 (length leak closed) was sound.
+**E2 — "clip oracle micro < 0.75" — could not be satisfied by any corpus.**
+
+It was picked the way such numbers usually are: the corpus measured 0.9086, and
+0.75 looked like a decisive improvement. Nobody derived what the metric can do.
+
+### The arithmetic that should have been done first
+The constant-score-per-clip oracle gives every abnormal clip 1 and every normal
+clip 0. Its positives all sit in abnormal clips; its negatives split between
+normal clips (score 0, ranked correctly) and the normal frames *inside* abnormal
+clips (score 1, tied with the positives). So with `F_norm` = frames in all-normal
+clips and `X` = negative frames inside abnormal clips:
+
+```
+oracle = (F_norm + 0.5·X) / (F_norm + X)
+```
+
+Checked against both measured corpora, exactly:
+
+* stride-8: `(3896 + 436)/(3896 + 872)` = **0.9086** ✓ (report: 0.9086)
+* rebuilt:  `(22496 + 552.5)/(22496 + 1105)` = **0.9766** ✓ (report: 0.9766)
+
+`oracle < 0.75` ⟺ `F_norm < X`. With a positive fraction of 0.39 inside abnormal
+clips, that means abnormal clips must hold **≥ 62 % of every test frame**. A
+perfectly balanced test set scores **0.811**; the realistic target for the
+rebuilt corpus (1:1.3) scores **0.840**.
+
+### Why it matters even though the gate "correctly" failed
+E2 failed, and the gate *should* have failed — but for [[lesson-32]]'s reason, not
+E2's. The failure was accidentally right, which is the worst kind: it would have
+been read as evidence the criterion works. The symmetric error is the dangerous
+one — a threshold that cannot fail waves a broken corpus through.
+
+The replacement gates on what actually moves: **two-class window count >= 150**
+(`auc_macro`'s sample size; 190 before, 57 in the failed build), abnormal-source
+retention, and the class ratio. The oracle is still computed and printed beside
+every micro number ([[lesson-12]]) — it is a caveat, not a gate.
+
+### The rule
+Derive a pre-registered metric's attainable range from the corpus's class mix
+before setting the threshold, and record that derivation beside the number.

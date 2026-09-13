@@ -28,6 +28,7 @@ import faiss
 import numpy as np
 
 from core import constants
+from core.data.windows import FeatureSlicer, load_windows
 
 LOGGER = logging.getLogger(__name__)
 
@@ -41,24 +42,35 @@ def _l2_normalize(vector: np.ndarray) -> np.ndarray:
     return vector / max(float(np.linalg.norm(vector)), 1e-12)
 
 
-def central_frame_key(clip_dir: Path, video_id: str) -> np.ndarray:
-    """L2-normalized central-frame CLIP feature ``(D,)`` for ``video_id``."""
-    features = np.load(clip_dir / f"{video_id}.npy")
+def central_frame_key(
+    clip_dir: Path, video_id: str, slicer: FeatureSlicer | None = None
+) -> np.ndarray:
+    """L2-normalized central-frame CLIP feature ``(D,)`` for ``video_id``.
+
+    On a windowed corpus (lesson **C28**) the id is a window id and the central
+    frame must be the *window's* centre, not the source clip's -- two windows of
+    one clip are different fillers and must get different keys.
+    """
+    slicer = slicer if slicer is not None else FeatureSlicer()
+    features = slicer.load(clip_dir, video_id)
     return _l2_normalize(features[len(features) // 2].astype(np.float32))
 
 
-def motion_descriptor(flow_dir: Path, video_id: str) -> np.ndarray:
+def motion_descriptor(
+    flow_dir: Path, video_id: str, slicer: FeatureSlicer | None = None
+) -> np.ndarray:
     """Coarse motion descriptor (4,) from the cached raw flow statistics.
 
     [mean magnitude-mean, mean magnitude-std, mean-direction cos, sin],
     L2-normalized. Requires the ``.stats.npy`` files written by raft_extract.
     """
-    stats_path = flow_dir / f"{video_id}{constants.FLOW_STATS_SUFFIX}"
+    slicer = slicer if slicer is not None else FeatureSlicer()
+    stats_path = flow_dir / f"{slicer.source_of(video_id)}{constants.FLOW_STATS_SUFFIX}"
     if not stats_path.exists():
         raise FileNotFoundError(
             f"Motion-aware KNN key needs {stats_path}; run raft_extract first"
         )
-    stats = np.load(stats_path)  # (L, FLOW_STATS_DIM)
+    stats = slicer.load(flow_dir, video_id, constants.FLOW_STATS_SUFFIX)  # (L, FLOW_STATS_DIM)
     histogram = stats[:, 7:].mean(axis=0)  # mean angle histogram
     bin_centers = (np.arange(len(histogram)) + 0.5) / len(histogram) * 2 * math.pi - math.pi
     direction = np.array(
@@ -72,14 +84,18 @@ def motion_descriptor(flow_dir: Path, video_id: str) -> np.ndarray:
 
 
 def build_key(
-    clip_dir: Path, video_id: str, motion_key: bool, flow_dir: Path | None
+    clip_dir: Path,
+    video_id: str,
+    motion_key: bool,
+    flow_dir: Path | None,
+    slicer: FeatureSlicer | None = None,
 ) -> np.ndarray:
-    key = central_frame_key(clip_dir, video_id)
+    key = central_frame_key(clip_dir, video_id, slicer)
     if motion_key:
         if flow_dir is None:
             raise ValueError("motion_key=True requires flow_dir")
         key = _l2_normalize(
-            np.concatenate([key, motion_descriptor(flow_dir, video_id)])
+            np.concatenate([key, motion_descriptor(flow_dir, video_id, slicer)])
         )
     return key
 
@@ -91,6 +107,7 @@ def build_knn_cache(
     k: int = constants.KNN_TOP_K,
     motion_key: bool = False,
     flow_dir: Path | None = None,
+    slicer: FeatureSlicer | None = None,
 ) -> dict[str, list[str]]:
     """Build and save the abnormal->normal-neighbors mapping; returns it."""
     normal_ids = sorted(vid for vid, label in labels.items() if label == 0)
@@ -102,10 +119,10 @@ def build_knn_cache(
     k = min(k, len(normal_ids))
 
     normal_keys = np.stack(
-        [build_key(clip_dir, vid, motion_key, flow_dir) for vid in normal_ids]
+        [build_key(clip_dir, vid, motion_key, flow_dir, slicer) for vid in normal_ids]
     )
     anomaly_keys = np.stack(
-        [build_key(clip_dir, vid, motion_key, flow_dir) for vid in anomaly_ids]
+        [build_key(clip_dir, vid, motion_key, flow_dir, slicer) for vid in anomaly_ids]
     )
 
     index = faiss.IndexFlatIP(normal_keys.shape[1])
@@ -173,6 +190,9 @@ def main(argv: list[str] | None = None) -> None:
         k=args.k,
         motion_key=args.motion_key,
         flow_dir=args.flow_dir or constants.FLOW_CACHE_DIR / args.dataset,
+        # A windowed corpus keys labels_train.json by window id, so the keys must
+        # be the windows' own central frames (lesson C28).
+        slicer=FeatureSlicer(load_windows(data_dir)),
     )
 
 

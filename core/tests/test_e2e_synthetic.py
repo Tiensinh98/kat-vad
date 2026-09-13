@@ -287,6 +287,61 @@ class TestInferenceEvalViz:
                 assert payload["score"].shape == (target,)
                 assert payload["gt"].shape == (target,)
 
+    def test_scoring_a_subset_reproduces_the_full_run_exactly(
+        self, fixture: FixtureLayout, trained: Path, tmp_path: Path
+    ) -> None:
+        """Lesson C30: an item's score must not depend on which other items ran.
+
+        Definitions are sampled per window, so a run-wide verbalizer RNG made
+        ``--equalize-length``'s dropped clips shift every later clip's curve
+        (measured on DADA: 32 of 34 uncropped clips moved, up to 0.0033). With a
+        per-item stream, a subset reproduces the full run.
+
+        Tolerance ``atol=1e-6``, not exact equality: the CPU forward is
+        reproducible to float32 ULP across two invocations in one process, not
+        bit-for-bit (~1.2e-7 observed once the rest of the suite has run first --
+        same family as ``pending.md`` P3). The defect this pins moves scores by
+        1e-3 to 1e-1, three orders above that floor.
+        """
+        def score(data_dir: Path, out: Path) -> dict[str, np.ndarray]:
+            evaluate.main([
+                "--ckpt", str(trained),
+                "--data-dir", str(data_dir),
+                "--clip-dir", str(fixture.clip_dir),
+                "--output-dir", str(out),
+                "--text-encoder", "stub",
+                "--set", "train.device=cpu",
+                "--save-scores",
+            ])
+            return {
+                npz.stem: np.load(npz)["score"]
+                for npz in (out / evaluate.SCORES_DIRNAME).glob("*.npz")
+            }
+
+        full = score(fixture.data_dir, tmp_path / "eval_full")
+
+        subset_dir = tmp_path / "data_subset"
+        subset_dir.mkdir()
+        for name in (constants.DEFS_FILENAME, constants.META_FILENAME):
+            source = fixture.data_dir / name
+            if source.exists():
+                (subset_dir / name).write_text(source.read_text(encoding="utf-8"), "utf-8")
+        labels_path = fixture.data_dir / constants.FRAME_LABELS_TEST_FILENAME
+        with labels_path.open("r", encoding="utf-8") as fh:
+            labels = json.load(fh)
+        kept = dict(sorted(labels.items())[1:])  # drop the first clip, as a filter would
+        assert kept and len(kept) < len(labels)
+        with (subset_dir / constants.FRAME_LABELS_TEST_FILENAME).open("w", encoding="utf-8") as fh:
+            json.dump(kept, fh)
+
+        subset = score(subset_dir, tmp_path / "eval_subset")
+        assert set(subset) == set(kept)
+        for video_id, curve in subset.items():
+            np.testing.assert_allclose(
+                curve, full[video_id], rtol=0, atol=1e-6,
+                err_msg=f"{video_id} changed because another clip was skipped (C30)",
+            )
+
     def test_evaluate_cli_and_visualize(
         self, fixture: FixtureLayout, trained: Path, tmp_path: Path
     ) -> None:

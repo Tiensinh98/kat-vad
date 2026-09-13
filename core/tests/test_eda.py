@@ -472,3 +472,134 @@ class TestCli:
             "compare", str(out / constants.EDA_REPORT_JSON_FILENAME), "--output", str(target),
         ])
         assert "cross-corpus comparison" in target.read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Windowed corpora (Phase 2a) — every id is a window id, the cache is by source
+# ---------------------------------------------------------------------------
+
+WINDOW_LEN = 6
+
+
+@pytest.fixture
+def windowed_eda(tmp_path: Path) -> tuple[corpus.DatasetFiles, Path]:
+    """Two source clips -> overlapping windows, plus a source-keyed feature cache."""
+    from core.data.dataset_files import write_windows
+    from core.data.windows import Window
+
+    # abn: 12 sampled frames, anomaly in frames 8-11 -> window 0 is a NEGATIVE
+    # window of an abnormal clip (correct), window 1 holds the anomaly.
+    windows = {
+        "abn__w000": Window("abn", 0, 6),
+        "abn__w001": Window("abn", 3, 9),
+        "abn__w002": Window("abn", 6, 12),
+        "gone__w000": Window("gone", 0, 6),
+        "nrm__w000": Window("nrm", 0, 6),
+        "nrm__w001": Window("nrm", 6, 12),
+    }
+    source_labels = {
+        "abn": [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+        "gone": [0] * 6,
+        "nrm": [0] * 12,
+    }
+    frame_labels = {
+        wid: source_labels[w.source][w.start : w.end] for wid, w in windows.items()
+    }
+    root = write_dataset(
+        tmp_path / "wds",
+        frame_labels,
+        {f"tr{i}": int(i % 2 == 0) for i in range(10)},
+        meta_extra={
+            wid: {
+                "class_name": "CarAccident" if w.source in ("abn", "gone") else "Normal",
+                "anomaly_span": [0.6, 0.9] if w.source in ("abn", "gone") else None,
+                "source": w.source, "start": w.start, "end": w.end,
+            }
+            for wid, w in windows.items()
+        },
+    )
+    write_windows(root, windows)
+    clip_dir = tmp_path / "clip"
+    clip_dir.mkdir()
+    rng = np.random.default_rng(0)
+    for source, vector in source_labels.items():
+        rows = rng.standard_normal((len(vector), 16)).astype(np.float32)
+        rows[np.asarray(vector) == 1] += 3.0  # a signal the probe can find
+        np.save(clip_dir / f"{source}.npy", rows)
+    return corpus.load_dataset_files(root, "SYNTH"), clip_dir
+
+
+class TestWindowedCorpusIsRecognized:
+    def test_load_dataset_files_picks_up_windows_json(self, windowed_eda) -> None:
+        files, _ = windowed_eda
+        assert files.is_windowed
+        assert files.source_of("abn__w001") == "abn"
+
+    def test_unwindowed_corpus_stays_unwindowed(self, tiny) -> None:
+        assert not tiny.is_windowed
+        assert tiny.source_of("mixed_a") == "mixed_a"
+
+
+class TestWindowedFeatureLookup:
+    def test_features_resolve_through_the_source_keyed_cache(self, windowed_eda) -> None:
+        """The bug this pins reported 760 of 760 test clips missing."""
+        files, clip_dir = windowed_eda
+        feats, missing = features.load_clip_features(
+            clip_dir, files.test_ids,
+            {v: len(files.frame_labels_test[v]) for v in files.test_ids},
+            files.slicer,
+        )
+        assert missing == []
+        assert len(feats) == len(files.test_ids)
+        assert all(len(f) == WINDOW_LEN for f in feats.values())
+
+    def test_each_window_gets_its_own_rows(self, windowed_eda) -> None:
+        files, clip_dir = windowed_eda
+        feats, _ = features.load_clip_features(clip_dir, files.test_ids, None, files.slicer)
+        source = np.load(clip_dir / "abn.npy")
+        np.testing.assert_array_equal(feats["abn__w001"], source[3:9])
+
+    def test_without_the_slicer_everything_reads_as_missing(self, windowed_eda) -> None:
+        """Why the slicer argument exists, stated as a test."""
+        files, clip_dir = windowed_eda
+        _feats, missing = features.load_clip_features(clip_dir, files.test_ids)
+        assert len(missing) == len(files.test_ids)
+
+
+class TestWindowedProbeGrouping:
+    def test_probe_folds_group_by_source_not_by_window(self, windowed_eda) -> None:
+        """Overlapping windows share real frames; splitting them across folds leaks."""
+        files, _clip_dir = windowed_eda
+        ids = ["abn__w000", "abn__w001", "nrm__w000", "nrm__w001"]
+        groups = features._source_groups(ids, files.slicer)
+        assert groups[0] == groups[1], "two windows of one clip must share a fold"
+        assert groups[2] == groups[3]
+        assert groups[0] != groups[2]
+
+    def test_unwindowed_grouping_is_one_group_per_clip(self, tiny) -> None:
+        ids = tiny.test_ids
+        assert features._source_groups(ids, tiny.slicer) == list(range(len(ids)))
+
+
+class TestWindowedVanishedCheck:
+    def test_a_negative_window_of_an_abnormal_clip_is_not_vanished(
+        self, windowed_eda
+    ) -> None:
+        """Producing those windows is the point of re-sharding, not a defect."""
+        files, _ = windowed_eda
+        result = labels.vanished_windows(files)
+        assert result["unit"] == "source clip"
+        assert "abn__w000" not in result["video_ids"]
+        assert result["negative_windows_of_abnormal_clips"] >= 1
+
+    def test_an_abnormal_source_with_no_positive_anywhere_is_still_flagged(
+        self, windowed_eda
+    ) -> None:
+        files, _ = windowed_eda
+        assert labels.vanished_windows(files)["video_ids"] == ["gone"]
+
+    def test_unwindowed_behaviour_is_unchanged(self, tiny) -> None:
+        result = labels.vanished_windows(tiny)
+        assert result["unit"] == "clip"
+        assert result["video_ids"] == ["vanished"]
+        assert result["negative_windows_of_abnormal_clips"] == 0

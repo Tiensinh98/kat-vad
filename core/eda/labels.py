@@ -84,14 +84,22 @@ def span_stats(files: DatasetFiles) -> dict[str, Any]:
 
 
 def vanished_windows(files: DatasetFiles) -> dict[str, Any]:
-    """Test clips that ``meta.json`` calls abnormal but whose label vector is all zero.
+    """Abnormal **source clips** whose label vector is all zero everywhere.
 
     These entered the split through ``build_frame_labels``' default warn-and-continue
     path. They are not neutral: on a test set already dominated by all-normal
     clips they are counted as normal by every metric, inflating both micro AUC and
     the constant-score clip oracle (:mod:`core.eda.protocol`).
+
+    **On a windowed corpus the unit is the source clip, not the item.** A window of
+    an abnormal clip that holds no positive frame is a *correct negative window* --
+    producing them is the point of re-sharding (an abnormal clip's normal stretch
+    becomes genuine negatives). Flagging those would report the feature as a
+    defect; the real defect is an abnormal clip **none** of whose windows carries
+    the anomaly, which means the span rounded away at this stride.
     """
-    vanished: list[str] = []
+    by_source: dict[str, list[str]] = {}
+    abnormal_sources: set[str] = set()
     unknown_flag = 0
     for video_id in files.test_ids:
         entry = files.meta.get(video_id, {})
@@ -101,19 +109,42 @@ def vanished_windows(files: DatasetFiles) -> dict[str, Any]:
             # A corpus that records no span but a non-Normal class still counts.
             declared_abnormal = True
             unknown_flag += 1
-        if declared_abnormal and not any(files.frame_labels_test[video_id]):
-            vanished.append(video_id)
+        source = files.source_of(video_id)
+        by_source.setdefault(source, []).append(video_id)
+        if declared_abnormal:
+            abnormal_sources.add(source)
+
+    vanished = sorted(
+        source for source in abnormal_sources
+        if not any(any(files.frame_labels_test[v]) for v in by_source[source])
+    )
+    negative_windows = 0
+    if files.is_windowed:
+        negative_windows = sum(
+            1
+            for source in abnormal_sources - set(vanished)
+            for v in by_source[source]
+            if not any(files.frame_labels_test[v])
+        )
     if vanished:
         LOGGER.warning(
-            "%d abnormal test clips carry an all-zero label vector; they read as "
+            "%d abnormal test %s carry an all-zero label vector; they read as "
             "normal to every metric. Exclude them at scoring time -- see "
             "core/docs/DADA_SETUP.md §5.1. First few: %s",
-            len(vanished), vanished[:5],
+            len(vanished), "source clips" if files.is_windowed else "clips", vanished[:5],
+        )
+    if negative_windows:
+        LOGGER.info(
+            "%d windows of abnormal clips hold no positive frame -- these are "
+            "correct negatives, not vanished windows (that is what re-sharding is for)",
+            negative_windows,
         )
     return {
         "count": len(vanished),
-        "video_ids": sorted(vanished),
+        "video_ids": vanished,
         "clips_without_explicit_span_field": unknown_flag,
+        "unit": "source clip" if files.is_windowed else "clip",
+        "negative_windows_of_abnormal_clips": negative_windows,
     }
 
 

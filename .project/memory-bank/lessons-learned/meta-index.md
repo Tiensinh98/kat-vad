@@ -202,7 +202,50 @@ localization below base rate. Measure the corpus's positive fraction before
 enabling DVS; make the anchor interior an *ignore* target when it is not ≈1.
 **Shipped 2026-09-09 as arms, both default-off:** `loss.dvs_anchor_mode=ignore`
 and `loss.bottomk_weight>0` (`abnormal_bottomk_loss`). A bad mode string raises.
+**Trained 2026-09-12 and both FAILED their pre-registered predictions** — the gap
+shrank, `auc_macro` fell, the score scale fell with it. The lesson stands; it is
+just not the bottleneck (C27 is). `RESULTS_DADA_PHASE1.md`.
 → `core/data/synthesis.py:83`, `core/losses/dvs.py:16`, `core/losses/mil.py:47`, `core/train.py:295-302`
+
+### C30 [HIGH] Experiments — an eval-time sampler seeded once per run leaks across items
+`core/evaluate.py:159-164` builds the verbalizer once above the scoring loop and
+samples a definition **per window**, so every clip shares one RNG stream. Any
+filter that skips an item (`--equalize-length`'s `continue`, a future `--strict`)
+shifts the stream for every later clip: 32 of the 34 `T == 5` DADA clips — where
+the eq5 crop is the identity and the input is byte-identical — returned different
+scores, max |Δ| 0.0033, worth **±0.003 AUC**. Seed per item
+(`random.Random(SEED + i)`), never per run. Within-protocol comparisons stay exact.
+→ `core/evaluate.py:159-164`, `core/docs/RESULTS_DADA_PHASE1.md` §5
+
+### C31 [MEDIUM] Metrics — a loss that lowers scores is not a loss that creates contrast
+Phase 1's pre-registered criteria ("the gap turns positive", "the range widens")
+were scale-dependent, and both losses lowered the scale: mean positive score
+0.1160 → 0.0771/0.0953 → 0.0635, gap +0.0085 → +0.0013. Scale-invariantly,
+`d = gap/σ` collapses **+0.164 → +0.039** — which agrees with `auc_macro` while
+the raw gap is ambiguous. Report `gap / mean within-clip σ`, with the raw scale
+printed beside it.
+→ `core/docs/RESULTS_DADA_PHASE1.md` §4
+
+### C32 [CRITICAL] Data — size a fixed-length re-shard against the SHORTEST class
+Re-sharding into equal-length windows is C28's fix and it has two failure modes
+that both pass the C28 check. DADA's accident clips are trimmed (raw median **49**
+frames), so `--window-length 32` at stride 2 needed 64 raw frames and kept
+**25.3 %** of abnormal clips — ~69 % of the abnormal supervision deleted, with no
+error. And a fixed hop gives windows in proportion to clip length, so 3x-longer
+normal clips produced **327 abnormal vs 3,244 normal** windows from a ~1:1 corpus.
+The leak closed perfectly (length AUC 0.5000) while the clip oracle rose
+0.9086 → **0.9766** and `auc_macro`'s population fell 190 → **57**. Size from the
+shortest class's p5–p25, cap windows per clip, gate on retention.
+→ `core/data/dada.py:plan_record_windows` (warns below 90 % retention),
+  `core/data/windows.py:cap_windows`, `core/docs/DADA_SETUP.md` §10.3
+
+### C33 [MEDIUM] Experiments — a pre-registered threshold must be reachable
+Gate W's "clip oracle < 0.75" was unsatisfiable: the oracle is
+`(F_norm + 0.5X)/(F_norm + X)` (reproduces 0.9086 and 0.9766 exactly), so < 0.75
+needs abnormal clips to hold **≥ 62 %** of all test frames; balanced is 0.811.
+Derive a metric's attainable range from the corpus's class mix *before* writing
+the threshold, and record the derivation beside it.
+→ `.project/plans/katvad-dada-phase2-corpus-rebuild.md` §1
 
 ### C7 [MEDIUM] Deps — don't call library internals that drift
 The LR schedule is an in-house `LambdaLR` rather than
@@ -251,6 +294,14 @@ The LR schedule is an in-house `LambdaLR` rather than
 | add a parameter to a loss that `test_baseline_parity` asserts | make it **keyword-only with a baseline default**, or the LaGoVAD parity assertion breaks (C6, C29) |
 | wonder why `auc_macro` sits at chance while micro AUC looks strong | **C28**, **C29**, C27, C12, `core/docs/DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md` |
 | argue that the frozen-CLIP backbone is the bottleneck | `core/docs/DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md` §7 — run the probe A/B before spending; a VideoMAE swap voids `H_mul` and every cache (C2, C13) |
+| re-shard a corpus into fixed-length windows, or pick a `--window-length` | **C32** — measure the length distribution PER CLASS first |
+| accept a rebuilt corpus, or read an EDA report after a corpus change | **C32** — check retention, two-class count and class ratio, not just the leak metric |
+| write a pre-registered gate, exit criterion or falsification threshold | **C33** — derive the attainable range first |
+| add any eval-time flag that skips, filters or subsets the scored items | **C30** — seed per item first, or the numbers are not comparable |
+| compare a metric across two different scored subsets (raw vs `--equalize-length`, with/without an exclusion) | **C30** |
+| read or report a positive/negative score gap, a score range, or "the curves widened" | **C31** — divide by the within-clip σ |
+| pre-register a success criterion for a loss arm | **C31** (make it scale-invariant), C14 |
+| judge the DADA Phase 1 arms, or wonder whether C29 was refuted | `core/docs/RESULTS_DADA_PHASE1.md` §7 — falsified, and C29 still stands |
 | add or change a loss | C7, `core/docs/TRAINING.md` (deviations) |
 | load or map a checkpoint | C5, C15 |
 | add a field to a saved checkpoint, or hit `torch.load` failing on old artifacts | **C15** |
@@ -262,11 +313,11 @@ The LR schedule is an in-house `LambdaLR` rather than
 
 ## Category map
 
-- **Experiment discipline:** C14, C16, C17
+- **Experiment discipline:** C14, C16, C17, **C30**, **C33**
 - **Env / platform:** C1, C3, **C21**
-- **Data & caches:** C2, C9, C10, C11, C13, **C18**, **C20**, **C23**, **C25**, **C26**, **C28**
+- **Data & caches:** C2, C9, C10, C11, C13, **C18**, **C20**, **C23**, **C25**, **C26**, **C28**, **C32**
 - **Comparability / protocol:** C8, C8b, C12, C13
-- **Metrics:** C12, **C22**, **C27**, **C28**
+- **Metrics:** C12, **C22**, **C27**, **C28**, **C31**
 - **Supply chain:** C4
 - **Model loading:** C5, C15
 - **Porting discipline:** C6, C7, **C19**, **C29**

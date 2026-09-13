@@ -38,6 +38,11 @@ LABELS_TRAIN_FILENAME = "labels_train.json"
 FRAME_LABELS_TEST_FILENAME = "frame_labels_test.json"
 DEFS_FILENAME = "defs.json"
 META_FILENAME = "meta.json"  # per-video scenario/class/split/window (diagnostics only)
+# Optional fifth dataset file (Phase 2a): {window_id: {source, start, end}}.
+# Present only for a corpus rebuilt into fixed-length windows; when it is absent
+# every loader behaves exactly as before. See core/docs/DATA_LAYOUT.md.
+WINDOWS_FILENAME = "windows.json"
+WINDOW_ID_SEPARATOR = "__w"  # "{source}__w{index:03d}"
 
 CLIP_CACHE_DIR = CACHE_ROOT / "clip"
 CACHE_PART_SUFFIX = ".part"  # in-flight write; renamed onto the target when complete
@@ -190,6 +195,22 @@ EQUALIZE_ANCHOR_CHOICES = (
     EQUALIZE_ANCHOR_START,
     EQUALIZE_ANCHOR_END,
 )
+
+# --- 2.1 fixed-length windows (lesson C28) -------------------------------
+# A corpus whose clip length predicts its label is unmeasurable, however good
+# the model is: on the reconstructed DADA-2000 a detector reading only the frame
+# count scores micro AUC 0.8654. Re-sharding every clip into equal-length
+# windows removes the channel at the source, where --equalize-length can only
+# remove it at scoring time. Defaults are DADA-2000's Phase 2a geometry
+# (.project/plans/katvad-dada-phase2-corpus-rebuild.md §4.2).
+WINDOW_LENGTH = 32  # sampled frames per window; T becomes constant
+WINDOW_STRIDE = 16  # hop between consecutive windows (50 % overlap at the default)
+WINDOW_MIN_POSITIVE = 1  # a window is abnormal iff it holds >= this many positive frames
+# Cap on windows from ONE source clip, evenly spaced. A fixed hop alone gives
+# each clip windows in proportion to its length; DADA-2000's normal clips are
+# ~3x longer than its accident clips (raw median 139 vs 49), so uncapped
+# windowing manufactured a 10:1 class imbalance the corpus never had (C32).
+WINDOW_MAX_PER_CLIP = 4
 
 # ---------------------------------------------------------------------------
 # DVS — dynamic video synthesis (spec §6.1; θ = no-synthesis probability)

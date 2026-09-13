@@ -10,6 +10,9 @@ ubnormal, nwpu, ubif, lad) are not ported.
 from __future__ import annotations
 
 import random
+import zlib
+
+from core import constants
 
 # Special class name marking "abnormal, but unlabeled category": the verbalizer
 # returns one sampled definition for every class of the active dataset.
@@ -452,6 +455,26 @@ class DatasetSpecVerbalizer:
         return [self._rng.choice(self.cls2text[name]) for name in inputs]
 
 
+def item_verbalizer(
+    dataset: str, item_id: str, seed: int = constants.SEED
+) -> DatasetSpecVerbalizer:
+    """A verbalizer whose RNG depends on ``item_id`` alone (lesson **C30**).
+
+    A verbalizer built once for a whole scoring run shares one RNG stream across
+    every scored item, so skipping an item -- ``core.evaluate``'s
+    ``--equalize-length`` drops 52 of 383 DADA clips -- shifts the definitions
+    every *later* item sees, and the same checkpoint returns different scores for
+    byte-identical input (measured: 32 of 34 curves, max |delta| 0.0033, ~0.003
+    AUC). Seeding from the item id makes each item independent of the set it was
+    scored in, so any subset reproduces the full run's curves exactly.
+
+    ``zlib.crc32`` rather than ``hash()``: the latter is salted per process.
+    """
+    stream_seed = seed ^ zlib.crc32(item_id.encode("utf-8"))
+    # definition sampling is conditioning, not security-sensitive
+    return DatasetSpecVerbalizer(dataset, rng=random.Random(stream_seed))  # nosec B311
+
+
 def verbalize_class_name(verbalizer: DatasetSpecVerbalizer, name: str) -> str:
     """One sampled definition for ``name``, index-aligned with its class list.
 
@@ -471,5 +494,6 @@ __all__ = [
     "TRAFFIC_DEFINITIONS",
     "DatasetSpecVerbalizer",
     "dataset_abbr",
+    "item_verbalizer",
     "verbalize_class_name",
 ]

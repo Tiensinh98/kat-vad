@@ -29,6 +29,7 @@ from sklearn.model_selection import GroupKFold
 from sklearn.preprocessing import StandardScaler
 
 from core import constants
+from core.data.windows import FeatureSlicer
 from core.eda.corpus import DatasetFiles, describe
 from core.metrics import frame_ap, frame_auc
 
@@ -38,24 +39,33 @@ FLOW_STATS_SUFFIX = ".stats.npy"
 
 
 def load_clip_features(
-    clip_dir: Path, video_ids: list[str], expected: dict[str, int] | None = None
+    clip_dir: Path,
+    video_ids: list[str],
+    expected: dict[str, int] | None = None,
+    slicer: FeatureSlicer | None = None,
 ) -> tuple[dict[str, np.ndarray], list[str]]:
-    """Load ``{id}.npy`` for each id present; return the features and the missing ids.
+    """Load each id's feature rows; return the features and the missing ids.
 
     When ``expected`` is given, a feature array whose row count disagrees with the
     label vector raises: that mismatch means the cache and the labels were built
     at different strides or from different frame folders (lessons **C2**/**C13**),
     and every downstream number would be measured on misaligned rows.
+
+    On a **windowed** corpus the ids are window ids while the cache is keyed by
+    source clip, so the rows must come through the ``slicer``. Reading
+    ``clip_dir / f"{window_id}.npy"`` directly reports every clip missing and
+    silently kills sections 4.1-4.2, the linear probe included.
     """
+    slicer = slicer if slicer is not None else FeatureSlicer()
     features: dict[str, np.ndarray] = {}
     missing: list[str] = []
     mismatched: list[str] = []
     for video_id in video_ids:
-        path = clip_dir / f"{video_id}.npy"
+        path = clip_dir / f"{slicer.source_of(video_id)}.npy"
         if not path.is_file():
             missing.append(video_id)
             continue
-        array = np.load(path)
+        array = slicer.load(clip_dir, video_id)
         if expected is not None and video_id in expected and len(array) != expected[video_id]:
             mismatched.append(f"{video_id}: features {len(array)} vs labels {expected[video_id]}")
             continue
@@ -171,17 +181,35 @@ def _probe_fit_predict(
     return predictions
 
 
+def _source_groups(ids: list[str], slicer: FeatureSlicer | None) -> list[int]:
+    """One integer per id, shared by every item that came from the same clip."""
+    slicer = slicer if slicer is not None else FeatureSlicer()
+    index: dict[str, int] = {}
+    groups: list[int] = []
+    for item_id in ids:
+        source = slicer.source_of(item_id)
+        groups.append(index.setdefault(source, len(index)))
+    return groups
+
+
 def frame_linear_probe(
     features: dict[str, np.ndarray],
     frame_labels: dict[str, list[int]],
     folds: int = constants.EDA_PROBE_FOLDS,
     seed: int = constants.SEED,
+    slicer: FeatureSlicer | None = None,
 ) -> dict[str, Any]:
     """Supervised frame-level ceiling of the cached features (``RESULTS_DADA`` §10-B).
 
     Grouped cross-validation over clips, logistic regression on standardized
     features, scored with the same micro/macro pair the model eval uses so the
     numbers are directly comparable to an arm's ``results.json``.
+
+    The fold group is the **source clip**, not the item. On a windowed corpus two
+    overlapping windows of one clip share real frames (12 of 24 at the default
+    50 % hop), so grouping by window id would train and test on the same rows and
+    inflate the very ceiling this probe exists to establish -- the number the
+    backbone decision hangs on (``DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md`` §7).
     """
     ids = [v for v in sorted(features) if v in frame_labels and len(frame_labels[v]) > 0]
     if len(ids) < constants.EDA_PROBE_MIN_CLIPS:
@@ -191,11 +219,12 @@ def frame_linear_probe(
         [np.asarray(frame_labels[v], dtype=np.int64) for v in ids]
     )
     groups = np.concatenate(
-        [np.full(len(frame_labels[v]), i, dtype=np.int64) for i, v in enumerate(ids)]
+        [np.full(len(frame_labels[v]), g, dtype=np.int64)
+         for v, g in zip(ids, _source_groups(ids, slicer), strict=True)]
     )
     if len(np.unique(target)) < 2:
         return {"ran": False, "reason": "test frames are single-class"}
-    usable_folds = min(folds, len(ids))
+    usable_folds = min(folds, len(np.unique(groups)))
     scores = _probe_fit_predict(matrix, target, groups, usable_folds, seed)
 
     per_clip: list[float] = []
@@ -231,6 +260,7 @@ def clip_linear_probe(
     frame_labels: dict[str, list[int]],
     folds: int = constants.EDA_PROBE_FOLDS,
     seed: int = constants.SEED,
+    slicer: FeatureSlicer | None = None,
 ) -> dict[str, Any]:
     """The same probe on mean-pooled clips against clip labels — the contrast arm.
 
@@ -245,8 +275,8 @@ def clip_linear_probe(
     target = np.array([int(any(frame_labels[v])) for v in ids], dtype=np.int64)
     if len(np.unique(target)) < 2:
         return {"ran": False, "reason": "every clip has the same clip-level label"}
-    groups = np.arange(len(ids), dtype=np.int64)
-    usable_folds = min(folds, int(np.bincount(target).min()))
+    groups = np.asarray(_source_groups(ids, slicer), dtype=np.int64)
+    usable_folds = min(folds, int(np.bincount(target).min()), len(np.unique(groups)))
     if usable_folds < 2:
         return {"ran": False, "reason": "too few clips in the minority class"}
     scores = _probe_fit_predict(matrix, target, groups, usable_folds, seed)
@@ -261,7 +291,12 @@ def clip_linear_probe(
     }
 
 
-def flow_stats(flow_dir: Path, video_ids: list[str], limit: int = 0) -> dict[str, Any]:
+def flow_stats(
+    flow_dir: Path,
+    video_ids: list[str],
+    limit: int = 0,
+    slicer: FeatureSlicer | None = None,
+) -> dict[str, Any]:
     """Distribution of the cached RAFT descriptors.
 
     ``{id}.stats.npy`` is ``(L, 23)`` raw frame-global scalars; ``{id}.npy`` is
@@ -272,14 +307,17 @@ def flow_stats(flow_dir: Path, video_ids: list[str], limit: int = 0) -> dict[str
     correlation is computable from what is on disk.
     """
     candidates = video_ids[:limit] if limit else video_ids
+    slicer = slicer if slicer is not None else FeatureSlicer()
     rows: list[np.ndarray] = []
     found = 0
     for video_id in candidates:
-        path = flow_dir / f"{video_id}{FLOW_STATS_SUFFIX}"
+        path = flow_dir / f"{slicer.source_of(video_id)}{FLOW_STATS_SUFFIX}"
         if not path.is_file():
             continue
         found += 1
-        rows.append(np.asarray(np.load(path), dtype=np.float64))
+        rows.append(
+            np.asarray(slicer.load(flow_dir, video_id, FLOW_STATS_SUFFIX), dtype=np.float64)
+        )
     if not rows:
         return {"clips": 0, "note": f"no {FLOW_STATS_SUFFIX} files under {flow_dir}"}
     stacked = np.concatenate(rows, axis=0)
@@ -306,7 +344,7 @@ def feature_report(
     """Everything in this module, for one dataset's test split."""
     ids = files.test_ids[:max_clips] if max_clips else files.test_ids
     expected = {v: len(files.frame_labels_test[v]) for v in ids}
-    features, missing = load_clip_features(clip_dir, ids, expected)
+    features, missing = load_clip_features(clip_dir, ids, expected, files.slicer)
     report: dict[str, Any] = {
         "clip_dir": str(clip_dir),
         "coverage": {
@@ -321,13 +359,15 @@ def feature_report(
     }
     if probe and features:
         report["frame_linear_probe"] = frame_linear_probe(
-            features, files.frame_labels_test, seed=seed
+            features, files.frame_labels_test, seed=seed, slicer=files.slicer
         )
         report["clip_linear_probe"] = clip_linear_probe(
-            features, files.frame_labels_test, seed=seed
+            features, files.frame_labels_test, seed=seed, slicer=files.slicer
         )
     if flow_dir is not None:
-        report["flow"] = flow_stats(flow_dir, files.train_ids, limit=max_clips)
+        report["flow"] = flow_stats(
+            flow_dir, files.train_ids, limit=max_clips, slicer=files.slicer
+        )
     return report
 
 

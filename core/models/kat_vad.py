@@ -108,15 +108,17 @@ class KATVAD(nn.Module):
             score_head_kernel=cfg.model.score_head_kernel,
             bin_head_type=cfg.model.bin_head_type,
             multiclass_temp=cfg.model.multiclass_temp,
-            kip=KIP.from_config(cfg.kip, d=cfg.model.hidden_dim) if cfg.kip.enabled else None,
+            kip=(
+                KIP.from_config(cfg.kip, d=cfg.model.hidden_dim)
+                if cfg.kip.enabled
+                else None
+            ),
             kip_on_raw_features=cfg.kip.enabled and cfg.kip.on_raw_features,
             clip_text_model=clip_text_model,
             tokenizer=tokenizer,
         )
 
-    def encode_text(
-        self, texts: list[str], use_soft_prompt: bool = True
-    ) -> Tensor:
+    def encode_text(self, texts: list[str], use_soft_prompt: bool = True) -> Tensor:
         """Tokenize + encode class names/captions → ``(len(texts), D)``."""
         if self.clip_text_model is None or self.tokenizer is None:
             raise RuntimeError(

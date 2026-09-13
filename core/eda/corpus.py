@@ -20,6 +20,7 @@ from typing import Any
 import numpy as np
 
 from core import constants
+from core.data.windows import FeatureSlicer, Window, load_windows
 
 LOGGER = logging.getLogger(__name__)
 
@@ -34,6 +35,25 @@ class DatasetFiles:
     frame_labels_test: dict[str, list[int]]
     defs: list[str]
     meta: dict[str, dict[str, Any]]
+    windows: dict[str, Window] | None = None
+    """``windows.json`` when the corpus was re-sharded into fixed-length windows.
+
+    ``None`` for every classic one-item-per-clip corpus. When it is set, every id
+    in the other files is a *window* id and the feature cache is still keyed by
+    **source** clip -- see :class:`core.data.windows.FeatureSlicer`.
+    """
+
+    @property
+    def is_windowed(self) -> bool:
+        return self.windows is not None
+
+    @property
+    def slicer(self) -> FeatureSlicer:
+        return FeatureSlicer(self.windows)
+
+    def source_of(self, item_id: str) -> str:
+        """The source clip an id belongs to (the id itself when unwindowed)."""
+        return self.slicer.source_of(item_id)
 
     @property
     def test_ids(self) -> list[str]:
@@ -69,11 +89,19 @@ def load_dataset_files(data_dir: Path, dataset: str) -> DatasetFiles:
         frame_labels_test=read(constants.FRAME_LABELS_TEST_FILENAME),
         defs=read(constants.DEFS_FILENAME),
         meta=read(constants.META_FILENAME),
+        windows=load_windows(data_dir),
     )
     LOGGER.info(
-        "%s: %d train / %d test clips, %d classes",
-        dataset, len(files.labels_train), len(files.frame_labels_test), len(files.defs),
+        "%s: %d train / %d test %s, %d classes",
+        dataset, len(files.labels_train), len(files.frame_labels_test),
+        "windows" if files.is_windowed else "clips", len(files.defs),
     )
+    if files.is_windowed:
+        LOGGER.info(
+            "Windowed corpus: ids are window ids over %d source clips; the feature "
+            "cache is keyed by source",
+            len({w.source for w in (files.windows or {}).values()}),
+        )
     return files
 
 

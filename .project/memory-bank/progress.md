@@ -30,10 +30,11 @@
 | — | **DADA-2000 adapter** (`core/data/dada.py`) — real seeded train/test split, `--flat-frames-dir` symlink farm | ✅ 2026-09-03/04 (its 497-test figure is `v3`'s) |
 | — | **`core/eda/` pre-flight profiler** — 5 modules + `core/tools/eda.py` + `core/docs/EDA.md`; verdicts for C27 / C12 / vanished windows, §4.2 frame-level linear probe | ✅ 2026-09-06, **present on `main`**. Never run on real data — needs the Drive caches |
 
-**Measured on `main`, 2026-09-08: 79 Python files (54 source + 25 test),
-10,828 source LOC. 439 tests collected → 439 pass, 0 fail.** Data-free, CPU-only.
-*(Re-measured 2026-09-09 after Phase 1 added the three DADA arms:
-`loss.dvs_anchor_mode`, `loss.bottomk_weight`, `--equalize-length`.)*
+**Measured on `main`, 2026-09-13: 81 Python files (55 source + 26 test),
+11,560 source LOC. 508 tests collected → 508 pass, 0 fail.** Data-free, CPU-only.
+*(2026-09-09 Phase 1 added `loss.dvs_anchor_mode`, `loss.bottomk_weight`,
+`--equalize-length`: 439 tests. 2026-09-12 Phase 2a added `core/data/windows.py`,
+the `windows.json` contract, the `--window-*` flags and the C30 eval fix: +54.)*
 `outputs/**` holds **62,254** per-clip `.npz` score files (on the user's disk;
 gitignored).
 
@@ -125,6 +126,12 @@ these rows plus `core/docs/RESULTS_*.md` are all that survives.
 | **v3 gate attribution** (`RESULTS_V3_GATE_ATTRIBUTION.md`, 2026-09-01) — *doc absent on `main`* | MSAD-full, A2 ×3 seeds | **A2 (fixed 50 % shift, no flow/PMG/KIP-losses) ≡ full v1 KIP**: Δ = **+0.0109**, t95 **[−0.0588, +0.0805]**, 6/6 metrics include zero. **A2 − A0 = +0.1025 ± 0.0350**, t95 [+0.0154, +0.1896]. Archived V1 arm reproduces at **+0.0916 ± 0.0087**. **A1 (rank) − A2 = −0.0683**, CI [−0.0790, −0.0580]. **A2b − A2 = −0.0105** | **v3** |
 | **DADA-2000** (`v3/RESULTS_DADA.md`, 2026-09-06) — *doc present on `main`* | DADA-2000, 7 arms | Zero-shot DoTA **A2 − A0 = −0.0918** (2nd seed −0.1089) and **A1 − A2 = +0.0300** — *both signs inverted vs MSAD*. In-domain best **0.8739 micro** vs a **0.9086** constant-per-clip oracle, `auc_macro` **0.44–0.57 (chance)**. Spearman(flatness, DoTA micro) = **−0.82** | **v3** |
 | **Method-class gap** (2026-09-06) | — | SimpleTAD DADA→DoTA **80.3** vs our best-ever DoTA **0.6423**: **0.161 method ceiling + 0.035 corpus cost → 82 % is the method class** | — |
+| **DADA Phase 1** (`RESULTS_DADA_PHASE1.md`, 2026-09-12) — *first campaign measured by `main`'s own code* | DADA-2000, 4 arms + 1 duplicate, seed 2024, **KIP-off** | **Both loss arms failed their pre-registered predictions.** Control `p1_ctrl` 0.7050 micro / **0.5190 macro** / DoTA macro **0.6254**; `ignore` 0.6896/0.5134/0.6132; `bottomk` 0.6902/0.5104/0.6053; both 0.6764/0.5097/0.5952 — monotone *down* on 7 metrics × 3 protocols. `d = gap/σ` **+0.164 → +0.039**: the losses shrink the score scale, they do not create contrast. Length-controlled (eq5): ruler → **0.5000 exactly**, but **macro below chance on every arm (0.4237–0.4333)**. n=1 seed | **v1** |
+
+**Cross-branch comparability, settled 2026-09-12:** for `kip.enabled=false` a
+`main`-vs-`v3` Δ **is** a Δ. `p1_ctrl` reproduces v3's A0 to 4 dp, and a
+mis-pointed eval of the v3 checkpoint produced **331/331 bitwise identical** score
+curves (max |Δ| = 0). This does **not** extend to any KIP-on arm.
 
 **The two sentences that outlive every number:** *KIP's measured contribution is
 temporal smoothing*, and *a component whose sign flips with training clip length

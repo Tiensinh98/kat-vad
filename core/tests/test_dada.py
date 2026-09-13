@@ -514,3 +514,270 @@ class TestDadaTrains:
         assert cfg["kip"]["gate_signal"] == "flow_norm"
         assert cfg["data"]["dataset"] == constants.DADA_DATASET
         assert cfg["data"]["is_egocentric"] is True
+
+
+# ---------------------------------------------------------------------------
+# Phase 2a — fixed-length windows (lesson C28)
+# ---------------------------------------------------------------------------
+
+WINDOW_LENGTH = 6  # sampled clips are 12 frames long here
+WINDOW_STRIDE = 3  # -> starts 0, 3, 6 = 3 windows per clip
+
+
+def _record(video_id: str, *, abnormal: bool, span: tuple[float, float] | None) -> dada.DadaRecord:
+    return dada.DadaRecord(
+        video_id=video_id,
+        folder_name=video_id.split(constants.DADA_ID_SEPARATOR)[-1],
+        class_name="CarAccident" if abnormal else dada.NORMAL_CLASS,
+        fault_label=constants.DADA_EGO_FAULT_DIRNAME
+        if abnormal
+        else constants.DADA_NORMAL_DIRNAME,
+        total_frames=RAW_FRAMES,
+        span=span,
+        accident_frac=0.5 if span is not None else None,
+    )
+
+
+class TestWindowLabel:
+    def test_annotated_window_is_abnormal_only_if_it_holds_the_anomaly(self) -> None:
+        annotated = _record("a", abnormal=True, span=(0.5, 0.8))
+        assert dada.window_label([0, 0, 0], annotated, 1) == 0
+        assert dada.window_label([0, 1, 0], annotated, 1) == 1
+        assert dada.window_label([0, 1, 0], annotated, 2) == 0, "min_positive must bind"
+
+    def test_weak_abnormal_window_inherits_the_clip_label(self) -> None:
+        """Position unknown, so every window of the clip is a positive bag."""
+        weak = _record("w", abnormal=True, span=None)
+        assert dada.window_label([0, 0, 0], weak, 1) == 1
+
+    def test_normal_window_is_normal(self) -> None:
+        assert dada.window_label([0, 0, 0], _record("n", abnormal=False, span=None), 1) == 0
+
+
+class TestPlanRecordWindows:
+    def _records(self) -> list[dada.DadaRecord]:
+        return [
+            _record("ann", abnormal=True, span=(0.5, 0.9)),
+            _record("weak", abnormal=True, span=None),
+            _record("norm", abnormal=False, span=None),
+        ]
+
+    def test_drops_weak_abnormal_clips_by_default(self) -> None:
+        windows, labels, records = dada.plan_record_windows(
+            self._records(), STRIDE, WINDOW_LENGTH, WINDOW_STRIDE
+        )
+        assert {w.source for w in windows.values()} == {"ann", "norm"}
+        assert all(len(lab) == WINDOW_LENGTH for lab in labels.values())
+        assert set(records) == set(windows)
+
+    def test_all_positive_mode_keeps_them(self) -> None:
+        windows, _labels, _records = dada.plan_record_windows(
+            self._records(), STRIDE, WINDOW_LENGTH, WINDOW_STRIDE,
+            weak_mode=dada.WINDOW_WEAK_ALL_POSITIVE,
+        )
+        assert "weak" in {w.source for w in windows.values()}
+
+    def test_windows_never_cross_a_clip_and_are_never_padded(self) -> None:
+        windows, labels, _records = dada.plan_record_windows(
+            self._records(), STRIDE, WINDOW_LENGTH, WINDOW_STRIDE
+        )
+        sampled = (RAW_FRAMES + STRIDE - 1) // STRIDE
+        for window in windows.values():
+            assert window.end <= sampled
+            assert window.length == WINDOW_LENGTH
+        assert len(labels) == 2 * len(range(0, sampled - WINDOW_LENGTH + 1, WINDOW_STRIDE))
+
+    def test_a_narrow_anomaly_yields_genuine_negative_windows(self) -> None:
+        """The point of windowing: an abnormal clip's normal stretch becomes negatives.
+
+        Span (0.0, 0.2) over 12 sampled frames is frames 0-1, so only the first
+        window of three holds the anomaly.
+        """
+        records = [_record("early", abnormal=True, span=(0.0, 0.2))]
+        _windows, labels, by_window = dada.plan_record_windows(
+            records, STRIDE, WINDOW_LENGTH, WINDOW_STRIDE
+        )
+        window_labels = [
+            dada.window_label(labels[wid], by_window[wid], 1) for wid in sorted(labels)
+        ]
+        assert window_labels == [1, 0, 0]
+
+    def test_raises_when_no_clip_fits_a_window(self) -> None:
+        with pytest.raises(ValueError, match="No clip is at least"):
+            dada.plan_record_windows(self._records(), STRIDE, 99, WINDOW_STRIDE)
+
+    def test_rejects_bad_arguments(self) -> None:
+        with pytest.raises(ValueError, match="weak_mode must be"):
+            dada.plan_record_windows(
+                self._records(), STRIDE, WINDOW_LENGTH, WINDOW_STRIDE, weak_mode="keep"
+            )
+        with pytest.raises(ValueError, match="min_positive must be"):
+            dada.plan_record_windows(
+                self._records(), STRIDE, WINDOW_LENGTH, WINDOW_STRIDE, min_positive=0
+            )
+
+
+@pytest.fixture(scope="module")
+def windowed(dada_tree, tmp_path_factory):
+    frames_dir, metadata = dada_tree
+    out = tmp_path_factory.mktemp("dada_windowed")
+    dada.preprocess(
+        metadata, frames_dir, out, stride=STRIDE, seed=SEED,
+        test_ratio_abnormal=0.25, test_ratio_normal=1 / 3,
+        window_length=WINDOW_LENGTH, window_stride=WINDOW_STRIDE,
+    )
+    return out
+
+
+class TestWindowedBuild:
+    def test_writes_windows_json_and_keys_everything_by_window_id(self, windowed) -> None:
+        windows = _load(windowed, constants.WINDOWS_FILENAME)
+        labels_train = _load(windowed, constants.LABELS_TRAIN_FILENAME)
+        frame_labels = _load(windowed, constants.FRAME_LABELS_TEST_FILENAME)
+        assert windows
+        assert set(labels_train) | set(frame_labels) == set(windows)
+        for wid in list(labels_train) + list(frame_labels):
+            assert constants.WINDOW_ID_SEPARATOR in wid
+
+    def test_every_scored_window_is_exactly_the_same_length(self, windowed) -> None:
+        """The whole point: clip length can no longer carry the label (C28)."""
+        frame_labels = _load(windowed, constants.FRAME_LABELS_TEST_FILENAME)
+        assert {len(lab) for lab in frame_labels.values()} == {WINDOW_LENGTH}
+
+    def test_ids_files_hold_source_ids_for_the_extractors(self, windowed) -> None:
+        """extract_clip_features/raft_extract write one .npy per source clip."""
+        train_ids = (windowed / TRAIN_IDS_FILENAME).read_text(encoding="utf-8").split()
+        test_ids = (windowed / TEST_IDS_FILENAME).read_text(encoding="utf-8").split()
+        assert train_ids and test_ids
+        for video_id in train_ids + test_ids:
+            assert constants.WINDOW_ID_SEPARATOR not in video_id
+        assert not set(train_ids) & set(test_ids), "a source clip must not span the split"
+
+    def test_no_source_clip_has_windows_in_both_splits(self, windowed) -> None:
+        windows = _load(windowed, constants.WINDOWS_FILENAME)
+        labels_train = _load(windowed, constants.LABELS_TRAIN_FILENAME)
+        frame_labels = _load(windowed, constants.FRAME_LABELS_TEST_FILENAME)
+        train_sources = {windows[w]["source"] for w in labels_train}
+        test_sources = {windows[w]["source"] for w in frame_labels}
+        assert not train_sources & test_sources
+
+    def test_train_split_has_both_classes(self, windowed) -> None:
+        labels_train = _load(windowed, constants.LABELS_TRAIN_FILENAME)
+        assert set(labels_train.values()) == {0, 1}
+
+    def test_meta_records_the_geometry(self, windowed) -> None:
+        meta = _load(windowed, constants.META_FILENAME)
+        windows = _load(windowed, constants.WINDOWS_FILENAME)
+        assert set(meta) == set(windows)
+        row = meta[next(iter(sorted(meta)))]
+        for key in ("source", "start", "end", "positive_frames", "sampled_frames", "split"):
+            assert key in row, key
+        assert row["end"] - row["start"] == WINDOW_LENGTH
+
+    def test_positives_land_only_in_abnormal_sources(self, windowed) -> None:
+        meta = _load(windowed, constants.META_FILENAME)
+        for row in meta.values():
+            if not row["source_is_abnormal"]:
+                assert row["positive_frames"] == 0
+        abnormal = [r for r in meta.values() if r["source_is_abnormal"]]
+        assert abnormal and all(int(r["positive_frames"]) > 0 for r in abnormal), (
+            "the fixture's accident spans half the clip, so every window holds part of it"
+        )
+
+
+@pytest.fixture(scope="module")
+def trainable_windowed(dada_tree, trainable_dada, tmp_path_factory) -> dict[str, Path]:
+    """A windowed corpus over the SAME feature cache -- windows are slices, not files."""
+    frames_dir, metadata = dada_tree
+    root = tmp_path_factory.mktemp("dada_win_train")
+    data_dir = root / "data" / f"{constants.DADA_DATASET}_w"
+    dada.preprocess(
+        metadata, frames_dir, data_dir, stride=STRIDE, seed=SEED,
+        test_ratio_abnormal=0.25, test_ratio_normal=1 / 3,
+        window_length=WINDOW_LENGTH, window_stride=WINDOW_STRIDE,
+    )
+    from core.data.windows import FeatureSlicer, load_windows
+
+    labels = json.loads(
+        (data_dir / constants.LABELS_TRAIN_FILENAME).read_text(encoding="utf-8")
+    )
+    knn_cache_path = root / "cache" / "knn" / "windowed" / constants.KNN_CACHE_FILENAME
+    build_knn_cache(
+        labels=labels,
+        clip_dir=trainable_dada["clip_dir"],
+        output_path=knn_cache_path,
+        k=2,
+        slicer=FeatureSlicer(load_windows(data_dir)),
+    )
+    return {
+        "data_dir": data_dir,
+        "clip_dir": trainable_dada["clip_dir"],
+        "flow_dir": trainable_dada["flow_dir"],
+        "knn_cache": knn_cache_path,
+    }
+
+
+class TestWindowedCorpusTrains:
+    def test_kip_off_trains_on_windows(self, trainable_windowed, tmp_path: Path) -> None:
+        out = tmp_path / "w0"
+        train.main(_train_argv(trainable_windowed, out, ["--set", "kip.enabled=false"]))
+        assert (out / train.CHECKPOINT_LAST).exists()
+
+    def test_kip_on_trains_on_windows(self, trainable_windowed, tmp_path: Path) -> None:
+        """Flow rows must be sliced by the same window as the features (C13)."""
+        out = tmp_path / "w0_kip"
+        train.main(_train_argv(trainable_windowed, out, V1_KIP_ARM))
+        assert (out / train.CHECKPOINT_LAST).exists()
+
+    def test_knn_cache_keys_are_window_ids(self, trainable_windowed) -> None:
+        from core.data.knn_cache import load_knn_cache
+
+        mapping = load_knn_cache(trainable_windowed["knn_cache"])
+        assert mapping
+        for anchor, neighbors in mapping.items():
+            assert constants.WINDOW_ID_SEPARATOR in anchor
+            assert all(constants.WINDOW_ID_SEPARATOR in n for n in neighbors)
+
+    def test_two_windows_of_one_clip_get_different_knn_keys(
+        self, trainable_windowed
+    ) -> None:
+        from core.data.knn_cache import central_frame_key
+        from core.data.windows import FeatureSlicer, load_windows
+
+        windows = load_windows(trainable_windowed["data_dir"])
+        assert windows is not None
+        slicer = FeatureSlicer(windows)
+        by_source: dict[str, list[str]] = {}
+        for wid, window in windows.items():
+            by_source.setdefault(window.source, []).append(wid)
+        pair = next(ids for ids in by_source.values() if len(ids) > 1)[:2]
+        keys = [
+            central_frame_key(trainable_windowed["clip_dir"], wid, slicer) for wid in pair
+        ]
+        assert not np.array_equal(keys[0], keys[1])
+
+    def test_evaluate_runs_on_a_windowed_corpus(
+        self, trainable_windowed, tmp_path: Path
+    ) -> None:
+        from core import evaluate
+
+        out = tmp_path / "w0_eval"
+        train_out = tmp_path / "w0_for_eval"
+        train.main(_train_argv(trainable_windowed, train_out, ["--set", "kip.enabled=false"]))
+        evaluate.main([
+            "--ckpt", str(train_out / train.CHECKPOINT_LAST),
+            "--data-dir", str(trainable_windowed["data_dir"]),
+            "--clip-dir", str(trainable_windowed["clip_dir"]),
+            "--output-dir", str(out),
+            "--text-encoder", "stub",
+            "--set", "train.device=cpu",
+            "--set", f"data.dataset={constants.DADA_DATASET}",
+            "--set", "kip.enabled=false",
+            "--save-scores",
+        ])
+        results = json.loads((out / evaluate.RESULTS_FILENAME).read_text(encoding="utf-8"))
+        frame_labels = _load(trainable_windowed["data_dir"], constants.FRAME_LABELS_TEST_FILENAME)
+        assert results["num_videos"] == len(frame_labels)
+        for npz in (out / evaluate.SCORES_DIRNAME).glob("*.npz"):
+            with np.load(npz) as payload:
+                assert payload["score"].shape == (WINDOW_LENGTH,)

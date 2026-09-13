@@ -921,6 +921,310 @@ than optional. Phase 1 is cheap and it isolates that claim.
 
 ---
 
+## 10.3 Phase 2a campaign — the windowed corpus (lesson C28 at the source)
+
+**Read first:** `.project/plans/katvad-dada-phase2-corpus-rebuild.md` (the plan,
+with the pre-registered exit criteria E1-E5) and `core/docs/RESULTS_DADA_PHASE1.md`
+(why Phase 1 makes this mandatory).
+
+WARNING: **this fires lesson C2.** Every path below is **new**. Nothing overwrites
+the stride-8 corpus, and every number in `RESULTS_DADA.md` /
+`RESULTS_DADA_PHASE1.md` stays valid — for the corpus it was measured on. Do not
+mix the two in one table.
+
+> ### ⚠️ The first attempt failed Gate W — read this before copying anything
+>
+> `--window-length 32 --stride 2` (the geometry this section originally
+> prescribed) **kept 25.3 % of abnormal clips**. DADA's accident clips are
+> trimmed to a raw median of **49 frames**, so at stride 2 they are ~24 sampled
+> frames — *shorter than the window* — and the no-padding rule threw them away.
+> Measured cost: abnormal training windows fell to **253** (from ~800 clips), the
+> corpus went to **327 abnormal vs 3,244 normal** windows, and the clip oracle
+> rose **0.9086 → 0.9766**. The length leak *was* closed (0.5000 exactly), but the
+> corpus became unmeasurable a different way. Lesson **C32**.
+>
+> The window must be sized against the **abnormal** length distribution, not the
+> median over all clips. Measured on `data/DADA2000/meta.json` (n = 975 abnormal /
+> 938 normal source clips):
+>
+> | | raw p5 | raw p25 | **raw p50** | raw p75 |
+> |---|---:|---:|---:|---:|
+> | abnormal | 22 | 35 | **49** | 64 |
+> | normal | 29 | 79 | **139** | 209 |
+>
+> | window (sampled frames) | abnormal clips kept | windows per abnormal clip |
+> |---|---:|---:|
+> | 24 raw frames (= w24 @ stride 1, or w12 @ stride 2) | **94.2 %** | ~3.1 |
+> | 32 raw | 81.8 % | ~2.2 |
+> | 48 raw | 51.7 % | ~1.5 |
+> | 64 raw (= w32 @ stride 2) | **25.3 %** ❌ | ~1.2 |
+>
+> **Chosen: `--stride 1 --window-length 24 --window-stride 12 --window-max-per-clip 4`.**
+> Stride 1 rather than 2 because at stride 2 the only window short enough to keep
+> 94 % of abnormal clips is 12 frames, and a 12-frame window makes
+> `score_head_kernel=9` (75 % of the window), `temporal_window=9` (75 %) and
+> `mil_topk_pct=8` (k = 1) all degenerate again — there would be nothing left to
+> ablate. A 24-frame window at stride 1 keeps the *same clips* with **twice the
+> temporal resolution inside each one**, at 2× the extraction (~209 k frames).
+
+| | old (stride 8, variable T) | ❌ first try (stride 2, T = 32) | ✅ new (stride 1, T = 24) |
+|---|---|---|---|
+| dataset dir | `$KATVAD_DATA_ROOT/DADA2000` | `..._w32s2` | `$KATVAD_DATA_ROOT/DADA2000_w24s1` |
+| CLIP cache | `$KATVAD_CACHE_ROOT/clip/DADA2000` | `.../clip/DADA2000_s2` | `$KATVAD_CACHE_ROOT/clip/DADA2000_s1` |
+| KNN cache | `.../knn/DADA2000/knn_cache.npz` | `.../knn/DADA2000_w32s2/...` | `.../knn/DADA2000_w24s1/knn_cache.npz` |
+| outputs | `$KATVAD_OUTPUT_ROOT/DADA2000/...` | `.../DADA2000_w32s2/...` | `$KATVAD_OUTPUT_ROOT/DADA2000_w24s1/...` |
+
+The CLIP cache name carries only the **stride**, because a window is a slice of a
+source clip's `.npy` — geometry changes need no re-extraction. The dataset and KNN
+dirs carry the geometry. See `DATA_LAYOUT.md` ("Fixed-length windows").
+
+### 10.3.0 Preflight — confirm the branch has the flags
+
+```bash
+%%bash
+cd /content/drive/MyDrive/Thesis/kat-vad
+
+python -m core.data.dada --help | grep -c window-length   # must print 1
+python -m core.evaluate  --help | grep -c equalize-length # must print 1
+```
+
+### 10.3.1 Rebuild the corpus into fixed-length windows
+
+Windows only; **no frames are re-read here**, so this is seconds, not hours.
+
+```bash
+%%bash
+cd /content/drive/MyDrive/Thesis/kat-vad
+python -m core.data.dada \
+  --metadata   "$KATVAD_DATA_ROOT/DADA2000_raw/Cleaned_Metadata.csv" \
+  --frames-dir "$KATVAD_DATA_ROOT/DADA2000_raw/frames" \
+  --out-dir    "$KATVAD_DATA_ROOT/DADA2000_w24s1" \
+  --stride 1 \
+  --window-length 24 --window-stride 12 --window-max-per-clip 4 \
+  --window-min-positive 1 --window-weak-mode drop \
+  --flat-frames-dir "$KATVAD_DATA_ROOT/DADA2000_flat"
+```
+
+**Read the log before going on.** Two lines decide whether to continue:
+
+* `Abnormal source retention: N/M (X%)` — **must be ≥ 90 %**. Below that the
+  preprocessor logs a warning naming C32: the window is longer than the class it
+  has to preserve. Shorten `--window-length` and rebuild; it costs nothing.
+* `test N windows (M abnormal, K two-class -> auc_macro population)` — **K must be
+  ≥ 150**. `auc_macro` is the only honest metric here and K is its sample size;
+  the stride-8 corpus had 190, the failed `w32s2` build had **57**.
+
+Also check the abnormal:normal window ratio in the same log. `--window-max-per-clip`
+exists to stop long normal clips from flooding it — without the cap, DADA's
+3× longer normal clips produced a 10:1 imbalance the clip-level corpus never had.
+
+Sanity, offline (paste into a Python cell):
+
+```python
+import collections, json, os
+d = os.environ["KATVAD_DATA_ROOT"] + "/DADA2000_w24s1"
+w = json.load(open(f"{d}/windows.json"))
+fl = json.load(open(f"{d}/frame_labels_test.json"))
+tr = json.load(open(f"{d}/labels_train.json"))
+print("windows", len(w), "| test windows", len(fl), "| train windows", len(tr))
+print("lengths", collections.Counter(len(v) for v in fl.values()))   # must be ONE value
+print("two-class", sum(1 for v in fl.values() if 0 < sum(v) < len(v)))
+test_src = {w[k]["source"] for k in fl}
+print("test sources", len(test_src),
+      "| train/test source overlap", len(test_src & {w[k]["source"] for k in tr}))
+abn = sum(tr.values())
+print("train abnormal/normal windows", abn, len(tr) - abn,
+      f"| ratio 1:{(len(tr) - abn) / max(abn, 1):.1f}   (want <= 1:3)")
+```
+
+`lengths` must be a single value and the overlap must be **0**.
+
+### 10.3.2 Re-extract CLIP at stride 2 into a NEW cache
+
+`--no-center-crop` (unchanged — do **not** change the transform in the same step,
+lessons C2/C13) and `--ids-file`, which holds **source** ids by design.
+
+```bash
+%%bash
+cd /content/drive/MyDrive/Thesis/kat-vad
+for SPLIT in train test ; do
+  python -m core.tools.extract_clip_features \
+    --frames-dir "$KATVAD_DATA_ROOT/DADA2000_flat" \
+    --ids-file   "$KATVAD_DATA_ROOT/DADA2000_w24s1/${SPLIT}_ids.txt" \
+    --output-dir "$KATVAD_CACHE_ROOT/clip/DADA2000_s1" \
+    --dataset DADA2000 --stride 1 --no-center-crop \
+    --batch-size 64 --device cuda
+done
+```
+
+About 8x the frames of the stride-8 cache (~209 k sampled frames; stride 1 is
+every frame). Budget 2-4 h on a Colab GPU. Resumable
+(skip-if-exists, atomic `.part` writes — lesson C11).
+
+**No RAFT.** Every Phase 2 arm is KIP-off, so flow targets are not needed. A KIP-on
+windowed arm belongs on branch `v3` (lesson C24) and would need `raft_extract` over
+the same `train_ids.txt`.
+
+### 10.3.3 KNN cache — keyed by window centres
+
+```bash
+%%bash
+cd /content/drive/MyDrive/Thesis/kat-vad
+python -m core.data.knn_cache \
+  --data-dir "$KATVAD_DATA_ROOT/DADA2000_w24s1" \
+  --dataset DADA2000 \
+  --clip-dir "$KATVAD_CACHE_ROOT/clip/DADA2000_s1" \
+  --output   "$KATVAD_CACHE_ROOT/knn/DADA2000_w24s1/knn_cache.npz" \
+  --k 10
+```
+
+The CLI reads `windows.json` from `--data-dir` on its own, so each window gets its
+**own** central-frame key — two windows of one clip are different fillers.
+
+### 10.3.4 Gate W — E1/E2, before any training
+
+```bash
+%%bash
+cd /content/drive/MyDrive/Thesis/kat-vad
+python -m core.tools.eda report \
+  --data-dir "$KATVAD_DATA_ROOT/DADA2000_w24s1" \
+  --clip-dir "$KATVAD_CACHE_ROOT/clip/DADA2000_s1" \
+  --dataset DADA2000 \
+  --output-dir "$KATVAD_OUTPUT_ROOT/EDA/DADA2000_w24s1"
+```
+
+| # | criterion | where | threshold |
+|---|---|---|---|
+| **W-1** | clip-length AUC and length-only micro | §3.3 | both **< 0.55**, C28 verdict gone |
+| **W-2** | two-class test windows | §3.4 | **>= 150** |
+| **W-3** | abnormal source retention | preprocessor log | **>= 90 %** |
+| **W-4** | abnormal:normal window ratio | preprocessor log | no worse than **1:3** |
+| — | clip oracle (§3.2) | §3.2 | **printed, not gated** — see below |
+| — | §1.2 kernel span, §1.3 MIL k | §1.2, §1.3 | read them: they say which 2b knobs are degenerate |
+
+Failing any of W-1..W-4 is a **pre-registered stop**: rebuild the geometry, do not
+train.
+
+**Why the oracle is not a gate any more.** It has a closed form —
+`oracle = (F_norm + 0.5·X) / (F_norm + X)`, where `F_norm` is frames in all-normal
+clips and `X` the negative frames *inside* abnormal clips. (It reproduces both
+measured corpora exactly: 0.9086 and 0.9766.) Driving it below 0.75 requires
+`F_norm < X`, i.e. **abnormal windows holding ≥ 62 % of all test frames** — no
+weakly-supervised split looks like that, and even a perfectly balanced one only
+reaches **0.811**. The original E2 threshold of 0.75 was unreachable by
+arithmetic, not by any property of the corpus (lesson **C33**). At the target
+1:1.3 ratio expect **≈ 0.84**; report it beside every micro number (C12) and judge
+arms on `auc_macro` and the clip-mean-removed micro.
+
+### 10.3.5 W0 — the re-baseline arm (the only 2a arm)
+
+Today's hyperparameters on the new corpus. Its job is to be the thing 2b subtracts
+from, not to be good.
+
+```bash
+%%bash
+cd /content/drive/MyDrive/Thesis/kat-vad
+S=2024 ; E=20
+COMMON="--set train.stage=2 --set train.amp=true --set data.dataset=DADA2000 \
+  --set data.is_egocentric=true --set data.frame_stride=1 \
+  --set train.num_epochs=$E --set train.checkpoint_every_steps=200 \
+  --set train.seed=$S --set kip.enabled=false \
+  --data-dir  $KATVAD_DATA_ROOT/DADA2000_w24s1 \
+  --clip-dir  $KATVAD_CACHE_ROOT/clip/DADA2000_s1 \
+  --knn-cache $KATVAD_CACHE_ROOT/knn/DADA2000_w24s1/knn_cache.npz"
+
+python -m core.train $COMMON \
+  --output-dir "$KATVAD_OUTPUT_ROOT/DADA2000_w24s1/$S/w0/stage2"
+```
+
+Report `len(dataset)` and steps/epoch from the log beside every metric — windowing
+changes the train-set size and therefore the effective schedule.
+
+### 10.3.6 2b — the resolution ladder (config only, no new code)
+
+Each arm is W0 plus **one** flag. Do not bundle them; six simultaneous changes
+produce one unattributable number (lesson **C14**).
+
+```bash
+# W1 — the encoder stops being global. The largest of the three spans, and the
+#      one nobody has ever changed.
+python -m core.train $COMMON --set model.temporal_window=9 \
+  --output-dir "$KATVAD_OUTPUT_ROOT/DADA2000_w24s1/$S/w1_tw9/stage2"
+
+# W2 — the score head stops spanning the clip (lesson C27)
+python -m core.train $COMMON --set model.score_head_kernel=3 \
+  --output-dir "$KATVAD_OUTPUT_ROOT/DADA2000_w24s1/$S/w2_k3/stage2"
+
+# W3 — MIL top-k with k > 1 (item 1.4, deferred from Phase 1)
+python -m core.train $COMMON --set loss.mil_topk_pct=8 \
+  --output-dir "$KATVAD_OUTPUT_ROOT/DADA2000_w24s1/$S/w3_topk8/stage2"
+
+# W4 — all three, to see whether they interact
+python -m core.train $COMMON --set model.temporal_window=9 \
+  --set model.score_head_kernel=3 --set loss.mil_topk_pct=8 \
+  --output-dir "$KATVAD_OUTPUT_ROOT/DADA2000_w24s1/$S/w4_all/stage2"
+```
+
+`data.frame_stride` is **not** an arm — it is fixed by which cache you load (C2).
+
+**Two of W0's defaults are degenerate at T = 24, and that is deliberate.**
+`temporal_window=25` makes every token a function of the whole window
+(half_window 12 >= T/2), and `mil_topk_pct=16` gives `k = 24//16 = 1`, the plain
+max. The EDA report says so in §1.2 and §1.3. W0 is therefore *expected* to fail
+E3/E4 — it is the baseline the ladder is subtracted from, not a candidate. W1 and
+W3 are exactly the arms that undo those two degeneracies, which is what makes
+their deltas the attribution this phase exists for.
+
+### 10.3.7 Evaluation — two per arm, and the eval cells go in the notebook
+
+```bash
+%%bash
+cd /content/drive/MyDrive/Thesis/kat-vad
+S=2024
+for ARM in w0 w1_tw9 w2_k3 w3_topk8 w4_all ; do
+  D="$KATVAD_OUTPUT_ROOT/DADA2000_w24s1/$S/$ARM"
+  # (a) in-domain. NO --equalize-length: every window is already one length.
+  python -m core.evaluate --ckpt "$D/stage2/checkpoint_last.pt" \
+    --set kip.enabled=false --set data.dataset=DADA2000 \
+    --data-dir "$KATVAD_DATA_ROOT/DADA2000_w24s1" \
+    --clip-dir "$KATVAD_CACHE_ROOT/clip/DADA2000_s1" \
+    --score-norm auto --save-scores --output-dir "$D/eval_dada"
+  # (b) zero-shot DoTA, the honest transfer column (unchanged stride-8 cache)
+  python -m core.evaluate --ckpt "$D/stage2/checkpoint_last.pt" \
+    --set kip.enabled=false --set data.dataset=DoTA \
+    --data-dir "$KATVAD_DATA_ROOT/DoTA/labels_s8" \
+    --clip-dir "$KATVAD_CACHE_ROOT/clip/DoTA_s8_ncc" \
+    --score-norm auto --save-scores --output-dir "$D/eval_dota"
+done
+```
+
+**Keep these cells in `colab/DADA/v1/train.py` for every arm.** Phase 1 lost three
+arms' eval commands to hand-editing (`RESULTS_DADA_PHASE1.md` section 8.3);
+`results.json` records the checkpoint but not the flags (lesson **C17**).
+
+WARNING: **DoTA's cache is stride 8 while the W-arms train at stride 1.** That is a
+deliberate domain shift *and* a stride shift; say so when reporting the transfer
+column, and do not compare it to Phase 1's DoTA numbers as if only the corpus changed.
+
+### 10.3.8 Reading the result — pre-registered (lesson 14)
+
+Judge every arm on **`auc_macro`**, the **clip-mean-removed micro**, and
+**`d = gap / mean within-clip sigma`** (lesson **C31**) — never raw micro (C12,
+C28). Print the raw score scale (`mean_pos`) beside `d`: a loss that lowers every
+score lowers the raw gap too, which is how Phase 1 was nearly misread.
+
+| Pre-registered | Pass | Fail |
+|---|---|---|
+| E1/E2 at Gate W | the corpus is measurable; continue | stop: the leak has another channel |
+| E3 `auc_macro` > 0.60 under any arm | there is real frame-level signal and the protocol was hiding it | the ceiling is representational or the labels are too coarse -> Phase 3 |
+| E4 clip-mean-removed micro > 0.60 | genuine localization | still a clip classifier |
+| E5 winner replicates at seeds 2025/2026 | reportable | n=1, not a result |
+
+**Expect W1 to move the most** if R2 is an encoder problem, W2 if it is the head. If
+W4 is much larger than W1+W2+W3 the knobs interact and the ladder was necessary.
+Whatever happens, report each delta against **W0**, never against a Phase 1 or
+`RESULTS_DADA.md` arm — those are a different corpus.
+
 ## 11. Pitfalls, mapped to lessons
 
 | Don't | Why | Lesson |
