@@ -339,3 +339,38 @@ field alone to make it parse.** Related: [[lesson-17]] (a run must record every
 flag that defines what it is) and the runbook-path candidate above — the same
 failure at the branch level.
 
+
+**Second instance — 2026-09-14, TAD (`main`).** The runbook-drift candidate above
+said "watch whether TAD's runbook has the same drift". It did, one level up.
+`core/docs/TAD_SETUP.md` on `main` was written against `v3`: it told the reader
+`git checkout v3`, used the `Thesis-V3/kat-vad` repo path, asserted
+`gate_shift.GATE_TYPES == ('rank','mlp_frozen','mlp_ste','constant')` as a
+preflight, and delegated its entire experiment layer to
+`v3/setup/TAD_V3_SETUP.md`, whose six arms raise
+`KeyError: Unknown config key` on `kip.gate_type`, `kip.const_shift_ratio` and
+`kip.disable_pmg` here. Both documents additionally pass
+`train.checkpoint_every_steps`, removed from `TrainConfig` on 2026-09-13
+(`cb7e2ac`) on **both** branches — so that one is a *time* drift, not a branch
+drift, and it proves the same hole from the other side: a runbook is not
+re-validated when the config it drives changes.
+
+Two `main`-only constraints the v3 runbook cannot express, found only by reading
+the tree: `require_flow = cfg.kip.enabled` (`core/train.py:715`) means **every**
+KIP-on arm needs the RAFT cache — v3's cheap flow-free control does not exist
+here; and `adopt_checkpoint_architecture` (`core/inference.py:83`) makes the
+checkpoint authoritative for `model.*`/`kip.*` at eval, so v3's rule "repeat the
+gate flags on every eval command" is inverted on `main` — a contradicting
+`--set kip.*` **raises** ([[lesson-C34]]).
+
+**Gate 3 (RECURRING) is now satisfied for both candidates.** Repaired by
+rewriting `TAD_SETUP.md` as a self-contained `main` runbook with every `--set`
+run through `load_config` on this branch and every shell block expanded in bash,
+plus a §2.3 preflight that asserts the three v3 flags **raise**. Awaiting the
+user's call on promotion to `index.md` (the `meta-index.md` trigger map already
+carries two rows for this failure mode, pointing at [[activeContext]] rather
+than at a numbered lesson).
+
+**Candidate rule (merged, one sentence):** Before copying a command, a flag, a
+file count or a test count out of any document, run `git branch --show-current`
+and parse-test the flags against *that* branch's `core/config.py` — docs and
+tests travel with a merge, config fields do not.

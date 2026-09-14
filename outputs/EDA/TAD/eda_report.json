@@ -1,0 +1,401 @@
+{
+  "corpus": {
+    "classes": [
+      "Normal",
+      "Car Accident"
+    ],
+    "kernel_coverage_test": {
+      "clips": 100,
+      "clips_at_or_below": {
+        "T<=13": 9,
+        "T<=17": 13,
+        "T<=3": 1,
+        "T<=5": 3,
+        "T<=9": 6
+      },
+      "clips_fully_covered": 6,
+      "fraction_frames_fully_covered": 0.0032593933906745133,
+      "fraction_fully_covered": 0.06,
+      "frames_in_fully_covered_clips": 36,
+      "kernel": 9,
+      "mean_coverage": 0.2791718303867099,
+      "median_coverage": 0.20941558441558442,
+      "median_length": 43.0
+    },
+    "lengths": {
+      "raw_total_frames": {
+        "mean": 1055.9254901960785,
+        "n": 510,
+        "name": "raw frames per clip (pre-stride)",
+        "percentiles": {
+          "p0": 21.0,
+          "p100": 15000.0,
+          "p25": 192.75,
+          "p5": 74.45,
+          "p50": 328.5,
+          "p75": 786.0,
+          "p95": 5259.999999999986
+        },
+        "std": 1878.8943782566298
+      },
+      "test_sampled": {
+        "mean": 110.45,
+        "n": 100,
+        "name": "test sampled frames per clip",
+        "percentiles": {
+          "p0": 3.0,
+          "p100": 1362.0,
+          "p25": 25.75,
+          "p5": 8.95,
+          "p50": 43.0,
+          "p75": 76.0,
+          "p95": 450.0
+        },
+        "std": 203.17009499431748
+      },
+      "train_sampled": {
+        "mean": 137.75853658536585,
+        "n": 410,
+        "name": "train sampled frames per clip",
+        "percentiles": {
+          "p0": 5.0,
+          "p100": 1875.0,
+          "p25": 24.0,
+          "p5": 10.0,
+          "p50": 41.0,
+          "p75": 104.75,
+          "p95": 675.0
+        },
+        "std": 241.63391527782804
+      }
+    },
+    "mil_topk_floor_test": {
+      "clips": 100,
+      "clips_at_k1": 35,
+      "fraction_at_k1": 0.35,
+      "k_distribution": {
+        "1": 35,
+        "10": 3,
+        "11": 3,
+        "12": 1,
+        "14": 2,
+        "15": 1,
+        "17": 2,
+        "19": 1,
+        "2": 19,
+        "28": 3,
+        "3": 14,
+        "34": 1,
+        "4": 8,
+        "44": 1,
+        "5": 2,
+        "6": 1,
+        "7": 1,
+        "70": 1,
+        "85": 1
+      },
+      "median_k": 2.0,
+      "topk_pct": 16
+    },
+    "splits": {
+      "dvs_dataset_len": 400,
+      "split_leak_ids": [],
+      "steps_per_epoch_at_batch_64": 7,
+      "test_abnormal": 60,
+      "test_clips": 100,
+      "test_normal": 40,
+      "test_positive_frames": 800,
+      "test_sampled_frames": 11045,
+      "train_abnormal": 200,
+      "train_abnormal_fraction": 0.4878048780487805,
+      "train_clips": 410,
+      "train_normal": 210
+    },
+    "subgroups": {
+      "anomaly_class": {
+        "groups": {},
+        "key": "anomaly_class",
+        "present": false
+      },
+      "class_name": {
+        "groups": {
+          "Car Accident": {
+            "clips": 260,
+            "test_clips": 60,
+            "test_frames": 2385,
+            "test_positive_fraction": 0.33542976939203356,
+            "test_positive_frames": 800,
+            "train_clips": 200
+          },
+          "Normal": {
+            "clips": 250,
+            "test_clips": 40,
+            "test_frames": 8660,
+            "test_positive_fraction": 0.0,
+            "test_positive_frames": 0,
+            "train_clips": 210
+          }
+        },
+        "key": "class_name",
+        "num_groups": 2,
+        "present": true
+      },
+      "ego_involve": {
+        "groups": {},
+        "key": "ego_involve",
+        "present": false
+      },
+      "fault_label": {
+        "groups": {},
+        "key": "fault_label",
+        "present": false
+      },
+      "split": {
+        "groups": {
+          "test": {
+            "clips": 100,
+            "test_clips": 100,
+            "test_frames": 11045,
+            "test_positive_fraction": 0.0724309642372114,
+            "test_positive_frames": 800,
+            "train_clips": 0
+          },
+          "train": {
+            "clips": 410,
+            "test_clips": 0,
+            "test_frames": 0,
+            "test_positive_fraction": null,
+            "test_positive_frames": 0,
+            "train_clips": 410
+          }
+        },
+        "key": "split",
+        "num_groups": 2,
+        "present": true
+      }
+    }
+  },
+  "data_dir": "/content/drive/MyDrive/Thesis/data/TAD",
+  "dataset": "TAD",
+  "frame_stride_assumed": 8,
+  "labels": {
+    "positives": {
+      "abnormal_clips": {
+        "mean": 13.333333333333334,
+        "n": 60,
+        "name": "positive frames per abnormal test clip",
+        "percentiles": {
+          "p0": 1.0,
+          "p100": 41.0,
+          "p25": 8.75,
+          "p5": 3.0,
+          "p50": 12.5,
+          "p75": 17.0,
+          "p95": 28.19999999999999
+        },
+        "std": 7.749551958375114
+      },
+      "abnormal_clips_with_one_positive": 2,
+      "abnormal_clips_with_two_or_fewer": 2,
+      "all_clips": {
+        "mean": 8.0,
+        "n": 100,
+        "name": "positive frames per test clip",
+        "percentiles": {
+          "p0": 0.0,
+          "p100": 41.0,
+          "p25": 0.0,
+          "p5": 0.0,
+          "p50": 6.0,
+          "p75": 14.0,
+          "p95": 23.099999999999994
+        },
+        "std": 8.87130204648675
+      },
+      "positive_fraction_within_abnormal": {
+        "mean": 0.3336625532973232,
+        "n": 60,
+        "name": "positive fraction within abnormal clips",
+        "percentiles": {
+          "p0": 0.125,
+          "p100": 0.7692307692307693,
+          "p25": 0.23952380952380953,
+          "p5": 0.2,
+          "p50": 0.32291666666666663,
+          "p75": 0.41299019607843135,
+          "p95": 0.48467741935483866
+        },
+        "std": 0.11218288421533072
+      }
+    },
+    "spans": {
+      "multi_span_clips": 9,
+      "multi_span_examples": [
+        "01_Accident_054",
+        "01_Accident_067",
+        "02_IllegalTurn_006",
+        "02_IllegalTurn_007",
+        "03_IllegalOccupation_002",
+        "04_Retrograde_005",
+        "06_PedestrianOnRoad_007",
+        "06_PedestrianOnRoad_014",
+        "06_PedestrianOnRoad_018"
+      ],
+      "span_length": {
+        "mean": 11.428571428571429,
+        "n": 70,
+        "name": "span length (sampled frames)",
+        "percentiles": {
+          "p0": 1.0,
+          "p100": 26.0,
+          "p25": 6.0,
+          "p5": 2.45,
+          "p50": 11.0,
+          "p75": 15.0,
+          "p95": 22.0
+        },
+        "std": 6.280517332129867
+      },
+      "spans_per_abnormal_clip": {
+        "mean": 1.1666666666666667,
+        "n": 60,
+        "name": "spans per abnormal test clip",
+        "percentiles": {
+          "p0": 1.0,
+          "p100": 3.0,
+          "p25": 1.0,
+          "p5": 1.0,
+          "p50": 1.0,
+          "p75": 1.0,
+          "p95": 2.0
+        },
+        "std": 0.4149966532662911
+      }
+    },
+    "vanished_windows": {
+      "clips_without_explicit_span_field": 60,
+      "count": 0,
+      "negative_windows_of_abnormal_clips": 0,
+      "unit": "clip",
+      "video_ids": []
+    }
+  },
+  "mil_topk_pct": 16,
+  "protocol": {
+    "clip_constant_oracle": {
+      "ap_micro": 0.33542976939203356,
+      "auc_macro": 0.5,
+      "auc_micro": 0.9226451927769644,
+      "definition": "constant score per clip = clip label; zero within-clip ranking"
+    },
+    "clip_length_leak": {
+      "abnormal_length": {
+        "mean": 39.75,
+        "n": 60,
+        "name": "abnormal clip length T",
+        "percentiles": {
+          "p0": 5.0,
+          "p100": 99.0,
+          "p25": 26.75,
+          "p5": 10.95,
+          "p50": 36.0,
+          "p75": 50.0,
+          "p95": 76.0
+        },
+        "std": 19.554730885389347
+      },
+      "ap_micro": 0.26684321529787447,
+      "auc_clip_level": 0.6939583333333333,
+      "auc_macro": 0.5,
+      "auc_micro": 0.8967914836505612,
+      "definition": "constant score per clip = clip length (signed to the predictive direction); zero within-clip ranking, no pixels read",
+      "direction": "shorter",
+      "disjoint_normal_clips": 21,
+      "disjoint_normal_frames": 8049,
+      "normal_length": {
+        "mean": 216.5,
+        "n": 40,
+        "name": "normal clip length T",
+        "percentiles": {
+          "p0": 3.0,
+          "p100": 1362.0,
+          "p25": 22.5,
+          "p5": 6.8500000000000005,
+          "p50": 139.0,
+          "p75": 261.75,
+          "p95": 731.6499999999988
+        },
+        "std": 289.6157799568249
+      }
+    },
+    "frame_share": {
+      "clips": {
+        "all_normal": 40,
+        "all_positive": 0,
+        "mixed": 60
+      },
+      "frame_fraction": {
+        "all_normal": 0.7840651878678135,
+        "all_positive": 0.0,
+        "mixed": 0.21593481213218652
+      },
+      "frames": {
+        "all_normal": 8660,
+        "all_positive": 0,
+        "mixed": 2385
+      },
+      "total_frames": 11045
+    },
+    "macro_resolution": {
+      "auc_grid_step": {
+        "mean": 0.012317557430394968,
+        "n": 60,
+        "name": "per-clip AUC resolution (1 / (pos * neg))",
+        "percentiles": {
+          "p0": 0.0004591368227731864,
+          "p100": 0.25,
+          "p25": 0.0018467643467643467,
+          "p5": 0.0007423566017316017,
+          "p50": 0.0035973084886128364,
+          "p75": 0.007310267857142857,
+          "p95": 0.03630952380952377
+        },
+        "std": 0.036468842990789174
+      },
+      "single_class_clips": 40,
+      "two_class_clips": 60
+    },
+    "pair_decomposition": {
+      "cross_clip_fraction": 0.9969152025378233,
+      "cross_clip_pairs": 8170717,
+      "total_pairs": 8196000,
+      "within_clip_fraction": 0.0030847974621766717,
+      "within_clip_pairs": 25283
+    },
+    "score_norm_auto": {
+      "normal_clip_fraction": 0.4,
+      "resolves_to": "none",
+      "threshold": 0.05
+    }
+  },
+  "score_head_kernel": 9,
+  "sections": [
+    "corpus",
+    "labels",
+    "protocol"
+  ],
+  "verdicts": [
+    {
+      "action": "Report auc_macro as the headline and print this oracle beside any micro number. Never place a micro number from this corpus next to a published frame-level AUC.",
+      "detail": "A constant-score-per-clip oracle scores micro AUC 0.9226 with zero localization; 99.7% of the positive/negative pairs span two clips.",
+      "level": "CRITICAL",
+      "title": "Micro AUC here is mostly clip classification (lesson C12)"
+    },
+    {
+      "action": "Rebuild the corpus into fixed-length windows with the anomaly at a random offset. Until then, print this baseline beside every micro AUC and treat any arm that fails to beat it as unmeasured.",
+      "detail": "A constant-score-per-clip detector reading only the clip's frame count scores clip-level AUC 0.6940 and micro AUC 0.8968 \u2014 shorter clips are the abnormal ones. 21 normal clips (8,049 frames) fall outside the abnormal length range entirely.",
+      "level": "CRITICAL",
+      "title": "Clip length alone predicts the label (lesson C28)"
+    }
+  ]
+}
