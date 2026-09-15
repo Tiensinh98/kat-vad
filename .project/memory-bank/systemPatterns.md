@@ -1,7 +1,9 @@
 # System Patterns — architecture & design decisions
 
 **Created:** 2026-07-31 (re-init from `b9978ff`, verified against the tree)
-**Last reviewed:** 2026-09-08 (branch identity; v3-only components marked)
+**Last reviewed:** 2026-09-15 (later — corpus construction: closing the length
+leak and lowering the clip oracle are separate jobs; earlier the same day, the two
+text paths and the `L_neg` wiring documented)
 
 > **Branch `main` = KAT-VAD v1.** Anything below marked **[v3 only]** is *not in
 > this tree* — it lives on branch `v3` (tip `bb1516c`). It is documented here
@@ -36,6 +38,29 @@ Assembly lives in `core/models/kat_vad.py`. **The only splice** is KIP between
 temporal encoder and fusion: when `kip.enabled`, `v^k` feeds fusion, the H_bin
 pre-path and `L_neg`; when off, `v^t` does. Text encoding is decoupled
 (`encode_text`) so visual-path tests need no CLIP weights.
+
+### The two text paths — do not conflate them
+
+| | source | consumer | status |
+|---|---|---|---|
+| **class definitions → `z^t`** | **hardcoded** `core/data/definitions.py::DATASET_CLS_DEFS` — *never* an annotation file | frozen CLIP text + 32 soft prompts → fusion `U`, `H_bin`, `H_mul` | **always active.** `DatasetSpecVerbalizer` samples one of N sentences per class per item, RNG seeded from the item id (**C30**) |
+| **`descriptions` → captions → `L_neg`** | the `descriptions` field of an annotation; **only PreVAD ships it** (`core/data/prevad.py:172`) | `CapContrastLoss` | **never wired** (gap G4). Reaches `meta.json` only, never `labels_train.json`; nothing reads it back |
+
+So `descriptions: null` in a TAD/DoTA/DADA/MSAD annotation is **expected**, and
+the definition-conditioning claim is unaffected by it. `verbalize_class_name`
+falls back to the bare class name for an undefined class (**C19**) — TAD's
+coverage is 2/2 so no fallback fires there, but `C = 2` makes the conditioning
+surface a single bit, which is part of why TAD collapses (see [[activeContext]]).
+
+`L_neg` itself is **not** a clip-level loss, which is why it is the most
+promising untried objective-side lever: `attn = softmax(logits / 0.02)` then
+`agg_v_feats = attn @ v_feats` pools **under the model's own anomaly curve**, so
+matching a caption forces that curve onto frames whose content matches it; and
+`contrast_type='n3'` mines an abnormal clip's lowest-scoring frames as extra
+*negatives*. That is the **directed** form of the pressure `bottomk` applied
+blindly and failed with. Guard to respect first: `N3_MIN_SCORE_RANGE = 0.2` skips
+flatter videos — at measured eval-time ranges only 14/60 TAD abnormal clips
+qualify (`gate_t0` 18/60).
 
 ### Four structural facts that are easy to state wrongly
 
@@ -193,6 +218,12 @@ Full text in `core/docs/TRAINING.md`. Three of them:
 2. **Captions off by default** on description-less datasets (MSAD ships none).
    `loss.captions_from_definitions=true` synthesizes them from the verbalizer —
    caveat: same-class videos then become InfoNCE false negatives.
+   **Measured consequence (2026-09-15): `L_neg` has effectively never run.** Of
+   all 55 `config.yaml` under `outputs/`, 54 have the flag false — `captions`
+   stays `None`, so `core/train.py:375`'s guard skips the term outright and
+   `cap_contrastive_weight: 1.0` is decoration. The one exception,
+   `outputs/v1/PreVAD/stage2_kip_off`, still used *fabricated* captions. The real
+   `descriptions` field has never been used by any run (gap **G4**).
 3. **Scheduler** implemented in-house rather than via `transformers`.
 
 ## Data pipeline
@@ -243,6 +274,36 @@ symlink farm under the unique id and both tools are pointed at that instead
 (lesson C26). Weak supervision is preserved: a train record's window goes into
 `meta.json` only, never into `labels_train.json`.
 
+### Corpus construction — where the negative bags come from (2026-09-15)
+
+`core/data/windows.py` + `dada.py:plan_record_windows` (shipped `b48508a`)
+re-shard clips into equal-length windows. Two failure modes are now separated,
+and conflating them cost two rebuilds:
+
+* **Closing the length leak (C28)** is what fixed-length windows do, and they do
+  it perfectly: `DADA2000_w32s2` and `_w24s1` both measure exactly **0.5000**.
+* **Lowering the clip oracle (C12/C33)** is a *different* job. The oracle follows
+  the **frame share** — `(F_norm + 0.5X)/(F_norm + X)` — so it moves only when
+  abnormal bags carry more of the frames. Both rebuilds drew negatives from
+  `0_Normal_Driving`, a separate pool ~3× longer, and a fixed hop yields windows
+  in proportion to clip length: abnormal held 7.5 % of frames → oracle 0.9766,
+  35 % → 0.8965. **`w24s1` kept 406 abnormal test clips and its oracle is still
+  0.8965, so "the clips were too short" is not the explanation.**
+
+> **Design rule.** Cut the negative windows from *inside* the abnormal videos —
+> the stretches outside `[tai, tae]`. Same camera, same scene, same seconds, so
+> no domain shortcut; and the class ratio is then set by the anomaly's share of
+> the clip, not by a length difference between two pools. On the original
+> DADA-2000 release that gives abnormal 67 % of frames → oracle **0.6631**.
+> This requires source clips long enough to hold both a positive and a negative
+> window, which the *trimmed* archive (raw median 56) is not and the original
+> (raw median 322) is.
+
+An imported normal pool is worse still when it comes from another dataset: a
+source probe on CLIP features would separate it in a single frame, which is
+strictly worse than the length leak. Pre-register that probe (≥0.90 AUC ⇒ no
+in-domain claim) before any cross-dataset normal source.
+
 `core/data/dataset.py` implements DVS: `θ` = *no-synthesis* probability,
 `__len__ = 2 × num_anomaly`, fillers 50% KNN / 50% random-normal, yields
 `v_feat / e_o / y^p / is_synthesized / cls_label`. `require_flow=False` yields
@@ -251,7 +312,8 @@ trainable without any flow cache** (`core/docs/PREVAD_SETUP.md` §7).
 
 ## Testing pattern
 
-**On `main` (verified 2026-09-08): 418 collected → 418 pass, 0 fail.** The 12
+**On `main`: 514 collected → 514 pass, 0 fail** (re-measured 2026-09-15; 418 at
+the 2026-09-08 repair, 508 on 2026-09-13). The 12
 that used to fail were `TestDadaTrainsUnderEveryGate` (5) +
 `TestTadTrainsUnderEveryGate` (7), written on `v3` and parametrized over the
 v3-only `kip.gate_type`; `core/config.py` raises on unknown keys **by design**,

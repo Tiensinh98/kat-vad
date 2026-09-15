@@ -10,7 +10,7 @@
 >
 > | | `main` (this branch) | `v3` |
 > |---|---|---|
-> | tip | `814c177` (was `6a5f648` when this table was written) | `bb1516c` |
+> | tip | `702bd5b` (was `814c177`, earlier `6a5f648`) | `bb1516c` |
 > | diverged at | `fac71a3` ("docs: Update result for PreVAD") | same |
 > | KIP | **v1 only** — `PMGFlowHead` → `KinematicShift` (frozen 321-param MLP gate) → `MotionScoreHead` | v1 **+** four selectable `gate_type`s, ECMR, gate diagnostics |
 > | `kip.gate_type` | **does not exist** (`core/config.py` raises `KeyError`) | `rank` (default) / `mlp_frozen` / `mlp_ste` / `constant` |
@@ -24,10 +24,494 @@
 > this branch *this file and `progress.md` are the only durable record of the
 > attribution campaign*. Do not delete them; do not re-run those arms here.
 
-**Last Memory Bank Update:** 2026-09-13 (first windowed rebuild failed Gate W;
-geometry corrected, 4 code fixes, lessons C32/C33 added)
+**Last Memory Bank Update:** 2026-09-15 (latest — **Phase 0 PASSES P1/P2/P3** on
+the DADA-2000 **original** release; earlier that day the corpus was adopted with
+T2 windowing and P2 alone had passed, and earlier still, the TAD campaign).
+*This entry updated `activeContext.md` and `pending.md` only — not a six-file
+reconcile; counts below are carried over from the previous update.* Counts re-measured on this tree: **81 Python files** (55 source +
+26 test), **11,756** source LOC, **23 docs**, **514 collected → 514 pass**.
 
-## 2026-09-13 (latest) — the first windowed rebuild FAILED Gate W; geometry corrected
+## 2026-09-15 (latest) — **Phase 0 PASSES all three gates.** DADA-original is real data
+
+**No code in `core/` changed.** Executed on Colab (CPU), recorded in
+`colab/DADA2000Origin/phase_0.ipynb`; artifacts
+`outputs/EDA/DADA2000Origin/{probe_clips.json,phase0_report.md}`. Docs edited:
+`core/docs/DADA_ORIGIN_PHASE0.md` §3.2 (measured disk numbers), **§3.3 new**,
+**§7.1 new**, §6 (`check_p1.py` rewritten), §8 table filled, **§8.1 new**; one
+candidate appended to `lessons-learned/pending.md`.
+
+| gate | result | verdict |
+|---|---|---|
+| **P2** layout | `DADA2000/{type}/{video:03d}/images/{frame:04d}.png`; 52/52 types; `missing on disk 0/30` | **PASS** |
+| **P1** frame match | **29/30 = 96.7 %** within ±2 — all 29 match **exactly**; one miss `36/002` at **−3/345 = −0.87 %** | **PASS** (§6.1 row 1) |
+| **P3** decode | **5/5 ok**, native **660 × 1584** → `(8,3,224,224)` float32, range ≈ [−1.79, 2.15] | **PASS** |
+
+**The original release is NOT trimmed.** That was the one thing that could have
+voided `.project/plans/katvad-dada-original-corpus.md` outright, and it is now
+measured, not assumed.
+
+### 1. The cross-check that settles it
+
+`sum(total)` over the 30 probe rows = **10,326**; `7z x` reported
+`Files: 10323`. Difference **exactly −3** — the single `36/002` miss and nothing
+else. So 29 of 30 clips match the annotation **to the frame** (the ±2 tolerance
+was never used), *and* the extraction pulled `images/` only. Stronger evidence
+than the 96.7 % headline.
+
+### 2. ⚠️ The P1 output's own warning was a FALSE ALARM — and that is the lesson
+
+`check_p1.py` closed with *"the clips were TRIMMED … the fraction mapping in
+`core/data/dada.py:296` is then WRONG"*. It printed that **unconditionally**
+whenever any mismatch existed: here, over **one** clip at **−0.87 %**, at a
+**96.7 %** match rate — the decision table's clearest PASS. The defect it names
+measures **−79 %**. Anyone trusting the log over §6.1 would have stopped a
+migration that had just passed.
+
+**Fixed.** §6's script now carries §6.1's thresholds as constants
+(`PASS_RATE`/`NOTE_RATE`/`MAX_MISSING`/`TRIM_MIN_{N,AGREE,REL}`), prints a
+`VERDICT:` line in all four branches, prints `matched EXACTLY`, and states `n`.
+Verified on four fixtures: the real probe → PASS, a −79 % trim → STOP, an empty
+root → BACK TO P2, 83 % with two-sided ±5 → PASS WITH A NOTE. Candidate filed:
+*"a diagnostic's prose must implement its own decision table"* (C33's family one
+step later; C14 is the consequence).
+
+### 3. NEW — native **1584 × 660 = 2.40 : 1**, recorded nowhere before
+
+`preprocess_frames(center_crop=False)` resizes **anisotropically** to 224²
+(`core/tools/extract_clip_features.py:57-72`). So each corpus is squashed by its
+own aspect ratio: DoTA 1280×720 → **1.78×**, DADA-original 1584×660 → **2.40×**.
+**DADA-original frames are distorted 1.35× more than DoTA's.**
+
+Not a C2/C13 violation — one transform, and this corpus gets its own cache
+`clip/DADA2000_orig_w16s8`. But it is a **domain-shift term sitting directly on
+the DoTA-transfer column**, named *before* the measurement so it cannot be
+produced afterwards as an excuse. **Do not "fix" it** with `center_crop=True`:
+that isolates this corpus on a transform nothing else uses, breaks the
+appearance/flow field-of-view match (C13), and voids comparison with every
+`_ncc` artifact since 2026-08-12.
+
+### 4. Probe properties worth carrying into Phase 2
+
+30 clips, `--seed 2024`, one per type over 30 of 52 types (`pick_probe.py` takes
+one per type, shuffles, truncates to `--n` — 22 types untouched).
+
+* `total frames` median **346** → **43** sampled frames at stride 8, vs the
+  trimmed archive's **9**. `score_head_kernel=9` spans 20.9 %, not 100 % (C27).
+  The plan's `9 → 3` applies to the T2 **windows** (W=16), not to these clips.
+* Positive fraction median **0.376** (archive: 0.351). **C29 survives the corpus
+  swap** — DVS would still train ~62 % of anchor frames to 1 against a 0
+  annotation. `loss.dvs_anchor_mode=ignore` stays the relevant arm.
+* Disk sizing measured: `/content` free **87 G of 108 G**, archive **117 G**,
+  `images` **94.01 GiB** → **Phase 2 must shard** (~200 clips ≈ 9.6 GiB each).
+
+### 5. What Phase 0 does NOT establish — read before citing it
+
+1. **A corpus-wide P1 rate.** 29/30 → Wilson 95 % lower bound **≈ 0.83**. P1 is a
+   **hard stop**, so re-run it over all 1,962 clips in Phase 2.
+2. **Resolution uniformity.** 5 clips × 8 frames. §7.1 (a) sweeps all 30 from
+   PNG headers, no decode.
+3. **That all 1,962 clip directories exist.** Cell 10 counted *types*, not
+   *videos*; §3.1's +0.30 % aggregate assumes full presence, and a shortfall plus
+   an overcount would cancel inside it. §7.1 (b) counts them from
+   `/content/listing.txt`.
+4. **Anything about D0.** Phase 0 says the data is what the annotation claims —
+   nothing about whether frozen CLIP carries frame-level signal here (§0.2).
+
+The Drive xlsx was never `md5sum`-ed (cell 5 listed the symlink, not the
+directory). Substitute: `pick_probe.py` on the **Drive** copy printed
+`1945 annotated clips over 52 types`, identical to the committed file's count —
+the two agree on **population**, not necessarily byte-for-byte.
+
+### 6. Correction to a claim repeated in `CLAUDE.md` and in this file
+
+**`outputs/` is not gitignored.** `.gitignore:43` ignores **`outputs/v*`** only;
+`outputs/EDA/**` is **tracked** (26 files: DADA2000, DADA2000_A2_s2024,
+DADA2000_w24s1, DADA2000_w32s2, DoTA, TAD). So `outputs/EDA/DADA2000Origin/` is
+committable and durable. What *is* lost with `outputs/v*` are the per-arm scores
+and `results.json` — that part of the claim stands.
+
+### 7. Next
+
+1. §7.1 follow-ups (a) resolution sweep over all 30 probe clips and (b)
+   clip-directory count — cheap, top of the Phase 1 session.
+2. **Gate D0** — CLIP features for ~400 clips, then
+   `python -m core.tools.eda run --sections features`. Bar: frame linear probe
+   `auc_macro` **≥ 0.60**; **< 0.55 STOPS the plan** and the deliverable becomes
+   the negative result. Reference: DoTA **0.6708** on the same features; the
+   DADA *archive* **0.5228**.
+3. Only then Phase 2 (T2: W=16 hop 8, `score_head_kernel` 9 → 3), sharded.
+
+**A P1 pass is not permission to skip D0** (§0.2, trap 7). Nothing enters `core/`
+until `trace_call_path` has been run and its blast radius reported.
+
+---
+
+## 2026-09-15 — the DADA-2000 **original** corpus is adopted; Phase 0 P2 PASSES
+
+**No code changed.** New: `.project/plans/katvad-dada-original-corpus.md`,
+`core/docs/DADA_ORIGIN_PHASE0.md`, one candidate in `lessons-learned/pending.md`.
+Every number below is simulated from `data/DADA/dada标注.xlsx` (1,945 valid
+accident rows) plus real per-clip lengths from
+`outputs/v3/DADA2000/kipoff_s2024/eval_dada/results.json` — **no pixels touched**
+except Phase 0's P2, which is measured on the real archive.
+
+### 1. `data/DADA/dada标注.xlsx` IS the original DADA-2000 annotation
+
+Joined against `Cleaned_Metadata.csv`: the CSV's 975 keys are a **strict subset**
+of the xlsx's 1,962, with **0/975 mismatches** on `texts` and on
+`(abnormal start frame, abnormal end frame, total frames)`. The CSV adds exactly
+one column, `Fault_Label`, which **the original release does not have** — its key
+is `(type, video)`, unique across all 1,962 rows.
+
+**Trap: the two sheets are named the opposite of what they hold.**
+`name="text"` → `sheet1.xml` = the type 1–38 taxonomy; `name="Sheet1"` →
+`sheet2.xml` = the 1,962-row per-clip table. A hardcoded `SHEET = "text"` parses
+zero rows and the failure reads like a corrupt file. `pick_probe.py` now detects
+the sheet by required columns.
+
+### 2. `L_neg` cannot be activated from this file — three reasons, measured
+
+* `texts` is **not** a per-video description: **83 normalized / 96 raw** unique
+  strings over 1,962 videos (~23 videos per caption; the top string covers
+  **12.2 %**). `asymmetric_infonce_loss` treats each caption as the positive of
+  exactly one video, so at `BATCH_SIZE = 64` (~32 abnormal rows) same-caption
+  rows become **false negatives** — the caveat already written at
+  `core/config.py:92`, now with a number.
+* No code path reads a per-video caption at all: `core/train.py:268-286` builds
+  captions only from `captions_from_definitions`. Gap **G4** intact.
+* The `n3` mining branch — the *directed* pressure `bottomk` lacked — is gated by
+  `N3_MIN_SCORE_RANGE = 0.2` and would almost never fire on clip-classifier arms.
+
+Not a leak risk, at least: `texts` does **not** predict clip length (per-caption
+median total frames 261–420, heavy overlap), and carries no timing.
+
+### 3. THE DECISION — train on the ORIGINAL release, windowed (T2)
+
+`.project/plans/katvad-dada-original-corpus.md`. **Supersedes
+`katvad-dada-phase2-corpus-rebuild.md`**, which re-sharded the *trimmed* archive.
+
+| option | length leak | clip oracle | kernel-9 | abnormal kept | trainable |
+|---|---:|---:|---:|---:|---|
+| original full-length, all-abnormal | *undefined* (1 class) | 0.5000 under min-max | **22.5 %** | 100 % | **no — no negative bags** |
+| original + `0_Normal_Driving` | **0.8539** | — | 22.5 % | 100 % | yes |
+| prefix-split at `tai` | **0.6782** | — | ok | 91 % | yes |
+| length-matched subsample | 0.5143 | **0.7517** | 34.6 % | **28 %** | yes |
+| **T2 — W=16 hop 8, windows from inside the accident videos** | **0.5000** | **0.6631** | 18.8 % at kernel 3 | **98.1 %** | yes |
+
+T2 = 4,053 abnormal + 1,962 normal windows from 1,908 source videos, 1,159 of
+which contribute both classes. **The code already exists on `main`**
+(`plan_record_windows`, `b48508a`); only `--window-length 16 --window-stride 8`
+and `model.score_head_kernel 9→3` change.
+
+### 4. Why the earlier rebuilds failed — the stated reason was WRONG
+
+`outputs/EDA/DADA2000_{w32s2,w24s1}` were read this session:
+
+| corpus | test abn / nor | leak | oracle | macro population |
+|---|---:|---:|---:|---:|
+| `DADA2000` | 191 / 192 | 0.8105 | 0.9086 | 190 |
+| `w32s2` (W=32, stride 2) | **57 / 703** | 0.5000 | **0.9766** | **57** |
+| `w24s1` (W=24, stride 1) | 406 / 755 | 0.5000 | 0.8965 | 370 |
+
+"The clips were too short" explains **only `w32s2`**. `w24s1` kept 406 abnormal
+test clips and its oracle is **still 0.8965**. The root cause is **where the
+negatives came from**: both drew them from `0_Normal_Driving`, a separate pool
+~3× longer, and a fixed hop yields windows in proportion to clip length.
+
+> **Closing the leak and lowering the oracle are two different jobs.** Fixed
+> windows closed the leak exactly (0.5000) in both rebuilds. The oracle follows
+> the **frame share** (C33's `(F_norm + 0.5X)/(F_norm + X)`): abnormal hold
+> 7.5 % → 0.9766, 35 % → 0.8965, **67 % → 0.6631**. Only negatives drawn from
+> inside the abnormal videos move it.
+
+### 5. `0_Normal_Driving` is ALSO trimmed — new, and it kills the easy plan
+
+```
+original DADA video (xlsx)   raw median 322 frames
+0_Normal_Driving (archive)   raw median 152   (19 sampled x 8)
+abnormal         (archive)   raw median  56   ( 7 sampled x 8)
+```
+
+Both classes were cut, just unequally. So dropping the original full-length
+abnormal clips beside the archive's normals **inverts** the leak rather than
+closing it: 0.8105 (abnormal shorter) → **0.8539** (abnormal longer). Method
+validated — it reproduces the published 0.8105 exactly on the trimmed data.
+
+### 6. DoTA read from `outputs/EDA/DoTA` — two facts nobody had recorded
+
+* **frame linear probe `auc_macro` = 0.6708**, clip oracle micro **0.5017**,
+  **1,392/1,397 clips are mixed**. So the DADA EDA's CRITICAL verdict *"the
+  features carry no frame-level signal"* (probe 0.5228) is a property of **that
+  degenerate corpus, not of frozen CLIP**. This is the main reason to expect
+  Gate D0 to pass.
+* **`train_clips: 0`, `test_normal: 3`.** DoTA cannot be trained on — same
+  blocker as the original DADA — and it is the project's **only held-out
+  benchmark**; training on it would void `RESULTS_{DOTA,NCC,PHASE_A}`, the v3
+  attribution, and every DoTA transfer column.
+
+> **The pattern worth naming:** every corpus with negative bags is degenerate
+> (MSAD is clean but CCTV; TAD collapses; DADA-archive leaks), and every clean
+> corpus has none (DoTA 3 normals, DADA-original 0). T2 is the only construction
+> that manufactures negatives without importing a second pool.
+
+### 7. Phase 0 — P2 **PASSES**, measured on the real archive
+
+```
+DADA2000/{type}/{video:03d}/{subdir}/{frame:04d}.png
+52 types on disk == 52 types in the xlsx, none missing, none extra
+```
+
+| subdir | files | GiB | needed |
+|---|---:|---:|---|
+| **`images`** | 651,320 | **94.01** | ✅ RGB frames |
+| `maps` / `seg` / `semantic` / `fixation` | — | 11.96 / 10.33 / 4.04 / 3.16 | ❌ driver-attention task |
+
+Aggregate frame count **651,320 on disk vs 649,399 annotated = +0.30 %**
+(~+1 frame/clip) — against **−79 %** for the trimmed archive. A strong
+pre-signal for P1, **not a substitute**: P1 is per-clip and still has to run.
+
+**Sizing:** archive 116.7 GiB compressed over 6 volumes, `images` 94.01 GiB,
+`/content` free ~88 GB → **Phase 2 must shard** (~200 clips ≈ 9.6 GiB each;
+extract → features → delete → next). Persisted output ≈ **167 MB**. Freeing
+Drive space does not help; the constraint is the VM overlay.
+
+### 8. Next — **SUPERSEDED, all three gates ran the same day**
+
+*(What this entry planned. P1/P3 were executed hours later; see the entry above
+for the results. Kept for the record, not as an instruction.)*
+
+`DADA_ORIGIN_PHASE0.md` §4 → §7: pick 30 clips, extract `…/images/*`, run **P1**
+(hard stop), then **P3**. Then Gate **D0** — frame linear probe, PASS ≥ 0.60,
+**STOP < 0.55**. Nothing enters `core/` until `trace_call_path` has been run and
+its blast radius reported.
+
+---
+
+## 2026-09-15 — TAD is measured end to end, and in-domain training DESTROYS localization
+
+**No code changed.** Docs only: `core/docs/TAD_SETUP.md` gained §8.1, §13.0,
+§14.1a, §15.1 plus edits to §15/§16; `.project/plans/katvad-tad-loss-ladder.md`
+is new. All numbers recomputed offline from `outputs/v1/TAD/**/scores/*.npz`
+(C22b: 4/4 arms reproduce their `results.json` to |Δ| = 0, 100/100 clips,
+11,045/11,045 frames).
+
+### 1. Three reference gates were re-run and reproduce EXACTLY
+
+| run | micro | macro | matches |
+|---|---:|---:|---|
+| `PreVAD/gate_p0` | **0.9031** | 0.6721 | `RESULTS_PREVAD.md:163` to 4 dp |
+| `MSAD/MSAD_ncc/full_gate_a` | **0.8949** | 0.7177 | `RESULTS_PREVAD.md:249` to 4 dp |
+| `DoTA/gate_a` | **0.6012** mm / 0.4956 raw | 0.6158 | `RESULTS_NCC.md:54` to 4 dp |
+
+Three corpora, three independent re-runs, no drift. The eval pipeline is a
+controlled variable from here on.
+
+### 2. TAD EDA — two CRITICAL verdicts BEFORE any training (`outputs/EDA/TAD`)
+
+* **clip oracle** (one constant score per clip, perfect clip ranking, zero
+  localization) scores **micro AUC 0.9226**; **99.69 %** of positive/negative
+  frame pairs span two clips, so only 0.31 % can be won by localizing.
+* **length ruler** (`score = -T`, no pixels) scores clip-AUC **0.6940**, micro
+  **0.8968**. Abnormal clips median **36** sampled frames, normal **139** — 3.9×
+  longer; 21 normal clips lie entirely outside the abnormal length range.
+* Test 100 clips (60 abnormal / 40 normal), 800 positive frames (7.24 %).
+  Train 410 (200 abnormal / 210 normal) → DVS length 400 → **7 steps/epoch**,
+  E=72 → **504 steps**. Median clip 43; kernel 9 spans **20.9 %**; 35 % of test
+  clips sit at MIL k=1. Positive fraction within an abnormal clip: median
+  **0.33**. Positive-span length: median **11** sampled frames.
+
+**The published 89.56 sits BETWEEN the ruler (0.8968) and the oracle (0.9226).**
+
+### 3. Gate T0 = **0.7912** — FAILS by 10.4 points, and the failure is diagnosed
+
+`TAD_SETUP.md` §8's table sends a 0.79 to "pipeline defect, prime suspect §4.3
+frame ordering". **Four of five suspects are exonerated by measurement** (§8.1):
+
+| check | result |
+|---|---|
+| ids vs LaGoVAD's own `tad_test_anno.json` | 100/100, none extra or missing |
+| frame labels rebuilt from that file's `anomaly_span` | **0/100 mismatch** |
+| stride | ours 8 · baseline `full_length_eval.py:28` `interval=8` |
+| pooling | ours `none` · baseline raw |
+| **frame ordering** | **macro 0.7578, d = +0.90 — shuffled frames give macro ≈ 0.50** |
+
+> **A macro AUC clear of 0.50 exonerates frame ordering in one step. Read it
+> before re-auditing any ingest.** This is now a row in §8's decision table.
+
+Two suspects survive, and the first covers most of the gap: micro on TAD is a
+**length-weighted clip classifier** (equal-clip-weighted micro drops 0.7912 →
+**0.6574**; the ruler alone beats us at 0.8968), and we unzip frame folders where
+LaGoVAD ran `ffmpeg select mod(n,8)` on mp4s — a few frames of `T` drift moves
+micro this much with no bug. Second: transform (`_ncc`, **C13/C2**; ncc already
+costs `best.ckpt` 0.8991→0.8949 on MSAD and 0.6142→0.6012 on DoTA).
+
+**Per C8b, `0.7912` is the reference for every TAD arm. 89.56 is retired from
+every TAD table** — reproducing it perfectly would still be reproducing clip
+classification.
+
+### 4. THE RESULT — in-domain TAD training collapses the model into a clip classifier
+
+All arms seed 2024, KIP-off, E=72, 504 steps, config-diffed (each differs only in
+the flag under test). Micro AUC is **banned** as a headline here.
+
+| arm | clip AUC | macro TAD | d per-clip | DoTA macro | (micro) |
+|---|---:|---:|---:|---:|---:|
+| `gate_t0` — `best.ckpt`, never saw TAD | 0.7687 | **0.7578** | +0.9032 | **0.6158** | 0.7912 |
+| `m0` — cold, KIP-off | **0.9975** | 0.6174 | +0.4189 | 0.5496 | 0.9237 |
+| `t1_dvsignore` | 0.9967 | 0.6209 | +0.4282 | 0.5484 | 0.9230 |
+| `t1_bottomk` | 0.9979 | 0.6016 | +0.3280 | 0.5331 | 0.9252 |
+| `t1_both` | 0.9975 | 0.6028 | +0.3373 | 0.5305 | 0.9248 |
+| **`t2_warm`** — warm-started from the PreVAD trunk | 0.9958 | **0.6540** | **+0.5482** | **0.5887** | 0.9245 |
+
+**`m0`'s micro 0.9237 lands on the clip oracle's 0.9226.** It converged to the
+shortcut. Clip-level AUC **0.9975**.
+
+**Mechanism.** Under clip-level MIL nothing lowers a frame inside a positive bag
+(`mil_loss` raises the top-k, `pseudo_sup_mil_loss` the in-span top-k,
+`multi_class_mil_loss` the class top-k). TAD's abnormal clips are only 33 %
+positive, so **67 % of every abnormal clip's frames receive no downward
+pressure** — the C29 hole one level up. And TAD's two classes are literally two
+directories with different length distributions, so a per-clip constant satisfies
+`L_MIL` completely. **Localization is never required, so it is never learned.**
+
+### 5. The T-ladder is FALSIFIED — and it failed differently from DADA
+
+Pre-registered (`TAD_SETUP.md` §15.1): `t1_bottomk` must move all four columns
+right. It moved **3/3 measurable columns wrong**, and DoTA macro fell too
+(0.5496 → 0.5331). `t1_dvsignore` moved all three right by **+0.0035 macro** —
+below the metric's own resolution (per-clip AUC grid step averages 0.01). The
+worth-pursuing bar (macro ≥ 0.65 **and** clip AUC ≤ 0.95) failed on both counts.
+**The user additionally ran the `bottomk_topk_pct=8` dose arm and reports it
+indistinguishable — the "pressure was too weak" excuse is dead.**
+
+**But it did not fail DADA's way, and that is the finding.** On DADA Phase 1 the
+score scale *shrank* (C31: range −20 %). Here the term worked mechanically —
+`bottomk` loss 0.2294 → 0.0062, `mil` rose 0.5707 → 0.6730 showing real tension —
+and the within-clip **range grew +37 %**, the raw gap **+78 %**, while macro
+**fell**.
+
+> **The bottom-k term created within-clip variance. The variance did not point at
+> the anomaly.** It is not a missing-pressure problem; it is a missing-*direction*
+> problem. Blind downward pressure is refuted on a corpus where DADA's C27
+> receptive-field confound is **absent** (TAD median 43 under kernel 9 = 20.9 %).
+
+**`clip AUC` never moved: 0.9975 / 0.9967 / 0.9979 / 0.9975 / 0.9958.** Five
+arms, spread 0.0021. Nothing tested dislodges the collapse.
+
+### 6. `t2_warm` — the first arm to move anything, and the claim it buys
+
+Warm-started from the PreVAD trunk, `t2_warm` moves **all four columns in the
+predicted direction** — the H-T1 pattern `bottomk` failed. Gap recovered against
+`gate_t0`: macro **26 %**, d **27 %**, DoTA macro **59 %** (transfer survives
+better than in-domain, as expected — the trunk carries it).
+
+It still misses the bar (macro 0.6540 < 0.70; clip AUC 0.9958 > 0.95). So the
+**second pre-registered branch fires, now measured rather than inferred**:
+
+> **The model was handed macro 0.7578 and 504 steps of TAD training took it to
+> 0.6540 — TAD's training signal DESTROYS 0.104 of localization it was given.**
+> That is far stronger than "it never learned it", and it is the evidence that
+> justifies a corpus rebuild instead of guessing at one.
+
+**⚠️ C17 bit, exactly where it warned.** `--init-weights` is recorded nowhere:
+`t2_warm/stage2/config.yaml` is byte-identical to `m0`'s. Step-1 `mil` is also
+near-cold (0.8189 vs 0.7999) — **explicable** (macro is rank-based, `mil` is BCE
+and calibration-sensitive; a trunk can rank well and still score BCE ≈ 0.8 on a
+new corpus's bag distribution), but not *provable* from artifacts. Warm start is
+inferred from a +0.0366 macro / +0.0391 DoTA-macro shift at identical seed and
+config. **Unverified: which checkpoint was passed.** Ask before citing.
+
+### 7. `L_neg` has essentially never run — audited across all 55 `config.yaml`
+
+* **54/55** carry `captions_from_definitions: false` → `captions = None` →
+  `caption_feats = None` → `train.py:375` skips `L_neg` entirely.
+  `cap_contrastive_weight: 1.0` in every one of them is decoration.
+* **1/55** — `outputs/v1/PreVAD/stage2_kip_off` — has it **true**. That is the
+  only run in project history where `L_neg` was computed.
+* **Even that one fabricated captions from the class definitions.** The real
+  `descriptions` field has **never been used by any run, on any corpus**. Gap
+  **G4** (`core/data/prevad.py:441`, "deliberately not wired yet") is intact:
+  `description` reaches `meta.json` only, never `labels_train.json`, and nothing
+  reads it back.
+
+**Why this matters more than it looks.** `L_neg` is **not** a clip-level loss:
+`attn = softmax(logits / 0.02)`, `agg_v_feats = attn @ v_feats` — the video
+embedding is a near-argmax pooling *under the model's own anomaly curve*, so
+matching the caption forces the curve onto frames whose content matches it. And
+`contrast_type='n3'` mines the lowest-scoring frames of an abnormal clip as an
+extra **negative**. **That is the directed version of the pressure `bottomk`
+applied blindly.** It is the most promising untried lever on the objective side.
+
+Two measured caveats before anyone builds it: (a) `N3_MIN_SCORE_RANGE = 0.2`
+skips videos whose prob range is smaller, and eval-time ranges are m0 median
+**0.0094** → only **14/60** abnormal clips eligible (`gate_t0` 18/60, so it is a
+general handbrake, and train rows are DVS-synthesized so treat as a proxy);
+(b) AI-generated per-video captions would carry the label **and its timing** —
+train split only, test must stay definition-only, and it converts weak
+supervision into distillation from a stronger teacher. That must be declared, and
+it stops being comparable to LaGoVAD's setting.
+
+### 8. Why TAD was NOT re-sharded into windows like DADA
+
+Simulated against the real `gt` of all 100 test clips before rejecting. At
+stride 8 **no window keeps ≥ 90 % of abnormal clips without putting the kernel-9
+score head over ≥ 75 % of it**:
+
+| W | keeps abnormal | two-class windows | kernel 9 spans | `temporal_window` 25 spans | span 11 fills |
+|---:|---:|---:|---:|---:|---:|
+| 12 | **93.3 %** | 109 | **75 %** ❌ | **208 %** ❌ | **92 %** ❌ |
+| 24 | **78.3 %** ❌ | 88 | 38 % | **104 %** ❌ | 46 % |
+| 32 | **61.7 %** ❌ | 60 | 28 % ✅ | 78 % | 34 % |
+
+Uncapping windows fixes the count but blows the class ratio to 1 : 7.8. Going to
+stride 2 costs a re-extraction (~269 k frames, 3–5 h) and **fires C2 on
+`gate_t0` and every TAD arm** — and buys resolution, not balance: TAD's positive
+span is 33 % of its clip at *every* stride. Third reason: **DADA's own windowed
+rebuild is unvalidated** — it failed Gate W once (C32) and the corrected `w24s1`
+geometry has never been trained.
+
+### 9. Lesson candidates raised (not yet through the 5 gates — see `pending.md`)
+
+1. **[CRITICAL] Training — MIL on a corpus whose micro is clip-dominated
+   optimizes clip classification and destroys localization.** Signature: clip-AUC
+   ↑, macro ↓, `d` ↓, transfer ↓, *together*. TAD: 0.7687→0.9975 / 0.7578→0.6174 /
+   +0.90→+0.42 / 0.6158→0.5496. Sibling of C12/C28 but a **training** disease, not
+   a metric artifact. The warm-start arm upgrades it from "never learned" to
+   "actively destroyed".
+2. **[MEDIUM] C31 amendment — two standard readings of `gap/σ` order arms
+   oppositely.** Per-clip standardized then averaged: m0 +0.4189 → bottomk
+   **+0.3280** (falls). C31's literal "gap / mean within-clip σ": +0.1821 →
+   **+0.2414** (rises). Macro AUC is rank-based and is the arbiter: **0.6174 →
+   0.6016**. Amend C31 to say *standardize per clip first, and let macro decide*.
+3. **[HIGH] A failed reproduction gate must be diagnosed, not chased.** Macro AUC
+   is the cheapest exoneration of frame ordering; a length-equalized micro
+   separates weighting from modelling.
+4. **[LOW] `TRAFFIC_DEFINITIONS` is exported but never consumed.** Spec §7.4
+   prescribes it for DoTA/DADA zero-shot; `_DOTA_CLS_DEFS` uses
+   `_UNIVERSAL_CLS_DEFS["CarAccident"]` instead. Dead code or an unrecorded
+   deviation — belongs in `TRAINING.md` §deviations either way.
+
+### 10. Next, in order
+
+1. **Destruction curve** — `t2_warm` re-run under `--stop-after-epochs 3 7 18 36`
+   (geometric in steps, **C16**; the LR horizon stays `num_epochs=72`, so every
+   point is the same run stopped earlier). With `gate_t0` (E=0) and `t2_warm`
+   (E=72) that is a 6-point curve for ~950 steps. **If macro holds ~0.75 early,
+   early stopping hands us a usable TAD model and the whole campaign unblocks
+   for free; if it decays monotonically, that is the figure.**
+2. Confirm which checkpoint `t2_warm` used; patch **C17** (write a run manifest
+   with `--init-weights` + `sys.argv`).
+3. `core/docs/RESULTS_TAD.md` — nothing above exists in a tracked file yet except
+   `TAD_SETUP.md` §8.1/§15.1; `outputs/` is gitignored.
+4. Only then: seeds 2025/2026, or the corpus rebuild, or wiring G4.
+
+**The KIP A/B on TAD (M1/M2/M3) stays BLOCKED** (**C14**): `m0` is a clip
+classifier, so an arm stacked on it measures the collapse, not the smoother.
+Recorded as a standing rule in `TAD_SETUP.md` §15.
+
+---
+
+## 2026-09-13 — the first windowed rebuild FAILED Gate W; geometry corrected
 
 **Suite: 508 collected, 508 pass** (493 + 15). `ruff` / `mypy` (81 files) /
 `pyright` / `pycycle` clean; `bandit` 0 High. **No training happened.**

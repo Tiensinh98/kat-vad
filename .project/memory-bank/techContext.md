@@ -1,8 +1,10 @@
 # Tech Context — stack, setup, constraints
 
 **Created:** 2026-07-31 (re-init from `b9978ff`, read off `pyproject.toml`)
-**Last reviewed:** 2026-09-08 (branch `main` = v1; counts and test status
-re-measured on this tree)
+**Last reviewed:** 2026-09-15 (later — doc count 22→23 for
+`DADA_ORIGIN_PHASE0.md`, and the DADA-original sizing constraints added; earlier
+the same day, counts/test status re-measured and the text-branch + `L_neg`
+constraints added)
 
 > **Branch `main` = KAT-VAD v1.** The stack, pins and constraints below are
 > branch-independent. Where a **path or flag** is v3-only it is marked.
@@ -19,9 +21,9 @@ re-measured on this tree)
 ## Compute
 
 - **Dev:** macOS arm64, CPU. All code and all tests run data-free on CPU — on
-  `main`, **418 collected, 418 pass** (green since 2026-09-08, when the v3-only
-  `gate_type` matrix was collapsed to the v1 gate; see [[progress]]).
-  `v3` is 537 green.
+  `main`, **514 collected, 514 pass** (measured 2026-09-15, three clean runs;
+  green since 2026-09-08 when the v3-only `gate_type` matrix was collapsed to the
+  v1 gate; see [[progress]]). `v3` is 537 green.
 - **Training:** Google Colab **A100 40 GB**. Long jobs are resumable and
   Drive-persisted; AMP and grad-accumulation are config flags.
 
@@ -41,12 +43,13 @@ re-measured on this tree)
 | `core/flow/raft_extract.py` | RAFT → 23-d stats → seeded 256-d projection |
 | `core/tools/` | download, extract_clip_features, **feature_cache**, **rescore**, visualize, **eda** |
 | `core/eda/` | corpus, labels, protocol, features, report — the pre-flight profiler (`python -m core.tools.eda report\|compare`), runbook `core/docs/EDA.md`. **Never run on real data yet** |
-| `core/docs/` | 17 files on `main`: COLAB, DATA_LAYOUT, DOTA_EVAL, **EDA**, PREVAD_SETUP, **TAD_SETUP**, **DADA_SETUP**, TRAINING, proposal, spec, 6 × RESULTS_\*.md, REPORT_KIP_MSAD_DOTA_PREVAD |
+| `core/docs/` | **20 files on `main`**: COLAB, DATA_LAYOUT, DOTA_EVAL, **EDA**, PREVAD_SETUP, **TAD_SETUP**, **DADA_SETUP**, **DADA_ORIGIN_PHASE0** (new 2026-09-15), DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE, TRAINING, proposal, spec, 7 × RESULTS_\*.md, REPORT_KIP_MSAD_DOTA_PREVAD |
 | `core/docs/v3/` | **On `main`: only `RESULTS_DADA.md` + `setup/{DADA_V3_SETUP,TAD_V3_SETUP}.md`** (3 files). ARCHITECTURE, spec_v3, audit_addendum_PreVAD, RESULTS_V3_GATE_ATTRIBUTION and `setup/MSAD_DOTA_V3_SETUP.md` are **branch `v3` only**. `core/docs/v2/` does not exist on either branch — do not cite it |
 
-**Measured on `main`, 2026-09-08:** **79 Python files** (54 source + 25 test),
-**10,484 LOC** source. **20 markdown docs** under `core/docs/**`. (`v3` measures
-84 files / 11,157 source LOC / 537 tests — different tree, different numbers.)
+**Measured on `main`, 2026-09-15:** **81 Python files** (55 source + 26 test),
+**11,756 LOC** source. **23 markdown docs** under `core/docs/**` (20 top-level + 3 under `v3/`). `outputs/**`
+holds **87,213** `.npz` score files. (`v3` measures 84 files / 11,157 source LOC /
+537 tests — different tree, different numbers.)
 
 ## Environment roots
 
@@ -99,7 +102,41 @@ Colab points all four at Drive. Full contract: `core/docs/DATA_LAYOUT.md`.
   while experiment arms are being compared.
 - **A run's `config.yaml` does not record its CLI paths or `--init-weights`**
   (`core/train.py:628` saves the config tree only). Arm provenance must be
-  reconstructed from the loss trace. Lesson 17.
+  reconstructed from the loss trace. Lesson 17. **This bit for real on
+  2026-09-15:** `outputs/v1/TAD/2024/t2_warm/stage2/config.yaml` is *byte-identical*
+  to the cold `m0`'s, so the one fact the arm exists to establish — that it was
+  warm-started — survives nowhere. Worse, the loss trace is a weak witness here:
+  step-1 `mil` was 0.8189 vs the cold arm's 0.7999, because `auc_macro` is
+  rank-based while `mil` is BCE and calibration-sensitive — a trunk can rank well
+  and still score BCE ≈ 0.8 on a new corpus's bag distribution. **Write a run
+  manifest** (`--init-weights`, resolved data/cache paths, git sha, `sys.argv`).
+
+- **Two different text inputs exist, and only one comes from the dataset.**
+  (1) **Class definitions → `z^t`.** Hardcoded in `core/data/definitions.py`
+  (`DATASET_CLS_DEFS`), *not* read from any annotation file; `DatasetSpecVerbalizer`
+  samples one of N sentences per class per item, seeded from the item id (C30).
+  TAD's coverage is 2/2 (`Normal`, `Car Accident` → 4 sentences each) so **no C19
+  fallback fires** — but C = 2 means the conditioning surface is a single bit.
+  (2) **`descriptions` → per-video captions → `L_neg`.** Only PreVAD's release
+  ships the field (`core/data/prevad.py:172`); it reaches `meta.json` only, never
+  `labels_train.json`, and **nothing reads it back** — gap **G4**, "deliberately
+  not wired yet" (`prevad.py:441`). A `descriptions: null` in a TAD/DoTA/DADA/MSAD
+  annotation is expected and harmless.
+- **`L_neg` has effectively never been computed.** Audit of all 55 `config.yaml`
+  under `outputs/` (2026-09-15): **54 carry `captions_from_definitions: false`**,
+  so `captions = None` → `caption_feats = None` → `core/train.py:375` skips the
+  term; `cap_contrastive_weight: 1.0` in all of them is decoration. The single
+  exception is `outputs/v1/PreVAD/stage2_kip_off`, and even it **fabricated**
+  captions from the class definitions. Mechanically `L_neg` is *not* a clip-level
+  loss — `attn = softmax(logits / 0.02)`, `agg = attn @ v_feats` pools under the
+  model's own anomaly curve, and `contrast_type='n3'` mines an abnormal clip's
+  lowest-scoring frames as extra negatives. Before relying on the `n3` half note
+  `N3_MIN_SCORE_RANGE = 0.2`: at measured eval-time ranges only **14/60** TAD
+  abnormal clips qualify (`gate_t0` 18/60), so it is a general handbrake.
+- **`TRAFFIC_DEFINITIONS` is exported but never consumed.** Spec §7.4 prescribes
+  it for DoTA/DADA-style zero-shot; `_DOTA_CLS_DEFS` uses
+  `_UNIVERSAL_CLS_DEFS["CarAccident"]` instead. Dead code or an unrecorded
+  deviation — resolve it in `TRAINING.md` §deviations either way.
 - **On `main` there is exactly one gate, and it is the frozen one.** `kip.gate_type`,
   `kip.gate_signal`, `kip.const_shift_ratio` and `core/kip/ecmr.py` are branch-`v3`
   additions. A KIP-on run on `main` is, in operation, a fixed ~50 % channel shift.
@@ -130,13 +167,34 @@ Colab points all four at Drive. Full contract: `core/docs/DATA_LAYOUT.md`.
   interpolates to 240×320 (aspect 1.333, `raft_extract.py:135`). Source-independent,
   a bias not noise, and it warps `atan2(v, u)` — the direction channels. Fixing it
   invalidates the whole flow cache (C2), so it is scheduled, not done.
+- **The DADA-2000 original release does not fit on a Colab VM** (measured
+  2026-09-15). It is a **spanned PKZIP archive**: `DADA2000.zip` + `.z01`–`.z05`,
+  **116.7 GiB compressed over 6 volumes**. `unzip DADA2000.zip` *fails* — the
+  `.zip` part is the **last** volume and holds the central directory; and
+  `zip -s 0 … --out` needs **2×** the space. Use `7z` (`apt install p7zip-full`),
+  which reads spanned archives natively and extracts selected entries.
+  Of five per-clip subdirs only **`images` (94.01 GiB, 651,320 files)** is video;
+  `maps` / `seg` / `semantic` / `fixation` are DADA's own driver-attention task
+  and are never extracted. `/content` offers ~88 GB, so **Phase 2 shards**
+  (~200 clips ≈ 9.6 GiB: extract → CLIP features → delete → next). Persisted
+  output ≈ **167 MB**. Freeing Drive space does not help — the constraint is the
+  VM overlay, not the Drive quota.
+- **`dada标注.xlsx`'s sheets are named the opposite of their contents.**
+  `name="text"` → `sheet1.xml` is the type 1–38 taxonomy; `name="Sheet1"` →
+  `sheet2.xml` is the 1,962-row per-clip table. Detect the sheet by its columns;
+  a hardcoded name parses zero rows and the failure reads like a corrupt file.
+- **`preprocess_frames` takes a decoded array, not paths, and centre-crops by
+  default.** `(frames: np.ndarray, crop_size=224, center_crop=True)` — pair it
+  with `read_images(paths)` and pass **`center_crop=False`**, or you measure a
+  transform this project does not use, silently (C2, C13).
 
 ## Commands
 
 ```bash
-# tests
+# tests  (pyproject sets addopts="-q", so the summary line is suppressed;
+#          count with:  pytest --co -q | awk -F': ' '/^core/{s+=$2} END{print s}')
 source .venv/bin/activate && python -m pytest core/tests -q
-# on `main` (2026-09-08): 418 collected -> 418 pass, 0 fail.
+# on `main` (2026-09-15): 514 collected -> 514 pass, 0 fail.
 # The gate matrix in test_{dada,tad}.py was collapsed to the single v1 gate;
 # the `kip.gate_type` parametrization is branch-`v3`-only and stays there.
 

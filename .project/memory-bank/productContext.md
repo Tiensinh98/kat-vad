@@ -1,7 +1,9 @@
 # Product Context — why KAT-VAD exists
 
 **Created:** 2026-07-31 (re-init from `b9978ff`)
-**Last reviewed:** 2026-09-08 (branch `main` = v1; product story unchanged)
+**Last reviewed:** 2026-09-15 (later — the corpus survey: every corpus with
+negative bags is degenerate, every clean one has none; earlier the same day, TAD
+adds a second, independent negative result)
 
 > **Branch note.** This is the `main` = **KAT-VAD v1** memory bank. The *product*
 > argument below is the project's and does not change with the branch. What does
@@ -77,11 +79,41 @@ are solid; the story attached to them is not.
   by a fixed seeded projection. Any "localized/peripheral motion" story is not
   expressible in the target; restate it as a *global flow-statistic residual*.
 
-**What the project can honestly claim today:** a rigorous negative result. A
-motion-induction pathway was built, and a one-line temporal smoother matches it;
-the smoother itself does not generalize across training corpora. That is a
-publishable finding about the baseline's temporal modelling, not a win for KIP —
-and it is worth more than a +0.09 nobody can explain.
+- **A second, independent negative result landed 2026-09-15 — and it is about
+  the supervision, not about KIP.** On TAD, in-domain weakly-supervised training
+  turns the detector into a **clip classifier**: clip-level AUC **0.9975**, micro
+  AUC 0.9237 sitting on the corpus's own constant-per-clip oracle of **0.9226**,
+  while frame-level `auc_macro` **falls** from the zero-shot trunk's 0.7578 to
+  0.6174 and DoTA transfer falls 0.6158 → 0.5496. Three objective-side repairs
+  (`dvs_anchor_mode=ignore`, `bottomk_weight`, both, plus a `bottomk_topk_pct=8`
+  dose) **all failed**, and `bottomk` failed *while demonstrably working*
+  — within-clip range +37 %, gap +78 %, macro down. **It created variance without
+  direction.** Warm-starting from the PreVAD trunk recovers only a quarter of the
+  gap: **the model is handed macro 0.7578 and TAD training destroys 0.104 of it.**
+
+- **The corpora themselves are the third finding (2026-09-15).** Surveyed across
+  all five: **every corpus with negative bags is degenerate, and every clean
+  corpus has none.** MSAD has negatives and is clean but is CCTV, not traffic;
+  TAD has negatives and collapses; the DADA archive has negatives and leaks its
+  label through clip length; **DoTA** is clean — constant-per-clip oracle
+  **0.5017**, 1,392/1,397 clips mixed — but ships **3** normal clips and
+  `train_clips: 0`; the **DADA-2000 original** release is clean and has **zero**.
+  That is why the live plan manufactures its negatives *inside* the abnormal
+  videos rather than importing a second pool.
+
+  A corollary worth stating: DoTA's supervised frame linear probe reaches
+  `auc_macro` **0.6708** on the same frozen CLIP features where the DADA archive
+  reaches **0.5228**. **The "frozen CLIP cannot localize" verdict is about that
+  corpus, not about the representation** — which is exactly what the next gate
+  tests.
+
+**What the project can honestly claim today:** two rigorous negative results. (1)
+A motion-induction pathway was built, and a one-line temporal smoother matches
+it; the smoother itself does not generalize across training corpora. (2) On a
+corpus whose bag-level task is trivially separable, weakly-supervised MIL
+optimizes clip classification and *actively destroys* frame-level localization —
+including localization it was given for free. Neither is a win for KIP, and both
+are worth more than a +0.09 nobody can explain.
 
 ## Who it is for
 

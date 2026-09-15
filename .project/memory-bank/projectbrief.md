@@ -1,9 +1,11 @@
 # Project Brief — KAT-VAD
 
 **Created:** 2026-07-31 (memory bank re-initialized from commit `b9978ff`)
-**Last reviewed:** 2026-09-08 (branch identity: this memory bank is `main` = **v1**)
+**Last reviewed:** 2026-09-15 (later — the DADA-2000 **original** release adopted
+as the training corpus, DoTA pinned as held-out; earlier the same day, TAD run end
+to end and scope/non-negotiables updated)
 
-> **Branch:** `main` (tip `6a5f648`) is the **KAT-VAD v1** line — KIP as
+> **Branch:** `main` (tip `702bd5b`) is the **KAT-VAD v1** line — KIP as
 > originally specified: `PMGFlowHead` → `KinematicShift` with the frozen
 > 321-parameter MLP gate → `MotionScoreHead`. The v3 gate rebuild (four
 > `gate_type`s, ECMR, gate diagnostics) is on branch **`v3`** (tip `bb1516c`),
@@ -65,13 +67,42 @@ prerequisites are done; nothing has been run.
 **Promoted to replication corpora (2026-09-02 / 09-03):** **TAD** and
 **DADA-2000** are no longer deferred adapters. After the 2026-09-01 attribution
 result, the live question is *"does the smoother ordering survive a second and
-third training distribution?"* — TAD is coded but **unrun**; DADA-2000 is run and
-**inverts** the ordering (`core/docs/v3/RESULTS_DADA.md`).
+third training distribution?"* — DADA-2000 **inverts** the ordering
+(`core/docs/v3/RESULTS_DADA.md`).
+
+**TAD is now RUN (2026-09-14/15) and it did not answer that question — it raised
+a bigger one.** Gate T0 fails at **0.7912** (diagnosed, not a defect: see
+[[activeContext]] §3), and the in-domain arm **collapses into a clip classifier**
+(clip-AUC 0.9975, macro 0.6174 against the zero-shot trunk's 0.7578). The
+intended `M2 − M0` tie-breaker is therefore **blocked by C14** — an arm stacked
+on a collapsed trunk measures the collapse. TAD's live value has shifted from
+*"third smoother datapoint"* to *"the corpus that proved WS-MIL destroys
+localization when the bag task is trivially separable."*
+
+**Scope change 2026-09-15 — the training corpus becomes the DADA-2000 ORIGINAL
+release.** `.project/plans/katvad-dada-original-corpus.md`. The reconstructed
+archive this project has trained on is not repairable in place: it trims both
+classes unequally (abnormal raw median 56, normal 152, original **322**), leaking
+its label through clip length at **0.8105**, and two fixed-window rebuilds left
+the clip oracle at **0.9766 / 0.8965**. The original release is re-sharded into
+**W=16 windows whose negatives come from inside the accident videos themselves**
+(leak **0.5000**, oracle **0.6631**, 98.1 % of abnormal clips retained), using the
+window machinery already on `main`. Gated: Phase 0 P1 (per-clip frame counts) then
+**D0**, a supervised frame linear probe that must reach **≥ 0.60** or the track
+stops and ships a negative result.
+
+**DoTA is now explicitly a held-out benchmark and must stay one.** It carries
+`train_clips: 0` and **3** normal clips, so it cannot host in-domain training
+anyway; and every comparison this project owns — `RESULTS_{DOTA,NCC,PHASE_A}`, the
+v3 attribution, every transfer column — is defined by DoTA being unseen. The bar
+the new corpus must beat is **0.6408**, the MSAD-trained KIP-on mean.
 
 **Deferred (Phase 7):** PreVAD KIP-**on** (needs pixels the release does not
 ship), UCF-Crime, the full metric suite (MCC family, AUC_A, mAP@IoU), Stage 0 /
 Stage 0.5 / Stage 3 (ATS + MLLM reasoning head), validation-split checkpoint
-selection.
+selection. **`L_neg` / per-video captions** join this list: DADA's `texts` column
+is a 83-value category label, not a description, and gap **G4** means no code
+path reads a caption field at all.
 
 ## Reproduction gates
 
@@ -122,4 +153,17 @@ the current headline.
   clip classifier, not a frame detector (`RESULTS_DADA.md` §5).
 - **On any corpus with all-normal test clips, report `auc_macro` and the
   constant-score-per-clip oracle beside the micro AUC** — the mirror of lesson
-  C12. DADA's oracle is 0.9086.
+  C12. DADA's oracle is 0.9086; **TAD's is 0.9226, above the published 89.56.**
+- **A failed reproduction gate is diagnosed, never chased** (2026-09-15).
+  TAD's T0 = 0.7912 vs a published 89.56 is *not* a pipeline defect:
+  `auc_macro = 0.7578` exonerates frame ordering in one step (shuffled frames
+  give ≈0.50), labels match LaGoVAD's own annotation 100/100, and the residual is
+  length weighting. **Per C8b the measured 0.7912 is the reference; 89.56 never
+  appears in a TAD table again.**
+- **Weakly-supervised MIL optimizes whatever is cheapest to separate.** On TAD
+  the two classes are two directories with different length distributions, so a
+  per-clip constant satisfies `L_MIL` completely and localization is never
+  learned. Warm-starting from a trunk that *could* localize (macro 0.7578) still
+  ends at 0.6540 — **the training signal destroys 0.104 of macro it was handed.**
+  Before training on a new corpus, compute its clip oracle and length ruler; if
+  micro ≈ oracle, in-domain training will buy clip ranking and sell localization.
