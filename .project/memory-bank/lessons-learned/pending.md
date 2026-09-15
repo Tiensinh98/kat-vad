@@ -598,3 +598,160 @@ under the wrong precondition.
 
 → `core/docs/DADA_ORIGIN_PHASE0.md` §6, §6.1, §8.1;
   `outputs/EDA/DADA2000Origin/phase0_report.md` §3.2
+
+---
+
+## A symlink farm must link at the IMAGE directory, not the clip directory (2026-09-15)
+
+**Observation.** `core.data.dada.materialize_flat_dir` is the project's answer to
+lesson **C26** (the extractors key their folder scan on bare `Path.name`): it
+builds `flat/{video_id} -> real clip folder` so the stock tools see unique ids
+"with no change to either tool", as its docstring says.
+
+That works only when the frames sit *directly* in the clip folder, which is true
+of the **trimmed** DADA archive (`type1_vid001/*.jpg`) and false of the
+**original** release (`DADA2000/{type}/{video:03d}/images/*.png`).
+
+`list_frame_folders` (`core/data/video_io.py:79`) walks `root.rglob(subdir)`, and
+**`pathlib` refuses to recurse into a symlinked directory** — a cycle guard
+present in every version from 3.10 (measured on this tree, 3.10.6) through 3.13.
+So a clip-level farm plus `--frames-subdir images` finds **nothing**:
+
+```
+flat/{id} -> .../{video:03d}   + --frames-subdir images  ->  ValueError: No frame folders found
+flat/{id} -> .../{video:03d}/images  + no subdir         ->  400 folders, 400 unique ids
+```
+
+A link at the *final* path component is matched (it is not recursed *through*),
+and `list_frame_images` follows it via `iterdir`.
+
+**Candidate rule.** *Point a symlink farm at the directory that directly holds
+the files, and drop `--frames-subdir`. A farm one level up is invisible to any
+`rglob`-based scan.*
+
+**Why it is not yet a lesson.** **It fails loudly** — `ValueError: No frame
+folders found under …` — so gate 1 (a real, costly failure) is weak: it costs
+minutes, not a wrong number, which is what this catalog is for. It is also n = 1
+so far, seen while writing `colab/DADA2000Origin/build_d0_dataset.py`.
+
+**Promote it if** Phase 2's real adapter inherits the clip-level link and someone
+"fixes" the resulting error by reaching into `core/data/video_io.py` — the caller
+graph there is 5 CRITICAL hops (DoTA and TAD included), so *that* would be
+expensive. Until then the guard is documentation:
+`core/docs/DADA_ORIGIN_PHASE1.md` §4 and trap 3, plan §1.5, and the docstring of
+`build_d0_dataset.materialize_flat`.
+
+**Related:** **C26** (bare `Path.name` as an id), **C25** (a second source path
+added to an existing cache), **C10** (a directory is not evidence of data).
+
+→ `core/data/dada.py:401` (`materialize_flat_dir`),
+  `core/data/video_io.py:79` (`list_frame_folders`),
+  `colab/DADA2000Origin/build_d0_dataset.py:materialize_flat`
+
+### Addendum 2026-09-15 (later) — a SECOND instance, so gate 1 now has n = 2
+
+`pick_probe.py` (`core/docs/DADA_ORIGIN_PHASE0.md` §4) picked **one clip per type
+and stopped**, so `--n` was silently capped at the number of strata (52). Phase 1
+asked for **400** and got **52** — and `DADA_ORIGIN_PHASE1.md` §2 asserted the
+script "fills", a behaviour it never had. The run completed cleanly: the builder
+verified 52/52 ids, P1 98.1 %, labels within the pre-registered bar. Every check
+passed **on the wrong sample size**, and the only symptom was one line reading
+`picked 52` where the command said `--n 400`.
+
+Same shape as the `check_p1.py` case above: **the document asserted a behaviour
+the code did not have, and nothing in the output contradicted it loudly enough.**
+Two independent instances in one day, in two different scripts, both in the
+DADA-original runbooks.
+
+**The rule the pair suggests, wider than the original:** *a script that takes a
+requested quantity or decides a gate must print what it actually delivered next
+to what was asked (`picked N of --n M`, `VERDICT: … (n = N)`), and any prose it
+emits must be gated on the same condition as the decision it implies.*
+
+**Why still not promoted.** Both instances are throwaway probe scripts in
+runbooks, not `core/` code, so there is still no file to enforce a rule against
+and no test that could fail. **Promote the moment a third instance appears inside
+`core/`, or when the D0 builder graduates into `core/data/dada.py` in Phase 2 —
+at that point the rule becomes enforceable and the severity is [HIGH]**, because
+the failure mode is a correct measurement read at the wrong scale.
+
+**Fixed:** the fill pass is in place, and the script now prints `picked N` plus
+`types covered: X/52` and warns when the population is smaller than `--n`.
+Verified old-vs-new at n = 5 / 30 / 52 (bit-identical, so Phase 0 reproduces) and
+n = 100 / 400 / 5000 (fills, no duplicates, all 52 types retained).
+
+---
+
+## An editable install on the dev machine masks every import-path bug (2026-09-16)
+
+**Observation.** `colab/DADA2000Origin/build_d0_dataset.py` imports `core`. It was
+written, gated (ruff/mypy/bandit/pyright), and exercised on a 30-clip fixture and
+a 3-shard flow — **all green locally**. On Colab it died on the first shard with
+exit 1 and no visible message.
+
+Cause: `python /content/build_d0_dataset.py` puts **the script's directory** on
+`sys.path[0]`, never the working directory, so `cd "$REPO"` does nothing for the
+import. Measured:
+
+```
+python /tmp/fakecontent/probe.py   (cwd=/tmp)   sys.path[0] = '/private/tmp/fakecontent'
+  import core FAILS -> No module named 'core'
+PYTHONPATH=<repo> python /tmp/fakecontent/probe.py
+  import core OK
+```
+
+**Every local test passed because this venv has the project installed editable**
+(`.venv/…/site-packages/_editable_impl_kat_vad.pth`), which puts `core` on the
+path for *any* interpreter invocation from *any* directory. Colab has no such
+install. Re-checked deliberately: running the script with `PYTHONPATH` stripped
+still exits **0** on this machine.
+
+**Candidate rule.** *A script that imports the project but ships outside the
+package cannot be validated on a machine where the package is pip-installed. Pass
+`PYTHONPATH=<repo>` explicitly at every call site, and test it from a directory
+outside the repo with the install neutralised — or `cd` into the repo and use
+`python -m`, which does put the cwd on `sys.path`.*
+
+**Why it is not yet a lesson.** One occurrence, in a throwaway script, and it
+fails loudly once the stderr is visible. **The generalization is real though**,
+and it applies to `core/` the moment anyone runs a project entry point by file
+path instead of `-m`: every runbook in this repo uses `python -m core.tools.…`,
+which is immune. Promote if a `core/` entry point is ever invoked by path.
+
+**Compounding defect, fixed with it.** The shard driver wrapped the child in
+`subprocess.run(..., check=True)` without capturing output, so the failure
+surfaced as a bare `CalledProcessError: returned non-zero exit status 1` with the
+child's `ModuleNotFoundError` nowhere in the traceback — **one whole round trip
+spent on a diagnosis the child had already printed**. The driver now runs the
+short steps with `capture=True` and prints the child's stdout/stderr on failure.
+Same family as the two candidates above: *the tooling hid what it already knew.*
+
+→ `core/docs/DADA_ORIGIN_PHASE1.md` §4.0 (the warning), §4.2 (`run(..., capture=True)`),
+  traps 14–15
+
+### Addendum 2026-09-16 — fixing the producer was not enough; the CONSUMER must assert
+
+`pick_probe.py` was given a fill pass on 2026-09-15. On 2026-09-16 the Phase 1
+shard loop still processed **52 clips** (40 + 12) and reported
+`shards done: 2 | cached clips: 52` as a success. The fixed script was verified
+against the real `dada标注.xlsx` the same day — `--n 400` returns **400 rows,
+52/52 types** — so the script was right and `/content/d0_clips.json` was simply a
+stale 52-row file from the previous session.
+
+**Nothing downstream checked.** The loop read the file, saw 52 items, and ran. A
+producer fix does not survive a stale intermediate; **only the consumer can catch
+that**, because only the consumer knows what it expected.
+
+This is the fourth instance of the family (after `check_p1.py`'s prose,
+`pick_probe`'s silent cap, and the swallowed `ModuleNotFoundError`), and it
+sharpens the candidate rule:
+
+> *Assert the size and shape of every intermediate you did not produce in the
+> same cell. Print `got N, expected M` and stop when they differ — a pipeline
+> stage that accepts whatever it is handed will eventually be handed the
+> previous run's output.*
+
+**Fixed:** `phase_1.ipynb` cell 7 re-reads `d0_clips.json` after writing it and
+asserts `len(rows) == N_WANT` plus uniqueness, printing the file's mtime; cell 13
+refuses to start unless the file holds exactly `N_WANT` clips, and says how to
+recover. Both verified to fire at 52 and pass at 400.

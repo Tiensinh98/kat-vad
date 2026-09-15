@@ -24,14 +24,349 @@
 > this branch *this file and `progress.md` are the only durable record of the
 > attribution campaign*. Do not delete them; do not re-run those arms here.
 
-**Last Memory Bank Update:** 2026-09-15 (latest — **Phase 0 PASSES P1/P2/P3** on
+**Last Memory Bank Update:** 2026-09-15 (latest — **GATE D0 PASSES, `auc_macro` 0.6518 on 400 clips**, after four fixed false starts (n=52 sampler cap, errno=28, PYTHONPATH, stale clips file); earlier the same day **Phase 0 PASSES P1/P2/P3** on
 the DADA-2000 **original** release; earlier that day the corpus was adopted with
 T2 windowing and P2 alone had passed, and earlier still, the TAD campaign).
 *This entry updated `activeContext.md` and `pending.md` only — not a six-file
 reconcile; counts below are carried over from the previous update.* Counts re-measured on this tree: **81 Python files** (55 source +
 26 test), **11,756** source LOC, **23 docs**, **514 collected → 514 pass**.
 
-## 2026-09-15 (latest) — **Phase 0 PASSES all three gates.** DADA-original is real data
+## 2026-09-15 — **GATE D0 PASSES: `auc_macro` = 0.6518.** The original release is not the archive
+
+**Still no code in `core/`.** Full record:
+`outputs/EDA/DADA2000Origin/{gate_d0_report.md,d0_frac,d0_abs}`; run preserved in
+`colab/DADA2000Origin/phase_1.ipynb`.
+
+| arm | `auc_macro` | `auc_micro` | AP | AP base | clips | folds |
+|---|---:|---:|---:|---:|---:|---:|
+| **`d0_frac`** (pipeline convention) | **0.6518** | 0.6207 | 0.4169 | 0.3079 | 400 | 5 |
+| `d0_abs` (sanity arm) | 0.6492 | 0.6214 | 0.4359 | 0.3252 | 400 | 5 |
+
+`|Δ| = 0.0026` vs the pre-registered **0.01**. Both arms clear 0.60 independently.
+Bar was ≥ 0.60 PASS / < 0.55 STOP.
+
+### 1. The number that matters
+
+Same frozen CLIP, same `_ncc` transform, same probe:
+**DoTA 0.6708 (1,397 clips) · DADA-original 0.6518 (400) · DADA trimmed archive
+0.5228 (383).** The original release lands **0.019 below the held-out benchmark
+and 0.129 above the corpus this project has been training on.**
+
+**The archive's CRITICAL verdict — *"the features carry no frame-level
+signal"* — is now confirmed to be a property of that degenerate build, not of
+frozen CLIP.** The EDA's verdict on this corpus reads **INFO**: *"the deficit is
+SUPERVISION, not representation … a different backbone is not required."* That
+retires the backbone-swap question for now (`DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md`
+§7 pre-registered exactly this probe A/B).
+
+**It licenses Phase 2, not a claim.** A probe is the *supervised* ceiling; TAD had
+no representation problem and still collapsed into a clip classifier (C14's
+family).
+
+### 2. P1 re-ran at n = 400 — Phase 0's n = 30 is superseded
+
+**397 exact (99.2 %), 397 within ±2**, mean signed delta −0.28. The three inexact
+clips carry the entire deficit: `t05_v040` **−100**, `t10_v169` −10,
+`t36_v002` −3 (sum −113 = 400 × −0.28, exactly). **The original release is not
+trimmed**, now at 13× the Phase 0 sample, closing its Wilson gap (29/30 had a
+95 % lower bound of ≈ 0.83). `t05_v040` is worth one look before Phase 2.
+
+### 3. `clip_linear_probe` did not run — as pre-registered
+
+`ran: false, "every clip has the same clip-level label"`. Zero normal videos, so
+no clip-level target — **the point of this corpus**: no clip-level shortcut
+exists, unlike the archive (oracle 0.9086, C28) or TAD (0.9226).
+
+### 4. Two feature facts to carry into Phase 2
+
+* **Temporal autocorrelation is very high**: mean cosine **0.968** at lag 1, 0.933
+  at lag 8. Effective sample size is far below 15,961 frames; the probe's
+  grouped-by-clip CV is what keeps it honest, and **any future frame-level split
+  must group the same way**.
+* **Between-clip / within-clip feature variance = 1.97** — the embedding encodes
+  scene identity more than dynamics. Relevant to any claim that CLIP features
+  carry motion, KIP's premise included.
+
+### 5. The pre-registered frame check FIRED, and the threshold was wrong twice
+
+`frac vs abs labels: 256 clips differ, worst 17 frames` → **WARNING, exceeds the
+pre-registered 2**. The raw log says WARNING while the gate says PASS; both are
+right, and the threshold is what was wrong.
+
+The "≤ 2 frames" bound holds **only when the on-disk count equals the
+annotation's**. The fraction mapping rescales the window by `D/A`, so the shift
+grows as `(start/s)·|D−A|/A` — ~10–15 frames for `t05_v040`'s −100, which is the
+observed 17. 253 of the 256 differ by the rounding-only 1–2.
+
+**Second under-derived threshold in this plan, third project-wide instance of
+C33.** The bar that decides — the AUC delta — was met with room to spare (0.0026
+vs 0.01), on 311 of 15,961 labels (**1.9 %**). Verdict unmoved. **Rule adopted:
+write a threshold's condition into the threshold, not into the prose beside it.**
+
+### 6. Three C17 gaps — and the runtime died before one could be closed
+
+`commit` printed **empty** (`git rev-parse` returned nothing on the Drive mount);
+the report's `auc` column read `None` because the key is `auc_micro`; and
+**`meta.json` was never copied off the VM.** The runtime has since been recycled,
+so the per-clip frame census is **gone**. All three are fixed in the notebook cell
+(the copy now happens in the same step that writes the report), but the census
+itself is not coming back.
+
+**Lost vs. survived.** `$D0` was `/content/d0`, VM-local: census, shard counts and
+the label JSONs are gone. The **feature cache** (`clip/DADA2000_orig`, 400 `.npy`,
+32 MB) is on **Drive** and intact — that is the expensive artifact, 10 shards of
+extraction — and everything under `$REPO/outputs` is committed.
+
+**Most of it was recoverable anyway, because the pick is deterministic.**
+`pick_probe.py --n 400 --seed 2024` against the committed xlsx reproduces the
+sample bit-for-bit (verified twice): 400 rows, 400 unique `(type, video)`, 52/52
+types. **Committed as `outputs/EDA/DADA2000Origin/d0_clips_400.json`** — which
+clips were measured is no longer a fact that lived only on a VM. `sampled_frames`
+stays recoverable from the `.npy` shapes (pinning `frames_on_disk` to ±7); the
+recovery cell is in `gate_d0_report.md` §4.1. Only the exact on-disk counts are
+unrecoverable.
+
+### 6.1 `t05_v040` is diagnosed — and it explains the §5 warning exactly
+
+From the recovered sample plus the annotation, no VM needed:
+
+```
+annotation:  total 482, anomaly [285, 382]
+on disk:     382        <-- equals the anomaly's END, exactly
+L = ceil(382/8) = 48
+frac window (28, 38)  |  abs window (35, 48)  |  symmetric difference = 17 frames
+```
+
+**17 to the frame — the reported worst case.** The release trims that one clip at
+the accident, so the ~100 post-accident frames are simply absent. **For this clip
+the `d0_abs` labels are right and `d0_frac`'s are wrong**: the fraction convention
+rescales by `D/A = 0.79` and drops a tail-of-clip anomaly into the middle.
+
+**Phase 2 rule:** where `frames_on_disk ≠ annotation total`, the fraction mapping
+misplaces the window. 3/400 here, negligible for D0 — but the T2 windowing must
+either use absolute indices for those clips or drop them.
+
+### 7. Next — Phase 2
+
+`.project/plans/katvad-dada-original-corpus.md` §5: build the **T2** corpus
+(W = 16, hop 8, negatives from inside the accident videos, `score_head_kernel`
+9 → 3), sharded like Phase 1, then Phase 3's **Gate W** (leak ≤ 0.55, clip oracle
+≤ 0.75, retention ≥ 90 %, ≥ 300 two-class clips).
+
+**This is where `core/` finally gets touched** (`core/data/dada.py` resolver,
+`core/constants.py` cache name — plan §5.4). Nothing is written until
+`trace_call_path` has been run on every symbol and its blast radius reported —
+and **`video_id_from_path` stays untouched**: 5 CRITICAL hop-1 callers across
+DoTA and TAD. The symlink farm is the supported route, linking at the **images**
+level.
+
+---
+
+## 2026-09-15 — **Phase 1 / Gate D0 is built and gated. Nothing trained yet**
+
+**Still no code in `core/`** — that is the whole design (plan option **B**). New:
+`.project/plans/katvad-dada-original-phase1-gate-d0.md`,
+`core/docs/DADA_ORIGIN_PHASE1.md`, `colab/DADA2000Origin/{build_d0_dataset.py,phase_1.ipynb}`,
+one more candidate in `pending.md`.
+
+### 1. The parent plan's §4 does not run. Five reasons, all measured
+
+| # | finding |
+|---|---|
+| 1.1 | `python -m core.tools.eda **run**` — the subcommand is **`report`** (`core/tools/eda.py:39`); `run` dies in argparse. Fixed in 4 files |
+| 1.2 | D0 needs **labels**: `core/eda/corpus.py:88-89` demands `labels_train.json`, `frame_labels_test.json`, `defs.json`, `meta.json` and raises on any missing; `features.py:346` keys on `frame_labels_test`. The parent plan schedules that code for **Phase 2** — a dependency inversion |
+| 1.3 | **C26 at scale.** `extract_clip_features.py:194` builds ids with `{video_id_from_path(p): p …}`, and `video_id_from_path` returns `path.name` = the bare video number. On `{type}/{video:03d}`: **1,962 clips → 255 ids** (video 001 collides across **52** types). Dict comprehension eats it silently, then `pending_items` reports a clean resume over a cache 87 % missing |
+| 1.4 | The existing adapter cannot read the original release: `_FOLDER_RE` wants flat `type<N>_vid<N>`, `_make_video_id` wants a `Fault_Label` that does not exist, `parse_metadata_csv` reads the 975-row CSV not the 1,962-row xlsx |
+| 1.5 | **NEW, measured:** a symlink farm must link at the **images** directory. `pathlib` will not recurse *into* a symlinked dir (3.10.6 here, unchanged through 3.13), so a clip-level farm + `--frames-subdir images` raises *"No frame folders found"* |
+
+### 2. `video_id_from_path` is NOT the place to fix 1.3
+
+`trace_path` inbound, depth 3: **5 hop-1 CRITICAL callers** —
+`extract_clip_features.extract_frame_directory`, `raft_extract.extract_frame_directory`,
+`dota.resolve_frame_counts`, `tad.parse_annotation_file`, `tad.frame_folders_by_id` —
+plus 7 hop-2 HIGH. Touching it moves DoTA and TAD. The remedy is the **symlink
+farm**, which needs no edit at all (`core/data/dada.py:401` does the same thing
+for the trimmed archive).
+
+### 3. What was built, and what it is verified against
+
+`colab/DADA2000Origin/build_d0_dataset.py` emits `d0_frac/`, `d0_abs/` and
+`flat/`. **It imports the label convention rather than restating it** —
+`DadaRecord` + `sampled_frame_labels` from `core.data.dada`, `num_sampled_frames`
++ `class_name_list` from `core.data.dataset_files` — so `d0_frac` carries exactly
+what Phase 4 would build (`total_frames` = on-disk count, `span` = fraction of the
+annotation's own total, mirroring `resolve_annotated_records`).
+
+Quality gate clean: **ruff, mypy, bandit, pyright** all pass. Exercised on a
+30-clip fixture rebuilt from `probe_clips.json`:
+
+* reproduces P1 exactly — **29 exact, one −3** (`t36_v002`);
+* both dirs load through `core.eda.corpus.load_dataset_files`;
+* flat farm → **30 folders / 30 unique ids**; the raw tree → **20 ids for 30
+  folders**, i.e. C26 demonstrated, not assumed.
+
+### 4. A pre-registered threshold corrected before it was used (C33)
+
+The first draft demanded the two label constructions agree to **≤ 1** sampled
+frame. Underived and unreachable: `sampled_frame_labels` **rounds** each boundary
+while the absolute arm floors the start and ceils the end, so they differ by up
+to **1 frame per boundary = 2 per clip** by arithmetic. Measured: 15/30 clips
+differ, **worst 2 frames**, 16 total. Bar corrected to **2 frames**, with the
+derivation beside it; the bar that actually decides anything is
+`|Δ auc_macro| > 0.01` ⇒ **both numbers void**.
+
+### 5. Two corrections to the parent plan
+
+* **Cache is `clip/DADA2000_orig`, not `DADA2000_orig_w16s8`.** Features are keyed
+  by **source clip** and windows slice into them (`core/eda/corpus.py:43`,
+  `core/data/windows.py:FeatureSlicer`), so one full-clip cache serves Phase 1 and
+  Phase 2's T2 alike. Never `DADA2000_ncc` — that is the trimmed archive (C2).
+* **D0 runs on full-length clips, no windowing.** Median **43** sampled frames,
+  positive fraction 0.376 → ~16 positive / 27 negative per clip, a *finer* probe
+  grid than the 16-frame windows §4 worried about.
+
+### 6. Pre-registered before the run
+
+* `auc_macro` **≥ 0.60** PASS · 0.55–0.60 marginal, one arm · **< 0.55 STOP** and
+  the negative result is the deliverable. Scale: DoTA **0.6708**, DADA trimmed
+  **0.5228**, same features and transform.
+* **`clip_linear_probe` will return `ran: false`** — the original release has zero
+  normal videos, so every clip is abnormal and there is no clip-level target.
+  **That is the expected output and the point of this corpus**: no clip-level
+  shortcut exists, unlike the archive (C28) and TAD. Do not "fix" it by importing
+  `0_Normal_Driving` — that pool is ~3× longer and *inverts* the leak
+  (0.8105 → 0.8539).
+* **A probe is a ceiling, not a promise.** TAD had no representation problem and
+  still collapsed under WS-MIL. A D0 pass licenses Phase 2, not a claim.
+
+### 7. First Phase 1 attempt ran at n = 52, not 400 — the sampler, not the builder
+
+**The builder is vindicated; the sample size was wrong.** `pick_probe.py` picked
+**one clip per type and stopped**, so `--n` was capped at the number of strata:
+`--n 400` returned **52**, and `DADA_ORIGIN_PHASE1.md` §2 claimed the script
+"fills", which it never did.
+
+The run itself was clean and is worth keeping as evidence the chain works:
+`52/52 unique ids` (C26 neutralized on the real archive, not a fixture),
+**P1 at n = 52: 51 exact (98.1 %)**, same lone `t36_v002` at −3, `frac vs abs`
+worst **2** frames — inside the pre-registered bar — 2,265 sampled frames,
+**32.8 %** positive.
+
+**52 clips cannot decide the gate.** `auc_macro` is a mean of per-clip AUCs, so
+its standard error scales `1/√N`: at 52 it is **2.71×** the archive's (383 clips,
+0.5228) and **5.2×** DoTA's (1,397 clips, 0.6708), against a decision band
+0.55–0.60 that is **0.05 wide**. A number whose error bar spans the band decides
+nothing (C33). Run it as a **smoke test** if the 52 are already extracted; record
+it as such, never as D0.
+
+**Fixed:** `pick_probe.py` in `DADA_ORIGIN_PHASE0.md` §4 now has a real fill pass
+and prints `picked N` + `types covered: X/52`. The branch is entered only when
+more than one-per-type is asked for, so **every `--n ≤ 52` sample is bit-for-bit
+unchanged** — verified old-vs-new at n = 5/30/52 (identical) and 100/400/5000
+(fills, no duplicates, 52/52 types). Phase 0 still reproduces. Filed as the
+**second instance** of the pending "the document asserted a behaviour the code
+did not have" candidate, which now has n = 2.
+
+### 8. Second Phase 1 attempt died on disk — `errno=28`. Phase 1 shards now
+
+With the sampler fixed, `--n 400` picked 400 and the one-pass extraction failed:
+
+```
+System ERROR:
+errno=28 : No space left on device
+```
+
+**My estimate was wrong, and the reason is instructive.** Phase 0 measured
+**87 GiB free** — on a **CPU** runtime. The Phase 1 runbook asks for a **GPU**
+runtime, which is a different VM with a much smaller disk, and I carried the
+number across anyway. ~20 GiB of PNGs did not fit.
+
+**The artifact was never the problem.** 400 clips × ~43 sampled frames × 512
+float32 ≈ **35 MB** of features. The 20 GiB is scratch.
+
+**Fix — Phase 1 shards, exactly as Phase 2 always had to.** 40 clips (~2 GiB) per
+shard: extract → shard farm → encode → **delete frames** → next. The builder
+gained two modes:
+
+| mode | reads frames | farm | dataset dirs |
+|---|---|---|---|
+| `full` | all at once | yes | yes |
+| `shard` | this shard | yes | no — dumps `{video_id: frames_on_disk}` |
+| `labels` | **none** | no | yes, from the merged censuses |
+
+`labels` exists so the dirs can be built **after every frame is deleted**.
+**Verified byte-identical** to a one-pass `full` run on a 30-clip fixture split
+into 3 shards with frames removed between each — all four JSON files match
+exactly. Loop is resumable per shard (census present **and** all ids cached →
+skip), so a lost runtime costs one shard (C11). Quality gate still clean
+(ruff/mypy/bandit/pyright).
+
+**Two runbook facts now carry a measured failure behind them** (`DADA_ORIGIN_PHASE1.md`
+§3, traps 12–13): measure `/content` every session, and never reuse a disk number
+across runtime types.
+
+### 9. Third failure — `ModuleNotFoundError: core`, hidden behind exit 1
+
+Shard 000 extracted fine (**65.1 GiB free** — this runtime had room all along),
+then the builder exited 1 with no message.
+
+**Cause:** `python /content/build_d0_dataset.py` puts **`/content`** on
+`sys.path[0]`, never the cwd — so `cd "$REPO"` does nothing for `from core import
+…`. **Every local test passed because this venv has the project installed
+editable** (`_editable_impl_kat_vad.pth`); Colab has no such install. Verified
+both directions with a path probe, and confirmed that stripping `PYTHONPATH`
+locally still exits 0 — i.e. the bug was **unreproducible on this machine by
+construction**.
+
+**Fixed:** every call site now passes `PYTHONPATH="$REPO"` (the §4.2 driver sets
+it for the whole child env; both bash cells carry it inline). Verified by running
+the builder from `/tmp` — out of tree, as on Colab — through shard **and** labels
+mode, then loading the result with `load_dataset_files`.
+
+**Second, compounding defect:** the driver used `subprocess.run(..., check=True)`
+with no capture, so the child's `ModuleNotFoundError` never reached the notebook —
+only `returned non-zero exit status 1`. **That cost a full round trip.** The short
+steps now run with `capture=True` and print the child's output on failure. Filed
+as a candidate with the note that this is the third instance of *the tooling hid
+what it already knew* (after `check_p1.py`'s prose and `pick_probe`'s silent cap).
+
+### 10. Fourth failure — the loop ran on 52 clips again, and nothing objected
+
+`shards done: 2 | cached clips: 52`. The sampler fix was real — the notebook's own
+`pick_probe.py` was re-verified against `data/DADA/dada标注.xlsx` on 2026-09-16 and
+returns **400 rows, 52/52 types**. `/content/d0_clips.json` was a **stale 52-row
+file** left by the previous session.
+
+**The lesson is not about the sampler.** Fixing the producer did not help because
+**nothing downstream asserted what it had been handed**: the shard loop read 52
+items, ran them, and printed a success line.
+
+**Fixed in `phase_1.ipynb`:** cell 7 re-reads the file it just wrote and asserts
+`len(rows) == N_WANT` (plus uniqueness, plus the file's mtime); cell 13 refuses to
+start unless the file holds exactly `N_WANT`, and names the recovery. Verified to
+fire at 52 and to pass at 400. Filed as the **fourth instance** of the same
+pending candidate, whose rule is now: *assert the size and shape of every
+intermediate you did not produce in the same cell.*
+
+The 52 cached `.npy` are not wasted — `pending_items` is per clip, so any that are
+also in the 400 get skipped on the re-run. Delete `$D0/counts` first so no stale
+census survives.
+
+### 11. Next
+
+**Re-run the `%%writefile /content/pick_probe.py` cell from
+`DADA_ORIGIN_PHASE0.md` §4 first** — the copy on `/content` is stale. Then
+`core/docs/DADA_ORIGIN_PHASE1.md` §2 → §6 on a **GPU** Colab runtime: pick 400
+(seed 2024), extract ~19.6 GiB in one pass (fits 87 G free; sharding is Phase 2's
+problem at 94 GiB), build, extract features **with `--no-center-crop` and no
+`--frames-subdir`**, then both `eda report` arms. §4's output re-runs **P1 at
+n = 400**, which supersedes Phase 0's n = 30 and closes its Wilson gap for free.
+Record in `gate_d0_report.md`, then **stop** — Phase 2 is a separate decision
+taken on the number.
+
+---
+
+## 2026-09-15 — **Phase 0 PASSES all three gates.** DADA-original is real data
 
 **No code in `core/` changed.** Executed on Colab (CPU), recorded in
 `colab/DADA2000Origin/phase_0.ipynb`; artifacts
@@ -135,7 +470,7 @@ and `results.json` — that part of the claim stands.
 1. §7.1 follow-ups (a) resolution sweep over all 30 probe clips and (b)
    clip-directory count — cheap, top of the Phase 1 session.
 2. **Gate D0** — CLIP features for ~400 clips, then
-   `python -m core.tools.eda run --sections features`. Bar: frame linear probe
+   `python -m core.tools.eda report --sections features`. Bar: frame linear probe
    `auc_macro` **≥ 0.60**; **< 0.55 STOPS the plan** and the deliverable becomes
    the negative result. Reference: DoTA **0.6708** on the same features; the
    DADA *archive* **0.5228**.

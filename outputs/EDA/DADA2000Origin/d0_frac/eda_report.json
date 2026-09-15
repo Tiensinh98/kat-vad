@@ -1,0 +1,131 @@
+{
+  "data_dir": "/content/d0/dataset/d0_frac",
+  "dataset": "DADA2000_orig",
+  "features": {
+    "clip_dir": "/content/drive/MyDrive/Thesis/cache/clip/DADA2000_orig",
+    "clip_linear_probe": {
+      "ran": false,
+      "reason": "every clip has the same clip-level label"
+    },
+    "coverage": {
+      "found": 400,
+      "missing": 0,
+      "missing_examples": [],
+      "requested": 400
+    },
+    "frame_linear_probe": {
+      "ap_baseline": 0.3079380991165967,
+      "ap_micro": 0.41686108049098997,
+      "auc_macro": 0.6518429196439651,
+      "auc_macro_videos": 400,
+      "auc_micro": 0.6207019236489818,
+      "clips": 400,
+      "folds": 5,
+      "frames": 15961,
+      "interpretation": "auc_macro well above 0.5 means the frozen features DO carry a frame-level accident signal and the deficit is supervision; at 0.5 the representation itself is the ceiling (RESULTS_DADA.md \u00a710-B)",
+      "positive_frames": 4915,
+      "ran": true
+    },
+    "stats": {
+      "clips": 400,
+      "dim": 512,
+      "effective_dims_90pct_variance": 420,
+      "frames": 15961,
+      "l2_norm": {
+        "mean": 9.880323317779737,
+        "n": 15961,
+        "name": "per-frame L2 norm",
+        "percentiles": {
+          "p0": 8.908129692077637,
+          "p100": 11.368419647216797,
+          "p25": 9.678820610046387,
+          "p5": 9.427372932434082,
+          "p50": 9.859408378601074,
+          "p75": 10.062479972839355,
+          "p95": 10.397305488586426
+        },
+        "std": 0.2996131141068217
+      },
+      "per_dim_variance": {
+        "mean": 0.04190632515474135,
+        "n": 512,
+        "name": "per-dimension variance",
+        "percentiles": {
+          "p0": 0.003651510924100876,
+          "p100": 0.34501075744628906,
+          "p25": 0.027594495099037886,
+          "p5": 0.02253453163430095,
+          "p50": 0.03201187960803509,
+          "p75": 0.04147028084844351,
+          "p95": 0.09200210534036159
+        },
+        "std": 0.03590933862083738
+      }
+    },
+    "temporal_autocorrelation": {
+      "cosine_by_lag": {
+        "lag1": {
+          "mean": 0.967867311651622,
+          "pairs": 15561,
+          "std": 0.022723726280218123
+        },
+        "lag2": {
+          "mean": 0.9587155361185287,
+          "pairs": 15161,
+          "std": 0.027264789681011238
+        },
+        "lag3": {
+          "mean": 0.9548795991542822,
+          "pairs": 14761,
+          "std": 0.02938247941554303
+        },
+        "lag4": {
+          "mean": 0.9467935879684891,
+          "pairs": 14361,
+          "std": 0.03303800586382365
+        },
+        "lag5": {
+          "mean": 0.9425940000262047,
+          "pairs": 13961,
+          "std": 0.03495465357138259
+        },
+        "lag6": {
+          "mean": 0.9412893034893014,
+          "pairs": 13561,
+          "std": 0.03544026777203433
+        },
+        "lag7": {
+          "mean": 0.9355698650608435,
+          "pairs": 13161,
+          "std": 0.03741366048504661
+        },
+        "lag8": {
+          "mean": 0.9327656021967137,
+          "pairs": 12761,
+          "std": 0.03829744403977113
+        }
+      },
+      "max_lag": 8
+    },
+    "variance_decomposition": {
+      "between_clip_variance": 0.028092002496123314,
+      "between_over_within": 1.9692194510059022,
+      "clips": 400,
+      "within_clip_variance": 0.014265552009337285
+    }
+  },
+  "frame_stride_assumed": 8,
+  "mil_topk_pct": 16,
+  "score_head_kernel": 9,
+  "sections": [
+    "features"
+  ],
+  "verdicts": [
+    {
+      "action": "The deficit is SUPERVISION, not representation. A better head or denser labels can close it; a different backbone is not required.",
+      "detail": "Supervised linear probe reaches auc_macro 0.6518 on the same cached features the trained arms saw.",
+      "level": "INFO",
+      "title": "The features DO carry a frame-level signal"
+    }
+  ]
+}

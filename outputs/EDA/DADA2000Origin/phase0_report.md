@@ -207,7 +207,7 @@ types 33/001, 44/002, 42/013, 47/001, 39/016.
 1. §7.1 follow-ups (a) resolution sweep and (b) clip-directory count — cheap,
    run at the top of the Phase 1 session.
 2. **Gate D0** — extract CLIP features for ~400 clips, run
-   `python -m core.tools.eda run --sections features`. Bar: frame linear probe
+   `python -m core.tools.eda report --sections features`. Bar: frame linear probe
    `auc_macro` **≥ 0.60**; **< 0.55 stops the plan** and the deliverable becomes
    the negative result. Reference points: DoTA 0.6708 on the same features and
    transform family; the DADA *archive* 0.5228.

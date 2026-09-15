@@ -146,7 +146,7 @@ too, every frame label is misplaced and this whole plan is void.
 ## 4. Phase 1 — **Gate D0**, the representation ceiling
 
 Extract CLIP features for ~400 original clips and run
-`python -m core.tools.eda run --sections features`. **No training.**
+`python -m core.tools.eda report --sections features`. **No training.**
 
 The current DADA EDA carries a CRITICAL verdict — *"the features carry no
 frame-level signal"*, frame linear probe `auc_macro` **0.5228**. A supervised

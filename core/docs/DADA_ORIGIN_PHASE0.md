@@ -394,11 +394,28 @@ def main(argv: list[str] | None = None) -> None:
     picked: list[dict] = []
     for typ in sorted(by_type):                       # one per type first
         picked.append(rng.choice(by_type[typ]))
+
+    # THEN fill at random to --n. Without this the sample is capped at the number
+    # of types (52), silently: `--n 400` returned 52 on 2026-09-15 and the Phase 1
+    # runbook's claim that it "fills" was simply untrue. The guard below is
+    # entered only when more than one-per-type was asked for, so every sample
+    # with --n <= 52 -- Phase 0's 30 among them -- is bit-for-bit unchanged.
+    if args.n > len(picked):
+        taken = {(r["type"], r["video"]) for r in picked}
+        rest = [r for r in rows if (r["type"], r["video"]) not in taken]
+        rng.shuffle(rest)
+        picked.extend(rest[: args.n - len(picked)])
+
     rng.shuffle(picked)
     picked = picked[: args.n]
     args.out.write_text(json.dumps(picked, indent=2), encoding="utf-8")
     print(f"{len(rows)} annotated clips over {len(by_type)} types "
           f"-> picked {len(picked)}")
+    if len(picked) < args.n:
+        print(f"WARNING: asked for {args.n} but only {len(picked)} clips exist; "
+              "every later population number must say so")
+    covered = len({r["type"] for r in picked})
+    print(f"types covered: {covered}/{len(by_type)}")
     for r in picked[:5]:
         print("  ", r)
 
@@ -414,7 +431,12 @@ python /content/pick_probe.py \
   --out /content/probe_clips.json
 ```
 
-Expect `1945 annotated clips over 52 types -> picked 30`.
+Expect `1945 annotated clips over 52 types -> picked 30`, then
+`types covered: 30/52`.
+
+> **`--n` above 52 needs the fill pass.** Until 2026-09-15 this script stopped at
+> one clip per type, so `--n 400` silently returned **52**. Check the `picked N`
+> line against the `--n` you asked for — it is printed for exactly this reason.
 
 ---
 
@@ -783,7 +805,7 @@ byte-identical.
 
 **Next on a full PASS:** Phase 1 / Gate D0 —
 `.project/plans/katvad-dada-original-corpus.md` §4. Extract CLIP features for
-~400 clips and run `python -m core.tools.eda run --sections features`. The bar is
+~400 clips and run `python -m core.tools.eda report --sections features`. The bar is
 frame linear probe `auc_macro` **≥ 0.60**; below **0.55** the plan stops and the
 deliverable becomes the negative result.
 
