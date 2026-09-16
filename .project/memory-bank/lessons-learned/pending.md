@@ -755,3 +755,166 @@ sharpens the candidate rule:
 asserts `len(rows) == N_WANT` plus uniqueness, printing the file's mtime; cell 13
 refuses to start unless the file holds exactly `N_WANT` clips, and says how to
 recover. Both verified to fire at 52 and pass at 400.
+
+---
+
+## Candidate 2026-09-16 (a) — a caption field is only a caption if it is unique
+
+**Raised by:** Phase 2 of the DADA-2000 original corpus, deciding whether
+`L_neg` could finally be activated. Measured, not argued.
+
+**Triggers:** L_neg, caption, contrastive, InfoNCE, cap_contrastive, descriptions, G4
+
+**Problem:** a per-video text field that is really a *category label* makes
+`asymmetric_infonce_loss` unsatisfiable, and it fails silently — the loss simply
+plateaus at a positive floor.
+
+`core/losses/contrastive.py:20-38` treats each caption's own video as the **only**
+positive. Two clips sharing a string give identical text embeddings, so `ano_sim`
+(S,S) carries two identical rows against a diagonal target: no parameter setting
+satisfies it, and the gradient pushes two videos of the *same* accident type
+apart — the opposite of definition-conditioning.
+
+**Measured on `data/DADA/dada标注.xlsx`, 1,962 rows (2026-09-16):**
+
+| caption source | unique | rows colliding | at `BATCH_SIZE` 64 |
+|---|---:|---:|---:|
+| `texts` alone | **81** (4.1 %) | 99.0 % | **78 % of a batch** |
+| `texts+causes`+ 4 scene attrs | 1,124 (57.3 %) | 58.1 % | 10 % |
+
+**Bad:**
+```python
+# "the dataset ships a text column, so L_neg can run"
+captions = [row["texts"] for row in abnormal_rows]   # 81 distinct strings
+```
+
+**Good:**
+```python
+# count distinct values BEFORE wiring any contrastive loss to a text field
+unique = len({normalize(row[col]) for row in rows})
+assert unique / len(rows) > THRESHOLD, f"{col} is a category label, not a caption"
+```
+
+**Rule:** Measure a text field's distinct-value ratio before wiring it to a
+contrastive loss; treat anything under ~50 % unique as a class label, and compose
+extra annotation columns until the collision rate at the real batch size is
+tolerable.
+
+**Files:** `core/losses/contrastive.py:20-38`, `core/data/dada_origin.py:META_COLUMNS`,
+`.project/plans/katvad-dada-original-phase2-t2.md` §3.4
+
+**Correction this candidate carries:** `N3_MIN_SCORE_RANGE = 0.2`
+(`core/losses/contrastive.py:91`) gates only the **mining** branch — when it
+fires, `mined` is empty and `L_neg` falls back to vanilla contrastive, still
+computed. `progress.md` and `activeContext.md` describe it as a blocker on
+`L_neg` as a whole; it is not.
+
+**Gate status:** not yet validated against `GATES.md`. Derived once, from one
+corpus. Promote if a second dataset's "description" field turns out to be a
+taxonomy.
+
+---
+
+## Candidate 2026-09-16 (b) — address a hand-maintained sheet by its columns, never its name
+
+**Triggers:** xlsx, spreadsheet, sheet name, annotation, openpyxl, Sheet1
+
+**Problem:** `dada标注.xlsx`'s sheets are named the **opposite** of their
+contents — `name="text"` holds the 1–38 type taxonomy, `name="Sheet1"` holds the
+1,962-row per-clip table. A reader keyed on the name (or on sheet order) parses
+zero usable rows and the failure reads exactly like a corrupt file.
+
+**Bad:**
+```python
+rows = load_workbook(path)["Sheet1"].iter_rows()   # the decoy
+```
+
+**Good:**
+```python
+sheet = find_sheet(path, REQUIRED_COLUMNS)   # first sheet carrying every column;
+                                             # on failure prints every header
+```
+
+**Rule:** Detect a spreadsheet's sheet by the columns it carries, and on failure
+print every sheet's header, so a re-export that renames a tab fails loudly
+instead of reporting an empty corpus.
+
+**Files:** `core/data/xlsx.py:find_sheet`, `core/data/dada_origin.py:REQUIRED_COLUMNS`
+
+**Gate status:** not yet validated. The rule is now enforced by code, which may
+make it a code-level invariant rather than a lesson.
+
+---
+
+## Candidate 2026-09-16 (c) — write the unrebuildable artifact to durable storage in the step that CREATES it
+
+**Third instance of the same failure.** Phase 1 (2026-09-15) lost its per-clip
+frame census to a recycled Colab runtime. `phase_2.ipynb` was written the next
+day *with that lesson quoted in its own markdown* and still put
+`counts_dir = P2 / 'counts'` on `/content`, copying to Drive only in §6. On
+2026-09-16 §3 failed with `ValueError: No census file matched
+['/content/p2/counts/*.json']` after the extraction had already run.
+
+**Triggers:** colab, census, runtime recycled, /content, intermediate artifact, C17, resume
+
+**Problem:** "copy the artifacts to durable storage at the end" is not a
+policy — it is a race against the runtime. The steps between creation and the
+copy are exactly the steps during which the artifact is irreplaceable.
+
+**Bad:**
+```python
+counts_dir = VM_LOCAL / 'counts'      # ... and §6, much later, copies it to Drive
+```
+
+**Good:**
+```python
+counts_dir = DRIVE / 'DADA2000_orig' / 'counts'   # written where it is created
+```
+
+**Rule:** Decide for every intermediate whether re-creating it is cheap; write
+the ones that are not to durable storage **in the step that creates them**, not
+in a later "record the run" step — and give the expensive step a second,
+independent way to rebuild that artifact.
+
+**The second route, added here:** `7z l -slt` reads the archive's central
+directory and yields an exact per-clip image count **without extracting a byte**
+(`phase_2.ipynb` §2.0). A lost census now costs one minute, not a re-extraction
+of 94 GiB. Section 3 merges archive-index counts with per-shard counts (shard
+wins, being what the extractor actually read) and intersects with the CLIP cache,
+so a clip can never enter the corpus with labels but no features.
+
+**Files:** `colab/DADA2000Origin/phase_2.ipynb` §2.0/§2/§3
+
+**Gate status:** three instances of the family, one of them a repeat *after* the
+lesson was written down. Strong promote candidate — the existing C17 says
+"record the run", which is demonstrably not enough to prevent this.
+
+---
+
+## Candidate 2026-09-16 (d) — every line of an `.ipynb` `source` list must carry its own `\n`
+
+**Triggers:** ipynb, notebook, colab, source, generated notebook
+
+**Problem:** `nbformat` concatenates the `source` list **verbatim**. A generator
+that does `text.split("\n")` produces lines with no terminator; the file is valid
+JSON, every cell still `compile()`s after a join, and Jupyter often renders it —
+but **Colab shows the whole cell as one line**. The defect is invisible to every
+check short of opening it in Colab.
+
+**Bad:**
+```python
+cell["source"] = text.split("\n")
+```
+
+**Good:**
+```python
+cell["source"] = text.splitlines(keepends=True)
+```
+
+**Check:** `any(not s.endswith("\n") for s in cell["source"][:-1])` must be False
+for every cell.
+
+**Files:** `colab/DADA2000Origin/phase_2.ipynb`
+
+**Gate status:** one instance, but zero-cost to enforce and it survived a syntax
+check, a JSON check and a structural check before the user hit it.

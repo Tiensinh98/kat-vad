@@ -654,11 +654,18 @@ def _windowed_meta(
     frame_labels: dict[str, list[int]],
     record_by_window: dict[str, DadaRecord],
     test_ids: set[str],
+    extra_meta: dict[str, dict[str, object]] | None = None,
 ) -> dict[str, dict[str, object]]:
     """``meta.json`` for a windowed corpus -- one row per window (lesson **C17**).
 
     Records ``source``/``start``/``end`` so any downstream table can re-derive the
     geometry, and keeps the source clip's span/accident_frac for diagnostics.
+
+    ``extra_meta`` is keyed by **source** id and merged into every window of that
+    source -- per-clip annotation columns a caller wants preserved without
+    inventing a second metadata file. It can never overwrite a key above: the
+    corpus-defining fields win, and a collision would make two builds of the same
+    geometry disagree.
     """
     meta: dict[str, dict[str, object]] = {}
     for wid, window in sorted(windows.items()):
@@ -679,10 +686,13 @@ def _windowed_meta(
             "normalized_span": list(record.span) if record.span is not None else None,
             "accident_frac": record.accident_frac,
         }
+        if extra_meta is not None:
+            for key, value in extra_meta.get(window.source, {}).items():
+                meta[wid].setdefault(key, value)
     return meta
 
 
-def _write_windowed(
+def write_windowed(
     out_dir: Path,
     train: list[DadaRecord],
     test: list[DadaRecord],
@@ -693,8 +703,14 @@ def _write_windowed(
     min_positive: int,
     weak_mode: str,
     max_per_clip: int,
+    extra_meta: dict[str, dict[str, object]] | None = None,
 ) -> None:
-    """Write the windowed corpus: four standard files keyed by window id + ``windows.json``."""
+    """Write the windowed corpus: four standard files keyed by window id + ``windows.json``.
+
+    Public because :mod:`core.data.dada_origin` builds the same window geometry
+    over a different release. ``extra_meta`` (keyed by source id) is the only
+    difference between the two callers' output beyond the records themselves.
+    """
     train_windows, train_labels, train_records = plan_record_windows(
         train, stride, window_length, window_stride, min_positive, weak_mode, max_per_clip
     )
@@ -743,6 +759,7 @@ def _write_windowed(
             {**train_labels, **test_labels},
             {**train_records, **test_records},
             set(test_labels),
+            extra_meta,
         ),
     )
     write_windows(out_dir, windows)
@@ -826,7 +843,7 @@ def preprocess(
         write_train_ids(out_dir, [r.video_id for r in train])
         write_test_ids(out_dir, [r.video_id for r in test])
     else:
-        _write_windowed(
+        write_windowed(
             out_dir, train, test, stride, class_names,
             window_length, window_stride, window_min_positive, window_weak_mode,
             window_max_per_clip,

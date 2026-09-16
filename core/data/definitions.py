@@ -33,6 +33,9 @@ DATASET_NAME_TO_ABBR = {
     "MSAD-full": "msad",  # entire MSAD benchmark; same class taxonomy/definitions
     "DoTA": "dota",
     "DADA2000": "dada",
+    # Original DADA-2000 release (Phase 2 / T2): different corpus, same single
+    # abnormal class and therefore the same traffic definition set.
+    "DADA2000_orig": "dada",
     "TAD": "tad",
 }
 

@@ -74,6 +74,36 @@ DADA_CLASS_NAME = "CarAccident"  # definition key shared with DoTA (spec §7.5)
 # (confirmed on the real archive) -- video_id is prefixed by dirname to stay
 # globally unique; this separator must never appear inside a dirname itself.
 DADA_ID_SEPARATOR = "__"
+
+# --- DADA-2000, ORIGINAL release (Phase 2 / T2) ----------------------------
+# A DIFFERENT corpus from DADA_DATASET above, not a variant of it. The archive
+# this project trained on until 2026-09-15 trims both classes unequally; the
+# original release is untrimmed (aggregate frame delta +0.30 %) and ships **no
+# normal videos at all**, so T2 cuts its negatives from inside the accident
+# videos. Separate dataset name => separate feature cache, always (lesson C2).
+DADA_ORIGIN_DATASET = "DADA2000_orig"
+# The ORIGINAL annotation: 1,962 rows, no Fault_Label column. Its sheets are
+# named the opposite of their contents -- "text" holds the 1-38 type taxonomy
+# and "Sheet1" holds the per-clip table -- so the sheet is DETECTED by its
+# columns, never addressed by name.
+DADA_ORIGIN_ANNOTATION_FILENAME = "dada标注.xlsx"
+# Measured layout (DADA_ORIGIN_PHASE0.md §3.1):
+#   {frames_dir}/DADA2000/{type}/{video:03d}/images/{frame:04d}.png
+DADA_ORIGIN_ROOT_DIRNAME = "DADA2000"
+DADA_ORIGIN_IMAGES_SUBDIR = "images"
+# DadaRecord.fault_label is not optional and the original release has no such
+# column; this sentinel keeps the id scheme honest about that.
+DADA_ORIGIN_FAULT_SENTINEL = "origin"
+
+# T2 geometry (.project/plans/katvad-dada-original-phase2-t2.md §4). Deliberately
+# NOT the WINDOW_* defaults below: those are the trimmed archive's Phase 2a
+# geometry and a 32-frame window keeps only 70.8 % of this corpus's abnormal
+# clips (C32). W=16/hop 8 keeps 98.1 % and puts the clip oracle at 0.6631.
+DADA_ORIGIN_WINDOW_LENGTH = 16
+DADA_ORIGIN_WINDOW_STRIDE = 8
+# Test fraction of SOURCE VIDEOS (never of windows -- splitting on windows puts
+# the same accident in both splits; T2 yields ~3.8 windows per video).
+DADA_ORIGIN_TEST_RATIO = 0.2
 MSAD_DATASET = "MSAD"  # user's traffic slice (frozen split, gates a/b/c)
 MSAD_FULL_DATASET = "MSAD-full"  # entire MSAD benchmark (paper-comparable runs)
 UCF_CRIME_DATASET = "UCF-Crime"
