@@ -1135,3 +1135,56 @@ every micro number ([[lesson-12]]) — it is a caveat, not a gate.
 ### The rule
 Derive a pre-registered metric's attainable range from the corpus's class mix
 before setting the threshold, and record that derivation beside the number.
+
+## 35. A pre-registered threshold needs a MEASURED lever, not an assumed one
+
+**Where it came from.** Gate W (Phase 3 of the DADA-2000 original corpus) failed
+on one criterion of six: clip oracle **0.7529** against a **0.75** bar. The plan's
+risk 3 told the operator which flag to reach for, and it was the wrong one.
+
+**The measurement.** Same 1,945-clip archive census, same build path
+(`core.data.dada_origin`), one label rebuild per row (seconds each; the CLIP cache
+is keyed by SOURCE clip and a window is a slice, so no re-extraction):
+
+| W | hop | cap | clip oracle | retention | two-class | ratio | Gate W |
+|---:|---:|---:|---:|---:|---:|---:|---|
+| 16 | 8 | 2 | 0.7765 | 0.983 | 439 | 2.15 | FAIL |
+| 16 | 8 | 3 | 0.7527 | 0.983 | 653 | 2.15 | FAIL |
+| 16 | 8 | **4** | **0.7529** | 0.983 | 787 | 2.06 | **FAIL** |
+| 16 | 8 | 6 | 0.7580 | 0.983 | 896 | — | FAIL |
+| 16 | 4 | 4 | 0.7336 | 0.983 | 956 | 2.42 | pass |
+| 18 | 9 | 4 | 0.7350 | 0.974 | 753 | 2.32 | pass |
+| **20** | **8** | **4** | **0.7037** | **0.957** | **798** | **2.80** | **PASS** |
+| 24 | 8 | 4 | 0.6557 | 0.899 | 780 | 3.87 | FAIL (retention, ratio) |
+| 32 | 16 | 4 | 0.6127 | 0.728 | 388 | 5.00 | FAIL |
+
+The cap — the flag the plan named — spans **0.025**. The window length, the flag
+the plan warned against, spans **0.14** and is the only one that crosses the bar.
+
+**Why the cap cannot work, from C33's closed form.** The oracle is
+`(F_norm + 0.5·X)/(F_norm + X)`, with `F_norm` the frames in all-normal windows
+and `X` the negative frames inside abnormal windows. `≤ 0.75` requires
+`F_norm ≤ X`. At W=16 the corpus measured 6,528 vs 6,377 — short by **151 frames
+of 19,536 (0.77 %)**, about ten windows. Capping windows per clip removes windows
+of *both* kinds in proportion, so it moves `F_norm` and `X` together and the ratio
+barely shifts. Lengthening the window converts whole all-normal windows into mixed
+ones, which moves `F_norm` down and `X` up at the same time — two-sided, hence the
+10x larger span. The mechanism was derivable; nobody derived it, and the remedy
+was written from intuition instead.
+
+**The sibling failure in the same plan.** §5.2's predicted oracle of **0.6631** at
+W=16 was computed over the annotation alone. It is not wrong about the corpus — it
+is the value at W≈24 — but W=24 fails retention (0.899 < 0.90) and class ratio
+(3.87 > 3). A simulation that skips the build path can be right about a number and
+wrong about which configuration produces it.
+
+**What it cost, and what it would have cost.** Detected before any arm trained,
+because the sweep was run when the gate failed rather than the prose followed:
+three rebuild cycles saved. The real exposure was larger — the prose also invited
+the *other* error, waving 0.0029 through as "only a bit over", which the sweep
+showed to be unnecessary: a passing geometry existed two rows away.
+
+**Not the same as C33.** C33 asks *can this threshold be met by any corpus*
+(the attainable range). C35 asks *which flag moves it, and by how much* (the
+lever). A threshold can be perfectly reachable, as this one was, and still be
+unreachable in practice if the operator is pointed at an inert knob.

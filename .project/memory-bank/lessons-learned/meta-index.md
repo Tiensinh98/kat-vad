@@ -247,6 +247,20 @@ Derive a metric's attainable range from the corpus's class mix *before* writing
 the threshold, and record the derivation beside it.
 → `.project/plans/katvad-dada-phase2-corpus-rebuild.md` §1
 
+### C35 [HIGH] Experiments — a pre-registered threshold needs a MEASURED lever
+C33 fixed *whether* a threshold can be met; it says nothing about **which flag
+moves it**. Phase 2's risk 3 named `--window-max-per-clip` as the knob for a
+failing clip oracle and warned against `--window-length`. Measured: the cap spans
+**0.7527-0.7765** across caps 2-6 (it thins both classes at once, so C33's
+`(F_norm+0.5X)/(F_norm+X)` barely shifts); the window length spans **0.61-0.75**
+and is the only flag that crosses the bar. W=16 FAILED at 0.7529, **W=20/hop 8
+PASSES all six** (0.7037, retention 0.957, 798 two-class). The plan's predicted
+0.6631 belongs to W~24, which fails retention instead. Publish a measured lever
+table beside every threshold; a windowing rebuild costs seconds because the
+feature cache is keyed by SOURCE clip and a window is a slice.
+→ `.project/plans/katvad-dada-original-phase2-t2.md` §6.1, §7 risk 3;
+  `core/constants.py:DADA_ORIGIN_WINDOW_LENGTH`
+
 ### C7 [MEDIUM] Deps — don't call library internals that drift
 The LR schedule is an in-house `LambdaLR` rather than
 `transformers.get_scheduler`, to avoid HF internal-API churn across versions.
@@ -299,7 +313,11 @@ The LR schedule is an in-house `LambdaLR` rather than
 | argue that the frozen-CLIP backbone is the bottleneck | `core/docs/DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md` §7 — run the probe A/B before spending; a VideoMAE swap voids `H_mul` and every cache (C2, C13) |
 | re-shard a corpus into fixed-length windows, or pick a `--window-length` | **C32** — measure the length distribution PER CLASS first |
 | accept a rebuilt corpus, or read an EDA report after a corpus change | **C32** — check retention, two-class count and class ratio, not just the leak metric |
-| write a pre-registered gate, exit criterion or falsification threshold | **C33** — derive the attainable range first |
+| write a pre-registered gate, exit criterion or falsification threshold | **C33** — derive the attainable range first; **C35** — and measure which flag moves it |
+| write "if the gate fails, change X" in a plan, runbook or risk section | **C35** — sweep X against the real data first, or do not write the sentence |
+| act on a failing Gate W criterion, or argue a miss is "only a bit over" | **C35** — the trade-off table is in the plan's §6.1; a passing geometry may be one row away |
+| pick `--window-length` / `--window-max-per-clip` for the DADA-2000 ORIGINAL corpus | **C35**, C32 — W=20/hop 8 passes, W=16 does not; `core/constants.py:DADA_ORIGIN_WINDOW_LENGTH` |
+| set `loss.mil_topk_pct` on a corpus of short windows | `k = max(1, L // pct)`; at L=20 the default 16 gives **k=1** and `L_MIL` is a plain max — `core/constants.py:DADA_ORIGIN_MIL_TOPK_PCT` |
 | add any eval-time flag that skips, filters or subsets the scored items | **C30** — seed per item first, or the numbers are not comparable |
 | compare a metric across two different scored subsets (raw vs `--equalize-length`, with/without an exclusion) | **C30** |
 | read or report a positive/negative score gap, a score range, or "the curves widened" | **C31** — divide by the within-clip σ |
@@ -316,7 +334,7 @@ The LR schedule is an in-house `LambdaLR` rather than
 
 ## Category map
 
-- **Experiment discipline:** C14, C16, C17, **C30**, **C33**
+- **Experiment discipline:** C14, C16, C17, **C30**, **C33**, **C35**
 - **Env / platform:** C1, C3, **C21**
 - **Data & caches:** C2, C9, C10, C11, C13, **C18**, **C20**, **C23**, **C25**, **C26**, **C28**, **C32**
 - **Comparability / protocol:** C8, C8b, C12, C13

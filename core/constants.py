@@ -97,10 +97,42 @@ DADA_ORIGIN_FAULT_SENTINEL = "origin"
 
 # T2 geometry (.project/plans/katvad-dada-original-phase2-t2.md §4). Deliberately
 # NOT the WINDOW_* defaults below: those are the trimmed archive's Phase 2a
-# geometry and a 32-frame window keeps only 70.8 % of this corpus's abnormal
-# clips (C32). W=16/hop 8 keeps 98.1 % and puts the clip oracle at 0.6631.
-DADA_ORIGIN_WINDOW_LENGTH = 16
+# geometry, and a 32-frame window keeps only 72.8 % of this corpus's abnormal
+# sources (C32).
+#
+# MEASURED, not predicted (2026-09-16, Gate W on the real archive census, 1,945
+# clips). The plan's W=16 was sized from a simulation over the annotation alone
+# and it FAILS: clip oracle 0.7529 against the 0.75 bar, because all-normal
+# windows hold 6,528 test frames against 6,377 negative frames inside abnormal
+# windows -- C33's closed form needs F_norm <= X, and it misses by 151 frames.
+# The window length is the only flag that moves it (the per-clip cap spans
+# 0.7527-0.7529 over a 3x range; see lessons-learned C35):
+#
+#     W  hop | oracle  retention  two-class  ratio | Gate W
+#     16   8 | 0.7529      0.983        787   2.06 | FAIL
+#     16   4 | 0.7336      0.983        956   2.42 | pass
+#     20   8 | 0.7037      0.957        798   2.80 | PASS  <- adopted
+#     24   8 | 0.6557      0.899        780   3.87 | FAIL (retention, ratio)
+#     32  16 | 0.6127      0.728        388   5.00 | FAIL
+#
+# W=20 also retires the EDA's CRITICAL "micro AUC is mostly clip classification"
+# verdict, which W=16 fires. Full record:
+# outputs/EDA/DADA2000_orig_T2_w20s8/ (passing) beside DADA2000_orig_T2/ (failing).
+DADA_ORIGIN_WINDOW_LENGTH = 20
 DADA_ORIGIN_WINDOW_STRIDE = 8
+# Score-head kernel for a T2 window: kernel 9 spans 45 % of 20 sampled frames and
+# a head whose kernel spans the clip is a clip classifier (C27). NOT the package
+# default SCORE_HEAD_KERNEL below, which stays 9 for every other corpus, so every
+# T2 arm must pass model.score_head_kernel explicitly.
+DADA_ORIGIN_SCORE_HEAD_KERNEL = 3
+# MIL top-k on a T2 window. The default MIL_TOPK_PCT = 16 gives
+# k = max(1, 20 // 16) = 1 for EVERY window, i.e. L_MIL degenerates to a plain
+# max with ONE supervised frame per bag per step (EDA verdict, HIGH). The bag
+# shrank, not the formula: MSAD's median clip is 86 sampled frames, where the
+# same pct gives k = 5. 5 keeps k = 4, which holds the NUMBER of supervised
+# frames per bag comparable to the MSAD campaign rather than its fraction.
+# A declared deviation, pre-registered before the arms (plan §6), never tuned.
+DADA_ORIGIN_MIL_TOPK_PCT = 5
 # Test fraction of SOURCE VIDEOS (never of windows -- splitting on windows puts
 # the same accident in both splits; T2 yields ~3.8 windows per video).
 DADA_ORIGIN_TEST_RATIO = 0.2

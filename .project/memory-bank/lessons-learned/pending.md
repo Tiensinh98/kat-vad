@@ -921,75 +921,74 @@ check, a JSON check and a structural check before the user hit it.
 
 ---
 
-## Candidate 2026-09-16 (e) — the per-clip window cap is not the lever for the clip oracle
+## ~~Candidate 2026-09-16 (e)~~ — **PROMOTED to lesson C35** (2026-09-16)
 
-**Triggers:** gate W, clip oracle, window-max-per-clip, window-length, remedy,
-pre-registered, C32, C33, DADA original, T2
+The per-clip window cap is not the lever for the clip oracle. Promoted once Gate W
+had run at **both** geometries, so the lesson cites a failing corpus (W=16,
+oracle 0.7529) and a passing one (W=20, 0.7037) rather than a simulation.
 
-**Problem:** Plan `katvad-dada-original-phase2-t2.md` risk 3 names
-`--window-max-per-clip` as *the* knob to reach for if Gate W drifts, and names
-`--window-length` as the one to avoid (it re-fires C32 retention). For the class
-ratio that is right. For the **clip oracle** it is measurably wrong: the oracle
-follows the abnormal share of test *frames* (C33's closed form), and the cap
-thins both classes at once, so it barely moves.
+→ `index.md` §35 · `detailed.md` §35 · `meta-index.md` (inline + trigger map)
 
-**Measured 2026-09-16, as a SIMULATION** — the real xlsx (1,945 accident rows),
-the real `core.data.dada_origin` build path, but a census of the annotation's own
-`total frames` in place of on-disk counts, because Phase 2 has not been extracted
-yet. Numbers below are predictions, **not** Gate W:
+---
 
-| `--window-max-per-clip` | W | clip oracle | retention |
-|---|---:|---:|---:|
-| 2 | 16 | 0.7765 | 0.983 |
-| 3 | 16 | 0.7524 | 0.983 |
-| **4** (T2) | 16 | **0.7528** | 0.983 |
-| 6 | 16 | 0.7580 | 0.983 |
-| 2 | 24 | 0.6618 | 0.899 |
-| 4 | 24 | 0.6560 | 0.899 |
+## Candidate 2026-09-16 (f) — a frozen encoder that reads a library's INTERNAL layout fails late, in the middle of a run
 
-The cap spans 0.752–0.777 (Δ 0.025) across a 3x range; the window length moves it
-0.75 → 0.66 in one step, and pays for it with retention falling **below** Gate W's
-own 0.90 bar. Two consequences: (1) the remedy prose was pointing at the wrong
-flag, and (2) **the plan's predicted oracle of 0.6631 at W=16 does not reproduce
-on this build path** — the simulation lands at ~0.75, i.e. on the bar, so Gate W
-is at real risk of failing on that criterion alone.
+**Triggers:** transformers, CLIPTextModel, text_model, colab, runtime drift, pin,
+soft prompt, AttributeError, clip_text, C7, C21, preflight
 
-**Candidate rule.** *Beside every pre-registered threshold, record which flag
-moves it and by how much — measured, on the real build path, not asserted. A
-remedy sentence naming the wrong knob costs a full rebuild cycle to discover.*
+**Problem:** `core/models/clip_text.py` reaches into three transformers internals —
+`self.model.text_model` (line 115) plus the private
+`_create_4d_causal_attention_mask` / `_prepare_4d_attention_mask`. Colab's
+Python-3.13 runtime now ships **transformers v5**, where `CLIPTextModel` no longer
+wraps a nested `.text_model`, and the run died with
+`AttributeError: 'CLIPTextModel' object has no attribute 'text_model'`.
 
-**Files:** `.project/plans/katvad-dada-original-phase2-t2.md` §7 risk 3,
-`colab/DADA2000Origin/phase_2.ipynb` §5 (`REMEDY`), `core/eda/protocol.py:clip_constant_oracle`
+What makes it a lesson is **where** it died: not at import, not at config parse,
+but inside `compute_losses` on the first batch — after the dataset was resolved
+(5,507 windows), CLIP was downloaded, the device was picked, and `config.yaml`
+had already been written to the run dir. The run directory looks *started*. Three
+of the project's own layers had already passed: the notebook's command builder,
+argparse, and `load_config`.
 
-**CONFIRMED 2026-09-16, Gate W ran for real** (`outputs/EDA/DADA2000_orig_T2/`,
-1,945 clips, real archive census): oracle **0.7529** against the simulation's
-0.7528 — four decimal places. `F_norm` 6,528 vs `X` 6,377, i.e. the miss is **151
-frames of 19,536 (0.77 %)**, ~10 all-normal windows. The plan's predicted 0.6631
-at W=16 is **refuted**; it belongs to W≈24, which fails retention (0.899) and
-class ratio (3.87) instead.
+**Why it was not caught earlier.** `phase_1`/`phase_2` exercise only the CLIP
+**vision** tower through the public API, so the same drifted stack extracted
+1,945 clips without complaint. The text tower is the only module that depends on
+internal layout, and nothing ran it until training started.
 
-Re-measured on that same census, the real trade-off curve (cap fixed at 4):
+**Bad:** a `%%bash` cell that installs conveniences (`av`, `einops`, `faiss-cpu`)
+and leaves the stack to whatever the runtime ships, while `techContext` pins
+`transformers==4.56.*`.
 
-| W | hop | oracle | retention | two-class | ratio | Gate W |
-|---:|---:|---:|---:|---:|---:|---|
-| 16 | 8 | 0.7529 | 0.983 | 787 | 2.06 | FAIL |
-| 16 | 4 | 0.7336 | 0.983 | 956 | 2.42 | PASS |
-| 18 | 9 | 0.7350 | 0.974 | 753 | 2.32 | PASS |
-| **20** | **8** | **0.7037** | **0.957** | **798** | **2.80** | **PASS** |
-| 24 | 8 | 0.6557 | 0.899 | 780 | 3.87 | FAIL |
-| 32 | 16 | 0.6127 | 0.728 | 388 | 5.00 | FAIL |
+**Good:** pin the library the internals belong to, **and** smoke-test the exact
+path on a 1-layer random-weight model at the top of the notebook — one second, no
+download, no Drive I/O:
 
-The cap spans 0.7527–0.7529 at W=16; the window length spans 0.61–0.75. **The cap
-is not the lever, and it never was.** At W=20 the EDA's CRITICAL *"micro AUC is
-mostly clip classification"* verdict disappears altogether — the criterion was not
-a round number with no content behind it.
+```python
+tiny = CLIPTextModel(CLIPTextConfig(vocab_size=64, hidden_size=32, intermediate_size=64,
+                                    num_hidden_layers=1, num_attention_heads=2,
+                                    max_position_embeddings=77, eos_token_id=2))
+SoftPromptCLIPTextModel(clip_model=tiny, num_soft_prompts=4)(
+    input_ids=ids, attention_mask=mask).pooler_output
+```
 
-**Decision (user, 2026-09-16): rebuild at W=20 / hop 8.** Not waved through.
-`colab/DADA2000Origin/phase_2.ipynb` §0 now carries the geometry as a named
-override with this derivation beside it; `core/constants.py` keeps
-`DADA_ORIGIN_WINDOW_LENGTH = 16` until the rebuild's Gate W passes on the real
-features, then it is updated with `trace_call_path` first.
+The module is already injectable (`clip_model=`) precisely so tests need no
+download; the preflight just uses the seam that exists.
 
-**Gate status:** promote candidate — the claim is now measured, not simulated, and
-it falsified a number that was already printed in a plan. Hold until the W=20 run
-lands so the lesson can cite a passing corpus as well as a failing one.
+**Candidate rule.** *Every module that reads a library's internal layout gets a
+data-free smoke test at the top of any notebook that will reach it, and the
+library is pinned wherever that notebook runs. A dependency check belongs where
+the failure is cheap, not where it is discovered.*
+
+**Note on the remedy NOT taken.** Porting `clip_text.py` to v5 mid-campaign was
+rejected: it sits on the score path, an untested port changes `z^t` silently, and
+every arm would then measure the port (C14). The v5 port is a separate, tested
+task — and `torch` is deliberately **not** pinned on Colab any more, because
+torch 2.4 has no cp313 wheel and the feature caches were built on the runtime's
+own torch.
+
+**Files:** `core/models/clip_text.py:115`, `colab/DADA2000Origin/phase_4.ipynb` §0/§0.1,
+`.project/memory-bank/techContext.md`, `core/docs/COLAB.md` Cell 0.2
+
+**Gate status:** one instance, but it is the second environment-drift failure in
+this project after C15 (pickled numpy state) and the same shape as C7. Promote if
+it recurs on another module, or fold into C7 as an enforcement clause.

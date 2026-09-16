@@ -231,6 +231,113 @@ Phase 0/1 measured that on-disk counts differ from annotated ones. Its 0.6631
 oracle and 98.1 % retention are *predictions*. Gate W re-measures; nobody quotes
 the simulated figures as results.
 
+### 6.1 RESULT — Gate W ran twice. W=16 FAILED, **W=20 PASSED** (2026-09-16)
+
+Record: `outputs/EDA/DADA2000_orig_T2/` (failing) and
+`outputs/EDA/DADA2000_orig_T2_w20s8/` (passing), both on the real 1,945-clip
+archive census, both with `--score-head-kernel 3`.
+
+| criterion | bar | W=16 hop 8 | **W=20 hop 8** |
+|---|---|---:|---:|
+| length leak (clip AUC) | ≤ 0.55 | 0.5000 | **0.5000** |
+| clip oracle (micro) | ≤ 0.75 | **0.7529 FAIL** | **0.7037** |
+| abnormal source retention | ≥ 0.90 | 0.9830 | **0.9568** (1,861/1,945) |
+| class ratio | within 1:3 | 2.06 | **2.80** |
+| kernel coverage (median, k=3) | ≤ 0.35 | 0.1875 | **0.1500** |
+| two-class test clips | ≥ 300 | 787 | **798** |
+| | | **1 FAIL** | **6 PASS** |
+
+The W=16 miss was **151 frames of 19,536 (0.77 %)** — C33's closed form needs
+`F_norm ≤ X` and measured 6,528 vs 6,377 — and it was **not** waved through. At
+W=20 the EDA's CRITICAL verdict *"micro AUC here is mostly clip classification"*
+also disappears, so the criterion had content behind it rather than being a round
+number. `core/constants.py:DADA_ORIGIN_WINDOW_LENGTH` is **20** as of this result;
+it was 16 until the gate passed, never before.
+
+> **§7 risk 3 was wrong and is corrected there.** The per-clip cap is not the
+> lever for the oracle: caps 2/3/4/6 at W=16 span **0.7527–0.7529**, while the
+> window length spans 0.61–0.75. Lesson **C35**.
+
+---
+
+## 6.2 Phase 4 — PRE-REGISTRATION (written 2026-09-16, before any arm ran)
+
+Everything in this section is fixed **before** the first training step, because a
+criterion chosen after seeing a DoTA delta is not a criterion (C14, lesson 14).
+
+### 6.2.1 The objective, and the one declared deviation
+
+| flag | value | why |
+|---|---|---|
+| `model.score_head_kernel` | **3** | kernel 9 spans 45 % of a 20-frame window; a head whose kernel spans the clip is a clip classifier (C27) |
+| `loss.mil_topk_pct` | **5** (k = 4) | **the deviation.** The default 16 gives `k = max(1, 20 // 16) = 1` for *every* window — `L_MIL` collapses to a plain max, one supervised frame per bag per step (EDA verdict, HIGH). The bag shrank, not the formula: MSAD's median clip is 86 frames, where the same pct gives k = 5. `pct=5` holds the **number** of supervised frames per bag (4) comparable to the MSAD campaign rather than its fraction (20 % vs 6.25 %). Declared, recorded in every run manifest, never tuned against a result |
+| `data.frame_stride` | 8 | the cache's stride; changing it voids every `.npy` (C2) |
+| everything else | package default | `kip.gate_signal=flow_norm` is the only gate on `main` (C24) |
+
+`sup_mil_topk_pct` and `mul_mil_topk_pct` keep their defaults: `L_MIL` is the term
+the EDA flagged, and moving three knobs to fix one makes the arm unattributable.
+
+### 6.2.2 The ceilings, recorded now so a low number is not misread
+
+| quantity | value | what it is |
+|---|---:|---|
+| **in-domain frame-level ceiling** | **0.5983** | supervised linear probe, `auc_macro`, on the T2 windows the arms will train on (5-fold, grouped by clip) |
+| in-domain clip-level probe | 0.5551 AUC | the same features, mean-pooled per window |
+| clip constant oracle | 0.7037 micro | what a model that ranks windows perfectly and localizes nothing scores |
+| length-only ruler | 0.5000 | any arm below this is unmeasured |
+| Gate D0, full clips | 0.6518 | the same features, same transform, **un-windowed** |
+| DoTA frame probe | 0.6708 | the held-out benchmark's own ceiling |
+
+**No arm can be expected to exceed 0.5983 in-domain at frame level**, and the drop
+from D0's 0.6518 is the price of a 20-frame window (lag-1 autocorrelation 0.968),
+**not** evidence against frozen CLIP. The EDA fires CRITICAL *"the features carry
+no frame-level signal"* here because `PROBE_SIGNAL_AUC = 0.60`
+(`core/eda/report.py:34`) and 0.5983 misses it by **0.0017** — that is a binary
+threshold on a 5-fold estimate with no CI, and its prescribed remedy (swap the
+backbone) voids every cache (C2, C13). **Do not act on it.**
+
+### 6.2.3 What decides the phase
+
+| | metric | bar |
+|---|---|---|
+| **headline** | DoTA **zero-shot** `auc_macro`, per-clip min-max pooling | **> 0.6408** |
+| attribution | Δ(KIP on − off), paired over seeds 2024/2025/2026, t-interval | CI excluding zero |
+| in-domain | T2 `auc_macro` over its **798** two-class windows | reported beside 0.5983, never beside a published frame-level AUC |
+| sanity | T2 micro AUC | reported **only** beside the 0.7037 oracle (C12) |
+
+The in-domain micro number is **not** a result and never appears in a table with a
+published figure. `--score-norm auto` resolves to `none` on T2 (27.2 % normal
+windows) and to `minmax` on DoTA (all-abnormal) — that difference is the protocol,
+not a choice (C8, C12).
+
+### 6.2.4 Falsification, stated in advance
+
+* **KIP is refuted on this corpus** if Δ(on − off) over three seeds has a
+  t-interval containing zero. That is the expected outcome: the +0.09 on MSAD is
+  already attributed to temporal smoothing, and the ordering inverted on the DADA
+  archive (`v3/RESULTS_DADA.md`).
+* **The corpus is refuted** if the KIP-off trunk cannot beat **0.5000**
+  in-domain or **0.6408** zero-shot — then T2 is another TAD (C14) and the phase
+  stops rather than trying a KIP variant.
+* **The arms are void** if any of them trains without `model.score_head_kernel=3`
+  or `loss.mil_topk_pct=5`. Both are in `config.yaml` and the run manifest; check
+  before reading any number.
+
+### 6.2.5 Housekeeping fixed in advance
+
+* **Exclude at scoring:** `t05_v048`, `t10_v014` — abnormal sources whose windows
+  hold no positive frame; they read as genuine normal clips (`DADA_SETUP.md`
+  §5.1). **The ids are per-build** — at W=16 they were `t10_v100`, `t48_v056`.
+  Read them from the build's own `eda_report.md` §2, never from this list.
+* **`commit: UNKNOWN`** in both Gate-W manifests: the Drive copy of the repo is
+  not a git checkout. Fix before the campaign, or every arm inherits a corpus
+  build that cannot be identified (C17).
+* **KIP-on needs a RAFT pass the corpus does not have.** The CLIP extraction
+  deleted its frames; `L_KIP_rec` needs `cache/flow/v1/DADA2000_orig`, which needs
+  the frames back. Flow is **train-only**, so the pass covers `train_ids.txt`
+  (1,491 sources), not all 1,861. Until it exists, `kip.enabled=true` raises —
+  **the KIP-off trunk is what is trainable today.**
+
 ---
 
 ## 7. Risks
@@ -241,9 +348,17 @@ the simulated figures as results.
    `full`/`shard`/`labels` pattern.
 2. **C17.** Copy `meta.json` and the frame census off the VM *in the same cell
    that writes the report*. Phase 1 lost its census to a recycled runtime.
-3. **Class ratio 2.07:1 toward positives** while `L_MIL` wants negative bags. The
+3. ~~**Class ratio 2.07:1 toward positives** while `L_MIL` wants negative bags. The
    per-clip cap is what holds it — if Gate W reports drift, move the **cap**, not
-   the window length (moving the length re-fires C32 retention).
+   the window length (moving the length re-fires C32 retention).~~
+   **CORRECTED 2026-09-16, measured (lesson C35).** The cap is the lever for the
+   *class ratio* and for nothing else. For the **clip oracle** it is inert: caps
+   2/3/4/6 at W=16 measure 0.7765 / 0.7527 / 0.7529 / 0.7580, a 0.025 span, while
+   the window length moves it 0.75 → 0.61. Following this risk as written would
+   have cost a rebuild cycle to discover. The oracle's lever is `--window-length`,
+   paid for in retention; §6.1 has the curve. Ratio at the adopted W=20 is
+   **2.80:1**, still inside the 1:3 bar but nearer the edge — *that* is what the
+   cap is for.
 4. **C14.** TAD proved in-domain training can destroy localization. T2 may do the
    same. The bar is DoTA **0.6408** and **the DoTA delta is not a tuning signal**
    (lesson 14).

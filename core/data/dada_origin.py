@@ -24,10 +24,17 @@ two corpora cannot drift apart in label convention or window geometry.
 **Negatives come from inside the accident videos.** That is the whole point of
 T2. The archive's negatives were a separate ~3x longer pool, which let clip
 length carry the label (a frame-count-only ruler scored micro **0.8654**, lesson
-**C28**); cutting 16-frame windows at hop 8 out of the accident videos themselves
-puts the leak at **0.5000** by construction and the clip oracle at ~0.66, while
-keeping ~98 % of the abnormal sources. The negatives share camera, weather and
+**C28**); cutting fixed-length windows out of the accident videos themselves puts
+the leak at **0.5000** by construction. The negatives share camera, weather and
 scene with the positives and sit seconds apart.
+
+The window length is what decides whether the corpus is measurable at all, and it
+was **measured, not predicted** (Gate W, 2026-09-16, real archive census): at
+W=16/hop 8 the clip oracle is **0.7529** and Gate W FAILS; at
+``DADA_ORIGIN_WINDOW_LENGTH`` = **20**/hop 8 it is **0.7037** with 95.7 % of the
+abnormal sources kept and 798 two-class test windows, and every criterion passes.
+W=24 would reach 0.656 but drops retention to 0.899 (C32). The per-clip cap is
+**not** the lever here: it spans 0.7527-0.7529 across caps 2-6 (lesson C35).
 
 **Labels use absolute frame indices** (plan §3.1). ``span`` is normalized against
 the **on-disk** count, not the annotation's ``total frames``: where the release is
