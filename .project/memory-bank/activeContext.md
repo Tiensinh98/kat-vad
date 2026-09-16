@@ -24,12 +24,137 @@
 > this branch *this file and `progress.md` are the only durable record of the
 > attribution campaign*. Do not delete them; do not re-run those arms here.
 
-**Last Memory Bank Update:** 2026-09-15 (latest — **GATE D0 PASSES, `auc_macro` 0.6518 on 400 clips**, after four fixed false starts (n=52 sampler cap, errno=28, PYTHONPATH, stale clips file); earlier the same day **Phase 0 PASSES P1/P2/P3** on
-the DADA-2000 **original** release; earlier that day the corpus was adopted with
-T2 windowing and P2 alone had passed, and earlier still, the TAD campaign).
-*This entry updated `activeContext.md` and `pending.md` only — not a six-file
-reconcile; counts below are carried over from the previous update.* Counts re-measured on this tree: **81 Python files** (55 source +
-26 test), **11,756** source LOC, **23 docs**, **514 collected → 514 pass**.
+**Last Memory Bank Update:** 2026-09-17 (latest — **Phase 2/3/4 of the DADA-2000
+original corpus: Gate W passed at W=20, and the KIP-off trunk trained and
+evaluated on three seeds. T2 is the first corpus in this project where in-domain
+training did NOT collapse into a clip/window classifier.** Earlier: Gate D0 passed
+at 0.6518; Phase 0 P1/P2/P3; the TAD campaign).
+*This entry updated `activeContext.md`, `progress.md`, the plan, `constants.py`,
+`lessons-learned/{index,detailed,meta-index,pending}.md` and two notebooks — not a
+full six-file reconcile.* Counts re-measured on this tree: **84 Python files**
+(57 source + 27 test), **24 docs**, **546 collected → 546 pass**.
+
+## 2026-09-17 — **T2 IS TRAINABLE, AND IT DID NOT COLLAPSE.** Gate W at W=20, KIP-off trunk on 3 seeds
+
+Record: `outputs/EDA/DADA2000_orig_T2_w20s8/` (Gate W) and
+`outputs/REPORTS/DADA2000_orig_phase4/` (the arms). Plan §6.1–§6.2.6.
+
+### 1. Gate W failed at the plan's geometry and passes at W=20
+
+| criterion | bar | W=16 hop 8 | **W=20 hop 8** |
+|---|---|---:|---:|
+| length leak | ≤ 0.55 | 0.5000 | **0.5000** |
+| clip oracle (micro) | ≤ 0.75 | **0.7529 FAIL** | **0.7037** |
+| abnormal source retention | ≥ 0.90 | 0.9830 | **0.9568** |
+| class ratio | 1:3 | 2.06 | **2.80** |
+| kernel coverage (k=3) | ≤ 0.35 | 0.1875 | **0.1500** |
+| two-class test clips | ≥ 300 | 787 | **798** |
+
+W=16 missed by **151 frames of 19,536 (0.77 %)** — C33's closed form needs
+`F_norm ≤ X` and measured 6,528 vs 6,377 — and was **not** waved through. The
+plan's risk 3 named `--window-max-per-clip` as the lever; measured, the cap spans
+**0.7527–0.7529** across caps 2–6 while the window length spans **0.61–0.75**.
+That is now **lesson C35**, and `core/constants.py:DADA_ORIGIN_WINDOW_LENGTH` is
+**20**, changed only after the gate passed. At W=20 the EDA's CRITICAL *"micro AUC
+is mostly clip classification"* verdict disappears entirely.
+
+### 2. The headline: in-domain training did NOT destroy localization
+
+**This is the first corpus in the project where that is true.** In-domain T2,
+3 seeds, KIP-off:
+
+| quantity | measured | reference |
+|---|---:|---|
+| `auc_macro` (798 two-class windows) | **0.6248** ±0.0165 | per-frame linear probe 0.5983 → **+0.027** |
+| `auc` micro | 0.6182 ±0.0042 | clip oracle **0.7037** → **below it** |
+
+Two independent readings: micro sits **below** the constant-score-per-window
+oracle, so the micro number is not carried by window ranking; and macro ≥ micro.
+**TAD collapsed the opposite way** — micro 0.9237 ≈ its oracle 0.9226 while macro
+*fell* 0.7578 → 0.6174 (C14). T2's construction — negatives cut from inside the
+accident videos, so window identity carries no label — is what bought this.
+
+### 3. Zero-shot DoTA: in-domain traffic beats out-of-domain CCTV, **on the point estimate only**
+
+| trained on | arm | micro (min-max) | macro |
+|---|---|---:|---:|
+| MSAD | kip_off | 0.5491 ±0.0181 | 0.5453 ±0.0234 |
+| MSAD | **kip_on** (the bar) | **0.6408** ±0.0116 | **0.6529** ±0.0228 |
+| PreVAD | kip_off | 0.5867 ±0.0007 | 0.6015 ±0.0009 |
+| **T2** | **kip_off** | **0.5856** ±0.0230 | **0.6113** ±0.0306 |
+
+Like-for-like (KIP-off vs KIP-off) T2 beats MSAD by **+0.0365 micro / +0.0660
+macro**, all three seeds in the same direction, and lands level with **PreVAD**,
+the trunk LaGoVAD itself was trained on. **But t95 at n=3 is ±0.046 / ±0.080 and
+includes zero.** A seed integer is not a matched pair across two corpora, so that
+is the honest interval. **Do not quote the T2-vs-MSAD gap as established.**
+
+Against the **0.6408 / 0.6529** bar T2 kip_off is below — and that row sets a
+KIP-off arm against a KIP-on one, so it decides nothing until the KIP-on arm runs.
+
+### 4. Three pre-registration defects of ours, found by the data
+
+1. **The headline compared `auc_macro` to a MICRO bar.** 0.6408 is the *"micro
+   (min-max)"* column of the parent plan §7.2. Under the wrong comparison T2 reads
+   *refuted*; under the like-for-like row it reads *ahead*. Corrected in place;
+   candidate **(g)** in `pending.md`.
+2. **"No arm can be expected to exceed 0.5983 in-domain"** — falsified by 3/3
+   seeds. A linear probe reads one frame at a time off frozen features; the arms
+   carry a temporal encoder and a `Conv1d(kernel=3)`. 0.5983 is the ceiling of a
+   **per-frame linear** readout, and the +0.027 above it *is* temporal context.
+3. **`run_manifest.json`'s `excluded_at_scoring` named an action nobody took** —
+   `core.evaluate` has no exclusion flag. `t05_v048` / `t10_v014` were identified,
+   not removed; they are single-class so `auc_macro` never saw them
+   (`auc_macro_videos` = 798 = the two-class count exactly). Key renamed.
+
+### 5. The horizon was copied, not derived — and that cost a run
+
+`num_epochs=125` came from the MSAD runbook. **An epoch is not a transferable
+unit**: MSAD's split is 480 clips / 120 abnormal → a DVS epoch of 240 items →
+**4 steps/epoch**, so its 125 epochs were **500 optimizer steps** (TAD ran 504).
+T2 has 3,242 abnormal train windows → 6,484 items → **102 steps/epoch**, so the
+same 125 would have been **12,750 steps, 25× anything this project has run**. Set
+to **20 epochs = 2,040 steps** with the derivation recorded.
+
+Per-step cost was the second half: `core/train.py` has **no `DataLoader`** by
+design (so `--resume` reproduces exactly), one DVS item reads the anchor plus 1–4
+spliced fillers (**~1.75 `.npy` per item, ~112 per step of 64**), and
+`_log_metrics` opens `metrics.jsonl` **every batch** — all against a Drive FUSE
+mount, for a CLIP cache that is **156 MiB total**. `phase_4.ipynb` §0.2 now stages
+every cache on VM-local NVMe and trains in `--stop-after-epochs 5` chunks with a
+Drive sync between them.
+
+### 6. What is blocked, and what is not
+
+* **KIP-on is blocked on a RAFT pass.** `L_KIP_rec` needs
+  `cache/flow/v1/DADA2000_orig`; the CLIP extraction deleted its frames, so the
+  targets cost a second trip through the 94 GiB archive — **train ids only**
+  (1,491 sources, flow is train-only). `phase_4.ipynb` §3, `RUN_FLOW=True`.
+* **Every KIP-on arm on `main` is a fixed ~50 % channel shift** (C24): the frozen
+  gate MLP never receives a gradient and there is no `kip.gate_type` here. Do not
+  write "motion-gated" of these runs.
+* **Power, not correctness, is the live problem.** DoTA macro sd is 0.0306 at
+  n=3 → t95 ±0.076, wider than every gap being argued about. The **paired KIP
+  on/off delta** is a genuine within-corpus pairing and is the measurement n=3 was
+  chosen for; the cross-corpus comparison is not.
+* **`commit: UNKNOWN` is expected, not a defect** — the Drive copy of the repo is
+  uploaded, not cloned, so there is no git metadata. The manifest now records a
+  **sha256 of `core/**/*.py`** instead, which answers the same question.
+
+### 7. Environment drift bit once, in the one module that reads library internals
+
+Colab's Python-3.13 runtime ships **transformers v5**, where `CLIPTextModel` has
+no nested `.text_model` — which `core/models/clip_text.py:115` reads (C7; the file
+touches three transformers internals). It died inside `compute_losses` on the
+first batch, *after* the dataset resolved, CLIP downloaded and `config.yaml` was
+written. `phase_1`/`phase_2` never hit it: they use only the CLIP **vision** tower
+through the public API. Fixed by pinning `transformers==4.56.*` (**not** torch —
+2.4 has no cp313 wheel) plus a one-second data-free smoke test of that exact
+forward pass at `phase_4.ipynb` §0.1. **The v5 port of `clip_text.py` was
+deliberately NOT done mid-campaign** (score path, untested port changes `z^t`
+silently, every arm would measure it — C14). Candidate **(f)** in `pending.md`.
+
+---
 
 ## 2026-09-15 — **GATE D0 PASSES: `auc_macro` = 0.6518.** The original release is not the archive
 

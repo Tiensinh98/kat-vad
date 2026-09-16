@@ -1,10 +1,11 @@
 # Progress
 
-**Last updated:** 2026-09-15 (later — the DADA-2000 **original** corpus adopted,
-T2 windowing chosen, Phase 0 P2 passed; earlier the same day, the TAD campaign:
-Gate T0 diagnosed, the in-domain clip-classifier collapse measured, the loss
-ladder falsified, the warm-start arm measured. Counts re-measured on this tree:
-81 Python files, 11,756 source LOC, 23 docs, 514 tests pass)
+**Last updated:** 2026-09-17 — **the DADA-2000 original corpus is built, gated and
+trained on.** Gate W passes at W=20/hop 8; the KIP-off trunk ran on three seeds and
+**T2 is the first corpus in this project where in-domain training did not collapse
+into a clip/window classifier.** KIP-on is blocked on a RAFT pass.
+(Earlier: Gate D0 0.6518, Phase 0 P1/P2/P3, the TAD campaign. Counts re-measured on
+this tree: **84 Python files (57 source + 27 test), 24 docs, 546 tests pass**.)
 
 > **Branch:** `main`, tip `702bd5b` — the **v1** line. The v3 gate rebuild is on
 > branch `v3` (tip `bb1516c`), which has its own memory bank. See
@@ -139,6 +140,9 @@ these rows plus `core/docs/RESULTS_*.md` are all that survives.
 
 | **TAD, end to end** (`TAD_SETUP.md` §8.1/§15.1, 2026-09-15; `RESULTS_TAD.md` **not yet written**) | TAD, 5 arms + 3 reference gates, seed 2024, **KIP-off** | **Gate T0 = 0.7912 micro / 0.7578 macro vs published 89.56 — FAILS by 10.4, diagnosed not chased** (labels 100/100 exact vs LaGoVAD's own anno, stride 8=8, pooling raw=raw; **frame ordering exonerated by macro 0.7578**; residual = length weighting — equal-clip-weighted micro 0.6574, ruler 0.8968 — plus `_ncc`). **In-domain `m0` collapses to a clip classifier:** clip-AUC **0.9975**, macro **0.6174**, micro 0.9237 ≈ the corpus's clip oracle **0.9226**. **Loss ladder falsified:** `t1_bottomk` moved 4/4 columns *wrong* (macro 0.6016, DoTA macro 0.5331) though the term worked mechanically (range +37 %, gap +78 %) — variance without direction; the user's `bottomk_topk_pct=8` dose arm agrees. **`t2_warm` (PreVAD-trunk warm start) is the only arm to move all four columns right** — macro **0.6540**, d **+0.5482**, DoTA macro **0.5887**, recovering 26 % / 27 % / 59 % of the gap — but still misses the bar. **Headline: TAD training DESTROYS 0.104 of macro it was handed (0.7578 → 0.6540).** n=1 seed | **v1** |
 
+| **DADA-2000 ORIGINAL — Gate W** (`outputs/EDA/DADA2000_orig_T2_w20s8/`, 2026-09-16) | — (corpus build) | **W=16 FAILED** (clip oracle **0.7529** vs a 0.75 bar — `F_norm` 6,528 > `X` 6,377 by **151 frames of 19,536**). **W=20 hop 8 PASSES all six**: leak **0.5000**, oracle **0.7037**, retention **0.9568** (1,861/1,945), ratio 2.80, kernel coverage 0.1500, **798** two-class windows. The per-clip cap is **inert** on the oracle (0.7527–0.7529 across caps 2–6) while the window length spans 0.61–0.75 → **lesson C35**. Frame linear probe on the windows: **0.5983** | **v1** |
+| **DADA-2000 ORIGINAL — Phase 4, KIP-OFF trunk** (`outputs/REPORTS/DADA2000_orig_phase4/`, 2026-09-16) | T2 (W=20), 3 seeds, 2,040 steps, `score_head_kernel=3`, `mil_topk_pct=5` | **In-domain: `auc_macro` 0.6248 ±0.0165 — ABOVE the 0.5983 per-frame-linear probe — with micro 0.6182 BELOW the 0.7037 clip oracle.** Macro ≥ micro, i.e. **the C14/TAD collapse did NOT reproduce** (TAD: micro 0.9237 ≈ oracle 0.9226, macro fell 0.7578 → 0.6174). Zero-shot DoTA **micro 0.5856 ±0.0230 / macro 0.6113 ±0.0306**; like-for-like vs MSAD kip_off (0.5491/0.5453) **+0.0365 / +0.0660, 3/3 seeds same sign, but t95 ±0.046/±0.080 INCLUDES ZERO**; level with PreVAD kip_off (0.5867/0.6015). Below the MSAD **kip_on** bar (0.6408/0.6529) — a comparison that means nothing until T2's own KIP-on arm runs | **v1** |
+
 **Cross-branch comparability, settled 2026-09-12:** for `kip.enabled=false` a
 `main`-vs-`v3` Δ **is** a Δ. `p1_ctrl` reproduces v3's A0 to 4 dp, and a
 mis-pointed eval of the v3 checkpoint produced **331/331 bitwise identical** score
@@ -216,28 +220,42 @@ both show is the worse corpus on every column.
       category label (83 unique over 1,962 videos), not a per-video description;
       G4 means nothing reads a caption field; `N3_MIN_SCORE_RANGE` gates the one
       branch that would matter. See [[activeContext]] §2.
-- [x] **Corpus construction decided — T2**: W=16, hop 8, negatives cut from
-      *inside* the accident videos. leak **0.5000**, oracle **0.6631**, 98.1 %
-      abnormal retained. Four alternatives measured and rejected.
+- [x] **Corpus construction decided — T2**: negatives cut from *inside* the
+      accident videos. ~~W=16, hop 8, oracle 0.6631, 98.1 % retained~~ — those
+      were a **simulation over the annotation alone**. Measured, W=16 fails Gate W
+      (oracle 0.7529) and the adopted geometry is **W=20 / hop 8** (oracle 0.7037,
+      retention 0.9568). The 0.6631 prediction belongs to W≈24, which fails
+      retention instead. Lesson **C35**.
 - [x] **Phase 0 / P2 PASSES** — layout
       `DADA2000/{type}/{video:03d}/images/{frame:04d}.png`, 52/52 types match the
       xlsx, aggregate frame delta **+0.30 %** (vs −79 % for the trimmed archive).
       `images` = 94.01 GiB of 116.7 GiB; the other four subdirs are DADA's own
       driver-attention task and are never extracted.
-- [ ] **Phase 0 / P1 — the hard gate.** Per-clip frame count vs the annotation.
-      A one-sided mean delta means this release is *also* trimmed and the plan is
-      void. The +0.30 % aggregate is a pre-signal, not a pass.
-- [ ] **Phase 0 / P3** — decode + `preprocess_frames(..., center_crop=False)`.
-- [ ] **Gate D0** — supervised frame linear probe on ~400 original clips.
-      **PASS ≥ 0.60, STOP < 0.55.** Prior is good: DoTA's probe reaches
-      **0.6708** on the same frozen features, so DADA-archive's 0.5228 verdict
-      is about that corpus, not about CLIP.
-- [ ] **Phase 2** — full extraction in ~200-clip shards (`/content` has ~88 GB,
-      `images` needs ~101 GB), build T2, re-run EDA, Gate W.
-- [ ] **Phase 4** — train, evaluate **zero-shot on DoTA val** (held out,
-      untouched). Bar to beat: **0.6408**, this project's MSAD-trained KIP-on
-      mean. T2 is also the first corpus that can host a real KIP A/B *and* has
-      the clip-classifier shortcut closed.
+- [x] **Phase 0 / P1 + P3 PASS** (2026-09-15) — 397/400 clips exact, mean signed
+      delta −0.28; the release is **not** trimmed.
+- [x] **Gate D0 PASSES — 0.6518** on 400 clips (bar ≥ 0.60), `d0_abs` 0.6492,
+      |Δ| 0.0026 vs a 0.01 bar. DoTA 0.6708 · DADA-archive 0.5228 on the same
+      frozen features → the archive's CRITICAL verdict is about that corpus.
+- [x] **Phase 2 — T2 built** (`core/data/dada_origin.py`, `core/tests/test_dada_origin.py`,
+      `colab/DADA2000Origin/phase_2.ipynb`). Sharded extraction, symlink farm at
+      the `images` level (C26), absolute-index labels, type-stratified split.
+- [x] **Phase 3 / Gate W PASSES at W=20 hop 8** — all six criteria; see the ledger.
+      `core/constants.py:DADA_ORIGIN_WINDOW_LENGTH` changed 16 → 20 **after** the
+      gate passed, never before.
+- [x] **Phase 4 — KIP-OFF trunk trained and evaluated**, 3 seeds
+      (`colab/DADA2000Origin/phase_4.ipynb`). **The C14/TAD collapse did not
+      reproduce.** See the ledger row and [[activeContext]] 2026-09-17.
+- [ ] **Phase 4 — RAFT flow pass**, train ids only (1,491 sources, flow is
+      train-only). The CLIP extraction deleted its frames, so `L_KIP_rec`'s
+      targets cost a second trip through the 94 GiB archive. `phase_4.ipynb` §3,
+      `RUN_FLOW=True`. **Every KIP-on arm is blocked on this.**
+- [ ] **Phase 4 — the KIP A/B**, 3 seeds × {stage 1 warm-up, stage 2}. This is the
+      measurement n=3 was chosen for: a **within-corpus paired** delta, unlike the
+      cross-corpus comparison, whose t95 (±0.076 macro) is wider than every gap.
+      Remember C24: on `main` there is no `kip.gate_type`, so every KIP-on arm is
+      a **fixed ~50 % channel shift** — do not call it "motion-gated".
+- [ ] **More seeds, or accept the bound.** DoTA macro sd 0.0306 at n=3 cannot
+      decide the T2-vs-MSAD gap (+0.066). Do not quote it as established.
 
 ### Branch hygiene on `main` (new 2026-09-08)
 - [x] **Green the suite on `main`** — done 2026-09-08. Collapsed

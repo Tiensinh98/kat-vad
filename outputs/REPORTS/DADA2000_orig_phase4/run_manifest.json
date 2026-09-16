@@ -1,0 +1,57 @@
+{
+  "phase": "Phase 4 (T2 arms + evaluation)",
+  "timestamp": "2026-09-16 16:58:49",
+  "commit": "UNKNOWN (git said: 'fatal: not a git repository (or any parent up to mount point /content)\\nStopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).')",
+  "corpus": {
+    "data_dir": "/content/drive/MyDrive/Thesis/data/DADA2000_orig",
+    "window_length": 20,
+    "window_stride": 8,
+    "train_windows": 4401,
+    "test_windows": 1106,
+    "two_class_test_windows": 798,
+    "gate_w": "PASSED 2026-09-16"
+  },
+  "preregistered": {
+    "score_head_kernel": 3,
+    "mil_topk_pct": 5,
+    "num_epochs": 20,
+    "seeds": [
+      2024,
+      2025,
+      2026
+    ],
+    "dota_bar": 0.6408,
+    "t2_probe_ceiling": 0.5983,
+    "t2_clip_oracle": 0.7037,
+    "plan": "phase2-t2.md 6.2"
+  },
+  "caches": {
+    "clip": "/content/drive/MyDrive/Thesis/cache/clip/DADA2000_orig",
+    "flow": null,
+    "knn": "/content/drive/MyDrive/Thesis/cache/knn/DADA2000_orig/knn_cache.npz"
+  },
+  "excluded_at_scoring": [
+    "t05_v048",
+    "t10_v014"
+  ],
+  "arms": {
+    "s2024_kip_off": {
+      "checkpoint": "/content/drive/MyDrive/Thesis/outputs/DADA2000_orig_phase4/s2024/stage2_kip_off/checkpoint_last.pt",
+      "trained": true,
+      "dota_auc_macro": 0.5944170287669938,
+      "t2_auc_macro": 0.633409862583937
+    },
+    "s2025_kip_off": {
+      "checkpoint": "/content/drive/MyDrive/Thesis/outputs/DADA2000_orig_phase4/s2025/stage2_kip_off/checkpoint_last.pt",
+      "trained": true,
+      "dota_auc_macro": 0.6466389169116411,
+      "t2_auc_macro": 0.6351581481718938
+    },
+    "s2026_kip_off": {
+      "checkpoint": "/content/drive/MyDrive/Thesis/outputs/DADA2000_orig_phase4/s2026/stage2_kip_off/checkpoint_last.pt",
+      "trained": true,
+      "dota_auc_macro": 0.5928141448099674,
+      "t2_auc_macro": 0.6056965986262889
+    }
+  }
+}

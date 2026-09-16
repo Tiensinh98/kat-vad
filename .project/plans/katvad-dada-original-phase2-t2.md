@@ -288,9 +288,16 @@ the EDA flagged, and moving three knobs to fix one makes the arm unattributable.
 | Gate D0, full clips | 0.6518 | the same features, same transform, **un-windowed** |
 | DoTA frame probe | 0.6708 | the held-out benchmark's own ceiling |
 
-**No arm can be expected to exceed 0.5983 in-domain at frame level**, and the drop
-from D0's 0.6518 is the price of a 20-frame window (lag-1 autocorrelation 0.968),
-**not** evidence against frozen CLIP. The EDA fires CRITICAL *"the features carry
+~~**No arm can be expected to exceed 0.5983 in-domain at frame level**~~ —
+**FALSIFIED 2026-09-16 by all three seeds** (0.6334 / 0.6352 / 0.6057, mean
+**0.6248**, +0.0265 over the probe). The sentence was wrong, not the number: a
+linear probe reads **one frame at a time** off frozen features, while the arms
+carry a 2-layer temporal encoder, co-attention and a `Conv1d(kernel=3)` score
+head. 0.5983 is the ceiling for a **per-frame linear** readout; temporal context
+is exactly the headroom above it, and it measured **+0.027 macro**. Read it as a
+*reference line*, never as a cap. The drop from D0's 0.6518 is still the price of
+a 20-frame window (lag-1 autocorrelation 0.968), **not** evidence against frozen
+CLIP. The EDA fires CRITICAL *"the features carry
 no frame-level signal"* here because `PROBE_SIGNAL_AUC = 0.60`
 (`core/eda/report.py:34`) and 0.5983 misses it by **0.0017** — that is a binary
 threshold on a 5-fold estimate with no CI, and its prescribed remedy (swap the
@@ -298,9 +305,23 @@ backbone) voids every cache (C2, C13). **Do not act on it.**
 
 ### 6.2.3 What decides the phase
 
+> **CORRECTION 2026-09-16 (before any number was read).** The row below originally
+> read *"`auc_macro` … > 0.6408"*. **0.6408 is a MICRO min-max number** — the
+> parent plan's §7.2 table is headed *"micro (min-max)"* and 0.6408 is
+> `ours, MSAD-trained kip_on` on that column. Comparing a macro AUC to a micro bar
+> is the exact confusion C12 exists to stop. Both bars are now stated, measured
+> from the same files: **micro 0.6408**, **macro 0.6529**
+> (`outputs/v1/DoTA/DoTA_ncc_*/eval_kip_on/results.json`, n=3, ±0.0116 / ±0.0228).
+>
+> And the like-for-like row matters more than either: 0.6408 is a **KIP-on** arm,
+> while T2's KIP-on arm is blocked on flow. The KIP-off comparison is
+> **MSAD-trained kip_off: micro 0.5491 ±0.0181, macro 0.5453 ±0.0234.**
+
 | | metric | bar |
 |---|---|---|
-| **headline** | DoTA **zero-shot** `auc_macro`, per-clip min-max pooling | **> 0.6408** |
+| **headline** | DoTA **zero-shot** `auc`, per-clip **min-max** pooling | **> 0.6408** (MSAD kip_on) |
+| headline, macro | DoTA **zero-shot** `auc_macro`, same pooling | **> 0.6529** (MSAD kip_on) |
+| like-for-like | either metric vs **MSAD-trained kip_off** | > 0.5491 micro / 0.5453 macro |
 | attribution | Δ(KIP on − off), paired over seeds 2024/2025/2026, t-interval | CI excluding zero |
 | in-domain | T2 `auc_macro` over its **798** two-class windows | reported beside 0.5983, never beside a published frame-level AUC |
 | sanity | T2 micro AUC | reported **only** beside the 0.7037 oracle (C12) |
@@ -316,12 +337,86 @@ not a choice (C8, C12).
   t-interval containing zero. That is the expected outcome: the +0.09 on MSAD is
   already attributed to temporal smoothing, and the ordering inverted on the DADA
   archive (`v3/RESULTS_DADA.md`).
-* **The corpus is refuted** if the KIP-off trunk cannot beat **0.5000**
-  in-domain or **0.6408** zero-shot — then T2 is another TAD (C14) and the phase
-  stops rather than trying a KIP variant.
+* **The corpus is refuted** if the KIP-off trunk cannot beat **0.5000** in-domain
+  or the **MSAD-trained KIP-off** arm zero-shot (0.5491 micro / 0.5453 macro) —
+  then in-domain traffic-dashcam training buys nothing over out-of-domain CCTV
+  training and T2 is another TAD (C14). *Measuring the KIP-off trunk against the
+  KIP-on bar 0.6408 would refute the corpus for not containing a component it was
+  never given.*
 * **The arms are void** if any of them trains without `model.score_head_kernel=3`
   or `loss.mil_topk_pct=5`. Both are in `config.yaml` and the run manifest; check
   before reading any number.
+
+### 6.2.6 RESULT — the KIP-off trunk, 3 seeds (2026-09-16)
+
+`outputs/REPORTS/DADA2000_orig_phase4/`. 20 epochs = 2,040 steps, kernel 3,
+`mil_topk_pct` 5 — all three `config.yaml` confirm it. KIP-on is still blocked on
+the RAFT pass, so **every number here is KIP-off**.
+
+#### Zero-shot DoTA, every training corpus this project owns, same protocol
+
+| trained on | arm | micro (min-max) | macro |
+|---|---|---:|---:|
+| MSAD | kip_off | 0.5491 ±0.0181 | 0.5453 ±0.0234 |
+| MSAD | **kip_on** (the bar) | **0.6408** ±0.0116 | **0.6529** ±0.0228 |
+| PreVAD | kip_off | 0.5867 ±0.0007 | 0.6015 ±0.0009 |
+| PreVAD | kip_on | 0.5843 ±0.0165 | 0.6004 ±0.0180 |
+| **T2 (this phase)** | **kip_off** | **0.5856** ±0.0230 | **0.6113** ±0.0306 |
+
+**The question the parent plan §7.2 asked — *does in-domain traffic-dashcam
+training beat out-of-domain CCTV training on a traffic benchmark?* — answers YES
+on the point estimate and is NOT yet decided.** Like-for-like (KIP-off vs
+KIP-off), T2 beats MSAD by **+0.0365 micro** and **+0.0660 macro**, every seed in
+the same direction (+0.016/+0.053/+0.040 micro). At n=3 the t95 interval is
+±0.046 micro / ±0.080 macro and **includes zero**. A seed integer is not a matched
+pair across two different corpora, so that interval is the honest one, not a
+paired test.
+
+T2 kip_off also lands level with **PreVAD** kip_off (0.5856 vs 0.5867 micro) —
+and PreVAD is the trunk LaGoVAD itself was trained on.
+
+**Against the KIP-on bar (0.6408 / 0.6529) T2 kip_off is below, and that
+comparison is not yet meaningful**: it sets a KIP-off arm against a KIP-on one.
+The T2 KIP-on arm is §6.2.5's blocked item.
+
+#### In-domain T2 — the important result
+
+| quantity | measured | reference |
+|---|---:|---|
+| `auc_macro` (798 two-class windows) | **0.6248** ±0.0165 | per-frame linear probe 0.5983 → **+0.027** |
+| `auc` micro | 0.6182 ±0.0042 | clip oracle **0.7037** → **below it** |
+| length ruler | — | 0.5000, cleared |
+
+**T2 did NOT collapse into a window classifier — the first corpus in this project
+where in-domain training did not.** Two independent readings say so:
+
+1. micro **0.6182 < oracle 0.7037**. A model that ranked windows perfectly and
+   localized nothing would score the oracle; ours scores *below* it, so its micro
+   number is not being carried by window ranking.
+2. macro (0.6248) **≥** micro (0.6182). On TAD the same experiment gave micro
+   **0.9237 ≈ oracle 0.9226** while macro **fell** 0.7578 → 0.6174 (C14). The
+   ordering here is the opposite one.
+
+This is what the whole T2 construction was for: negatives cut from inside the
+accident videos, so window identity carries no label.
+
+#### Power — this campaign cannot decide its own headline
+
+DoTA macro sd is **0.0306** over 3 seeds, so t95 is **±0.076** — wider than every
+gap being argued about (T2−MSAD is 0.066; T2−bar is 0.042). `s2025` is high on
+both metrics. Two options, and the second is better: add seeds (cost scales
+linearly, each arm is ~2,040 steps), or read the **paired KIP on/off delta**,
+which is a genuine within-corpus pairing and is the measurement n=3 was chosen
+for. **Do not quote the T2-vs-MSAD gap as established.**
+
+#### Carried forward
+
+* `commit: UNKNOWN` for the third run in a row (Drive copy is not a git checkout).
+* `run_manifest.json`'s `excluded_at_scoring` **overstated what happened**:
+  `core.evaluate` has no exclusion flag, so `t05_v048` / `t10_v014` were
+  *identified*, not removed. They are single-class, so `auc_macro` never saw them
+  (`auc_macro_videos` = 798 = the two-class count exactly); only micro includes
+  them. The key is renamed `vanished_window_sources` in the notebook.
 
 ### 6.2.5 Housekeeping fixed in advance
 

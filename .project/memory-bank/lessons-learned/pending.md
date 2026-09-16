@@ -992,3 +992,57 @@ own torch.
 **Gate status:** one instance, but it is the second environment-drift failure in
 this project after C15 (pickled numpy state) and the same shape as C7. Promote if
 it recurs on another module, or fold into C7 as an enforcement clause.
+
+---
+
+## Candidate 2026-09-16 (g) — a pre-registered bar must carry the metric it was measured in
+
+**Triggers:** pre-registered, bar, headline, auc_macro, auc micro, min-max,
+0.6408, comparison table, C12, C33, C35, phase 4
+
+**Problem:** Phase 4's pre-registration named the headline as
+*"DoTA zero-shot `auc_macro` > **0.6408**"*. **0.6408 is a MICRO min-max number** —
+the parent plan's §7.2 table is headed *"micro (min-max)"* and 0.6408 is its
+`ours, MSAD-trained kip_on` cell. The bar and the metric it was written against
+came from the same table, one column apart, and the pre-registration silently
+crossed them.
+
+It very nearly produced a wrong verdict. Measured: T2 KIP-off DoTA macro
+**0.6113**, micro **0.5856**. Against "macro > 0.6408" the corpus reads *refuted*.
+Against the correct macro bar (**0.6529**, the same MSAD KIP-on runs) it is also
+below — but against the **like-for-like** row that actually applies to a KIP-off
+trunk (MSAD KIP-off, micro 0.5491 / macro 0.5453) T2 is **ahead by +0.037 micro
+and +0.066 macro, all three seeds in the same direction**. Same numbers, opposite
+conclusions, decided entirely by which cell of one table the bar was read from.
+
+**Second half of the same defect:** the bar was a **KIP-on** arm and the run was a
+**KIP-off** trunk. Comparing them refutes a corpus for not containing a component
+it was never given. The T2 KIP-on arm is blocked on a RAFT pass.
+
+**Bad:**
+```markdown
+| **headline** | DoTA zero-shot `auc_macro` | **> 0.6408** |
+```
+
+**Good:** carry the metric, the pooling and the arm in the bar itself, and state
+the like-for-like row beside it:
+```markdown
+| headline        | DoTA `auc` micro, min-max   | > 0.6408 (MSAD **kip_on**)  |
+| headline, macro | DoTA `auc_macro`, min-max   | > 0.6529 (MSAD **kip_on**)  |
+| like-for-like   | either, vs MSAD **kip_off** | > 0.5491 / 0.5453           |
+```
+
+**Candidate rule.** *A pre-registered bar is a triple — number, metric, arm. Write
+all three, and re-read them off the source table when the result arrives; a bar
+that names only a number will be compared to whatever metric is nearest to hand.*
+
+**Files:** `.project/plans/katvad-dada-original-phase2-t2.md` §6.2.3 (corrected in
+place, with the correction visible), `.project/plans/katvad-dada-original-corpus.md`
+§7.2, `colab/DADA2000Origin/phase_4.ipynb` §0/§7
+
+**Gate status:** one instance, caught before anything was published, by re-reading
+the source table rather than by any check. Sibling of **C35** (a threshold needs a
+measured lever) and **C12** (a metric is defined by its pooling). Promote if it
+recurs, or fold both into C33 as "a pre-registered quantity is number + metric +
+arm + attainable range".
+
