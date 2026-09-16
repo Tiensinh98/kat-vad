@@ -918,3 +918,49 @@ for every cell.
 
 **Gate status:** one instance, but zero-cost to enforce and it survived a syntax
 check, a JSON check and a structural check before the user hit it.
+
+---
+
+## Candidate 2026-09-16 (e) — the per-clip window cap is not the lever for the clip oracle
+
+**Triggers:** gate W, clip oracle, window-max-per-clip, window-length, remedy,
+pre-registered, C32, C33, DADA original, T2
+
+**Problem:** Plan `katvad-dada-original-phase2-t2.md` risk 3 names
+`--window-max-per-clip` as *the* knob to reach for if Gate W drifts, and names
+`--window-length` as the one to avoid (it re-fires C32 retention). For the class
+ratio that is right. For the **clip oracle** it is measurably wrong: the oracle
+follows the abnormal share of test *frames* (C33's closed form), and the cap
+thins both classes at once, so it barely moves.
+
+**Measured 2026-09-16, as a SIMULATION** — the real xlsx (1,945 accident rows),
+the real `core.data.dada_origin` build path, but a census of the annotation's own
+`total frames` in place of on-disk counts, because Phase 2 has not been extracted
+yet. Numbers below are predictions, **not** Gate W:
+
+| `--window-max-per-clip` | W | clip oracle | retention |
+|---|---:|---:|---:|
+| 2 | 16 | 0.7765 | 0.983 |
+| 3 | 16 | 0.7524 | 0.983 |
+| **4** (T2) | 16 | **0.7528** | 0.983 |
+| 6 | 16 | 0.7580 | 0.983 |
+| 2 | 24 | 0.6618 | 0.899 |
+| 4 | 24 | 0.6560 | 0.899 |
+
+The cap spans 0.752–0.777 (Δ 0.025) across a 3x range; the window length moves it
+0.75 → 0.66 in one step, and pays for it with retention falling **below** Gate W's
+own 0.90 bar. Two consequences: (1) the remedy prose was pointing at the wrong
+flag, and (2) **the plan's predicted oracle of 0.6631 at W=16 does not reproduce
+on this build path** — the simulation lands at ~0.75, i.e. on the bar, so Gate W
+is at real risk of failing on that criterion alone.
+
+**Candidate rule.** *Beside every pre-registered threshold, record which flag
+moves it and by how much — measured, on the real build path, not asserted. A
+remedy sentence naming the wrong knob costs a full rebuild cycle to discover.*
+
+**Files:** `.project/plans/katvad-dada-original-phase2-t2.md` §7 risk 3,
+`colab/DADA2000Origin/phase_2.ipynb` §5 (`REMEDY`), `core/eda/protocol.py:clip_constant_oracle`
+
+**Gate status:** one instance, and the evidence is a simulation, not a
+measurement — **do not promote until Gate W runs for real.** Recorded now because
+the prediction is falsifiable and the plan's number is already in print.
