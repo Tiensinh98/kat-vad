@@ -1,0 +1,44 @@
+{
+  "phase": "Phase 2 (T2 corpus) + Phase 3 (Gate W)",
+  "timestamp": "2026-09-16 14:41:18",
+  "commit": "UNKNOWN (git said: 'fatal: not a git repository (or any parent up to mount point /content)\\nStopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).')",
+  "dataset": "DADA2000_orig",
+  "annotation": "/content/drive/MyDrive/Thesis/data/DADA2000Origin/DADA2000/dada\u6807\u6ce8.xlsx",
+  "annotated_clips": 1945,
+  "data_dir": "/content/drive/MyDrive/Thesis/data/DADA2000_orig",
+  "clip_cache": "/content/drive/MyDrive/Thesis/cache/clip/DADA2000_orig",
+  "geometry": {
+    "frame_stride": 8,
+    "window_length": 20,
+    "window_stride": 8,
+    "window_max_per_clip": 4,
+    "window_min_positive": 1,
+    "package_window_length": 16,
+    "test_ratio": 0.2,
+    "seed": 2024,
+    "score_head_kernel": 3
+  },
+  "shards": {
+    "size": 150,
+    "planned": 18,
+    "censuses": 19
+  },
+  "census": {
+    "usable_clips": 1945,
+    "merged_clips": 1962
+  },
+  "measured": {
+    "windows": 5507,
+    "train_windows": 4401,
+    "test_windows": 1106,
+    "train_abnormal": 3242,
+    "train_normal": 1159,
+    "sources_kept": 1861,
+    "retention": 0.9568123393316196,
+    "two_class_test_windows": 798,
+    "length_leak": 0.5,
+    "clip_oracle": 0.7036535859269283,
+    "kernel_coverage_median": 0.15
+  },
+  "gate_w_failed": []
+}

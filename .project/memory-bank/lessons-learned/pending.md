@@ -961,6 +961,35 @@ remedy sentence naming the wrong knob costs a full rebuild cycle to discover.*
 **Files:** `.project/plans/katvad-dada-original-phase2-t2.md` §7 risk 3,
 `colab/DADA2000Origin/phase_2.ipynb` §5 (`REMEDY`), `core/eda/protocol.py:clip_constant_oracle`
 
-**Gate status:** one instance, and the evidence is a simulation, not a
-measurement — **do not promote until Gate W runs for real.** Recorded now because
-the prediction is falsifiable and the plan's number is already in print.
+**CONFIRMED 2026-09-16, Gate W ran for real** (`outputs/EDA/DADA2000_orig_T2/`,
+1,945 clips, real archive census): oracle **0.7529** against the simulation's
+0.7528 — four decimal places. `F_norm` 6,528 vs `X` 6,377, i.e. the miss is **151
+frames of 19,536 (0.77 %)**, ~10 all-normal windows. The plan's predicted 0.6631
+at W=16 is **refuted**; it belongs to W≈24, which fails retention (0.899) and
+class ratio (3.87) instead.
+
+Re-measured on that same census, the real trade-off curve (cap fixed at 4):
+
+| W | hop | oracle | retention | two-class | ratio | Gate W |
+|---:|---:|---:|---:|---:|---:|---|
+| 16 | 8 | 0.7529 | 0.983 | 787 | 2.06 | FAIL |
+| 16 | 4 | 0.7336 | 0.983 | 956 | 2.42 | PASS |
+| 18 | 9 | 0.7350 | 0.974 | 753 | 2.32 | PASS |
+| **20** | **8** | **0.7037** | **0.957** | **798** | **2.80** | **PASS** |
+| 24 | 8 | 0.6557 | 0.899 | 780 | 3.87 | FAIL |
+| 32 | 16 | 0.6127 | 0.728 | 388 | 5.00 | FAIL |
+
+The cap spans 0.7527–0.7529 at W=16; the window length spans 0.61–0.75. **The cap
+is not the lever, and it never was.** At W=20 the EDA's CRITICAL *"micro AUC is
+mostly clip classification"* verdict disappears altogether — the criterion was not
+a round number with no content behind it.
+
+**Decision (user, 2026-09-16): rebuild at W=20 / hop 8.** Not waved through.
+`colab/DADA2000Origin/phase_2.ipynb` §0 now carries the geometry as a named
+override with this derivation beside it; `core/constants.py` keeps
+`DADA_ORIGIN_WINDOW_LENGTH = 16` until the rebuild's Gate W passes on the real
+features, then it is updated with `trace_call_path` first.
+
+**Gate status:** promote candidate — the claim is now measured, not simulated, and
+it falsified a number that was already printed in a plan. Hold until the W=20 run
+lands so the lesson can cite a passing corpus as well as a failing one.
