@@ -154,6 +154,26 @@ forward pass at `phase_4.ipynb` §0.1. **The v5 port of `clip_text.py` was
 deliberately NOT done mid-campaign** (score path, untested port changes `z^t`
 silently, every arm would measure it — C14). Candidate **(f)** in `pending.md`.
 
+### 8. The RAFT pass itself was blocked by a scope bug in its own driver — `--ids-file`
+
+`phase_4.ipynb` §3 shards the archive 150 clips at a time and handed
+`raft_extract` the **whole** `train_ids.txt` (1,491 ids) on every shard, so
+`feature_cache.select_ids` raised `1341 requested ids have no frame folder under
+/content/p4/farm_000` before RAFT ran a single pair. **The guard was right and the
+call site was wrong:** a shard's scope is the shard, not the split.
+`phase_2.ipynb` never hit it because the CLIP loop passes no `--ids-file` at all —
+it encodes whatever the farm holds — and §3 needed the flag only because flow is
+train-only.
+
+Fixed in the notebook; **no `core/` change** — `select_ids` raising here is lesson
+C10 doing its job, and relaxing it would delete the same guard for both
+extractors. §3 now writes a per-shard `ids_{tag}.txt`, and two holes of the same
+family were closed with it: the per-shard census was **written and never read**
+(`phase_2` §2 does check it), and `FLOW_READY` compared a **count**
+(`len(have) >= len(train_ids)`) where only set containment answers the question.
+Candidate **(h)** in `pending.md`. The RAFT pass is still unspent — this unblocks
+running it, it does not run it.
+
 ---
 
 ## 2026-09-15 — **GATE D0 PASSES: `auc_macro` = 0.6518.** The original release is not the archive

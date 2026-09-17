@@ -1046,3 +1046,70 @@ measured lever) and **C12** (a metric is defined by its pooling). Promote if it
 recurs, or fold both into C33 as "a pre-registered quantity is number + metric +
 arm + attainable range".
 
+
+---
+
+## (h) A sharded extraction loop must scope `--ids-file` to the SHARD, not the split (2026-09-17)
+
+**Observation.** `phase_4.ipynb` §3 extracts RAFT targets 150 clips at a time —
+7z one shard out of the 94 GiB archive, run RAFT, delete — and passed
+`--ids-file train_ids.txt` (all **1,491** train ids) on every shard. The farm
+holds 150 folders, so `core/tools/feature_cache.py:133` raised on the first one:
+
+```
+INFO core.data.video_io: Found 150 frame folders under /content/p4/farm_000
+ValueError: 1341 requested ids have no frame folder under /content/p4/farm_000:
+  ['t05_v109', 't05_v111', 't05_v112', 't05_v113', 't05_v115']
+```
+
+**The guard is correct; the call site was wrong.** `select_ids` exists so a
+silently short cache fails at extraction rather than hours later inside training
+(C10, C11). `--ids-file`'s own help string — *"restrict to these video ids… flow
+is train-time only, so this is usually train_ids.txt"* — describes the **run's**
+scope and reads perfectly natural at a call site whose real scope is one shard.
+
+**Bad:**
+```python
+for k in range(0, len(shard_rows), SHARD):
+    shard = shard_rows[k:k + SHARD]
+    run(['7z', 'x', ..., *[f'{ROOT}/{r.type_id}/{r.video:03d}/images/*' for r in shard]])
+    run([sys.executable, '-m', 'core.flow.raft_extract',
+         '--frames-dir', farm, '--ids-file', T2 / 'train_ids.txt', ...])
+```
+
+**Good:** the file names this shard, so `select_ids` becomes the per-shard
+completeness check it was written to be.
+```python
+    shard_ids = P4 / f'ids_{tag}.txt'
+    shard_ids.write_text('\n'.join(r.video_id for r in shard) + '\n', encoding='utf-8')
+    run([sys.executable, '-m', 'core.flow.raft_extract',
+         '--frames-dir', farm, '--ids-file', shard_ids, ...])
+```
+
+**The obvious fix is the dangerous one.** Dropping `--ids-file` also clears the
+error — the farm is already train-only by construction — and it silently deletes
+the guarantee: a 7z that bungs 140 of 150 clips then produces a short cache with
+no error at all, which is precisely C10's failure. **A flag that fires must be
+re-scoped, not removed.** Two holes of the same family were closed with it: §3
+wrote `census_{tag}.json` and **never read it** (`phase_2.ipynb` §2 does, and
+raises on a clip the archive index says should be there), and `FLOW_READY` read
+`len(have) >= len(train_ids)` — a **count**, which passes on an equal number of
+*wrong* ids and then fails per item inside training.
+
+**Candidate rule.** *When an extraction loop is sharded, derive `--ids-file` from
+the shard being extracted, never from the split; and when a scope flag raises,
+narrow the scope rather than dropping the flag.*
+
+**Files:** `colab/DADA2000Origin/phase_4.ipynb` §3;
+`core/tools/feature_cache.py:116-135` (`select_ids`);
+`core/flow/raft_extract.py:290`, `core/tools/extract_clip_features.py:193`
+
+**Gate status.** Gates 1/2/4/5 hold — real trace, the same `--ids-file` + shard
+shape exists in both extractors and every future corpus, one-sentence rule,
+nothing in `index.md` covers it. **Gate 3 is where it sits down: it fails loudly,
+on the first shard, before any compute is spent** — same reason the 2026-09-16
+import-path candidate is still here. The half that *is* silent is the wrong fix,
+and that half has one instance. Promote if anyone drops a scope flag to clear an
+error, or if a sharded loop ships a short cache. Closest relatives: **C10**
+(a directory is not evidence of data) and **C17** (a run must record what it is);
+fold into C10 if it recurs.
