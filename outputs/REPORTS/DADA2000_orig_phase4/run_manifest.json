@@ -1,7 +1,7 @@
 {
   "phase": "Phase 4 (T2 arms + evaluation)",
-  "timestamp": "2026-09-16 16:58:49",
-  "commit": "UNKNOWN (git said: 'fatal: not a git repository (or any parent up to mount point /content)\\nStopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).')",
+  "timestamp": "2026-09-17 14:54:01",
+  "commit": null,
   "corpus": {
     "data_dir": "/content/drive/MyDrive/Thesis/data/DADA2000_orig",
     "window_length": 20,
@@ -15,43 +15,81 @@
     "score_head_kernel": 3,
     "mil_topk_pct": 5,
     "num_epochs": 20,
+    "total_steps": 2040,
     "seeds": [
       2024,
       2025,
       2026
     ],
-    "dota_bar": 0.6408,
-    "t2_probe_ceiling": 0.5983,
+    "dota_bar_micro": 0.6408,
+    "dota_bar_macro": 0.6529,
+    "msad_kipoff_micro": 0.5491,
+    "msad_kipoff_macro": 0.5453,
+    "t2_probe_reference": 0.5983,
     "t2_clip_oracle": 0.7037,
     "plan": "phase2-t2.md 6.2"
   },
   "caches": {
     "clip": "/content/drive/MyDrive/Thesis/cache/clip/DADA2000_orig",
-    "flow": null,
+    "flow": "/content/drive/MyDrive/Thesis/cache/flow/v1/DADA2000_orig",
     "knn": "/content/drive/MyDrive/Thesis/cache/knn/DADA2000_orig/knn_cache.npz"
   },
-  "excluded_at_scoring": [
-    "t05_v048",
-    "t10_v014"
-  ],
+  "vanished_window_sources": {
+    "ids": [
+      "t05_v048",
+      "t10_v014"
+    ],
+    "removed_from_scoring": false,
+    "affects": "micro only; auc_macro excludes single-class items"
+  },
   "arms": {
     "s2024_kip_off": {
       "checkpoint": "/content/drive/MyDrive/Thesis/outputs/DADA2000_orig_phase4/s2024/stage2_kip_off/checkpoint_last.pt",
       "trained": true,
       "dota_auc_macro": 0.5944170287669938,
-      "t2_auc_macro": 0.633409862583937
+      "dota_auc_micro": 0.5769994645661901,
+      "t2_auc_macro": 0.633409862583937,
+      "t2_auc_micro": 0.6230302243992729
+    },
+    "s2024_kip_on": {
+      "checkpoint": "/content/drive/MyDrive/Thesis/outputs/DADA2000_orig_phase4/s2024/stage2_kip_on/checkpoint_last.pt",
+      "trained": true,
+      "dota_auc_macro": 0.5777889978004963,
+      "dota_auc_micro": 0.5670830500833276,
+      "t2_auc_macro": 0.5982573533971742,
+      "t2_auc_micro": 0.609530982106315
     },
     "s2025_kip_off": {
       "checkpoint": "/content/drive/MyDrive/Thesis/outputs/DADA2000_orig_phase4/s2025/stage2_kip_off/checkpoint_last.pt",
       "trained": true,
       "dota_auc_macro": 0.6466389169116411,
-      "t2_auc_macro": 0.6351581481718938
+      "dota_auc_micro": 0.6116493868222069,
+      "t2_auc_macro": 0.6351581481718938,
+      "t2_auc_micro": 0.6163772247274282
+    },
+    "s2025_kip_on": {
+      "checkpoint": "/content/drive/MyDrive/Thesis/outputs/DADA2000_orig_phase4/s2025/stage2_kip_on/checkpoint_last.pt",
+      "trained": true,
+      "dota_auc_macro": 0.61060998301889,
+      "dota_auc_micro": 0.5939810008082741,
+      "t2_auc_macro": 0.607351948965537,
+      "t2_auc_micro": 0.5990483171898102
     },
     "s2026_kip_off": {
       "checkpoint": "/content/drive/MyDrive/Thesis/outputs/DADA2000_orig_phase4/s2026/stage2_kip_off/checkpoint_last.pt",
       "trained": true,
       "dota_auc_macro": 0.5928141448099674,
-      "t2_auc_macro": 0.6056965986262889
+      "dota_auc_micro": 0.5681465937133976,
+      "t2_auc_macro": 0.6056965986262889,
+      "t2_auc_micro": 0.6152462593975954
+    },
+    "s2026_kip_on": {
+      "checkpoint": "/content/drive/MyDrive/Thesis/outputs/DADA2000_orig_phase4/s2026/stage2_kip_on/checkpoint_last.pt",
+      "trained": true,
+      "dota_auc_macro": 0.6328943698697946,
+      "dota_auc_micro": 0.6130625355815471,
+      "t2_auc_macro": 0.6082915112639166,
+      "t2_auc_micro": 0.6075189242403572
     }
   }
 }
