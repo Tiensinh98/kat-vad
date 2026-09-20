@@ -1,11 +1,17 @@
 # Progress
 
-**Last updated:** 2026-09-17 — **the DADA-2000 original corpus is built, gated and
-trained on.** Gate W passes at W=20/hop 8; the KIP-off trunk ran on three seeds and
-**T2 is the first corpus in this project where in-domain training did not collapse
-into a clip/window classifier.** KIP-on is blocked on a RAFT pass.
-(Earlier: Gate D0 0.6518, Phase 0 P1/P2/P3, the TAD campaign. Counts re-measured on
-this tree: **84 Python files (57 source + 27 test), 24 docs, 546 tests pass**.)
+**Last updated:** 2026-09-21 — **the KIP A/B on T2 is NEGATIVE and now DIAGNOSED.**
+KIP-on costs **0.0129** T2 micro (3/3 seeds, t95 excludes 0); D1/D2 attribute it:
+`L_KIP_rec` enters the sum **~32x** oversized because `e_O` is unnormalized, and the
+resulting gradient at the shared trunk is **3.1x** the task gradient while being
+**orthogonal** to it (cos = -0.001). Decision row `capture + orthogonal` -> repair
+**Option A** (z-score `e_O`, new cache version, `lambda_rec = 1/V = 0.0316` derived),
+**not yet authorized**. New lesson **C37**.
+(Earlier: Gate W at W=20/hop 8, the KIP-off trunk on three seeds and **T2 is the first
+corpus in this project where in-domain training did not collapse into a clip/window
+classifier**; Gate D0 0.6518; Phase 0 P1/P2/P3; the TAD campaign. Counts re-measured on
+this tree: **86 Python files (58 source + 28 test), 13,276 source LOC, 24 docs,
+565 tests**.)
 
 > **Branch:** `main`, tip `702bd5b` — the **v1** line. The v3 gate rebuild is on
 > branch `v3` (tip `bb1516c`), which has its own memory bank. See
@@ -34,9 +40,11 @@ this tree: **84 Python files (57 source + 27 test), 24 docs, 546 tests pass**.)
 | — | **DADA-2000 adapter** (`core/data/dada.py`) — real seeded train/test split, `--flat-frames-dir` symlink farm | ✅ 2026-09-03/04 (its 497-test figure is `v3`'s) |
 | — | **`core/eda/` pre-flight profiler** — 5 modules + `core/tools/eda.py` + `core/docs/EDA.md`; verdicts for C27 / C12 / vanished windows, §4.2 frame-level linear probe | ✅ 2026-09-06, **present on `main`**. Never run on real data — needs the Drive caches |
 
-**Measured on `main`, 2026-09-15: 81 Python files (55 source + 26 test),
-11,756 source LOC, 23 docs under `core/docs/**`. 514 tests collected → 514 pass,
-0 fail** (verified three times; 514 dots, no F/E). Data-free, CPU-only.
+**Measured on `main`, 2026-09-21: 86 Python files (58 source + 28 test),
+13,276 source LOC, 24 docs under `core/docs/**` (21 top-level + 3 under `v3/`).
+565 tests collected.** Data-free, CPU-only.
+*(History: 563 on 2026-09-18, 546 on 2026-09-17, 514 on 2026-09-15 — verified three
+times there, 514 dots, no F/E.)*
 *Minor open item:* one invocation
 (`pytest --tb=line -q >/dev/null`) returned exit 1 once and would not reproduce
 across four subsequent full runs — **observed, not diagnosed**; do not treat the
@@ -142,6 +150,8 @@ these rows plus `core/docs/RESULTS_*.md` are all that survives.
 
 | **DADA-2000 ORIGINAL — Gate W** (`outputs/EDA/DADA2000_orig_T2_w20s8/`, 2026-09-16) | — (corpus build) | **W=16 FAILED** (clip oracle **0.7529** vs a 0.75 bar — `F_norm` 6,528 > `X` 6,377 by **151 frames of 19,536**). **W=20 hop 8 PASSES all six**: leak **0.5000**, oracle **0.7037**, retention **0.9568** (1,861/1,945), ratio 2.80, kernel coverage 0.1500, **798** two-class windows. The per-clip cap is **inert** on the oracle (0.7527–0.7529 across caps 2–6) while the window length spans 0.61–0.75 → **lesson C35**. Frame linear probe on the windows: **0.5983** | **v1** |
 | **DADA-2000 ORIGINAL — Phase 4, KIP-OFF trunk** (`outputs/REPORTS/DADA2000_orig_phase4/`, 2026-09-16) | T2 (W=20), 3 seeds, 2,040 steps, `score_head_kernel=3`, `mil_topk_pct=5` | **In-domain: `auc_macro` 0.6248 ±0.0165 — ABOVE the 0.5983 per-frame-linear probe — with micro 0.6182 BELOW the 0.7037 clip oracle.** Macro ≥ micro, i.e. **the C14/TAD collapse did NOT reproduce** (TAD: micro 0.9237 ≈ oracle 0.9226, macro fell 0.7578 → 0.6174). Zero-shot DoTA **micro 0.5856 ±0.0230 / macro 0.6113 ±0.0306**; like-for-like vs MSAD kip_off (0.5491/0.5453) **+0.0365 / +0.0660, 3/3 seeds same sign, but t95 ±0.046/±0.080 INCLUDES ZERO**; level with PreVAD kip_off (0.5867/0.6015). Below the MSAD **kip_on** bar (0.6408/0.6529) — a comparison that means nothing until T2's own KIP-on arm runs | **v1** |
+| **DADA-2000 ORIGINAL — Phase 4, the KIP A/B** (`outputs/v1/DADA2000_orig_phase4/`, 2026-09-18) | T2 (W=20), 3 seeds, **paired** — configs differ in exactly one line (`kip.enabled`) | **KIP-on is DOWN in-domain.** T2 micro **0.6182 → 0.6054, Δ = −0.0129, t95 [−0.0249, −0.0008], 3/3 seeds same sign — the only interval that excludes zero.** T2 macro 0.6248 → 0.6046 (Δ −0.0201, CI includes 0). DoTA 0-shot macro 0.6113 → 0.6071 and micro 0.5856 → 0.5914, **both ~20× wider than their own Δ — do not quote them.** `kip_rec` is **92.6–93.0 % of `total`** at `lambda_rec = 1.0`; stage 1 (trunk frozen) plateaus at 20.2, stage 2 (trunk free) falls to 11.3, so **44 % of the reconstruction gain came from rewriting `v^t`**; every task loss ends **+24–32 %** higher than its paired `kip_off` run. **C24: every KIP-on arm here is a fixed ~50 % channel shift — not "motion-gated"** | **v1** |
+| **D1/D2 — KIP loss-scale diagnosis** (`outputs/v1/DADA2000_orig_diag_kip_loss_scale/`, run 2026-09-20, read out 2026-09-21) | — (read-only probe of the Phase-4 checkpoints; no arm re-run, no weight changed) | **D1:** `Z` 71.146 · `V` 31.642 · `W` 16.206 · `K` 11.620 → **`R²_global` 0.6328 (bar ≥0.20 PASS)**, **`K < W` PASS** (`R²_item` **0.2830** — the PMG head fits 28.3 % of *within-item* flow variance, so the motion premise is **not** refuted), **`V` = 31.642 CONFIRMS overweight** (~32× an O(1) objective; equalizing weight **`1/V` = 0.0316**), projection round-trip **0.9239** ∈ [0.9,1.1], **`mag_max` carries 83.0 %** of `E[s²]`, **48.8 %** of target variance is between-item (trip-wire 0.50, missed by 0.012). **D2:** at the shared temporal encoder `rho = \|g_KIP\|/\|g_task\|` = **11.63 (stage 1) → 3.105 (stage-2 end)**, per-seed 3.925/3.027/2.361 → **CONFIRM** (bar ≥1.0); `cos(g_kip_rec, g_task)` = **−0.0010** → **ORTHOGONAL**. Decision row **`capture + orthogonal` → Option A**, unauthorized. Caveat: `rho` sd is 1.56–1.94 per batch at stage 2, and the 11.63→3.10 decay is partly `\|g_task\|` **growing** (4.91→10.07, 7.24→12.46, 6.21→23.61) | **v1** |
 
 **Cross-branch comparability, settled 2026-09-12:** for `kip.enabled=false` a
 `main`-vs-`v3` Δ **is** a Δ. `p1_ctrl` reproduces v3's A0 to 4 dp, and a
@@ -245,15 +255,25 @@ both show is the worse corpus on every column.
 - [x] **Phase 4 — KIP-OFF trunk trained and evaluated**, 3 seeds
       (`colab/DADA2000Origin/phase_4.ipynb`). **The C14/TAD collapse did not
       reproduce.** See the ledger row and [[activeContext]] 2026-09-17.
-- [ ] **Phase 4 — RAFT flow pass**, train ids only (1,491 sources, flow is
-      train-only). The CLIP extraction deleted its frames, so `L_KIP_rec`'s
-      targets cost a second trip through the 94 GiB archive. `phase_4.ipynb` §3,
-      `RUN_FLOW=True`. **Every KIP-on arm is blocked on this.**
-- [ ] **Phase 4 — the KIP A/B**, 3 seeds × {stage 1 warm-up, stage 2}. This is the
-      measurement n=3 was chosen for: a **within-corpus paired** delta, unlike the
-      cross-corpus comparison, whose t95 (±0.076 macro) is wider than every gap.
-      Remember C24: on `main` there is no `kip.gate_type`, so every KIP-on arm is
-      a **fixed ~50 % channel shift** — do not call it "motion-gated".
+- [x] **Phase 4 — RAFT flow pass** done; `cache/flow/v1/DADA2000_orig` exists
+      (4,401 train windows × 20 frames of 23-d stats in the D1 census).
+- [x] **Phase 4 — the KIP A/B**, 3 seeds, paired. **NEGATIVE:** T2 micro
+      −0.0129, t95 [−0.0249, −0.0008], 3/3 seeds. See the ledger and
+      [[activeContext]] 2026-09-18. C24 still applies to every arm in it: on
+      `main` there is no `kip.gate_type`, so each KIP-on run is a **fixed ~50 %
+      channel shift** — do not call it "motion-gated".
+- [x] **D1/D2 — the loss-scale diagnosis** run 2026-09-20, read out 2026-09-21.
+      Decision row **`capture + orthogonal`**. `outputs/v1/DADA2000_orig_diag_kip_loss_scale/`.
+- [ ] **Option A — z-score `e_O`**, the repair D1/D2 licenses and **nobody has
+      authorized**. Per-dimension statistics from the *train split only*, written
+      to a **NEW cache version** (`flow/v2`; **never overwrite `flow/v1`**, C2),
+      `lambda_rec` set to the **derived** `1/V` = 0.0316 and **not swept**
+      (lesson 14). Re-measures stage 1 + stage 2 × 3 seeds, and must **re-print
+      D1-d** on the new cache — outside [0.9, 1.1] every `kip_rec` on it is
+      uninterpretable.
+- [ ] **If Option A does not move the A/B, the next suspect is C24**, not another
+      weight. That work is a `gate_type` + `ecmr.py` + STE + diagnostics port and
+      belongs on branch **`v3`**, never piecemeal on `main`.
 - [ ] **More seeds, or accept the bound.** DoTA macro sd 0.0306 at n=3 cannot
       decide the T2-vs-MSAD gap (+0.066). Do not quote it as established.
 
@@ -441,7 +461,8 @@ both show is the worse corpus on every column.
       ship). → `core/docs/PREVAD_SETUP.md`
 - [ ] PreVAD *KIP-on* acquisition + flow extraction at scale (~50–100 A100-hours)
       — blocked on raw video the authors have not released
-- [ ] TAD / DADA / UCF-Crime adapters
+- [~] TAD / DADA adapters **shipped** (`core/data/{tad,dada,dada_origin}.py`, 2026-09-02/03/15)
+      and both campaigns are measured. **UCF-Crime adapter: not built.**
 - [ ] Full metric suite: MCC family, AUC_A, mAP@IoU (currently
       `NotImplementedError` in `core/evaluate.py`)
 - [ ] Optional: Stage 0 warm-up, Stage 0.5 hard-negative tuning, Stage 3
@@ -459,6 +480,7 @@ both show is the worse corpus on every column.
 | **Score head's kernel spans a short clip** | `core/models/heads.py:21` (`ConvScoreHead`, `kernel_size=9`) | On DADA-2000 (median T = 9) every output timestep sees the whole clip, so the detector is structurally a **clip classifier**: flat curves, `auc_macro` at chance, inflated micro AUC. MSAD (T = 86) is unaffected, DoTA (T = 13) partly. Check `score_head_kernel` against a corpus's median length before training on it (`RESULTS_DADA.md` §5). |
 | **`mlp_ste` trains through NaNs under AMP** | `core/kip/gate_shift.py:99` (`shift_channels_straight_through`) | 33 of 500 steps NaN in `mil`/`mul_mil` on the DADA arm, over 17 of 20 epochs, while `kip_rec`/`kip_align` stay finite; no other arm at the same seed/batch/data. A4's DADA row is unreportable. Not root-caused (2026-09-06). |
 | **Gate MLP is never trained** | `core/kip/gate_shift.py:112` | **Corrected 2026-08-25 — this was recorded as "zero gradient *at init*"; it is zero gradient *always*.** Hard `floor()` is non-differentiable, so all 321 params stay at random init for the whole run (verified: 6/6 tensors `grad is None`). Forces the "321 *frozen*" qualifier on every efficiency claim and opens **H4**. |
+| **`L_KIP_rec` regresses an UNNORMALIZED target** | `core/flow/raft_extract.py:86-118` → `core/data/dataset.py:114`; weighted at `core/train.py` `lambda_rec=1.0` | **Measured 2026-09-20 (lesson C37).** A constant global-mean predictor scores MSE **31.64** on `e_O` and `mag_max` (raw pixel units, mean 27.19) carries **83.0 %** of `E[s²]`, so at `lambda_rec = 1.0` the term enters an otherwise-O(1) objective **~32× oversized**. It is not inert: `rho` = \|g_KIP\| / \|g_task\| at the shared temporal encoder is **3.1** at the stage-2 end (11.6 at stage 1), `cos` = **−0.001** (orthogonal), and every task loss ends **+24–32 %** higher with KIP on. Repair = **Option A** (z-score into a NEW cache version, `lambda_rec = 1/V = 0.0316` derived) — **not authorized**. |
 | Flow target is 23-d and non-spatial | `core/flow/raft_extract.py:52-81` | `ê_O` is 23 frame-global scalars projected to 256-d. No "localized/peripheral motion" story is expressible in it; restate as a global flow-statistic residual. |
 | **Student/teacher aspect mismatch of exactly 4:3** | `extract_clip_features.py:71` (224×224) vs `raft_extract.py:135` (240×320) | Source-independent **bias**, not noise; warps `atan2(v,u)` — the direction channels. Same defect class as the crop that was worth +0.15. Fix = full flow re-extract (C2), scheduled behind the shuffled-target control. |
 | Score saturation 86–89 % of frames > 0.99 | training protocol | Makes `L_kin`'s `y^bin` anchor a near-constant (term is near-vacuous) and **voids every threshold metric** until fixed. Tie rate ~0.2/clip, so ranking metrics are sound. |

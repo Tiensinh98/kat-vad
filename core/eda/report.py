@@ -32,6 +32,11 @@ ORACLE_WARN_AUC = 0.75  # a clip classifier already gets this much of micro
 LENGTH_LEAK_WARN_AUC = 0.65  # clip length alone predicts the label above this (C28)
 BETWEEN_WITHIN_WARN = 5.0  # feature/score variance dominated by scene identity
 PROBE_SIGNAL_AUC = 0.60  # a macro AUC above this counts as real frame-level signal
+# Every task loss in this objective is a BCE or an InfoNCE and sits at O(1). A
+# constant-predictor MSE above this means lambda_rec = 1.0 buys L_KIP_rec a
+# multiple of the whole anomaly objective, not a share of it.
+FLOW_TARGET_SCALE_WARN_MSE = 4.0
+FLOW_TARGET_BETWEEN_ITEM_WARN = 0.5  # half the target reachable from item identity alone
 
 
 def build_report(
@@ -185,6 +190,36 @@ def _verdicts(report: dict[str, Any]) -> list[dict[str, str]]:
                 "No head on these features can localize. Frame-level work on this "
                 "corpus needs a different backbone or a finer stride -- not another "
                 "KIP variant (RESULTS_DADA.md §6, §10-C).",
+            )
+    target = feat.get("flow", {}).get("target", {})
+    if target:
+        baseline = target["mse_global_mean_predictor"]
+        if baseline >= FLOW_TARGET_SCALE_WARN_MSE:
+            top = feat["flow"].get("raw_energy_share", [{}])[0]
+            add(
+                "HIGH", "The KIP reconstruction target is unnormalized",
+                f"A single global-mean vector already scores MSE {baseline:.2f} on "
+                f"e_O, and `{top.get('name', '?')}` carries "
+                f"{top.get('energy_share', float('nan')):.1%} of E[s²]. Every task "
+                "loss in this objective is a BCE or an InfoNCE, i.e. O(1), so at "
+                f"lambda_rec = 1.0 L_KIP_rec enters the sum ~{baseline:.0f}x larger "
+                "and its gradient reaches the shared temporal encoder.",
+                "Measure the gradient split with `python -m core.tools.grad_probe` "
+                "before changing anything. Then either z-score e_O (fires lesson C2: "
+                "new cache version, every KIP-on number re-measured) or set "
+                f"loss.lambda_rec ~ {1.0 / baseline:.3f}. Do not read a raw kip_rec "
+                "as 'the head fits badly' -- divide it by this baseline first.",
+            )
+        if target["between_item_share"] >= FLOW_TARGET_BETWEEN_ITEM_WARN:
+            add(
+                "HIGH", "The KIP target is mostly item identity, not dynamics",
+                f"{target['between_item_share']:.1%} of e_O's variance is between "
+                f"items: an oracle knowing only each item's own mean scores MSE "
+                f"{target['mse_item_mean_predictor']:.2f} against the global-mean "
+                f"baseline's {baseline:.2f}.",
+                "Most of L_KIP_rec is reachable by predicting which clip this is. "
+                "Report R^2 against BOTH baselines; only the margin below "
+                "mse_item_mean_predictor is evidence PMG learned motion at all.",
             )
     if not out:
         add("OK", "No structural red flag found", "All thresholds passed.", "Proceed.")
@@ -512,6 +547,53 @@ def render_markdown(report: dict[str, Any]) -> str:
                 "frame labels, so no flow-versus-label correlation is computable.",
                 "",
             ]
+            top = fl.get("raw_energy_share", [])[:5]
+            if top:
+                lines += [
+                    "Where the target's scale comes from — `e_O = s @ M` with "
+                    "`M ~ N(0, 1/23)`, so every one of the 256 dimensions is scaled by "
+                    "`mean_j E[s_j^2]`:",
+                    "",
+                    "| raw stat | mean | std | share of E[s²] |",
+                    "|---|---:|---:|---:|",
+                    *[
+                        f"| `{row['name']}` | {row['mean']:.3f} | {row['std']:.3f} | "
+                        f"{row['energy_share']:.1%} |"
+                        for row in top
+                    ],
+                    "",
+                ]
+            tgt = fl.get("target")
+            if tgt:
+                zero_mse = tgt["mse_zero_predictor"]
+                ratio = (
+                    tgt["predicted_second_moment_from_raw"] / zero_mse
+                    if zero_mse > 0
+                    else float("nan")
+                )
+                lines += [
+                    "#### 4.3.1 `L_KIP_rec` baselines — what a measured `kip_rec` means",
+                    "",
+                    "| predictor | MSE it scores | reads |",
+                    "|---|---:|---|",
+                    f"| all-zeros | {tgt['mse_zero_predictor']:.3f} | "
+                    "the loss at step 1 of an untrained PMG head |",
+                    f"| one global mean vector | {tgt['mse_global_mean_predictor']:.3f} | "
+                    "**the baseline any measured `kip_rec` must beat** |",
+                    f"| each item's own mean | {tgt['mse_item_mean_predictor']:.3f} | "
+                    "an oracle that knows item identity and nothing else |",
+                    "",
+                    f"- **R^2 of a measured `kip_rec` = 1 - kip_rec / "
+                    f"{tgt['mse_global_mean_predictor']:.3f}.**",
+                    f"- {tgt['between_item_share']:.1%} of the target's variance is "
+                    "*between* items: that share is reachable by predicting item "
+                    "identity, with no within-item dynamics at all.",
+                    f"- Projection check: predicted "
+                    f"`{tgt['predicted_second_moment_from_raw']:.3f}` vs measured "
+                    f"`{zero_mse:.3f}` (ratio {ratio:.3f} — away from 1.0 means the "
+                    "cache and the seeded projection disagree).",
+                    "",
+                ]
 
     return "\n".join(line for line in lines if line is not None) + "\n"
 

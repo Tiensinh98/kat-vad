@@ -1113,3 +1113,76 @@ and that half has one instance. Promote if anyone drops a scope flag to clear an
 error, or if a sharded loop ships a short cache. Closest relatives: **C10**
 (a directory is not evidence of data) and **C17** (a run must record what it is);
 fold into C10 if it recurs.
+
+---
+
+## ~~(i) 2026-09-18 — A loss's magnitude is a property of its target's units, not of the fit~~ — **PROMOTED to lesson C37** (2026-09-21)
+
+> **Gate 3 resolved.** The candidate's own promotion condition was
+> *"promote to [HIGH] if D2-a confirms `rho >= 1.0` at the trunk"*. D2-a measured
+> **`rho` = 3.105** at the stage-2 end (11.63 at stage 1), `cos` = **−0.0010**
+> (orthogonal), on three seeds × 8 batches — `outputs/v1/DADA2000_orig_diag_kip_loss_scale/`.
+> D1 supplied the missing denominators: `V` = 31.64, `W` = 16.21, `K` = 11.62 →
+> `R²_global` **0.633**, `R²_item` **0.283**, `mag_max` **83.0 %** of `E[s²]`.
+> Severity **[HIGH]** is the one pre-registered here, kept deliberately: by the
+> `GATES.md` letter a silently-invalid experimental result reads `[CRITICAL]`, but
+> raising severity *after* seeing the result is the drift this catalog exists to
+> prevent. Revisit only if a second instance appears.
+> Text below is the candidate as written on 2026-09-18, kept for the audit trail.
+
+
+**Trace.** Phase 4's KIP-on arms log `kip_rec` at **11.3–11.9** while the four
+task losses together sum to **0.87–0.91**, i.e. `L_KIP_rec` is **93 % of
+`total`** at `lambda_rec = 1.0`. The reading "the PMG head fits badly" is
+unavailable: `L_KIP_rec` is a bare masked MSE
+(`core/kip/losses.py:kip_reconstruction_loss`) against `e_O`, and `e_O` is 23
+**unnormalized** frame-global flow scalars — `mag_mean/std/max`, `u/v mean/std`
+in raw pixel units, plus an L1-normalized 16-bin histogram — lifted to 256-d by a
+fixed Gaussian map scaled `1/sqrt(23)`
+(`core/flow/raft_extract.py:flow_statistics`, `make_projection`). Nothing
+normalizes them between the extractor and `core/data/dataset.py:114`. Every other
+term in the objective is a BCE or an InfoNCE and sits at O(1) **by construction**,
+so the two were never on a comparable scale and the 93 % says nothing about
+either fit.
+
+**Bad:** reading a raw MSE against an unnormalized target as a fit quality, or
+setting its weight to 1.0 beside O(1) losses.
+```yaml
+loss:
+  lambda_rec: 1.0        # against a target whose constant-predictor MSE is unmeasured
+```
+
+**Good:** measure what a constant predictor scores on the same target first, and
+state R² against it.
+```bash
+python -m core.tools.eda report --sections features --no-probe \
+  --flow-dir "$CACHE/flow/v1/$DATASET" ...   # prints Z / V / W baselines (§4.3.1)
+```
+
+**Candidate rule.** *Before weighting a regression loss beside classification
+losses, measure the MSE a constant predictor scores on its target; report R²
+against that baseline, and set the weight from the ratio rather than from 1.0.*
+
+**Why it is more than bookkeeping here.** The scale is not inert. `PMGFlowHead`
+reads `v^t` and stage 2 freezes nothing (`core/train.py:191-195` freezes only in
+stage 1), so the gradient reaches the shared temporal encoder. Measured
+consequences, all three seeds: stage 1 (trunk frozen) plateaus at `kip_rec`
+**20.2**; stage 2 (trunk free) falls to **11.3** — 44 % of the gain came from
+rewriting `v^t` — and every task loss ends **24–32 % higher** than the paired
+`kip_off` run, with T2 micro AUC down **0.0129** (3/3 seeds, t95 excludes 0).
+
+**Files:** `core/kip/losses.py:30-42`, `core/flow/raft_extract.py:86-118`,
+`core/data/dataset.py:114`, `core/train.py:423-427`,
+`outputs/v1/DADA2000_orig_phase4/s*/stage2_kip_*/metrics.jsonl`
+
+**Gate status.** Gates 1/2/4/5 hold — measured trace, one-sentence rule, nothing
+in `index.md` covers loss-scale commensurability, and the pattern generalizes to
+any future auxiliary regression head. **Gate 3 is pending D1/D2**
+(`.project/plans/katvad-kip-loss-scale-diagnosis.md`): the failure is currently
+*silent* — nothing raises, the run completes, the number looks like a loss — which
+is exactly the promotion argument, but the causal claim is not yet measured.
+**Promote to [HIGH] if D2-a confirms `rho >= 1.0` at the trunk.** If D2-a refutes,
+demote to [MEDIUM] and keep only the reporting half of the rule. Closest
+relatives: **C14** (do not change the score path mid-campaign) and lesson **14**
+(do not tune KIP on a delta) — the rule above deliberately derives the weight
+instead of searching it.

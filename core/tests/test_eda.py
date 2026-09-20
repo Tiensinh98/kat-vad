@@ -25,6 +25,7 @@ import pytest
 
 from core import constants
 from core.eda import corpus, features, labels, protocol, report
+from core.flow import raft_extract
 from core.tools import eda as eda_cli
 
 DIM = 16
@@ -379,6 +380,77 @@ class TestFeatures:
     def test_flow_stats_missing_dir_is_not_an_error(self, tmp_path: Path) -> None:
         assert features.flow_stats(tmp_path, ["x"])["clips"] == 0
 
+    def test_target_block_absent_when_only_raw_stats_are_cached(self, tmp_path: Path) -> None:
+        flow_dir = tmp_path / "flow"
+        flow_dir.mkdir()
+        np.save(flow_dir / f"tr0{features.FLOW_STATS_SUFFIX}", np.ones((7, 23)))
+        assert "target" not in features.flow_stats(flow_dir, ["tr0"])
+
+    @staticmethod
+    def _write_flow(flow_dir: Path, item_id: str, target: np.ndarray) -> None:
+        flow_dir.mkdir(exist_ok=True)
+        np.save(flow_dir / f"{item_id}{features.FLOW_STATS_SUFFIX}",
+                np.ones((len(target), constants.FLOW_STATS_DIM)))
+        np.save(flow_dir / f"{item_id}.npy", target)
+
+    def test_target_baselines_split_between_and_within_item_variance(
+        self, tmp_path: Path
+    ) -> None:
+        # Two items, each internally constant: every bit of the target's variance
+        # is item identity, so an item-mean oracle scores exactly 0.
+        flow_dir = tmp_path / "flow"
+        dim = constants.FLOW_DIM
+        self._write_flow(flow_dir, "a", np.full((4, dim), 1.0))
+        self._write_flow(flow_dir, "b", np.full((4, dim), 3.0))
+        target = features.flow_stats(flow_dir, ["a", "b"])["target"]
+        assert target["items"] == 2 and target["frames"] == 8
+        assert target["mse_zero_predictor"] == pytest.approx(5.0)  # (1 + 9) / 2
+        assert target["mse_global_mean_predictor"] == pytest.approx(1.0)
+        assert target["mse_item_mean_predictor"] == pytest.approx(0.0)
+        assert target["between_item_share"] == pytest.approx(1.0)
+
+    def test_target_between_item_share_is_zero_when_items_share_a_mean(
+        self, tmp_path: Path
+    ) -> None:
+        flow_dir = tmp_path / "flow"
+        dim = constants.FLOW_DIM
+        rows = np.concatenate([np.zeros((2, dim)), np.full((2, dim), 2.0)])
+        self._write_flow(flow_dir, "a", rows)
+        self._write_flow(flow_dir, "b", rows)
+        target = features.flow_stats(flow_dir, ["a", "b"])["target"]
+        assert target["mse_global_mean_predictor"] == pytest.approx(1.0)
+        assert target["mse_item_mean_predictor"] == pytest.approx(1.0)
+        assert target["between_item_share"] == pytest.approx(0.0)
+
+    def test_raw_energy_share_names_the_unnormalized_stat(self, tmp_path: Path) -> None:
+        # mag_max in pixel units against an L1-normalized angle histogram: the
+        # shape that makes e_O's scale a property of the corpus, not of the head.
+        flow_dir = tmp_path / "flow"
+        flow_dir.mkdir()
+        raw = np.full((5, constants.FLOW_STATS_DIM), 0.05)
+        raw[:, constants.FLOW_STAT_NAMES.index("mag_max")] = 30.0
+        np.save(flow_dir / f"tr0{features.FLOW_STATS_SUFFIX}", raw)
+        share = features.flow_stats(flow_dir, ["tr0"])["raw_energy_share"]
+        assert share[0]["name"] == "mag_max"
+        assert share[0]["energy_share"] > 0.99
+
+    def test_projection_check_matches_a_real_seeded_projection(
+        self, tmp_path: Path
+    ) -> None:
+        # e_O = s @ M with M ~ N(0, 1/23): mean_j E[s_j^2] predicts the per-dim
+        # second moment of the target. If this drifts, cache and projection
+        # disagree and every kip_rec measured on them is uninterpretable.
+        rng = np.random.default_rng(SEED)
+        raw = rng.normal(0.0, 3.0, size=(512, constants.FLOW_STATS_DIM))
+        matrix = raft_extract.make_projection()
+        flow_dir = tmp_path / "flow"
+        flow_dir.mkdir()
+        np.save(flow_dir / f"tr0{features.FLOW_STATS_SUFFIX}", raw)
+        np.save(flow_dir / "tr0.npy", (raw @ matrix).astype(np.float32))
+        target = features.flow_stats(flow_dir, ["tr0"])["target"]
+        ratio = target["predicted_second_moment_from_raw"] / target["mse_zero_predictor"]
+        assert ratio == pytest.approx(1.0, abs=0.1)
+
 
 class TestReport:
     def test_verdicts_fire_on_the_dada_shape(self, tmp_path: Path) -> None:
@@ -412,6 +484,38 @@ class TestReport:
             kernel=9, topk_pct=16, max_clips=0, probe=False, seed=SEED,
         )
         assert [v["level"] for v in payload["verdicts"]] == ["OK"]
+
+    @staticmethod
+    def _flow_report(baseline: float, between_share: float) -> dict[str, object]:
+        return {
+            "features": {
+                "flow": {
+                    "clips": 4,
+                    "raw_energy_share": [{"name": "mag_max", "energy_share": 0.93}],
+                    "target": {
+                        "mse_zero_predictor": baseline * 2,
+                        "mse_global_mean_predictor": baseline,
+                        "mse_item_mean_predictor": baseline * (1.0 - between_share),
+                        "between_item_share": between_share,
+                        "predicted_second_moment_from_raw": baseline * 2,
+                    },
+                }
+            }
+        }
+
+    def test_unnormalized_kip_target_is_flagged(self) -> None:
+        # The measured DADA2000_orig shape: a constant predictor already scores an
+        # MSE in the tens while every task loss is O(1).
+        verdicts = report._verdicts(self._flow_report(14.5, 0.8))
+        titles = {v["title"] for v in verdicts}
+        assert any("reconstruction target is unnormalized" in t for t in titles)
+        assert any("item identity, not dynamics" in t for t in titles)
+        flagged = next(v for v in verdicts if "unnormalized" in v["title"])
+        assert "grad_probe" in flagged["action"]
+
+    def test_normalized_kip_target_is_not_flagged(self) -> None:
+        verdicts = report._verdicts(self._flow_report(1.0, 0.2))
+        assert [v["level"] for v in verdicts] == ["OK"]
 
     def test_markdown_renders_and_json_roundtrips(self, tmp_path: Path, tiny) -> None:
         payload = report.build_report(

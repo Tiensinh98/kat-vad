@@ -1,10 +1,11 @@
 # Tech Context — stack, setup, constraints
 
 **Created:** 2026-07-31 (re-init from `b9978ff`, read off `pyproject.toml`)
-**Last reviewed:** 2026-09-15 (later — doc count 22→23 for
-`DADA_ORIGIN_PHASE0.md`, and the DADA-original sizing constraints added; earlier
-the same day, counts/test status re-measured and the text-branch + `L_neg`
-constraints added)
+**Last reviewed:** 2026-09-21 (full reconcile — counts re-measured, `grad_probe`
+added, the `core/eda/` "never run on real data" note retired, and the
+`transformers` pin promoted out of the Colab runbook). Earlier: 2026-09-15 doc
+count 22→23 for `DADA_ORIGIN_PHASE0.md` + the DADA-original sizing constraints;
+the same day, the text-branch + `L_neg` constraints.
 
 > **Branch `main` = KAT-VAD v1.** The stack, pins and constraints below are
 > branch-independent. Where a **path or flag** is v3-only it is marked.
@@ -33,7 +34,7 @@ constraints added)
 |---|---|
 | `core/constants.py` | roots, data-layout contract, all baseline hyperparameters |
 | `core/config.py` | `Config` dataclasses, YAML load, `--set section.key=value` |
-| `core/train.py` (633 L) | training loop, stage selection, resume |
+| `core/train.py` (789 L) | training loop, stage selection, resume, **`build_trainer()`** — the factory `core/tools/grad_probe.py` reuses so a diagnostic cannot drift from a run |
 | `core/evaluate.py` / `core/inference.py` | sliding-window scoring, metrics |
 | `core/models/` | temporal encoder, fusion, heads, clip_text, ckpt_compat, kat_vad |
 | `core/kip/` | pmg, **gate_shift (v1 `KinematicShift`, frozen MLP gate — one gate type)**, motion_head, kip_module, losses. **`ecmr.py` and the 4 gate types are branch `v3` only** |
@@ -41,15 +42,16 @@ constraints added)
 | `core/metrics.py` | pooling rules, micro/macro AUC + AP; torch-free so `rescore` can import it |
 | `core/data/` | msad, dota, prevad, **tad**, **dada**, dataset (DVS), synthesis, knn_cache, collate, definitions, video_io, dataset_files |
 | `core/flow/raft_extract.py` | RAFT → 23-d stats → seeded 256-d projection |
-| `core/tools/` | download, extract_clip_features, **feature_cache**, **rescore**, visualize, **eda** |
-| `core/eda/` | corpus, labels, protocol, features, report — the pre-flight profiler (`python -m core.tools.eda report\|compare`), runbook `core/docs/EDA.md`. **Never run on real data yet** |
+| `core/tools/` | download, extract_clip_features, **feature_cache**, **rescore**, visualize, **eda**, **grad_probe** (431 L, new 2026-09-18 — per-term `autograd.grad` against 4 parameter groups; read-only, no optimizer step, raises if its re-summed terms do not reproduce `compute_losses`'s `total`) |
+| `core/eda/` | corpus, labels, protocol, features, report — the pre-flight profiler (`python -m core.tools.eda report\|compare`), runbook `core/docs/EDA.md`. **Run on real data since 2026-09-15**: Gate D0, Gate W, and the D1 flow-target baselines (§4.3.1 — `flow_stats` reports the zero / global-mean / item-mean MSE a constant predictor scores on `e_O`, the per-stat `E[s²]` share, and a projection round-trip check) |
 | `core/docs/` | **20 files on `main`**: COLAB, DATA_LAYOUT, DOTA_EVAL, **EDA**, PREVAD_SETUP, **TAD_SETUP**, **DADA_SETUP**, **DADA_ORIGIN_PHASE0** (new 2026-09-15), DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE, TRAINING, proposal, spec, 7 × RESULTS_\*.md, REPORT_KIP_MSAD_DOTA_PREVAD |
 | `core/docs/v3/` | **On `main`: only `RESULTS_DADA.md` + `setup/{DADA_V3_SETUP,TAD_V3_SETUP}.md`** (3 files). ARCHITECTURE, spec_v3, audit_addendum_PreVAD, RESULTS_V3_GATE_ATTRIBUTION and `setup/MSAD_DOTA_V3_SETUP.md` are **branch `v3` only**. `core/docs/v2/` does not exist on either branch — do not cite it |
 
-**Measured on `main`, 2026-09-15:** **81 Python files** (55 source + 26 test),
-**11,756 LOC** source. **23 markdown docs** under `core/docs/**` (20 top-level + 3 under `v3/`). `outputs/**`
-holds **87,213** `.npz` score files. (`v3` measures 84 files / 11,157 source LOC /
-537 tests — different tree, different numbers.)
+**Measured on `main`, 2026-09-21:** **86 Python files** (58 source + 28 test),
+**13,276 LOC** source. **24 markdown docs** under `core/docs/**` (21 top-level + 3
+under `v3/`; `DADA_ORIGIN_PHASE1.md` is the 21st). `outputs/**` holds **87,213**
+`.npz` score files. (`v3` measures 84 files / 11,157 source LOC / 537 tests —
+different tree, different numbers.)
 
 ## Environment roots
 
@@ -66,6 +68,14 @@ Colab points all four at Drive. Full contract: `core/docs/DATA_LAYOUT.md`.
 - RAFT `Raft_Large_Weights.C_T_SKHT_V2` (torchvision); inputs must be ≥128 px and
   divisible by 8 → extraction runs at 240×320.
 - LaGoVAD `best.ckpt` via gdown, id in `constants.LAGOVAD_BEST_CKPT_GDRIVE_ID`.
+- **`transformers==4.56.*` — pin it on any runtime that encodes text.** Colab's
+  Python-3.13 image ships transformers **v5**, where `CLIPTextModel` has no nested
+  `.text_model`; `core/models/clip_text.py:115` reads exactly that and dies inside
+  `compute_losses` on the **first batch**, after the dataset resolved, CLIP
+  downloaded and `config.yaml` was written (C7). Do **not** pin torch instead —
+  2.4 has no cp313 wheel. The v3 port of `clip_text.py` was deliberately not done
+  mid-campaign: it is on the score path. `diag_kip_loss_scale.ipynb` ran under
+  torch **2.11.0+cu128** / transformers **4.56.2** / Python **3.13.15**.
 
 ## Constraints learned in-tree
 
@@ -194,7 +204,8 @@ Colab points all four at Drive. Full contract: `core/docs/DATA_LAYOUT.md`.
 # tests  (pyproject sets addopts="-q", so the summary line is suppressed;
 #          count with:  pytest --co -q | awk -F': ' '/^core/{s+=$2} END{print s}')
 source .venv/bin/activate && python -m pytest core/tests -q
-# on `main` (2026-09-15): 514 collected -> 514 pass, 0 fail.
+# on `main` (2026-09-21): 565 collected -> 565 pass, 0 fail, 74.6 s.
+# History: 563 (2026-09-18), 546 (2026-09-17), 514 (2026-09-15).
 # The gate matrix in test_{dada,tad}.py was collapsed to the single v1 gate;
 # the `kip.gate_type` parametrization is branch-`v3`-only and stays there.
 
@@ -221,7 +232,7 @@ fine. Run the arm ladder on `v3`. Training notebooks are
 `{run}/scores/*.npz` via `core/tools/rescore.py` or a scratchpad bootstrap
 script — no re-inference, and `outputs/` is gitignored, so `core/docs/RESULTS_*.md`
 is the only durable record of a measurement. **`outputs/**` currently holds
-62,254 per-clip `.npz` files**, each with `score` and `gt` — enough to compute
+87,213 per-clip `.npz` files**, each with `score` and `gt` — enough to compute
 most of spec v2 §10 (seed-level intervals, raw-vs-min-max, per-class DoTA
 breakdowns, the MSAD traffic slice, AUC_A/MCC/mAP@IoU) locally with **zero GPU**.
 That was v2 tier 0; the v3 control arms

@@ -1,9 +1,10 @@
 # Product Context — why KAT-VAD exists
 
 **Created:** 2026-07-31 (re-init from `b9978ff`)
-**Last reviewed:** 2026-09-15 (later — the corpus survey: every corpus with
-negative bags is degenerate, every clean one has none; earlier the same day, TAD
-adds a second, independent negative result)
+**Last reviewed:** 2026-09-21 (full reconcile — the paired T2 KIP A/B is negative
+and now diagnosed; see "What has actually been shown"). Earlier: 2026-09-15, the
+corpus survey (every corpus with negative bags is degenerate, every clean one has
+none) and TAD as a second independent negative result.
 
 > **Branch note.** This is the `main` = **KAT-VAD v1** memory bank. The *product*
 > argument below is the project's and does not change with the branch. What does
@@ -43,7 +44,29 @@ expensive for a deployable detector. KIP resolves that trade:
 The result should be a detector that keeps LaGoVAD's definition-conditioned
 generalization while gaining the motion sensitivity it lacks.
 
-## What has actually been shown (2026-09-06)
+## What has actually been shown (latest reading 2026-09-21)
+
+**New, and the strongest evidence yet, because it is the first *paired* test.**
+Every earlier KIP verdict compared arms across corpora or across branches. On T2
+(DADA-2000 original, W=20) the two arms differ in exactly one config line, on the
+same three seeds: **KIP-on costs 0.0129 T2 micro**, t95 [−0.0249, −0.0008], 3/3
+seeds agreeing. And for the first time there is a **mechanism**, not just a sign:
+`L_KIP_rec` regresses an **unnormalized** target (a constant predictor scores MSE
+**31.64**; `mag_max` in raw pixel units carries **83 %** of its energy), so at
+`lambda_rec = 1.0` it enters an otherwise-O(1) objective ~32× oversized and
+**captures the shared temporal encoder** — gradient ratio **3.1**, and
+**orthogonal** to the task (`cos` = −0.001), i.e. it spends trunk capacity rather
+than fighting for it. Every task loss ends 24–32 % higher with KIP on.
+
+**What this does and does not license.** It does *not* rehabilitate KIP: the
+number is measured and negative. It does say the arms were **weighted wrong**, so
+the fair test has not been run. The repair is specified (z-score `e_O` into a new
+cache version, `lambda_rec` derived as `1/V` = 0.0316, never swept) and **is not
+authorized**. One thing survives the repair either way: **`R²_item` = 0.283** —
+the PMG head does fit 28 % of the *within-clip* flow variance from `v^t`, so
+frozen CLIP carries some dynamics and KIP's premise is not refuted on T2.
+
+### The 2026-09-06 reading, unchanged
 
 **The product claim above did not survive its own ablations.** The measurements
 are solid; the story attached to them is not.

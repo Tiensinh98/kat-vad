@@ -35,7 +35,7 @@ from core.metrics import frame_ap, frame_auc
 
 LOGGER = logging.getLogger(__name__)
 
-FLOW_STATS_SUFFIX = ".stats.npy"
+FLOW_STATS_SUFFIX = constants.FLOW_STATS_SUFFIX
 
 
 def load_clip_features(
@@ -291,13 +291,86 @@ def clip_linear_probe(
     }
 
 
+class _MomentAccumulator:
+    """Streaming per-dimension moments, with the within-item pool kept apart.
+
+    Concatenating every cached array to call ``np.var`` once costs
+    O(frames x dims) float64 and grows with the corpus; both passes here are
+    O(dims) per item, the same reason the extractors stream (lesson **C9**).
+
+    ``variance`` is the population variance over *all* frames pooled — the MSE a
+    single global-mean vector would score. ``within_variance`` is the pooled
+    per-item variance — the MSE an oracle that knew each item's own mean would
+    score. The gap between them is the share of the target that is item
+    identity rather than within-item dynamics.
+    """
+
+    def __init__(self, dim: int) -> None:
+        self.dim = dim
+        self.count = 0
+        self.total = np.zeros(dim, dtype=np.float64)
+        self.total_sq = np.zeros(dim, dtype=np.float64)
+        self.within_sq = np.zeros(dim, dtype=np.float64)
+
+    def add(self, rows: np.ndarray) -> None:
+        block = np.asarray(rows, dtype=np.float64)
+        self.count += int(block.shape[0])
+        self.total += block.sum(axis=0)
+        self.total_sq += np.square(block).sum(axis=0)
+        self.within_sq += np.square(block - block.mean(axis=0)).sum(axis=0)
+
+    @property
+    def mean(self) -> np.ndarray:
+        return self.total / max(self.count, 1)
+
+    @property
+    def second_moment(self) -> np.ndarray:
+        moment: np.ndarray = self.total_sq / max(self.count, 1)
+        return moment
+
+    @property
+    def variance(self) -> np.ndarray:
+        spread: np.ndarray = np.maximum(self.second_moment - np.square(self.mean), 0.0)
+        return spread
+
+    @property
+    def within_variance(self) -> np.ndarray:
+        pooled: np.ndarray = self.within_sq / max(self.count, 1)
+        return pooled
+
+
+def _raw_energy_share(stats: _MomentAccumulator) -> list[dict[str, Any]]:
+    """Per-stat share of ``E[s^2]``, the quantity the fixed projection carries.
+
+    ``e_O = s @ M`` with ``M`` entries iid ``N(0, 1/23)``, so
+    ``E_M[e_d^2] = (1/23) * sum_j s_j^2``: every output dimension's scale is the
+    *mean* second moment of the 23 raw stats, and one unnormalized stat with a
+    large magnitude sets it for all 256. This table names that stat.
+    """
+    energy = stats.second_moment
+    total = float(energy.sum())
+    names = constants.FLOW_STAT_NAMES
+    rows: list[dict[str, Any]] = [
+        {
+            "name": names[j] if j < len(names) else f"dim_{j}",
+            "mean": float(stats.mean[j]),
+            "std": float(np.sqrt(stats.variance[j])),
+            "second_moment": float(energy[j]),
+            "energy_share": float(energy[j] / total) if total > 0 else 0.0,
+        }
+        for j in range(stats.dim)
+    ]
+    rows.sort(key=lambda row: float(row["energy_share"]), reverse=True)
+    return rows
+
+
 def flow_stats(
     flow_dir: Path,
     video_ids: list[str],
     limit: int = 0,
     slicer: FeatureSlicer | None = None,
 ) -> dict[str, Any]:
-    """Distribution of the cached RAFT descriptors.
+    """Distribution of the cached RAFT descriptors **and the scale of the target**.
 
     ``{id}.stats.npy`` is ``(L, 23)`` raw frame-global scalars; ``{id}.npy`` is
     those 23 numbers lifted to 256-d by a fixed seeded projection. There are **23
@@ -305,32 +378,68 @@ def flow_stats(
     them. Flow is a *train-time* cache, and the train split carries no frame
     labels, so this block is distributional only: no flow-versus-label
     correlation is computable from what is on disk.
+
+    The ``target`` sub-block exists because ``L_KIP_rec`` is a **bare MSE against
+    these unnormalized arrays** (:func:`core.kip.losses.kip_reconstruction_loss`,
+    no normalization anywhere between :mod:`core.flow.raft_extract` and
+    :meth:`core.data.dataset.DVSFeatureDataset.__getitem__`). Its magnitude is
+    therefore set by the pixel units of ``mag_max``, not by how well PMG fits,
+    and a measured ``kip_rec`` means nothing until it is divided by the
+    constant-predictor baselines reported here.
     """
     candidates = video_ids[:limit] if limit else video_ids
     slicer = slicer if slicer is not None else FeatureSlicer()
-    rows: list[np.ndarray] = []
+    stats_acc = _MomentAccumulator(constants.FLOW_STATS_DIM)
+    target_acc = _MomentAccumulator(constants.FLOW_DIM)
     found = 0
+    target_items = 0
+    nonfinite_frames = 0
     for video_id in candidates:
         path = flow_dir / f"{slicer.source_of(video_id)}{FLOW_STATS_SUFFIX}"
         if not path.is_file():
             continue
         found += 1
-        rows.append(
-            np.asarray(slicer.load(flow_dir, video_id, FLOW_STATS_SUFFIX), dtype=np.float64)
+        raw = np.asarray(
+            slicer.load(flow_dir, video_id, FLOW_STATS_SUFFIX), dtype=np.float64
         )
-    if not rows:
+        stats_acc.add(raw)
+        nonfinite_frames += int((~np.isfinite(raw)).any(axis=1).sum())
+        if (flow_dir / f"{slicer.source_of(video_id)}.npy").is_file():
+            target_items += 1
+            target_acc.add(slicer.load(flow_dir, video_id))
+    if found == 0:
         return {"clips": 0, "note": f"no {FLOW_STATS_SUFFIX} files under {flow_dir}"}
-    stacked = np.concatenate(rows, axis=0)
-    return {
+    report: dict[str, Any] = {
         "clips": found,
-        "frames": int(stacked.shape[0]),
-        "raw_dims": int(stacked.shape[1]),
-        "per_dim_mean": [float(x) for x in stacked.mean(axis=0)],
-        "per_dim_std": [float(x) for x in stacked.std(axis=0)],
-        "dead_dims": int((stacked.std(axis=0) == 0).sum()),
-        "nonfinite_frames": int((~np.isfinite(stacked)).any(axis=1).sum()),
+        "frames": int(stats_acc.count),
+        "raw_dims": int(stats_acc.dim),
+        "per_dim_mean": [float(x) for x in stats_acc.mean],
+        "per_dim_std": [float(x) for x in np.sqrt(stats_acc.variance)],
+        "dead_dims": int((stats_acc.variance == 0).sum()),
+        "nonfinite_frames": nonfinite_frames,
+        "raw_energy_share": _raw_energy_share(stats_acc),
         "note": "23 effective dimensions, frame-global, no spatial content",
     }
+    if target_items:
+        variance = float(target_acc.variance.mean())
+        within = float(target_acc.within_variance.mean())
+        report["target"] = {
+            "items": target_items,
+            "frames": int(target_acc.count),
+            "dims": int(target_acc.dim),
+            "mse_zero_predictor": float(target_acc.second_moment.mean()),
+            "mse_global_mean_predictor": variance,
+            "mse_item_mean_predictor": within,
+            "between_item_share": float(1.0 - within / variance) if variance > 0 else 0.0,
+            "predicted_second_moment_from_raw": float(stats_acc.second_moment.mean()),
+            "note": (
+                "L_KIP_rec baselines: divide a measured kip_rec by "
+                "mse_global_mean_predictor for R^2. predicted_second_moment_from_raw "
+                "is mean_j E[s_j^2] and must match mse_zero_predictor if the cache "
+                "and the seeded projection agree."
+            ),
+        }
+    return report
 
 
 def feature_report(

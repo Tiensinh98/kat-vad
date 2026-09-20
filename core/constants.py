@@ -168,6 +168,19 @@ FLOW_RAFT_WIDTH = 320
 FLOW_ANGLE_BINS = 16  # magnitude-weighted angle histogram bins
 # stats vector: mag mean/std/max + u mean/std + v mean/std + angle histogram
 FLOW_STATS_DIM = 7 + FLOW_ANGLE_BINS
+# Names in the order flow_statistics() emits them. Derived from FLOW_ANGLE_BINS so
+# the two cannot drift; the first seven are raw pixel units and unnormalized, the
+# histogram is L1-normalized and therefore bounded by 1.
+FLOW_STAT_NAMES = (
+    "mag_mean",
+    "mag_std",
+    "mag_max",
+    "u_mean",
+    "u_std",
+    "v_mean",
+    "v_std",
+    *(f"angle_hist_{i:02d}" for i in range(FLOW_ANGLE_BINS)),
+)
 FLOW_PROJECTION_SEED = 2024  # seeded fixed linear map stats -> FLOW_DIM (A10)
 FLOW_STATS_SUFFIX = ".stats.npy"  # per-video raw stats cached next to e_O
 

@@ -323,8 +323,15 @@ The LR schedule is an in-house `LambdaLR` rather than
 | read or report a positive/negative score gap, a score range, or "the curves widened" | **C31** — divide by the within-clip σ |
 | pre-register a success criterion for a loss arm | **C31** (make it scale-invariant), C14 |
 | judge the DADA Phase 1 arms, or wonder whether C29 was refuted | `core/docs/RESULTS_DADA_PHASE1.md` §7 — falsified, and C29 still stands |
-| add or change a loss | C7, `core/docs/TRAINING.md` (deviations) |
+| add or change a loss | C7, **C37**, `core/docs/TRAINING.md` (deviations) |
+| set a loss WEIGHT, or read a raw loss value as "the head fits badly" | **C37** — measure the constant-predictor MSE on its target first; `R² = 1 − loss/V`, weight = `1/V`, never a sweep (lesson 14) |
+| add an auxiliary REGRESSION head (flow, depth, pose, reconstruction) beside classification losses | **C37** — they are not on a comparable scale by default, and the mismatch reaches every parameter they share |
+| wonder whether an auxiliary term is stealing the trunk | **C37** — `python -m core.tools.grad_probe`: `rho ≥ 1` = capture, `|cos| < 0.1` = orthogonal (fix = normalization), `cos ≤ −0.1` = conflict (fix = the detach control) |
+| change `lambda_rec`, or read `kip_rec` in `metrics.jsonl` | **C37**, C24 — and note the D1/D2 record is `outputs/v1/DADA2000_orig_diag_kip_loss_scale/`, not a `RESULTS_*.md` |
 | load or map a checkpoint | C5, C15 |
+| load weights into a **tool that does not train** (probe, diagnostic, rescore, eval) | **C36** — `warm_start_model`, never `Trainer.load_checkpoint`; the resume path restores an optimizer/RNG a read-only tool must not touch |
+| probe, score or warm-start from a **stage-1** checkpoint | **C36** — it has no `clip_text_model.*` by design (`load_clip=False`); a strict load refuses it |
+| add a CLI flag that takes a checkpoint path | **C36** — write the test that actually passes one, or the only crashing branch stays uncovered |
 | add a field to a saved checkpoint, or hit `torch.load` failing on old artifacts | **C15** |
 | set up or debug a Colab/notebook environment, or pin a dependency | **C21** |
 | run training locally on a Mac | C3 |
@@ -340,8 +347,9 @@ The LR schedule is an in-house `LambdaLR` rather than
 - **Comparability / protocol:** C8, C8b, C12, C13
 - **Metrics:** C12, **C22**, **C27**, **C28**, **C31**
 - **Supply chain:** C4
-- **Model loading:** C5, C15
+- **Model loading:** C5, C15, **C36**
 - **Porting discipline:** C6, C7, **C19**, **C29**
+- **Loss scale / objective balance:** **C37**, C31, C24
 - **Architecture / gradient flow:** **C24**, **C27**
 
 Full catalog: `index.md`. Candidates awaiting validation: `pending.md`.

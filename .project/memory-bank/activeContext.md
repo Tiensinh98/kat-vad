@@ -16,7 +16,7 @@
 > | `kip.gate_type` | **does not exist** (`core/config.py` raises `KeyError`) | `rank` (default) / `mlp_frozen` / `mlp_ste` / `constant` |
 > | `core/kip/ecmr.py` | absent | present |
 > | `train_only_modules`, `--dump-kip-diag` | absent | present |
-> | tests | **508 collected → 508 pass, 0 fail** (2026-09-13, after the Gate-W repair) | 537 green |
+> | tests | **565 collected → 565 pass, 0 fail** (2026-09-21; was 563 on 2026-09-18, 508 on 2026-09-13) | 537 green |
 >
 > **Every measured result recorded below was produced by the `v3` branch's code.**
 > They are kept here on purpose: `outputs/` is gitignored and
@@ -24,7 +24,202 @@
 > this branch *this file and `progress.md` are the only durable record of the
 > attribution campaign*. Do not delete them; do not re-run those arms here.
 
-**Last Memory Bank Update:** 2026-09-17 (latest — **Phase 2/3/4 of the DADA-2000
+**Last Memory Bank Update:** 2026-09-21 (latest — **D1 and D2 are RUN. Decision
+row = `capture + orthogonal` → §5 Option A: z-score `e_O` into a NEW cache
+version with `lambda_rec` DERIVED as `1/V` = 0.0316, never swept.** Candidate
+(i) met its pre-registered promotion condition and is now lesson **C37**.)
+*This is a **full six-file reconcile** (`update memory bank`), the first since
+2026-09-17.* Counts re-measured on this tree: **86 Python files** (58 source +
+28 test), **13,276 source LOC**, **24 docs** (21 top-level + 3 under `v3/`),
+**565 collected**. `outputs/**` holds **87,213** `.npz`.
+
+## 2026-09-21 — **D1/D2 READ OUT: THE TRUNK IS CAPTURED, AND THE TWO GRADIENTS DO NOT FIGHT**
+
+Record: `outputs/v1/DADA2000_orig_diag_kip_loss_scale/` (stamped 2026-09-20;
+`d1_flow_target/eda_report.{json,md}`, `d2_grad/s{2024,2025,2026}_{stage1,stage2_kip_on}/`,
+`diag_manifest.json`). Plan: `.project/plans/katvad-kip-loss-scale-diagnosis.md`.
+Notebook: `colab/DADA2000Origin/diag_kip_loss_scale.ipynb`.
+**Read-only: no arm was re-run, no weight changed, no checkpoint written.**
+
+### 1. D1 — what `e_O` is worth, scored against the bars written before it
+
+`Z`(all-zeros) **71.146** · `V`(one global-mean vector) **31.642** ·
+`W`(item-mean oracle) **16.206** · `K`(measured `kip_rec`) **11.620**
+(per seed 11.317 / 11.959 / 11.583; stage-1 plateau 20.542).
+
+| id | quantity | measured | bar | verdict |
+|---|---|---:|---|---|
+| **D1-a** | `R²_global = 1 − K/V` | **0.6328** | ≥ 0.20 PASS | **PASS**, 3× the bar |
+| **D1-b** | `K` vs `W` | **11.620 < 16.206** (`R²_item` **0.2830**) | `K < W` PASS | **PASS** |
+| **D1-c** | `V` | **31.642** | ≥ 4.0 CONFIRMS overweight | **CONFIRM**, ~8× |
+| **D1-d** | projection round-trip | **0.9239** | ∈ [0.9, 1.1] else HARD STOP | **passes, lower half of the band** |
+| **D1-e** | top `raw_energy_share` | **`mag_max` 83.0 %** (mean 27.19, sd 22.72) | reported | the hypothesis was right |
+
+Three readings:
+
+1. **`lambda_rec = 1.0` buys `L_KIP_rec` ~32× the whole O(1) anomaly objective**,
+   and the scale is set by one raw-pixel-unit scalar. The equalizing weight is
+   **`1/V` = 0.0316** — *derived*, and reported, not adopted here.
+2. **KIP's motion premise is NOT refuted on T2.** `R²_item = 0.2830`: the PMG
+   head beats an oracle that knows only which item this is, i.e. it fits **28.3 %
+   of the within-item flow variance** from `v^t` alone. Frozen CLIP does carry
+   within-clip dynamics; there is just not much of it.
+3. **48.8 % of the target's variance is between-item** — under the
+   `FLOW_TARGET_BETWEEN_ITEM_WARN = 0.5` trip-wire **by 0.012**. Read it as "the
+   warning did not fire", never as "comfortably clear".
+
+### 2. D2 — who steers the trunk
+
+Three seeds × two points, 8 batches of 64 each, `autograd.grad` per weighted term
+against `temporal_encoder`.
+
+| id | quantity | stage-1 | **stage-2 end** | bar | verdict |
+|---|---|---:|---:|---|---|
+| **D2-a** | `rho` = \|g_KIP\| / \|g_task\| | 11.633 | **3.105** | ≥1.0 CONFIRM · <0.30 REFUTE | **CONFIRM** |
+| **D2-b** | `cos(g_kip_rec, g_task)` | ~+0.002 | **−0.0010** | \|cos\|<0.10 → orthogonal | **ORTHOGONAL** |
+| **D2-c** | trajectory | — | 11.63 → 3.10 | reported | **captured at step 1**, then decaying |
+
+Per-seed `rho_all` at stage 2: **3.925 / 3.027 / 2.361**. Loss share at stage 2:
+`kip_rec` **88.2–91.0 %** of `total` — the epoch-0 probe reproduces the
+`metrics.jsonl` 92.6–93.0 % to within the batch draw.
+
+**Mechanism, stated:** KIP does not fight the task objective — it **spends trunk
+capacity orthogonally to it**. So the cost is representational, and the repair is
+normalization plus a principled weight, *not* a weight sweep and *not* the detach
+arm (§5 **C** drops to diagnostic-only).
+
+### 3. The decision, off the pre-registered table
+
+`D1-a PASS · D1-b PASS · D2-a CONFIRM · D2-b orthogonal` → **§5 Option A**:
+**z-score `e_O` per dimension from train-split statistics into a NEW cache
+version** (fires **C2** — never overwrite `flow/v1`; every KIP-on number
+re-measured, stage 1 and stage 2, three seeds), with `lambda_rec` **re-derived as
+`1/V`**, not searched (lesson 14). `diag_manifest.json:next` records the same row.
+
+**Not authorized yet** — Option A is what the table licenses, not what has been
+approved. Nothing has been changed in `core/` off the back of it.
+
+### 4. Four things that must travel with these numbers
+
+* **`rho` has a large per-batch spread.** `rho_kip_rec_sd` = 9.54 at stage 1 and
+  1.94 / 1.56 / 1.66 at stage 2 on means of 3.89 / 3.00 / 2.34. The smallest point
+  is **2.34 ± 1.66**, so individual batches approach 1.0. CONFIRM holds on every
+  seed mean; the plan forbids a t-interval on n=8 batches of one seed, and that
+  stands.
+* **`rho` fell 11.63 → 3.10 partly because the DENOMINATOR grew.** `|g_task|`
+  went 4.91 → 10.07, 7.24 → 12.46, 6.21 → **23.61**. Absolute
+  `|g_kip_rec|` = 51.9 → 39.2, 86.2 → 37.3, 69.4 → 55.2 — both terms moved.
+  Do not read the decay as "KIP backing off".
+* **D1-d = 0.9239 is 7.6 % below 1.0**, about 1.3× the expected `1/sqrt(256)`
+  deviation. Option A builds a new cache, so **this check must be re-printed on
+  it**; outside [0.9, 1.1] every `kip_rec` on that cache is uninterpretable.
+* **C24 is untouched by any of this.** On `main` the gate MLP still receives no
+  gradient and every KIP-on arm is a fixed ~50 % channel shift. Option A fixes the
+  loss's units, not the dead gate. If KIP still does not help after A, C24 is the
+  next suspect — and that work lives on branch `v3`.
+
+### 5. One reporting defect in the D1 artifact
+
+`d1_flow_target/eda_report.md`'s header prints `score head kernel **9** · MIL
+top-k pct **16**` — the `core.tools.eda` defaults, **not** T2's training config
+(kernel **3**, top-k pct **5**). The run used `--sections features`, which reads
+neither, so **no number is affected**; the header is misleading to a later reader.
+Same artifact records `Data dir: /content/p5/stage/corpus`, a **VM-local** path —
+the trap class that ate the Phase-0 frame census on 2026-09-15. `commit: UNKNOWN`
+is expected (Drive copy, no git metadata); `core_sha256`
+`b85331c5…c16b924` answers the same question.
+
+---
+
+## 2026-09-18 — **THE KIP A/B IS NEGATIVE IN-DOMAIN, AND THE OBJECTIVE IS 93 % RECONSTRUCTION**
+
+> **Superseded in part 2026-09-21:** the two instruments below are **RUN** — see the
+> entry above. §3's bars all resolved (D1-a/b PASS, D1-c CONFIRM, D1-d passes,
+> D2-a CONFIRM, D2-b orthogonal) and §5's open question is now answered by the
+> plan's decision table: **Option A**, still unauthorized. The result rows in §1
+> and the loss facts in §2 stand unchanged.
+
+Record: `outputs/v1/DADA2000_orig_phase4/` (three seeds, paired). Plan:
+`.project/plans/katvad-kip-loss-scale-diagnosis.md`. **No arm was re-run and no
+weight was changed — this entry is a read-out plus two instruments.**
+
+### 1. The result
+
+Configs differ in exactly one line (`kip.enabled`), so this is a clean paired A/B.
+
+| eval | metric | kip_off | kip_on | paired Δ | t95 (n=3) | signs |
+|---|---|---:|---:|---:|---|---|
+| T2 in-domain | `auc_macro` | 0.6248 | 0.6046 | −0.0201 | [−0.0698, +0.0296] | − − + |
+| T2 in-domain | `auc` micro | 0.6182 | 0.6054 | **−0.0129** | **[−0.0249, −0.0008]** | − − − |
+| DoTA 0-shot | `auc_macro` | 0.6113 | 0.6071 | −0.0042 | [−0.1024, +0.0941] | − − + |
+| DoTA 0-shot | `auc` micro | 0.5856 | 0.5914 | +0.0058 | [−0.0790, +0.0905] | − − + |
+
+**T2 micro is the only interval excluding zero** and all three seeds agree on its
+sign: KIP-on *costs* ≈0.013 in-domain. The DoTA rows are ~20× narrower than their
+own CI — **do not quote them**. The bar (MSAD kip_on 0.6408/0.6529) is untouched.
+
+### 2. Why — three measurements and three code facts
+
+`kip_rec` is **92.6–93.0 % of `total`** (11.28/11.95/11.57 vs a task-loss sum of
+0.903/0.906/0.869) at `lambda_rec = 1.0`. **Stage 1 froze everything outside
+`kip.*` and plateaued at 20.2; stage 2 unfroze the trunk and it fell to 11.3** —
+44 % of stage 2's reconstruction gain came from rewriting `v^t`. And **every task
+loss ends higher with KIP on**, same seed and data order: task-loss sum
+**+32.1 % / +26.0 % / +24.5 %** (`mil` +0.08–0.10, `dvs_sup` +0.04,
+`dvs_sup_mil` +0.05–0.07).
+
+The code behind it: `L_KIP_rec` is a bare masked MSE
+(`core/kip/losses.py:30-42`) against `e_O` = **23 unnormalized** frame-global flow
+scalars (`mag_max` in raw pixel units among them) lifted to 256-d by a fixed
+Gaussian map; nothing normalizes them anywhere (`raft_extract.py:86-118` →
+`core/data/dataset.py:114`). `PMGFlowHead` reads `v^t` and stage 2 freezes nothing
+(`core/train.py:191-195` freezes only in stage 1), so that gradient reaches the
+shared temporal encoder.
+
+**The loss magnitude is therefore a property of the target's pixel units, not of
+the fit** — candidate **(i)** in `pending.md`. A raw `kip_rec` means nothing until
+divided by what a constant predictor scores on the same target.
+
+### 3. Two instruments, pre-registered — **RUN 2026-09-20, read out 2026-09-21**
+
+* **D1** — `core/eda/features.py:flow_stats` now reports the three baselines a
+  constant predictor scores on `e_O` (zero / global-mean / item-mean) plus a
+  per-stat `E[s²]` share table, rendered as EDA §4.3/§4.3.1 with two verdicts.
+  Bars: `R²_global ≥ 0.20` PASS, `K < W` (beats the item-mean oracle) PASS,
+  projection round-trip ∈ [0.9, 1.1] or HARD STOP.
+* **D2** — `core/tools/grad_probe.py` (new CLI): per-term `autograd.grad` against
+  four parameter groups, reporting `|g_KIP|/|g_task|` and `cos(g_KIP, g_task)` at
+  the trunk. Bars: `rho ≥ 1.0` CONFIRMS trunk capture, `< 0.30` REFUTES the whole
+  loss-scale story. Read-only; it re-sums its weighted terms and **raises** if
+  they do not reproduce `compute_losses`'s `total`.
+
+`core.train.build_trainer()` was extracted from `train.main()` so the probe builds
+the same objects a run does; `main()`'s CLI is unchanged.
+
+### 4. The trap to check FIRST — **resolved**: the checkpoints were reachable
+
+> D2 ran against them on 2026-09-20, so `checkpoint_last.pt` survived the VM.
+> The warning below stands as a rule, not as an open item.
+
+
+`results.json` records the checkpoints at `/content/p4/runs/s2024/...` — a
+**VM-local** path, the same kind that ate the Phase-0 frame census on 2026-09-15.
+**Verify `checkpoint_last.pt` is on Drive before planning D2.** Without it the
+end-of-training probe point — the state that produced the AUC above — needs a
+re-run to recover.
+
+### 5. What is NOT decided
+
+No repair is authorized. The four options (z-score `e_O` / lower `lambda_rec` /
+detach `v^t` / conclude) are in the plan's §5 with their tradeoffs, gated behind
+the decision table in §4. **Tuning `lambda_rec` against the Δ in §1 is lesson
+14**; if it is adopted it must be *derived* from D1-c's `1/V`, not searched. And
+**C24 stands regardless**: every KIP-on arm on `main` is a fixed ~50 % channel
+shift, so none of this licenses the words "motion-gated".
+
+---
+
+**Superseded stamp:** 2026-09-17 (**Phase 2/3/4 of the DADA-2000
 original corpus: Gate W passed at W=20, and the KIP-off trunk trained and
 evaluated on three seeds. T2 is the first corpus in this project where in-domain
 training did NOT collapse into a clip/window classifier.** Earlier: Gate D0 passed

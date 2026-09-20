@@ -82,7 +82,9 @@ def set_global_seed(seed: int) -> None:
     torch.manual_seed(seed)
 
 
-def warm_start_model(model: torch.nn.Module, path: Path) -> None:
+def warm_start_model(
+    model: torch.nn.Module, path: Path, *, flag: str = "--init-weights"
+) -> None:
     """Load ONLY the model weights from a checkpoint (spec §8 stage 1 → 2).
 
     Unlike ``Trainer.load_checkpoint`` (same-run resume: restores optimizer,
@@ -91,6 +93,13 @@ def warm_start_model(model: torch.nn.Module, path: Path) -> None:
     key must match except the frozen CLIP text tower, which the stage-1
     model legitimately lacks (built with ``load_clip=False``) and which keeps
     its pinned pretrained weights in the target.
+
+    That tolerance is why a read-only diagnostic loads weights through *this*
+    function and not through ``load_checkpoint``: probing a stage-1 checkpoint
+    under the stage-2 objective is the whole point of
+    :mod:`core.tools.grad_probe`, and a strict load refuses it over the absent
+    text tower alone. ``flag`` names the CLI option in the error so the message
+    points at the argument the caller actually typed.
     """
     payload = torch.load(
         path, map_location="cpu", weights_only=False
@@ -104,7 +113,7 @@ def warm_start_model(model: torch.nn.Module, path: Path) -> None:
     )
     if unexpected or missing:
         raise ValueError(
-            f"--init-weights checkpoint does not match the model: "
+            f"{flag} checkpoint does not match the model: "
             f"missing={missing[:5]} unexpected={unexpected[:5]} "
             f"(only '{TEXT_TOWER_PREFIX}*' may be absent from the source; "
             f"e.g. a KIP-off run cannot warm-start from a KIP-on checkpoint)"
@@ -688,30 +697,30 @@ def build_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: list[str] | None = None) -> None:
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
-    )
-    parser = build_arg_parser()
-    args = parser.parse_args(argv)
-    if args.resume is not None and args.init_weights is not None:
-        parser.error(
-            "--resume and --init-weights are mutually exclusive: "
-            "resume continues a run, init-weights starts a new one"
-        )
-    cfg = load_config(args.config, args.overrides)
-    set_global_seed(cfg.train.seed)
+def build_trainer(
+    cfg: Config,
+    output_dir: Path,
+    data_dir: Path | None = None,
+    clip_dir: Path | None = None,
+    flow_dir: Path | None = None,
+    knn_cache_path: Path | None = None,
+    text_encoder: str = TEXT_ENCODER_CLIP,
+    log_every: int = 10,
+) -> Trainer:
+    """Dataset + model + :class:`Trainer` from one config, the way training does.
 
+    Extracted from :func:`main` so a diagnostic
+    (:mod:`core.tools.grad_probe`) assembles *the same* objects a run does. A
+    second copy of this wiring would drift from the real one silently — the
+    same failure mode as a cache built by a second transform (lesson **C13**) —
+    and the diagnostic would then describe a model that never trained.
+    """
     dataset_name = cfg.data.dataset
-    data_dir = args.data_dir if args.data_dir else constants.DATA_ROOT / dataset_name
-    clip_dir = (
-        args.clip_dir if args.clip_dir else constants.CLIP_CACHE_DIR / dataset_name
-    )
-    flow_dir = (
-        args.flow_dir if args.flow_dir else constants.FLOW_CACHE_DIR / dataset_name
-    )
+    data_dir = data_dir if data_dir else constants.DATA_ROOT / dataset_name
+    clip_dir = clip_dir if clip_dir else constants.CLIP_CACHE_DIR / dataset_name
+    flow_dir = flow_dir if flow_dir else constants.FLOW_CACHE_DIR / dataset_name
 
-    knn_cache = load_knn_cache(args.knn_cache) if args.knn_cache else None
+    knn_cache = load_knn_cache(knn_cache_path) if knn_cache_path else None
     require_flow = cfg.kip.enabled
     dataset = DVSFeatureDataset(
         data_dir=data_dir,
@@ -727,22 +736,45 @@ def main(argv: list[str] | None = None) -> None:
     class_names = load_class_names(data_dir)
 
     device = resolve_device(cfg.train.device)
-    needs_clip = (
-        args.text_encoder == TEXT_ENCODER_CLIP and cfg.train.stage == STAGE_FULL
-    )
+    needs_clip = text_encoder == TEXT_ENCODER_CLIP and cfg.train.stage == STAGE_FULL
     model = KATVAD.from_config(cfg, load_clip=needs_clip)
     text_encode_fn = make_text_encoder(
-        model, args.text_encoder, device, dim=cfg.model.hidden_dim
+        model, text_encoder, device, dim=cfg.model.hidden_dim
     )
-
-    trainer = Trainer(
+    return Trainer(
         cfg=cfg,
         model=model,
         dataset=dataset,
         class_names=class_names,
         text_encode_fn=text_encode_fn,
-        output_dir=args.output_dir,
+        output_dir=output_dir,
         device=device,
+        log_every=log_every,
+    )
+
+
+def main(argv: list[str] | None = None) -> None:
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+    )
+    parser = build_arg_parser()
+    args = parser.parse_args(argv)
+    if args.resume is not None and args.init_weights is not None:
+        parser.error(
+            "--resume and --init-weights are mutually exclusive: "
+            "resume continues a run, init-weights starts a new one"
+        )
+    cfg = load_config(args.config, args.overrides)
+    set_global_seed(cfg.train.seed)
+
+    trainer = build_trainer(
+        cfg=cfg,
+        output_dir=args.output_dir,
+        data_dir=args.data_dir,
+        clip_dir=args.clip_dir,
+        flow_dir=args.flow_dir,
+        knn_cache_path=args.knn_cache,
+        text_encoder=args.text_encoder,
         log_every=args.log_every,
     )
     if args.resume is not None:

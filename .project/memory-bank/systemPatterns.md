@@ -132,6 +132,7 @@ qualify (`gate_t0` 18/60).
 | **[v3 only]** Train-only KIP submodules off the inference graph | `core/kip/kip_module.py` (`train_only_modules`) — **absent on `main`**; here `mhead` is always instantiated | 3e/3f not instantiated when `training=False`; 311,808 params at inference, 0 on the score path; curve is bit-identical across graphs |
 | Allowlist checkpoint loader, never `strict=False` | `core/models/ckpt_compat.py` (`load_kip_state_dict`) | drops exactly `kip.mhead.` / `kip.proj_flow.` / `kip.proj_rgb.`; **the gate-type mismatch guard is [v3 only]** — on `main` there is one gate, so a v3 checkpoint's `kip.*` keys will not map here. **Cannot separate `rank` from `constant`** — identical key layout; needs the run manifest (lesson 17) |
 | **[v3 only]** Gate diagnostics into the existing `.npz` | `core/inference.py`, `core/evaluate.py` — **absent on `main`**: no `--dump-kip-diag`, no `kip_s` column | `--dump-kip-diag`, on for eval/inference, never for training; `kip_s` int16 + four float32 columns; no new artifact format |
+| **`build_trainer()` extracted from `train.main()`** | `core/train.py`, consumed by `core/tools/grad_probe.py` | A diagnostic that builds its own model/dataset drifts from the one that trains. The probe calls the same factory a run does, re-sums its weighted terms and **raises** if they do not reproduce `compute_losses`'s `total`. `main()`'s CLI is unchanged (2026-09-18) |
 | Fail-loud checkpoint mapping | `core/models/ckpt_compat.py` | unknown/missing/mis-shaped keys raise — no silent partial loads |
 | Pooling resolved from labels, not dataset name | `core/metrics.py:resolve_score_norm` | `--score-norm auto` picks per-clip min-max when normal videos fall below 5 % of the test set; a new all-abnormal benchmark cannot silently inherit the wrong protocol (lesson 12) |
 | Rescore from saved `.npz`, never re-infer | `core/tools/rescore.py` | model outputs are deterministic given features, so a protocol correction costs minutes instead of GPU hours |
@@ -158,6 +159,28 @@ encoded at all, objective = `lambda_rec·L_KIP_rec + lambda_align·L_KIP_align`.
 
 Ablation gating: `kip.enabled=false` → pure baseline; `kip.pmg_only=true` →
 rec+align only; `kip.use_lkin=false` → no `L_kin`.
+
+### The terms are NOT on a comparable scale (measured 2026-09-20, lesson C37)
+
+Everything above except `L_KIP_rec` is a BCE or an InfoNCE and sits at **O(1) by
+construction**. `L_KIP_rec` is a bare masked MSE against `e_O` — 23 **unnormalized**
+frame-global RAFT scalars (`mag_max` in raw pixel units carries **83.0 %** of
+`E[s²]`) lifted to 256-d by a fixed Gaussian map. Nothing normalizes them between
+`core/flow/raft_extract.py:86-118` and `core/data/dataset.py:114`.
+
+Measured on T2: a constant global-mean predictor scores **MSE 31.64** on that
+target, so `lambda_rec = 1.0` weights the term **~32×** the rest of the objective,
+and `kip_rec` is **88–93 % of `total`**. This is **not inert** — `PMGFlowHead`
+reads `v^t` and stage 2 freezes nothing (`core/train.py:191-195` freezes only in
+stage 1), so at the shared temporal encoder
+`rho` = \|g_KIP\| / \|g_task\| = **3.1** (11.6 at the stage-1 end) with
+`cos(g_kip_rec, g_task)` = **−0.001**: KIP spends trunk capacity **orthogonally**
+to the task rather than fighting it.
+
+**Rule:** before weighting a regression loss beside classification losses, measure
+what a constant predictor scores on its target and set the weight from that ratio.
+A raw `kip_rec` is meaningless until divided by it: `R² = 1 − kip_rec / 31.64`.
+Record: `outputs/v1/DADA2000_orig_diag_kip_loss_scale/`.
 
 ## Scoring & evaluation patterns
 

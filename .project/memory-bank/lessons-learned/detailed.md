@@ -1188,3 +1188,139 @@ showed to be unnecessary: a passing geometry existed two rows away.
 (the attainable range). C35 asks *which flag moves it, and by how much* (the
 lever). A threshold can be perfectly reachable, as this one was, and still be
 unreachable in practice if the operator is pointed at an inert knob.
+
+## 36. A resume API is not a load API
+
+**Where it came from.** The first real run of the D2 gradient probe
+(`core/tools/grad_probe.py`), 2026-09-20, on `s2024`'s stage-1 checkpoint. It
+crashed in `Trainer.load_checkpoint` with 197 `Missing key(s) in state_dict`,
+every one of them `clip_text_model.*` plus `clip_text_model.prompt_embedding.weight`.
+
+**Why the keys are legitimately absent.** `build_trainer` decides the text tower
+from the *stage*:
+
+```python
+needs_clip = text_encoder == TEXT_ENCODER_CLIP and cfg.train.stage == STAGE_FULL
+model = KATVAD.from_config(cfg, load_clip=needs_clip)
+```
+
+Stage 1 freezes everything outside `kip.*`, so it never conditions on text and
+never pays for the tower. Its checkpoint is therefore *correct* and *incomplete
+by design* — and the project already knew this, which is why `warm_start_model`
+exists and skips exactly the `clip_text_model.` prefix. Stage 2 warm-starts from
+stage 1 through that function every time a campaign runs.
+
+**The actual defect is a one-line API choice.** Two loaders sit next to each other
+in `core/train.py`:
+
+| | `Trainer.load_checkpoint` | `warm_start_model` |
+|---|---|---|
+| purpose | resume **this** run | seed a **new** run's weights |
+| model load | strict | strict *except* the text tower |
+| optimizer / scheduler / scaler | restored | untouched |
+| RNG streams (python, numpy, torch, dataset, verbalizer) | restored | untouched |
+
+A read-only probe wants the right-hand column on every row. It picked the left
+because the method name matches the sentence "load the checkpoint". The strict
+key check is only the first contract it could not satisfy: a stage-1 optimizer
+state holds one parameter group (`kip.*`), so `optimizer.load_state_dict` would
+have raised next; and `_restore_rng` unpickles `np.random.get_state()`, the exact
+payload that expired across a numpy major in [[lesson-15]].
+
+**Why the suite was green.** The probe shipped with 10 tests covering the term
+re-sum guard, per-group reach, `lambda_rec` linearity and two refusals — and
+**none** passed `--checkpoint`. The CLI test ran the probe at initialization,
+where `args.checkpoint is None` and the whole branch is skipped. The one argument
+that can fail was the one argument never exercised.
+
+**The fix, and what it is not.** `grad_probe.main` now calls
+`warm_start_model(trainer.model, args.checkpoint, flag="--checkpoint")`. This is
+*not* [[lesson-5]] being relaxed: the load stays fail-loud, and a KIP-off
+checkpoint probed under a KIP-on config still raises `ValueError` naming the
+missing `kip.*` keys. It is the same strictness with the one documented exemption,
+applied by the function that owns it.
+
+**Cost.** One Colab session, and D2 — an instrument built specifically to settle
+whether `lambda_rec` is the right lever — returned no data on the day it was run.
+The measurement itself is unaffected: nothing was trained, nothing was written.
+
+---
+
+## 37 — A raw loss value measures its target's units, not the fit
+
+**The trace.** Phase 4's paired KIP A/B on T2 (three seeds, configs differing in
+exactly one line) came back **negative**: T2 micro 0.6182 → 0.6054, Δ **−0.0129**,
+t95 [−0.0249, −0.0008], all three seeds agreeing. The obvious first reading of the
+`metrics.jsonl` beside it was that the PMG head had failed to fit — `kip_rec` sat
+at **11.3 / 12.0 / 11.6** while the four task losses together summed to
+**0.87–0.91**, i.e. **93 % of `total`** at `lambda_rec = 1.0`.
+
+That reading is unavailable, and the reason is the point of this lesson.
+
+**What the numbers actually are.** `L_KIP_rec` is a bare masked MSE. Its target
+`e_O` is 23 frame-global RAFT statistics — magnitude mean/std/**max**, `u`/`v`
+mean/std in **raw pixel units**, plus an L1-normalized 16-bin angle histogram —
+projected to 256-d by a fixed Gaussian map scaled `1/sqrt(23)`. Nothing
+normalizes them anywhere between the extractor and the dataset. Measured on the
+T2 train split (4,401 windows, 88,020 frames):
+
+| predictor | MSE on `e_O` | what it is |
+|---|---:|---|
+| all-zeros | **71.15** | the loss at step 1 of an untrained head |
+| one global-mean vector | **31.64** | **the baseline any `kip_rec` must beat** |
+| each item's own mean | **16.21** | an oracle knowing item identity and nothing else |
+| measured `kip_rec` | **11.62** | — |
+
+So the "catastrophic" 11.62 is **R² = 1 − 11.62/31.64 = 0.633** against the
+constant predictor, and **R²_item = 0.283** against the item-mean oracle: the head
+fits real *within-item* structure. The 93 % share is a fact about **pixel units**,
+not about the fit. `mag_max` alone (mean 27.19, sd 22.72) carries **83.0 %** of
+`E[s²]`, and since `e_O = s @ M` with `M ~ N(0, 1/23)`, that one raw stat sets the
+whole scale of the target.
+
+**Why it is not merely cosmetic.** Every other term in the objective is a BCE or an
+InfoNCE, i.e. **O(1) by construction**. At `lambda_rec = 1.0` the reconstruction
+term therefore enters the sum ~**32×** oversized. `PMGFlowHead` reads `v^t`, and
+stage 2 freezes nothing (`core/train.py:191-195` freezes only in stage 1), so that
+gradient reaches the **shared temporal encoder**. The D2 probe, eight batches per
+point, three seeds:
+
+| point | `rho` = \|g_KIP\| / \|g_task\| | `cos(g_kip_rec, g_task)` |
+|---|---:|---:|
+| stage-1 end | **11.63** | ~+0.002 |
+| stage-2 end | **3.105** (3.93 / 3.03 / 2.36) | **−0.0010** |
+
+`rho > 1` means KIP moves the trunk further per step than the anomaly objective
+does. `cos ≈ 0` means the two do **not** disagree about direction — KIP spends
+trunk capacity **orthogonally**. That distinction decides the repair: under
+conflict, lowering the weight trades one objective for the other and the clean
+control is a `detach()`; under orthogonality, the fix is **normalization plus a
+principled weight**. Corroboration from the same runs: stage 1 (trunk frozen)
+plateaus at `kip_rec` **20.2**, stage 2 (trunk free) falls to **11.3** — **44 % of
+the reconstruction gain came from rewriting `v^t`** — and every task loss ends
+**24–32 %** higher than its paired `kip_off` run.
+
+**Two traps inside the diagnosis itself.**
+
+1. `rho` fell 11.63 → 3.10, which reads like KIP backing off. It is not: `|g_task|`
+   **grew** (4.91 → 10.07, 7.24 → 12.46, 6.21 → 23.61) while `|g_kip_rec|` fell
+   (51.9 → 39.2, 86.2 → 37.3, 69.4 → 55.2). Both terms moved; a ratio hides that.
+2. The per-batch spread is large — `rho_kip_rec_sd` 9.54 at stage 1, 1.56–1.94 at
+   stage 2. Report mean **and** spread; n=8 batches on one seed is a mechanism
+   probe, not an effect size, and carries no t-interval.
+
+**The rule, and why `1/V` rather than a sweep.** The equalizing weight is
+`1/V = 0.0316`. Adopting a weight because it improved a Δ would be [[lesson-14]]
+— fitting the benchmark. Deriving it from the target's own constant-predictor MSE
+is a property of the **data**, measured before any arm runs, and it transfers to
+the next corpus by re-running the same measurement rather than a new sweep.
+
+**What this does not fix.** [[lesson-24]] is untouched: on `main` the gate MLP
+still receives no gradient, so every KIP-on arm remains a fixed ~50 % channel
+shift whatever `lambda_rec` becomes. And the pre-registered projection round-trip
+came in at **0.9239** — inside its [0.9, 1.1] band but in the lower half, so any
+new cache version must re-print it; outside the band every `kip_rec` measured on
+that cache is uninterpretable.
+
+**Generalizes to:** any auxiliary regression head bolted onto a classification
+objective — depth, flow, pose, reconstruction — whenever the two share a trunk.
