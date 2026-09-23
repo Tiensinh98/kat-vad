@@ -1,8 +1,9 @@
 # Product Context — why KAT-VAD exists
 
 **Created:** 2026-07-31 (re-init from `b9978ff`)
-**Last reviewed:** 2026-09-21 (full reconcile — the paired T2 KIP A/B is negative
-and now diagnosed; see "What has actually been shown"). Earlier: 2026-09-15, the
+**Last reviewed:** 2026-09-24 (full reconcile — the repair for the negative T2 A/B is
+authorized and built; the fair test is queued, not run). Previously 2026-09-21 (the
+paired T2 KIP A/B is negative and now diagnosed; see "What has actually been shown"). Earlier: 2026-09-15, the
 corpus survey (every corpus with negative bags is degenerate, every clean one has
 none) and TAD as a second independent negative result.
 
@@ -60,9 +61,11 @@ than fighting for it. Every task loss ends 24–32 % higher with KIP on.
 
 **What this does and does not license.** It does *not* rehabilitate KIP: the
 number is measured and negative. It does say the arms were **weighted wrong**, so
-the fair test has not been run. The repair is specified (z-score `e_O` into a new
-cache version, `lambda_rec` derived as `1/V` = 0.0316, never swept) and **is not
-authorized**. One thing survives the repair either way: **`R²_item` = 0.283** —
+the fair test has not been run. The repair was **authorized 2026-09-23 and built**
+(z-score the 23 raw flow stats into `cache/flow/v2_zscore/`, same projection;
+`lambda_rec` **derived** as `1/V` of the *new* cache, ≈ 1, never swept) and **has not
+been run** — until it is, the honest product statement is "KIP-v1 as weighted costs
+0.013 on T2; the correctly weighted test is pending". One thing survives the repair either way: **`R²_item` = 0.283** —
 the PMG head does fit 28 % of the *within-clip* flow variance from `v^t`, so
 frozen CLIP carries some dynamics and KIP's premise is not refuted on T2.
 

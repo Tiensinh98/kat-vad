@@ -1,7 +1,9 @@
 # System Patterns — architecture & design decisions
 
 **Created:** 2026-07-31 (re-init from `b9978ff`, verified against the tree)
-**Last reviewed:** 2026-09-15 (later — corpus construction: closing the length
+**Last reviewed:** 2026-09-24 (the flow target gains a second cache version,
+`flow/v2_zscore`, and `lambda_rec` becomes a property of the cache — see "Two flow
+targets" under Loss composition). Previously 2026-09-15 (later — corpus construction: closing the length
 leak and lowering the clip oracle are separate jobs; earlier the same day, the two
 text paths and the `L_neg` wiring documented)
 
@@ -181,6 +183,31 @@ to the task rather than fighting it.
 what a constant predictor scores on its target and set the weight from that ratio.
 A raw `kip_rec` is meaningless until divided by it: `R² = 1 − kip_rec / 31.64`.
 Record: `outputs/v1/DADA2000_orig_diag_kip_loss_scale/`.
+
+### Two flow targets — `lambda_rec` belongs to the cache, not the config (2026-09-23)
+
+```
+v1        cache/flow/v1/{DS}/{id}.npy        = s @ M              (s raw, pixel units)
+v2_zscore cache/flow/v2_zscore/{DS}/{id}.npy = ((s - mu)/sigma) @ M   same M, same .stats.npy (raw)
+                                    mu, sigma = T2 train-window moments  -> zscore_stats.npz
+                                    lambda_rec = round(1 / V_v2, 4)      -> zscore_manifest.json
+```
+
+* **Built by** `core/flow/zscore_cache.py` from v1 alone (no frames, no RAFT); the
+  numpy pieces live in the leaf `core/flow/zscore.py`, which `core/eda/features.py`
+  also imports (hence a leaf: `zscore_cache → eda.features → flow.zscore`).
+* **Which cache a run used is not in `config.yaml`** — `--flow-dir` is a CLI path.
+  The only in-config trace is `loss.lambda_rec` (1.0 for v1, ≈1/V_v2 for v2). Record
+  the flow dir in every run manifest.
+* **A v2 cache is bound to one dataset's train split** (`train_ids_sha1`); reusing
+  its statistics elsewhere is a C2 violation, and the tool refuses a directory fitted
+  on another split.
+* **`.stats.npy` stays raw in both versions** — `knn_cache.motion_descriptor` reads
+  magnitudes and angle histograms from it.
+* **KIP-off never touches either** (`build_trainer`: `flow_dir=None` when
+  `kip.enabled=false`; `kip_rec` is never computed), so KIP-off arms pair with KIP-on
+  arms from either cache.
+* Status: built and unit-tested (`ae4fded`), **not yet measured**.
 
 ## Scoring & evaluation patterns
 

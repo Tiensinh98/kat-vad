@@ -1,7 +1,9 @@
 # Tech Context — stack, setup, constraints
 
 **Created:** 2026-07-31 (re-init from `b9978ff`, read off `pyproject.toml`)
-**Last reviewed:** 2026-09-21 (full reconcile — counts re-measured, `grad_probe`
+**Last reviewed:** 2026-09-24 (full reconcile — counts re-measured; `core/flow/zscore*`
+and the `FLOW_ZSCORE_*` constants added; `colab/` corrected to **tracked**).
+Previously 2026-09-21 (full reconcile — counts re-measured, `grad_probe`
 added, the `core/eda/` "never run on real data" note retired, and the
 `transformers` pin promoted out of the Colab runbook). Earlier: 2026-09-15 doc
 count 22→23 for `DADA_ORIGIN_PHASE0.md` + the DADA-original sizing constraints;
@@ -22,7 +24,7 @@ the same day, the text-branch + `L_neg` constraints.
 ## Compute
 
 - **Dev:** macOS arm64, CPU. All code and all tests run data-free on CPU — on
-  `main`, **514 collected, 514 pass** (measured 2026-09-15, three clean runs;
+  `main`, **582 collected, 0 fail** (2026-09-24; 514 on 2026-09-15, three clean runs;
   green since 2026-09-08 when the v3-only `gate_type` matrix was collapsed to the
   v1 gate; see [[progress]]). `v3` is 537 green.
 - **Training:** Google Colab **A100 40 GB**. Long jobs are resumable and
@@ -42,13 +44,14 @@ the same day, the text-branch + `L_neg` constraints.
 | `core/metrics.py` | pooling rules, micro/macro AUC + AP; torch-free so `rescore` can import it |
 | `core/data/` | msad, dota, prevad, **tad**, **dada**, dataset (DVS), synthesis, knn_cache, collate, definitions, video_io, dataset_files |
 | `core/flow/raft_extract.py` | RAFT → 23-d stats → seeded 256-d projection |
+| `core/flow/zscore.py` / `zscore_cache.py` | **new 2026-09-23 (Option A).** Numpy leaf (`MomentAccumulator`, `ZScoreStats`, `standardize`) + CLI `python -m core.flow.zscore_cache --data-dir … --dataset … [--src-root cache/flow/v1] [--dst-root cache/flow/v2_zscore] [--force]`. Rebuilds `e_O` from v1's raw stats; gates G0–G2; writes `zscore_stats.npz` + `zscore_manifest.json` (holds the derived `lambda_rec`). CPU, minutes, no torch |
 | `core/tools/` | download, extract_clip_features, **feature_cache**, **rescore**, visualize, **eda**, **grad_probe** (431 L, new 2026-09-18 — per-term `autograd.grad` against 4 parameter groups; read-only, no optimizer step, raises if its re-summed terms do not reproduce `compute_losses`'s `total`) |
 | `core/eda/` | corpus, labels, protocol, features, report — the pre-flight profiler (`python -m core.tools.eda report\|compare`), runbook `core/docs/EDA.md`. **Run on real data since 2026-09-15**: Gate D0, Gate W, and the D1 flow-target baselines (§4.3.1 — `flow_stats` reports the zero / global-mean / item-mean MSE a constant predictor scores on `e_O`, the per-stat `E[s²]` share, and a projection round-trip check) |
 | `core/docs/` | **20 files on `main`**: COLAB, DATA_LAYOUT, DOTA_EVAL, **EDA**, PREVAD_SETUP, **TAD_SETUP**, **DADA_SETUP**, **DADA_ORIGIN_PHASE0** (new 2026-09-15), DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE, TRAINING, proposal, spec, 7 × RESULTS_\*.md, REPORT_KIP_MSAD_DOTA_PREVAD |
 | `core/docs/v3/` | **On `main`: only `RESULTS_DADA.md` + `setup/{DADA_V3_SETUP,TAD_V3_SETUP}.md`** (3 files). ARCHITECTURE, spec_v3, audit_addendum_PreVAD, RESULTS_V3_GATE_ATTRIBUTION and `setup/MSAD_DOTA_V3_SETUP.md` are **branch `v3` only**. `core/docs/v2/` does not exist on either branch — do not cite it |
 
-**Measured on `main`, 2026-09-21:** **86 Python files** (58 source + 28 test),
-**13,276 LOC** source. **24 markdown docs** under `core/docs/**` (21 top-level + 3
+**Measured on `main`, 2026-09-24 (`ae4fded`):** **89 Python files** (60 source + 29 test),
+**13,833 LOC** source. **24 markdown docs** under `core/docs/**` (21 top-level + 3
 under `v3/`; `DADA_ORIGIN_PHASE1.md` is the 21st). `outputs/**` holds **87,213**
 `.npz` score files. (`v3` measures 84 files / 11,157 source LOC / 537 tests —
 different tree, different numbers.)
@@ -198,14 +201,22 @@ Colab points all four at Drive. Full contract: `core/docs/DATA_LAYOUT.md`.
   with `read_images(paths)` and pass **`center_crop=False`**, or you measure a
   transform this project does not use, silently (C2, C13).
 
+- **`lambda_rec` is a property of the flow cache, not a tunable** (2026-09-23).
+  v1 → 1.0 (its target is ~32× oversized on T2); `flow/v2_zscore` → `1/V_v2` read
+  from `zscore_manifest.json` (≈ 1.0). Never carry 0.0316 (v1's `1/V`) onto v2 —
+  it switches `L_KIP_rec` off. `--flow-dir` is not recorded in `config.yaml`.
+- **`Trainer.compute_losses` is not bitwise repeatable** on the stub fixture even
+  seeded in `eval()` (2026-09-23). Test "a weight is unused" by NaN-poisoning it,
+  never by comparing two loss calls.
+
 ## Commands
 
 ```bash
 # tests  (pyproject sets addopts="-q", so the summary line is suppressed;
 #          count with:  pytest --co -q | awk -F': ' '/^core/{s+=$2} END{print s}')
 source .venv/bin/activate && python -m pytest core/tests -q
-# on `main` (2026-09-21): 565 collected -> 565 pass, 0 fail, 74.6 s.
-# History: 563 (2026-09-18), 546 (2026-09-17), 514 (2026-09-15).
+# on `main` (2026-09-24): 582 collected, 0 fail.
+# History: 565 (2026-09-21), 563 (2026-09-18), 546 (2026-09-17), 514 (2026-09-15).
 # The gate matrix in test_{dada,tad}.py was collapsed to the single v1 gate;
 # the `kip.gate_type` parametrization is branch-`v3`-only and stays there.
 
@@ -225,8 +236,9 @@ see `RESULTS_DADA.md`) and `TAD_V3_SETUP.md` (**unrun**) on `main`;
 **Warning:** every arm command in those runbooks passes `--set kip.gate_type=…`
 and therefore **fails on `main` at config parse**; their data-build sections are
 fine. Run the arm ladder on `v3`. Training notebooks are
-`colab/{MSAD,DADA}/v3/train.py` — note `collab/` was renamed to `colab/` and
-`colab/` is **gitignored**, so on `main` they are untracked.
+`colab/{MSAD,DADA}/v3/train.py` and `colab/DADA2000Origin/*.ipynb` — **`colab/` IS
+tracked on `main`** (verified 2026-09-24 with `git ls-files colab`; an older note here
+said it was gitignored). The live runbook is `colab/DADA2000Origin/phase_5_zscore.ipynb`.
 
 **Analysis is offline.** Every reported number is recomputed from
 `{run}/scores/*.npz` via `core/tools/rescore.py` or a scratchpad bootstrap

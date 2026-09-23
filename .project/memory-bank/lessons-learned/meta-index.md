@@ -328,6 +328,7 @@ The LR schedule is an in-house `LambdaLR` rather than
 | add an auxiliary REGRESSION head (flow, depth, pose, reconstruction) beside classification losses | **C37** — they are not on a comparable scale by default, and the mismatch reaches every parameter they share |
 | wonder whether an auxiliary term is stealing the trunk | **C37** — `python -m core.tools.grad_probe`: `rho ≥ 1` = capture, `|cos| < 0.1` = orthogonal (fix = normalization), `cos ≤ −0.1` = conflict (fix = the detach control) |
 | change `lambda_rec`, or read `kip_rec` in `metrics.jsonl` | **C37**, C24 — and note the D1/D2 record is `outputs/v1/DADA2000_orig_diag_kip_loss_scale/`, not a `RESULTS_*.md` |
+| pass `--flow-dir`, or switch between `flow/v1` and `flow/v2_zscore` | **C2**, **C37** — `lambda_rec` belongs to the CACHE: v1 → 1.0, v2 → `1/V_v2` from `zscore_manifest.json` (≈1). Never carry v1's 0.0316 onto v2; `--flow-dir` is not in `config.yaml`, so record it in the run manifest |
 | load or map a checkpoint | C5, C15 |
 | load weights into a **tool that does not train** (probe, diagnostic, rescore, eval) | **C36** — `warm_start_model`, never `Trainer.load_checkpoint`; the resume path restores an optimizer/RNG a read-only tool must not touch |
 | probe, score or warm-start from a **stage-1** checkpoint | **C36** — it has no `clip_text_model.*` by design (`load_clip=False`); a strict load refuses it |

@@ -1,13 +1,14 @@
 # Project Brief — KAT-VAD
 
 **Created:** 2026-07-31 (memory bank re-initialized from commit `b9978ff`)
-**Last reviewed:** 2026-09-21 (full reconcile — gate (c) restated: on T2, the
+**Last reviewed:** 2026-09-24 (full reconcile — scope unchanged; gate (c)'s repair,
+Option A, is now authorized and built, not yet measured). Previously 2026-09-21 (gate (c) restated: on T2, the
 project's first *within-corpus paired* KIP A/B, KIP-on is **negative**, and D1/D2
 attribute it to an unnormalized reconstruction target capturing the shared trunk).
 Earlier: 2026-09-15, the DADA-2000 **original** release adopted as the training
 corpus and DoTA pinned as held-out; the same day, TAD run end to end.
 
-> **Branch:** `main` (tip `702bd5b`) is the **KAT-VAD v1** line — KIP as
+> **Branch:** `main` (tip `ae4fded`) is the **KAT-VAD v1** line — KIP as
 > originally specified: `PMGFlowHead` → `KinematicShift` with the frozen
 > 321-parameter MLP gate → `MotionScoreHead`. The v3 gate rebuild (four
 > `gate_type`s, ECMR, gate diagnostics) is on branch **`v3`** (tip `bb1516c`),
@@ -112,7 +113,7 @@ path reads a caption field at all.
 |---|---|---|
 | (a) | Our eval code reproduces LaGoVAD `best.ckpt` on the target benchmark | **PASSES.** DoTA 0.6142 vs published 0.6260 under the baseline's own per-clip min-max protocol (`RESULTS_DOTA.md`) |
 | (b) | Our KIP-off model trained on the benchmark ≥ gate (a) | **PASSES as redefined.** Our arms are statistically indistinguishable from `best.ckpt` on MSAD — eight paired bootstraps, all CIs include zero (`RESULTS_PHASE_A.md` §4) |
-| (c) | KIP-on ≥ KIP-off | **PASSES on DoTA when trained on MSAD** — seed-level t-interval **[+0.070, +0.113]**, n=3 — but **the gain is not KIP's**. A plain 50 % channel shift with no flow, no PMG head and no KIP losses reproduces all of it (`RESULTS_V3_GATE_ATTRIBUTION.md`, 2026-09-01). **FAILS when trained on DADA-2000**: A2 − A0 = **−0.0918** (`RESULTS_DADA.md`, 2026-09-06). MSAD in-domain remains a **bounded null**. **FAILS on T2, and this is the only within-corpus PAIRED on/off A/B the project owns** (2026-09-18, 3 seeds, configs differing in one line): T2 micro **−0.0129**, t95 [−0.0249, −0.0008], 3/3 seeds. **Diagnosed 2026-09-20 (D1/D2, lesson C37):** `L_KIP_rec` enters the objective ~32× oversized against an unnormalized `e_O` and captures the shared trunk (`rho` = 3.1) **orthogonally** (`cos` = −0.001). The gate (c) verdict therefore stands *as measured*, but the arms it was measured on were weighted wrong — the repair (**Option A**) is specified and **not authorized** |
+| (c) | KIP-on ≥ KIP-off | **PASSES on DoTA when trained on MSAD** — seed-level t-interval **[+0.070, +0.113]**, n=3 — but **the gain is not KIP's**. A plain 50 % channel shift with no flow, no PMG head and no KIP losses reproduces all of it (`RESULTS_V3_GATE_ATTRIBUTION.md`, 2026-09-01). **FAILS when trained on DADA-2000**: A2 − A0 = **−0.0918** (`RESULTS_DADA.md`, 2026-09-06). MSAD in-domain remains a **bounded null**. **FAILS on T2, and this is the only within-corpus PAIRED on/off A/B the project owns** (2026-09-18, 3 seeds, configs differing in one line): T2 micro **−0.0129**, t95 [−0.0249, −0.0008], 3/3 seeds. **Diagnosed 2026-09-20 (D1/D2, lesson C37):** `L_KIP_rec` enters the objective ~32× oversized against an unnormalized `e_O` and captures the shared trunk (`rho` = 3.1) **orthogonally** (`cos` = −0.001). The gate (c) verdict therefore stands *as measured*, but the arms it was measured on were weighted wrong — the repair (**Option A**: `flow/v2_zscore`, `lambda_rec = 1/V_v2`) was **authorized 2026-09-23 and built (`ae4fded`); gate (c) on T2 is re-measured by `phase_5_zscore.ipynb` and is OPEN until then** |
 
 **Gate (b) is stated against the released checkpoint, not the printed 0.9041.**
 LaGoVAD's own `best.ckpt` reaches only 0.8991 (crop) / 0.8949 (ncc) through our

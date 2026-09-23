@@ -1,6 +1,14 @@
 # Progress
 
-**Last updated:** 2026-09-21 — **the KIP A/B on T2 is NEGATIVE and now DIAGNOSED.**
+**Last updated:** 2026-09-24 — **Option A is AUTHORIZED (2026-09-23, construction A1),
+BUILT and COMMITTED (`ae4fded`), and NOT YET RUN.** `core/flow/zscore_cache.py` rebuilds
+`e_O` from the v1 cache's raw stats (no frames, no RAFT) into `cache/flow/v2_zscore/`,
+scores the pre-registered build gates G0–G2 and derives `lambda_rec = 1/V_v2` (expected
+≈ 1.0, **not** v1's 0.0316). Runbook `colab/DADA2000Origin/phase_5_zscore.ipynb` (P0,
+P2–P4). Plan `.project/plans/katvad-flow-zscore-option-a.md`. Counts: **89 Python files
+(60 source + 29 test), 13,833 source LOC, 24 docs, 582 tests**.
+
+**2026-09-21 —** the KIP A/B on T2 is NEGATIVE and now DIAGNOSED.
 KIP-on costs **0.0129** T2 micro (3/3 seeds, t95 excludes 0); D1/D2 attribute it:
 `L_KIP_rec` enters the sum **~32x** oversized because `e_O` is unnormalized, and the
 resulting gradient at the shared trunk is **3.1x** the task gradient while being
@@ -13,7 +21,7 @@ classifier**; Gate D0 0.6518; Phase 0 P1/P2/P3; the TAD campaign. Counts re-meas
 this tree: **86 Python files (58 source + 28 test), 13,276 source LOC, 24 docs,
 565 tests**.)
 
-> **Branch:** `main`, tip `702bd5b` — the **v1** line. The v3 gate rebuild is on
+> **Branch:** `main`, tip `ae4fded` (2026-09-23) — the **v1** line. The v3 gate rebuild is on
 > branch `v3` (tip `bb1516c`), which has its own memory bank. See
 > [[activeContext]] for the full v1-vs-v3 table.
 >
@@ -38,12 +46,13 @@ this tree: **86 Python files (58 source + 28 test), 13,276 source LOC, 24 docs,
 | — | ~~**v3 KIP gate rebuild**~~ — 4 selectable `gate_type`s, ECMR, inference graph without 3e/3f, gate diagnostics in every score `.npz` | ✅ 2026-08-30 **on branch `v3` only — NOT in this tree** |
 | — | **TAD adapter** — `--with-train-split` (P1) + `raft_extract --frames-dir` (P2) | ✅ 2026-09-02 (its 467-test figure is `v3`'s) |
 | — | **DADA-2000 adapter** (`core/data/dada.py`) — real seeded train/test split, `--flat-frames-dir` symlink farm | ✅ 2026-09-03/04 (its 497-test figure is `v3`'s) |
+| — | **Option A tooling** — `core/flow/zscore.py` (numpy leaf: `MomentAccumulator`, `ZScoreStats`, `standardize`) + `core/flow/zscore_cache.py` CLI; `eda.flow_stats` reads `zscore_stats.npz` | ✅ 2026-09-23 `ae4fded`, 17 tests. **Never run on real data** — P2 is on Colab |
 | — | **`core/eda/` pre-flight profiler** — 5 modules + `core/tools/eda.py` + `core/docs/EDA.md`; verdicts for C27 / C12 / vanished windows, §4.2 frame-level linear probe | ✅ 2026-09-06, **present on `main`**. Never run on real data — needs the Drive caches |
 
-**Measured on `main`, 2026-09-21: 86 Python files (58 source + 28 test),
-13,276 source LOC, 24 docs under `core/docs/**` (21 top-level + 3 under `v3/`).
-565 tests collected.** Data-free, CPU-only.
-*(History: 563 on 2026-09-18, 546 on 2026-09-17, 514 on 2026-09-15 — verified three
+**Measured on `main`, 2026-09-24 (`ae4fded`): 89 Python files (60 source + 29 test),
+13,833 source LOC, 24 docs under `core/docs/**` (21 top-level + 3 under `v3/`).
+582 tests collected, 0 fail.** Data-free, CPU-only.
+*(History: 565 on 2026-09-21, 563 on 2026-09-18, 546 on 2026-09-17, 514 on 2026-09-15 — verified three
 times there, 514 dots, no F/E.)*
 *Minor open item:* one invocation
 (`pytest --tb=line -q >/dev/null`) returned exit 1 once and would not reproduce
@@ -264,13 +273,20 @@ both show is the worse corpus on every column.
       channel shift** — do not call it "motion-gated".
 - [x] **D1/D2 — the loss-scale diagnosis** run 2026-09-20, read out 2026-09-21.
       Decision row **`capture + orthogonal`**. `outputs/v1/DADA2000_orig_diag_kip_loss_scale/`.
-- [ ] **Option A — z-score `e_O`**, the repair D1/D2 licenses and **nobody has
-      authorized**. Per-dimension statistics from the *train split only*, written
-      to a **NEW cache version** (`flow/v2`; **never overwrite `flow/v1`**, C2),
-      `lambda_rec` set to the **derived** `1/V` = 0.0316 and **not swept**
-      (lesson 14). Re-measures stage 1 + stage 2 × 3 seeds, and must **re-print
-      D1-d** on the new cache — outside [0.9, 1.1] every `kip_rec` on it is
-      uninterpretable.
+- [x] **Option A authorized** 2026-09-23, construction **A1** (z-score the 23 raw
+      stats with train-window moments, then the **same** `M`; not the 256-d `e_O`).
+- [x] **Option A P1 — code, tests, docs** (`ae4fded`, 2026-09-23): `core/flow/zscore.py`,
+      `core/flow/zscore_cache.py`, `flow_stats` z-score-aware, 17 tests, `TRAINING.md`
+      + `COLAB.md` §4.3b. Runbook `colab/DADA2000Origin/phase_5_zscore.ipynb` written.
+- [ ] **Option A P0 + P2 — build `cache/flow/v2_zscore/DADA2000_orig`** on Colab; gates
+      G0 (every v1 `e_O` == its `stats @ M`), G1, G2-b, G2-c HARD; read `lambda_rec`
+      from `zscore_manifest.json`. **Never use 0.0316 on v2** — that is v1's `1/V`.
+- [ ] **Option A P3 — KIP-on stage 1 + 2 × 3 seeds on v2** (C2 re-measure). KIP-off
+      arms are **reused** from phase 4 (inert to `lambda_rec` and flow;
+      `TestKipOffIsInert`); the notebook's §4 asserts the config diff.
+- [ ] **Option A P4 — read-out** against the pre-registered table (plan §6.3): R-1
+      `R²_v2`, R-1b per-block R² via `ê_O @ pinv(M)`, R-2 `rho` < 1.0, R-3 paired Δ
+      T2 micro. Fill the plan's Appendix A.
 - [ ] **If Option A does not move the A/B, the next suspect is C24**, not another
       weight. That work is a `gate_type` + `ecmr.py` + STE + diagnostics port and
       belongs on branch **`v3`**, never piecemeal on `main`.
@@ -291,10 +307,9 @@ both show is the worse corpus on every column.
       `.project/memory-bank/*` are tracked and have deliberately
       diverged; any `main`↔`v3` merge conflicts there must be resolved by branch
       identity, not by "take theirs".
-- [ ] **The campaign notebooks are untracked on `main`.** `colab/` is gitignored
-      after the `collab/` → `colab/` rename, so `colab/{MSAD,DADA}/v3/train.py`
-      — the code that actually ran the arms — is not in git here. Decide whether
-      to whitelist `colab/**/*.py` or accept Drive as their only home.
+- [x] ~~**The campaign notebooks are untracked on `main`.**~~ **Stale — corrected
+      2026-09-24:** `git ls-files colab` lists every campaign notebook/script
+      (`colab/{MSAD,DADA,DoTA*,DADA2000Origin}/…`), incl. `phase_5_zscore.ipynb`.
 
 ### Immediate
 - [x] Record real MSAD metrics at `b9978ff` → **`core/docs/RESULTS_MSAD.md`**
@@ -480,7 +495,8 @@ both show is the worse corpus on every column.
 | **Score head's kernel spans a short clip** | `core/models/heads.py:21` (`ConvScoreHead`, `kernel_size=9`) | On DADA-2000 (median T = 9) every output timestep sees the whole clip, so the detector is structurally a **clip classifier**: flat curves, `auc_macro` at chance, inflated micro AUC. MSAD (T = 86) is unaffected, DoTA (T = 13) partly. Check `score_head_kernel` against a corpus's median length before training on it (`RESULTS_DADA.md` §5). |
 | **`mlp_ste` trains through NaNs under AMP** | `core/kip/gate_shift.py:99` (`shift_channels_straight_through`) | 33 of 500 steps NaN in `mil`/`mul_mil` on the DADA arm, over 17 of 20 epochs, while `kip_rec`/`kip_align` stay finite; no other arm at the same seed/batch/data. A4's DADA row is unreportable. Not root-caused (2026-09-06). |
 | **Gate MLP is never trained** | `core/kip/gate_shift.py:112` | **Corrected 2026-08-25 — this was recorded as "zero gradient *at init*"; it is zero gradient *always*.** Hard `floor()` is non-differentiable, so all 321 params stay at random init for the whole run (verified: 6/6 tensors `grad is None`). Forces the "321 *frozen*" qualifier on every efficiency claim and opens **H4**. |
-| **`L_KIP_rec` regresses an UNNORMALIZED target** | `core/flow/raft_extract.py:86-118` → `core/data/dataset.py:114`; weighted at `core/train.py` `lambda_rec=1.0` | **Measured 2026-09-20 (lesson C37).** A constant global-mean predictor scores MSE **31.64** on `e_O` and `mag_max` (raw pixel units, mean 27.19) carries **83.0 %** of `E[s²]`, so at `lambda_rec = 1.0` the term enters an otherwise-O(1) objective **~32× oversized**. It is not inert: `rho` = \|g_KIP\| / \|g_task\| at the shared temporal encoder is **3.1** at the stage-2 end (11.6 at stage 1), `cos` = **−0.001** (orthogonal), and every task loss ends **+24–32 %** higher with KIP on. Repair = **Option A** (z-score into a NEW cache version, `lambda_rec = 1/V = 0.0316` derived) — **not authorized**. |
+| **`L_KIP_rec` regresses an UNNORMALIZED target** | `core/flow/raft_extract.py:86-118` → `core/data/dataset.py:114`; weighted at `core/train.py` `lambda_rec=1.0` | **Measured 2026-09-20 (lesson C37).** A constant global-mean predictor scores MSE **31.64** on `e_O` and `mag_max` (raw pixel units, mean 27.19) carries **83.0 %** of `E[s²]`, so at `lambda_rec = 1.0` the term enters an otherwise-O(1) objective **~32× oversized**. It is not inert: `rho` = \|g_KIP\| / \|g_task\| at the shared temporal encoder is **3.1** at the stage-2 end (11.6 at stage 1), `cos` = **−0.001** (orthogonal), and every task loss ends **+24–32 %** higher with KIP on. Repair = **Option A**, **authorized 2026-09-23 and built (`ae4fded`)**: `cache/flow/v2_zscore/` + `lambda_rec = 1/V_v2` (≈ 1, derived on the NEW cache — 0.0316 was v1's). **Not yet measured.** |
+| `Trainer.compute_losses` is not repeatable | `core/train.py:235` (source not traced — stub text encoder or DVS/align sampling suspected) | Same batch, `eval()`, `no_grad`, `torch.manual_seed(0)`: `total` 3.294 vs 3.268 (2026-09-23) — ~10⁴× P3's BLAS noise. Equality tests on the loss are flaky; test weight inertness by **NaN-poisoning** instead. May inflate `grad_probe`'s per-batch `rho` spread — **not measured**. `pending.md` candidate (iv). |
 | Flow target is 23-d and non-spatial | `core/flow/raft_extract.py:52-81` | `ê_O` is 23 frame-global scalars projected to 256-d. No "localized/peripheral motion" story is expressible in it; restate as a global flow-statistic residual. |
 | **Student/teacher aspect mismatch of exactly 4:3** | `extract_clip_features.py:71` (224×224) vs `raft_extract.py:135` (240×320) | Source-independent **bias**, not noise; warps `atan2(v,u)` — the direction channels. Same defect class as the crop that was worth +0.15. Fix = full flow re-extract (C2), scheduled behind the shuffled-target control. |
 | Score saturation 86–89 % of frames > 0.99 | training protocol | Makes `L_kin`'s `y^bin` anchor a near-constant (term is near-vacuous) and **voids every threshold metric** until fixed. Tie rate ~0.2/clip, so ranking metrics are sound. |
@@ -547,3 +563,10 @@ both show is the worse corpus on every column.
   whose code produced it** (see the results ledger above), because
   `RESULTS_V3_GATE_ATTRIBUTION.md` does not exist on `main` and the numbers would
   otherwise be lost to this branch entirely.
+- **2026-09-23** — **Option A authorized, construction A1.** The flow target is
+  standardized at the **23 raw stats** (train-window moments, same projection), not
+  at the 256-d `e_O` — standardizing after the projection would fix the units but
+  leave every dimension dominated by `mag_max`. Accepted cost, stated before any
+  measurement: the angle histogram becomes 16/23 = **69.6 %** of the target (plan
+  risk 1, read out by R-1b). KIP-off arms are reused, not re-run, because they are
+  inert to both knobs that change. Built in `ae4fded`; not yet run.
