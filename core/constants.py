@@ -49,6 +49,13 @@ CACHE_PART_SUFFIX = ".part"  # in-flight write; renamed onto the target when com
 FLOW_CACHE_VERSION = "v1"
 FLOW_CACHE_DIR = CACHE_ROOT / "flow" / FLOW_CACHE_VERSION
 FLOW_PROJECTION_FILENAME = "flow_projection.npz"
+# Option A (plan katvad-flow-zscore-option-a.md): e_O rebuilt from the v1 raw
+# stats standardized with train-split moments, then the SAME projection. Bound to
+# one dataset's train split -- never the default flow dir; pass --flow-dir.
+FLOW_ZSCORE_CACHE_VERSION = "v2_zscore"
+FLOW_ZSCORE_CACHE_DIR = CACHE_ROOT / "flow" / FLOW_ZSCORE_CACHE_VERSION
+FLOW_ZSCORE_STATS_FILENAME = "zscore_stats.npz"  # per dataset dir: mean, std, provenance
+FLOW_ZSCORE_MANIFEST_FILENAME = "zscore_manifest.json"
 KNN_CACHE_DIR = CACHE_ROOT / "knn"
 KNN_CACHE_FILENAME = "knn_cache.npz"
 
@@ -183,6 +190,21 @@ FLOW_STAT_NAMES = (
 )
 FLOW_PROJECTION_SEED = 2024  # seeded fixed linear map stats -> FLOW_DIM (A10)
 FLOW_STATS_SUFFIX = ".stats.npy"  # per-video raw stats cached next to e_O
+# A raw stat whose train-split std falls below this is dead; standardizing it
+# would divide by ~0. D1 measured 0 dead dims on T2, so one appearing is a stop.
+FLOW_ZSCORE_MIN_STD = 1e-6
+# Gate G0: a cached e_O must equal its own raw stats @ projection. Both are
+# float32; the tolerance covers BLAS reordering, not a different projection.
+FLOW_ZSCORE_G0_RTOL = 1e-4
+FLOW_ZSCORE_G0_ATOL = 1e-3
+# Pre-registered build bars (plan §6.1), checked on the train windows of the new
+# cache. HARD bars stop the run; G2-a is reported but never re-weights anything.
+FLOW_ZSCORE_G1_MEAN_TOL = 1e-3  # |mean_j| of the standardized train stats
+FLOW_ZSCORE_G1_STD_BAND = (0.999, 1.001)  # std_j of the standardized train stats
+FLOW_ZSCORE_G2A_V_BAND = (0.80, 1.25)  # global-mean MSE of e_O; predicted ~1
+FLOW_ZSCORE_G2B_CENTRED_BAND = (0.99, 1.01)  # zero-predictor / global-mean MSE
+FLOW_ZSCORE_G2C_ROUNDTRIP_BAND = (0.9, 1.1)  # mean_j E[z_j^2] / mean_d E[e_d^2]
+FLOW_ZSCORE_LAMBDA_DECIMALS = 4  # lambda_rec = round(1 / V, 4), derived not swept
 
 # ---------------------------------------------------------------------------
 # DVS KNN filler cache (A4)

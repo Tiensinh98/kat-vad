@@ -17,6 +17,10 @@ Cache layout (versioned, spec/DATA_LAYOUT):
 The raw stats are kept so the motion-aware KNN key (spec §6.1) can recover
 mean magnitude/direction — unrecoverable from the projected ``e_O`` alone.
 
+They also make ``e_O`` rebuildable without frames: :mod:`core.flow.zscore_cache`
+writes ``cache/flow/v2_zscore/`` by z-scoring them with train-split moments and
+re-applying this same projection (Option A, lesson C37).
+
 Resumable per video, on the same terms as the CLIP extractor: rerunning encodes
 only what is missing, and an interrupted write is redone rather than skipped
 (:mod:`core.tools.feature_cache`).

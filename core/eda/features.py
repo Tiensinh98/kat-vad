@@ -31,6 +31,7 @@ from sklearn.preprocessing import StandardScaler
 from core import constants
 from core.data.windows import FeatureSlicer
 from core.eda.corpus import DatasetFiles, describe
+from core.flow.zscore import MomentAccumulator, load_zscore_stats, standardize
 from core.metrics import frame_ap, frame_auc
 
 LOGGER = logging.getLogger(__name__)
@@ -291,55 +292,7 @@ def clip_linear_probe(
     }
 
 
-class _MomentAccumulator:
-    """Streaming per-dimension moments, with the within-item pool kept apart.
-
-    Concatenating every cached array to call ``np.var`` once costs
-    O(frames x dims) float64 and grows with the corpus; both passes here are
-    O(dims) per item, the same reason the extractors stream (lesson **C9**).
-
-    ``variance`` is the population variance over *all* frames pooled — the MSE a
-    single global-mean vector would score. ``within_variance`` is the pooled
-    per-item variance — the MSE an oracle that knew each item's own mean would
-    score. The gap between them is the share of the target that is item
-    identity rather than within-item dynamics.
-    """
-
-    def __init__(self, dim: int) -> None:
-        self.dim = dim
-        self.count = 0
-        self.total = np.zeros(dim, dtype=np.float64)
-        self.total_sq = np.zeros(dim, dtype=np.float64)
-        self.within_sq = np.zeros(dim, dtype=np.float64)
-
-    def add(self, rows: np.ndarray) -> None:
-        block = np.asarray(rows, dtype=np.float64)
-        self.count += int(block.shape[0])
-        self.total += block.sum(axis=0)
-        self.total_sq += np.square(block).sum(axis=0)
-        self.within_sq += np.square(block - block.mean(axis=0)).sum(axis=0)
-
-    @property
-    def mean(self) -> np.ndarray:
-        return self.total / max(self.count, 1)
-
-    @property
-    def second_moment(self) -> np.ndarray:
-        moment: np.ndarray = self.total_sq / max(self.count, 1)
-        return moment
-
-    @property
-    def variance(self) -> np.ndarray:
-        spread: np.ndarray = np.maximum(self.second_moment - np.square(self.mean), 0.0)
-        return spread
-
-    @property
-    def within_variance(self) -> np.ndarray:
-        pooled: np.ndarray = self.within_sq / max(self.count, 1)
-        return pooled
-
-
-def _raw_energy_share(stats: _MomentAccumulator) -> list[dict[str, Any]]:
+def _raw_energy_share(stats: MomentAccumulator) -> list[dict[str, Any]]:
     """Per-stat share of ``E[s^2]``, the quantity the fixed projection carries.
 
     ``e_O = s @ M`` with ``M`` entries iid ``N(0, 1/23)``, so
@@ -386,11 +339,21 @@ def flow_stats(
     therefore set by the pixel units of ``mag_max``, not by how well PMG fits,
     and a measured ``kip_rec`` means nothing until it is divided by the
     constant-predictor baselines reported here.
+
+    A ``flow/v2_zscore`` directory carries ``zscore_stats.npz`` beside the arrays:
+    its ``{id}.npy`` was built from the **standardized** stats while
+    ``{id}.stats.npy`` stays raw (the KNN motion key reads it). The projection
+    round-trip is then predicted from the standardized stats -- predicting it
+    from the raw ones would report a ~30x mismatch on a correct cache -- and the
+    standardized moments are reported under ``standardized``.
     """
     candidates = video_ids[:limit] if limit else video_ids
     slicer = slicer if slicer is not None else FeatureSlicer()
-    stats_acc = _MomentAccumulator(constants.FLOW_STATS_DIM)
-    target_acc = _MomentAccumulator(constants.FLOW_DIM)
+    stats_acc = MomentAccumulator(constants.FLOW_STATS_DIM)
+    target_acc = MomentAccumulator(constants.FLOW_DIM)
+    zscore_path = flow_dir / constants.FLOW_ZSCORE_STATS_FILENAME
+    zscore = load_zscore_stats(zscore_path) if zscore_path.is_file() else None
+    z_acc = MomentAccumulator(constants.FLOW_STATS_DIM)
     found = 0
     target_items = 0
     nonfinite_frames = 0
@@ -403,6 +366,8 @@ def flow_stats(
             slicer.load(flow_dir, video_id, FLOW_STATS_SUFFIX), dtype=np.float64
         )
         stats_acc.add(raw)
+        if zscore is not None:
+            z_acc.add(standardize(raw, zscore))
         nonfinite_frames += int((~np.isfinite(raw)).any(axis=1).sum())
         if (flow_dir / f"{slicer.source_of(video_id)}.npy").is_file():
             target_items += 1
@@ -419,7 +384,16 @@ def flow_stats(
         "nonfinite_frames": nonfinite_frames,
         "raw_energy_share": _raw_energy_share(stats_acc),
         "note": "23 effective dimensions, frame-global, no spatial content",
+        "target_normalized": zscore is not None,
     }
+    if zscore is not None:
+        report["standardized"] = {
+            "per_dim_mean": [float(x) for x in z_acc.mean],
+            "per_dim_std": [float(x) for x in np.sqrt(z_acc.variance)],
+            "train_ids_sha1": zscore.train_ids_sha1,
+            "src_version": zscore.src_version,
+        }
+    predictor_acc = z_acc if zscore is not None else stats_acc
     if target_items:
         variance = float(target_acc.variance.mean())
         within = float(target_acc.within_variance.mean())
@@ -431,7 +405,7 @@ def flow_stats(
             "mse_global_mean_predictor": variance,
             "mse_item_mean_predictor": within,
             "between_item_share": float(1.0 - within / variance) if variance > 0 else 0.0,
-            "predicted_second_moment_from_raw": float(stats_acc.second_moment.mean()),
+            "predicted_second_moment_from_raw": float(predictor_acc.second_moment.mean()),
             "note": (
                 "L_KIP_rec baselines: divide a measured kip_rec by "
                 "mse_global_mean_predictor for R^2. predicted_second_moment_from_raw "

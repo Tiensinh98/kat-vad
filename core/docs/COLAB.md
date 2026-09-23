@@ -225,6 +225,29 @@ Output under `cache/flow/v1/`:
 
 Also resumable per video. Flow is never needed at inference.
 
+### 4.3b Z-scored flow target — `flow/v2_zscore` (CPU; Option A, lesson C37)
+
+Rebuilds `e_O` from the v1 cache's raw stats; **no frames, no RAFT, v1 is only
+read**. Plan: `.project/plans/katvad-flow-zscore-option-a.md`.
+
+```bash
+!python -m core.flow.zscore_cache \
+  --data-dir "$KATVAD_DATA_ROOT/DADA2000_orig" \
+  --dataset DADA2000_orig \
+  --src-root "$KATVAD_CACHE_ROOT/flow/v1" \
+  --dst-root "$KATVAD_CACHE_ROOT/flow/v2_zscore"
+```
+
+Output under `cache/flow/v2_zscore/`: the same `flow_projection.npz`, and per
+dataset `{id}.npy` (z-scored `e_O`), `{id}.stats.npy` (raw, byte-identical),
+`zscore_stats.npz` and `zscore_manifest.json`. The tool stops (non-zero exit,
+manifest still written) on any HARD gate: G0 (a v1 `e_O` that is not its own
+`stats @ M`), coverage, G1 (standardized train moments), G2-b (centring),
+G2-c (projection round-trip ∈ [0.9, 1.1]). Train with
+`--flow-dir .../flow/v2_zscore/DADA2000_orig --set loss.lambda_rec=<manifest
+lambda_rec>`. Resumable; `--force` refits and rewrites everything. On Drive,
+stage both roots to local disk first and `rsync` the result back (lesson C10).
+
 ### 4.4 Build the DVS KNN filler cache (CPU, fast)
 
 ```bash

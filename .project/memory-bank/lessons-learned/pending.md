@@ -1186,3 +1186,98 @@ demote to [MEDIUM] and keep only the reporting half of the rule. Closest
 relatives: **C14** (do not change the score path mid-campaign) and lesson **14**
 (do not tune KIP on a delta) — the rule above deliberately derives the weight
 instead of searching it.
+
+---
+
+## Candidate (iii) — 2026-09-21 — an openpyxl round-trip silently drops OOXML parts it does not model
+
+**Severity proposed:** [LOW] (tooling, reporting artifacts only — no measured
+number depends on it).
+
+**Problem.** Editing `reports/Thesis_Report.xlsx` through
+`openpyxl.load_workbook` → `save` rewrites the whole package. Parts openpyxl has
+no model for are **not carried over and nothing warns**: this round-trip dropped
+`xl/drawings/drawing{1,2,3}.xml`, `xl/persons/person.xml` and the two
+`worksheets/_rels` that referenced them.
+
+**Bad:** edit the shared workbook in place and assume a cell-value diff proves
+nothing was lost.
+
+**Good:** copy the file first, then diff the **zip member list** and the cell
+values of every sheet you did not intend to touch.
+```bash
+unzip -l before.xlsx | awk '{print $4}' | sort > before.txt
+unzip -l after.xlsx  | awk '{print $4}' | sort > after.txt
+diff before.txt after.txt          # parts added/removed
+```
+
+**Candidate rule.** *After any openpyxl write to a workbook someone else
+authored, diff the zip member list against a pre-edit copy and account for every
+removed part before handing the file back.*
+
+**Measured this time — the loss was harmless, and that is the point.** All three
+`drawing*.xml` were 775-byte **empty** `<xdr:wsDr>` containers and `person.xml`
+an **empty** `personList` (Excel/Sheets export residue); the four arXiv
+hyperlinks on `Research Gap` and all 686 populated cells on the two untouched
+sheets survived byte-identical. Had any of those drawings held a chart or an
+image, the same silent path would have deleted it.
+
+**Environment note that belongs with it.** `.venv` on this machine has **no
+`pip`** and no `openpyxl`; `source .venv/bin/activate && pip install openpyxl`
+reports "Requirement already satisfied" because `pip` resolves to the **system**
+Python 3.10, whose site-packages does have it. The working interpreter for
+spreadsheet work is
+`/Library/Frameworks/Python.framework/Versions/3.10/bin/python3` — not `.venv`,
+and not bare `python3`. A "requirement already satisfied" line is not evidence
+that the *active* interpreter can import the module.
+
+**Files:** `reports/Thesis_Report.xlsx`
+
+**Gate status.** Gates 1/2/4 hold (measured trace, one-sentence rule, nothing in
+`index.md` covers artifact round-trips). **Gate 3 is weak** — the failure is
+silent but the blast radius is a report file, not a metric — and **Gate 5 is
+weak**: this tree edits spreadsheets rarely. Keep in `pending.md`; promote only
+if a second artifact round-trip loses something that mattered.
+
+---
+
+## Candidate (iv) — 2026-09-23 — `Trainer.compute_losses` is not repeatable; test inertness by poisoning, not by equality
+
+**Severity proposed:** [LOW] (test design; no measured number depends on it —
+but see the note on `grad_probe`).
+
+**Problem.** Two calls of `trainer.compute_losses(batch)` on the same collated
+batch, `model.eval()`, `torch.no_grad()`, even after `torch.manual_seed(0)`,
+return different `mil` / `dvs_sup` / `mul_mil` / `total` on the stub fixture
+(measured: `total` 3.2939 vs 3.2678, KIP off). The randomness comes from a source
+the torch seed does not cover (not yet traced — stub text encoder or DVS/align
+sampling are the suspects). **Not P3:** P3's BLAS reduction noise is ~1e-6;
+this is 0.026 on the total, four orders larger — a sampling source, not
+arithmetic. An "a knob does not change the loss" test written as
+`total_a == total_b` fails for a reason unrelated to the knob.
+
+**Bad:**
+```python
+base = trainer.compute_losses(batch)
+trainer.cfg = replace(cfg, loss=replace(cfg.loss, lambda_rec=0.0316))
+assert trainer.compute_losses(batch)["total"] == base["total"]   # flaky, and misleading when it fails
+```
+**Good:**
+```python
+trainer.cfg = replace(cfg, loss=replace(cfg.loss, lambda_rec=float("nan")))
+losses = trainer.compute_losses(batch)
+assert "kip_rec" not in losses and torch.isfinite(losses["total"])   # NaN reaches total iff the weight is used
+```
+
+**Candidate rule.** *Test that a loss weight is unused by setting it to NaN and
+asserting the total stays finite — never by comparing two `compute_losses` calls.*
+
+**Worth a follow-up:** `core.tools.grad_probe` draws 8 batches per point and
+reports a large per-batch `rho` spread (D2: sd 1.56–9.54). Part of that spread may
+be this non-repeatability rather than batch content. Not measured.
+
+**Files:** `core/tests/test_flow_zscore.py::TestKipOffIsInert`, `core/train.py:235`
+
+**Gate status.** Gates 1/2/4 hold. Gate 3 weak (a flaky test, not a wrong number),
+Gate 5 unknown. Keep pending; promote if the source is traced to something that
+also moves a measured metric.

@@ -26,6 +26,30 @@ no text encoding happens at all.
 KIP ablation gating (spec §10): `kip.enabled=false` → pure baseline;
 `kip.pmg_only=true` → rec+align only; `kip.use_lkin=false` → no `L_kin`.
 
+### The flow target and `lambda_rec` (lesson C37, Option A)
+
+`L_KIP_rec` is a bare MSE against the cached `e_O`, so its size is set by the
+**target's units**, not by how well PMG fits. Two cache versions exist:
+
+| `--flow-dir` | `e_O` built from | global-mean MSE `V` | `lambda_rec` |
+|---|---|---|---|
+| `cache/flow/v1/{DS}` | 23 **raw** flow stats (pixel units) `@ M` | T2: **31.64** | `1.0` (default) — ~32× the O(1) task terms on T2 |
+| `cache/flow/v2_zscore/{DS}` | the same stats **z-scored with train-split moments**, same `M` | ≈ 1 by construction | **`1/V` from `zscore_manifest.json`** |
+
+Build v2 with `python -m core.flow.zscore_cache` (no frames, no RAFT; see
+`COLAB.md` §4.3b). It writes `lambda_rec = round(1/V, 4)` into the manifest —
+**derived, never swept** (lesson 14). The value lands near **1.0**: the weight
+barely moves, the *loss* shrinks ~30× because the target changed. **Never pass
+v1's 0.0316 to a v2 run** — that switches `L_KIP_rec` off.
+
+A v2 cache is bound to one dataset's train split (`zscore_stats.npz` records its
+SHA-1); using it for another corpus is a C2 violation. `.stats.npy` stays raw in
+v2 — the motion-aware KNN key reads it. KIP-off runs never read flow or
+`lambda_rec` (`build_trainer` passes `flow_dir=None`; pinned by
+`core/tests/test_flow_zscore.py::TestKipOffIsInert`), so KIP-off arms are
+comparable across the two caches. Read any `kip_rec` as `R² = 1 − kip_rec / V`
+of the cache it trained on.
+
 ### Phase 1 arms — both default to the baseline
 
 Added 2026-09-09 from `DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md` §6. Neither
