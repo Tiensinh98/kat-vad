@@ -1,6 +1,12 @@
 # Progress
 
-**Last updated:** 2026-09-24 — **Option A is AUTHORIZED (2026-09-23, construction A1),
+**Last updated:** 2026-09-24 (second pass) — **D2City normal-bag feasibility EDA
+planned; notebook written and dry-run; nothing measured, nothing committed.** Plan
+`.project/plans/katvad-d2city-normal-bag-eda.md`, runbook
+`colab/D2City/eda_normal_bags.ipynb`. No `core/` change — counts unchanged at `ef9c3c3`
+(89 files, 13,833 source LOC, 24 docs, 582 tests). Option A (below) is still unrun.
+
+**Earlier 2026-09-24 —** **Option A is AUTHORIZED (2026-09-23, construction A1),
 BUILT and COMMITTED (`ae4fded`), and NOT YET RUN.** `core/flow/zscore_cache.py` rebuilds
 `e_O` from the v1 cache's raw stats (no frames, no RAFT) into `cache/flow/v2_zscore/`,
 scores the pre-registered build gates G0–G2 and derives `lambda_rec = 1/V_v2` (expected
@@ -222,6 +228,24 @@ attributed it to any part of KIP:
   +0.09 on a within-clip localization benchmark is what a smoother buys.
 
 ## What's left
+
+### D2City as the normal-bag pool — feasibility EDA (new 2026-09-24)
+
+Plan: `.project/plans/katvad-d2city-normal-bag-eda.md`. Runbook:
+`colab/D2City/eda_normal_bags.ipynb`. Proposed corpus: full-length DADA-original
+accident videos (positive bags) + D2City dashcam clips (negative bags). **It does not
+replace T2 until G-X/G-M say so.**
+
+- [x] Local inventory of `data/D2City/`: 7 zips × 100 clips, 25 fps, ~30 s,
+      63 % 1080p / 37 % 720p, 700 XML box tracks (measured on `0001/`).
+- [x] Plan with pre-registered gates G-I, G-L, R0 sanity, **G-X**, G-M, G-S (claim gate).
+- [x] Notebook written; dry-run end-to-end locally (mechanics only). Fixed a
+      short-biased L-match recipe (0.578 → 0.526) and a montage sampling bug.
+- [ ] **User:** upload zips + XML to `Drive/Thesis/data/D2City/`, run on GPU.
+- [ ] Fill plan Appendix A; write `core/docs/D2CITY_EDA.md`; take the verdict row.
+- [ ] If GO: a corpus-build plan (RAFT for D2City under the chosen field of view,
+      new z-score cache, re-derived kernel / top-k for full-length bags).
+- [ ] Settle A1 (DADA 30 fps) with one `ffprobe` on a source mp4, if one exists.
 
 ### DADA-2000 **original** corpus — the live track (new 2026-09-15)
 

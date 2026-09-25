@@ -1281,3 +1281,60 @@ be this non-repeatability rather than batch content. Not measured.
 **Gate status.** Gates 1/2/4 hold. Gate 3 weak (a flaky test, not a wrong number),
 Gate 5 unknown. Keep pending; promote if the source is traced to something that
 also moves a measured metric.
+
+## Candidate (v) — 2026-09-24 — matching a length distribution by drawing per container biases short
+
+**Triggers:** length-match, segment, window, draw lengths, negative pool, bag length, C28
+
+**Problem.** To close a length leak (C28) between an imported negative pool (D2City,
+~107 sampled frames per clip) and the positive class (DADA, median ~40), the first
+L-match recipe cut each negative clip by drawing lengths from the positive class's
+empirical distribution **until a draw no longer fit** in the clip's remainder. A draw
+is kept only if it fits, and long draws fail to fit more often, so the *kept* set is
+biased short. Dry run (6 real D2City clips, synthetic DADA lengths): length AUC
+**0.578, direction "shorter"** — the recipe reintroduced, inverted, the leak it
+existed to close. No error; the leak metric is the only thing that saw it.
+
+**Bad:**
+```python
+for clip, total in clips.items():
+    pos = 0
+    while pos + (length := rng.choice(dada_lengths)) <= total:   # conditional acceptance
+        segments.append((clip, pos, pos + length)); pos += length
+```
+**Good:**
+```python
+n_draw = int(0.8 * sum(clips.values()) / dada_lengths.mean())      # stay below capacity
+for length in rng.choice(dada_lengths, n_draw):                     # draw FIRST
+    room = [c for c in clips if clips[c] - cursor[c] >= length]      # then pack
+    ...                                                             # count 'unplaced'
+```
+Same dry run: **0.526**, 10/10 placed.
+
+**Candidate rule.** *Draw every target length before placing any; pack below capacity
+and report `drawn / placed`. Never accept draws conditionally on fitting.*
+
+**Files:** `colab/D2City/eda_normal_bags.ipynb` (§3, `make_segments`)
+
+**Gate status.** Gates 1/2/4 plausibly hold; Gate 3 (measured on real data) **not
+yet** — the 0.578 is from 6 clips. Keep pending; promote if the real run's lever
+table shows the per-clip variant leaking (it can be recomputed in seconds).
+
+---
+
+## (w) [MEDIUM] Colab - Free the extraction process's RAM before a probe in the same kernel (2026-09-25, UNVERIFIED)
+
+**Triggers:** colab crash, session crashed, RAM, OOM, probe after extraction, LogisticRegression, PyAV threads
+**Problem:** `eda_normal_bags.ipynb` §4 killed the Colab kernel repeatedly. Suspected cause: the
+kernel still holds the CLIP encoder, a CUDA context and PyAV decode buffers from §2 (3 decoder
+threads → glibc arenas that are never handed back), and `fit_score` held **two** float64 copies of
+the ~130k×512 training matrix (`scaler.transform(x)` beside `x`).
+**Bad:** `model.fit(StandardScaler().fit(x).transform(x), y)` after a threaded decode loop, with no cleanup.
+**Good:** drop `ENCODER`/frame buffers, `gc.collect()`, `torch.cuda.empty_cache()`,
+`ctypes.CDLL('libc.so.6').malloc_trim(0)`; `StandardScaler(copy=False)` (bit-identical scores,
+checked: max diff 0.0); log RSS per fold; persist each arm to Drive so a crash keeps what finished.
+**Candidate rule.** *Free extraction-time memory and log RSS before any in-kernel probe; standardize in place.*
+**Files:** `colab/D2City/eda_normal_bags.ipynb` (§4 cells 21–22)
+
+**Gate status.** Gate 3 **not met**: the crash message and RSS were never seen — the OOM
+diagnosis is inferred. Promote only if the patched run's RSS log confirms it.

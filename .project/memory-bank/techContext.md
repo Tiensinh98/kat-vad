@@ -56,6 +56,15 @@ under `v3/`; `DADA_ORIGIN_PHASE1.md` is the 21st). `outputs/**` holds **87,213**
 `.npz` score files. (`v3` measures 84 files / 11,157 source LOC / 537 tests —
 different tree, different numbers.)
 
+**Data on the local disk that no adapter reads yet (2026-09-24):** `data/D2City/`
+— `training-video/000{1..7}.zip` (100 mp4 each, ~1.2 GB each; only `0001/` unzipped),
+`training-annotation/000{1..7}/<md5>.xml` (CVAT-style box tracks, 12 classes). 25.0 fps,
+~30 s, 1920×1080 or 1280×720. Consumed only by `colab/D2City/eda_normal_bags.ipynb`
+(notebook-side glue over `core` functions, no adapter — same precedent as
+`colab/DADA2000Origin/build_d0_dataset.py`). Proposed caches:
+`cache/clip/D2City_s7_ncc/` (V0) and `cache/clip/D2City_s7_ncc_ar240/` (V1).
+`data/BDD100K/` also exists and is unused.
+
 ## Environment roots
 
 `KATVAD_DATA_ROOT` (`./data`), `KATVAD_CACHE_ROOT` (`./cache`),

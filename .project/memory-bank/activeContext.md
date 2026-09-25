@@ -26,11 +26,84 @@
 > this branch *this file and `progress.md` are the only durable record of the
 > attribution campaign*. Do not delete them; do not re-run those arms here.
 
-**Last Memory Bank Update:** 2026-09-24 (latest — **Option A authorized (A1),
-built and committed in `ae4fded`; Colab runbook written; nothing measured yet.**)
-*Full six-file reconcile.* Counts re-measured on this tree: **89 Python files**
-(60 source + 29 test), **13,833 source LOC**, **24 docs** (21 top-level + 3 under
-`v3/`), **582 collected**.
+**Last Memory Bank Update:** 2026-09-24, second pass (latest — **D2City normal-bag
+feasibility EDA planned + Colab notebook written and dry-run; nothing measured.**
+Earlier the same day: Option A built in `ae4fded`, not yet run.) *Full six-file
+reconcile.* Counts re-measured at `ef9c3c3`: **89 Python files** (60 source + 29 test),
+**13,833 source LOC**, **24 docs** (21 top-level + 3 under `v3/`), **582 collected** —
+unchanged, because the EDA touches no `core/` code.
+
+## 2026-09-24 — **D2City AS THE NORMAL-BAG POOL: EDA PLANNED, NOT RUN**
+
+Plan: `.project/plans/katvad-d2city-normal-bag-eda.md`. Runbook:
+`colab/D2City/eda_normal_bags.ipynb` (25 cells). **Both uncommitted** at the end of
+the session. **Two Colab tracks are now open in parallel:** Option A (above, phase 5)
+and this EDA. They share no cache and no output dir.
+
+**Next action (user, Colab):** upload `data/D2City/training-video/000{1..7}.zip` +
+`training-annotation/` to `Drive/Thesis/data/D2City/`, sync `core/`, run the notebook on
+GPU; bring back `outputs/D2City_eda/{eda_d2city.json,eda_d2city.md,montage.png,autocorr_seconds.png}`;
+fill the plan's Appendix A. If the DADA source mp4s exist anywhere, `ffprobe` one to
+settle assumption A1 (30 fps).
+
+### 1. What the user proposed, and the question the EDA actually asks
+
+Positive bags = **full-length DADA-2000 original videos** (no W=20 windowing);
+negative bags = **D2City** dashcam clips (Didi, China; scidb dataset 804399692560465920,
+arXiv 1904.01975). The user's prior — same country, dashcam, similar fps — is
+**necessary, not sufficient**: `0_Normal_Driving` had all three and still leaked
+(C28/C32). The EDA asks whether D2City negatives teach a linear reader of the frozen
+CLIP features the **accident** or the **source**.
+
+### 2. Measured on the local copy (`0001/`, 100 clips)
+
+* **700 clips** = 7 zip parts × 100 (only `0001/` unzipped locally), 8.4 GB, plus 700
+  CVAT-style XML box tracks (12 classes; ids = md5 stems, 100/100 match the videos).
+* **25.0 fps on 100/100**, 727–751 frames (29.3–30.0 s), **63 % 1920×1080 / 37 %
+  1280×720** (16:9). DADA original is **1584×660 (2.40:1)**; its fps is **30 by the
+  paper** (658,476 frames / 6.1 h), **not measurable** from the PNG release (A1).
+* Dry-run XML profile (6 clips, not a statistic): ~6.4 objects/frame, 64 % car,
+  11 % vulnerable road users.
+
+### 3. Decisions taken in the plan (with why)
+
+* **Stride 7 for D2City**, derived: 7/25 = 0.280 s vs DADA 8/30 = 0.267 s (+5 %);
+  6 → −10 %, 8 → +20 %. A1 is cross-checked by feature autocorrelation plotted **per
+  second**. The DADA cache (stride 8, `_ncc`) is **not touched** (C2).
+* **Two field-of-view arms from one decode:** **V0** full frame (project `_ncc`),
+  **V1** centre 2.40:1 band first (DADA's squash). Separate caches
+  `cache/clip/D2City_s7_ncc{,_ar240}/`. Arm rule: V1 only if it buys ≥ 0.02 on X or S.
+* **Frozen-feature probes, not eyeballs and not a pilot training** (plan §4 debate).
+  Gates: **G-I** inventory (HARD), **G-L** length AUC ∈ [0.45, 0.55] (HARD), R0 sanity
+  ∈ [0.62, 0.68], **G-X** = D2City-only-negatives probe's within-DADA `auc_macro`
+  (PASS ≥ 0.60 and Δ(X−R0) ≥ −0.03; FAIL < 0.55 or Δ < −0.06), **G-M** Δ(M−R0) ≥ −0.01.
+  Probes share folds grouped by source clip → paired Δ with t95 over 5 folds.
+* **DADA labels are imported, not restated:** `DadaRecord` + `sampled_frame_labels`
+  rebuilt from the **T2 corpus's own `meta.json`** (on-disk `total_frames` +
+  `normalized_span` per source) — exactly the T2 pipeline's convention.
+* **G-S is a claim gate, not an admission gate.** `systemPatterns.md` (2026-09-15)
+  already pre-registered "source probe ≥ 0.90 ⇒ no in-domain claim"; the plan first
+  wrote S as descriptive only and was reconciled to that rule in-session.
+
+### 4. Found by the dry run (6 real D2City clips, synthetic DADA/DoTA, fake encoder)
+
+* **The first L-match recipe was biased short.** Drawing lengths per clip until one
+  no longer fits rejects long draws more often: length AUC **0.578 "shorter"**.
+  Replaced by *draw all lengths up front (80 % of capacity), then first-fit pack into
+  random clips with room*: **0.526**, 10/10 placed. Lesson candidate in `pending.md`.
+* Montage sampled more clips than exist on a small set — fixed (`min(N, len)`).
+* The verdict routes correctly: synthetic R0 = 1.0 → "PIPELINE BUG", as designed.
+
+### 5. Not decided
+
+* What the D2City corpus would be **for** if it passes: replace T2's in-video
+  negatives (X-style) or add to them (M-style). The verdict table maps G-X/G-M to
+  that choice; nothing is built until the numbers exist.
+* Adoption costs, out of EDA scope: RAFT `e_O` for D2City under the chosen field of
+  view (C13); a new z-score cache (the train split changes `train_ids_sha1`);
+  re-derived `score_head_kernel` / `mil_topk_pct` for full-length bags (C27).
+
+---
 
 ## 2026-09-23 — **OPTION A BUILT: `flow/v2_zscore`, NOT YET RUN**
 

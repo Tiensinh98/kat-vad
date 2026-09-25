@@ -354,6 +354,19 @@ source probe on CLIP features would separate it in a single frame, which is
 strictly worse than the length leak. Pre-register that probe (≥0.90 AUC ⇒ no
 in-domain claim) before any cross-dataset normal source.
 
+**First application — D2City (2026-09-24, planned, not run;
+`.project/plans/katvad-d2city-normal-bag-eda.md`).** The source probe alone cannot
+decide *admission*: CLIP separates almost any two corpora (dataset bias), so it is
+read against a reference pair (DADA vs DoTA) and kept as the **claim** gate above.
+Admission is decided by a **transfer probe**: train with the foreign pool as the
+*only* negatives, score **within-video** localization on held-out DADA videos, and
+compare, on the same folds, with the probe that uses the video's own out-of-span
+frames (R0 ≈ Gate D0). If the foreign negatives teach less accident than the
+in-video ones, a MIL model would learn the source. Two more rules the plan fixed:
+match a foreign pool's **bag lengths** to the positive class's empirical length
+distribution by *drawing all lengths first and packing* (per-clip drawing is biased
+short), and match the **sampled time step** (stride from fps), never the stride number.
+
 `core/data/dataset.py` implements DVS: `θ` = *no-synthesis* probability,
 `__len__ = 2 × num_anomaly`, fillers 50% KNN / 50% random-normal, yields
 `v_feat / e_o / y^p / is_synthesized / cls_label`. `require_flow=False` yields

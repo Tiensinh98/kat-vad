@@ -1,8 +1,10 @@
 # Project Brief — KAT-VAD
 
 **Created:** 2026-07-31 (memory bank re-initialized from commit `b9978ff`)
-**Last reviewed:** 2026-09-24 (full reconcile — scope unchanged; gate (c)'s repair,
-Option A, is now authorized and built, not yet measured). Previously 2026-09-21 (gate (c) restated: on T2, the
+**Last reviewed:** 2026-09-24, second pass (scope unchanged; a candidate **second
+construction** — DADA full videos + D2City negative bags — is under a feasibility EDA,
+not adopted). Earlier the same day: gate (c)'s repair, Option A, authorized and built,
+not yet measured. Previously 2026-09-21 (gate (c) restated: on T2, the
 project's first *within-corpus paired* KIP A/B, KIP-on is **negative**, and D1/D2
 attribute it to an unnormalized reconstruction target capturing the shared trunk).
 Earlier: 2026-09-15, the DADA-2000 **original** release adopted as the training
@@ -99,6 +101,12 @@ stops and ships a negative result.
 anyway; and every comparison this project owns — `RESULTS_{DOTA,NCC,PHASE_A}`, the
 v3 attribution, every transfer column — is defined by DoTA being unseen. The bar
 the new corpus must beat is **0.6408**, the MSAD-trained KIP-on mean.
+
+**Candidate, not in scope yet (2026-09-24):** D2City (Didi dashcam, 25 fps) as an
+imported **negative-bag pool** beside full-length DADA-original accident videos.
+Admission is gated by `.project/plans/katvad-d2city-normal-bag-eda.md` (G-X: a
+D2City-only-negatives probe must keep within-DADA `auc_macro` ≥ 0.60 and within 0.03
+of the in-video-negatives reference). Until it passes, T2 stays the training corpus.
 
 **Deferred (Phase 7):** PreVAD KIP-**on** (needs pixels the release does not
 ship), UCF-Crime, the full metric suite (MCC family, AUC_A, mAP@IoU), Stage 0 /

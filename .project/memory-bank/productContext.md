@@ -47,6 +47,9 @@ generalization while gaining the motion sensitivity it lacks.
 
 ## What has actually been shown (latest reading 2026-09-21)
 
+*(Reviewed 2026-09-24, second pass: no new measurement. The only change is a
+planned feasibility EDA for D2City as an imported normal pool — `progress.md`.)*
+
 **New, and the strongest evidence yet, because it is the first *paired* test.**
 Every earlier KIP verdict compared arms across corpora or across branches. On T2
 (DADA-2000 original, W=20) the two arms differ in exactly one config line, on the
