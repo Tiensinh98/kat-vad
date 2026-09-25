@@ -1324,3 +1324,45 @@ that cache is uninterpretable.
 
 **Generalizes to:** any auxiliary regression head bolted onto a classification
 objective — depth, flow, pose, reconstruction — whenever the two share a trunk.
+
+## 38 — A normal pool imported from another source is admitted by a transfer probe, never by similarity
+
+**The trace.** After T2 (negatives cut from inside the DADA accident videos) trained
+without collapsing, the next proposal was to use full-length DADA videos as positives and
+bring in normals from **D2City**. The argument was similarity: Chinese roads, dashcam,
+25 fps against 30. `0_Normal_Driving` had carried the same argument and leaked, so the
+plan pre-registered an admission gate (G-X) *before* any extraction was run.
+
+**What the numbers were.** The mechanics were clean. The length leak was closed by
+packing (0.5009), R0 reproduced Gate D0 (0.6763 vs 0.6518), and no labels mismatched.
+Then:
+
+| probe | negatives | `auc_macro` | shortcut AUC |
+|---|---|---:|---:|
+| R0 | DADA out-of-span (in-video) | 0.6763 | 0.820 |
+| X | D2City only | **0.5864** | **1.000** |
+| M | both | 0.6639 | 0.999 |
+
+Δ(X−R0) = −0.0899, with every one of the 5 folds between −0.078 and −0.104. The crop arm
+(DADA's 2.40:1 band) made it slightly worse. The source probe S was 1.0000. The reference
+S-ref, which pits DADA against **DoTA**, was 0.9999.
+
+**Why similarity cannot be the test.** Frozen CLIP embeds camera, ISP, codec, overlays and
+geography along with the road. The montage showed an ego hood, a watermark, a timestamp
+and a colour cast. Those are source identifiers a linear reader picks up at once. Given
+two sources, a probe (and a MIL model) can separate them on those alone, and a bag from
+the foreign source becomes *free* to call normal. Nothing in "looks alike" measures this.
+The one thing that does is the question the gate asks: **do these negatives teach the
+accident as well as the video's own normal frames do?**
+
+**The rule that follows, and its default.** Admission is a paired transfer probe
+(foreign pool as the only negatives, same folds as the in-video reference, bar: within
+0.03). The source probe is a *claim* gate, never an admission gate: at 1.0000 vs 0.9999 it
+separates everything, so it decides nothing. When no pool passes, the default is the T2
+construction: negatives cut from inside the positive videos, which is leak-free by
+construction (0.5000).
+
+**Cost of the check.** About 1 GPU-hour of CLIP extraction plus about 20 min of probes. The
+alternative is a RAFT extraction, a z-score cache, a corpus build and a 3-seed campaign,
+all on a pool that would teach "which camera".
+

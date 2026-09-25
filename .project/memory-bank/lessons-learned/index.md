@@ -359,3 +359,22 @@ python -m core.tools.grad_probe --checkpoint ... --num-batches 8   # rho, cos
 **Rule:** Before weighting a regression loss beside classification losses, measure the MSE a constant predictor scores on its target, report R² against that baseline, and set the weight from `1/V` rather than from 1.0 — then confirm the gradient share at any parameter the two objectives share.
 **Enforcement (2026-09-18/20):** `core/eda/features.py:flow_stats` reports the zero / global-mean / item-mean baselines, the per-stat `E[s²]` share and a projection round-trip, rendered as EDA §4.3/§4.3.1 with `FLOW_TARGET_SCALE_WARN_MSE = 4.0` and `FLOW_TARGET_BETWEEN_ITEM_WARN = 0.5` verdicts; `core/tools/grad_probe.py` reports `rho` and `cos` per term and **raises** if its re-summed weighted terms do not reproduce `compute_losses`'s `total`. Both pre-registered with bars in `.project/plans/katvad-kip-loss-scale-diagnosis.md` before either was run.
 **Files:** core/kip/losses.py:30-42, core/flow/raft_extract.py:86-118, core/data/dataset.py:114, core/train.py:191-195, core/eda/features.py:flow_stats, core/tools/grad_probe.py, outputs/v1/DADA2000_orig_diag_kip_loss_scale/
+
+## 38. [CRITICAL] Data — a normal pool imported from another source is admitted by a transfer probe, never by similarity
+**Triggers:** negative pool, normal bags, imported normals, cross-dataset, D2City, 0_Normal_Driving, BDD100K, foreign corpus, source shortcut, shortcut AUC, domain gap, negative bags, corpus build, MIL negatives, G-X
+**Problem:** Three times now a pool of normal clips from a *different source* than the positives has been proposed as MIL negatives because it looked alike: `0_Normal_Driving` (same dataset, dashcam, fps — and it leaked through length, C28/C32), TAD's normals (the model collapsed into a clip classifier, C14), and D2City (same country, dashcam, 25 vs 30 fps). Measured 2026-09-25 on frozen CLIP, with length already matched (G-L 0.5009): a probe with D2City as its **only** negatives localizes accidents inside DADA videos at `auc_macro` **0.5864** vs **0.6763** for the videos' own normal frames — Δ **−0.0899**, t95 [−0.1011, −0.0787], 5/5 folds — and ranks every DADA normal frame above every D2City frame (shortcut AUC **1.000**). Adding D2City beside the in-video negatives still costs **−0.0123** (5/5 folds < 0, shortcut 0.999). The source is visible before any training: a probe that never saw D2City already puts it below DADA normals in **82 %** of pairs, and DADA-vs-DoTA separates at **0.9999** — every foreign dashcam corpus is linearly separable from DADA on frozen CLIP, so a crop (the 2.40:1 band arm moved X by −0.010) cannot remove the shortcut. Nothing raises: the bags load, MIL trains, and "normal" bags become trivially normal by camera.
+**Bad:** building a corpus on imported negatives because the source "matches" (country, camera, fps, length after matching).
+```python
+negatives = load_clips('D2City')      # "same country, dashcam, similar fps"
+bags = positives + length_matched(negatives)
+```
+**Good:** probe first, with the foreign pool as the ONLY negatives, against the in-video-negatives reference, paired by fold.
+```python
+x  = probe(pos=dada_in_span, neg=foreign_frames)        # the admission gate (G-X)
+r0 = probe(pos=dada_in_span, neg=dada_out_of_span)      # reference, same folds
+admit = x.auc_macro >= 0.60 and paired_delta(x, r0).mean >= -0.03   # and report shortcut AUC
+# default when no pool passes: cut negatives from INSIDE the positive videos (T2)
+```
+**Rule:** Admit an imported normal pool only after a frozen-feature probe that uses it as the sole negatives keeps within-video `auc_macro` within 0.03 of the in-video-negatives reference on paired folds; otherwise cut negatives from inside the positive videos.
+**Files:** colab/D2City/eda_normal_bags.ipynb (§4), core/docs/D2CITY_EDA.md, .project/plans/katvad-d2city-normal-bag-eda.md §6 P5, outputs/EDA/D2City/
+

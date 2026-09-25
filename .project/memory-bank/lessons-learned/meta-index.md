@@ -261,6 +261,15 @@ feature cache is keyed by SOURCE clip and a window is a slice.
 → `.project/plans/katvad-dada-original-phase2-t2.md` §6.1, §7 risk 3;
   `core/constants.py:DADA_ORIGIN_WINDOW_LENGTH`
 
+### C38 [CRITICAL] Data — admit an imported normal pool by transfer probe, not similarity
+Third separate-pool failure (0_Normal_Driving C28/C32 · TAD C14 · D2City). D2City as the
+only negatives: within-DADA `auc_macro` **0.5864** vs in-video **0.6763**, Δ **−0.090**
+(5/5 folds), shortcut AUC **1.000**; added beside in-video negatives still −0.012. DADA vs
+DoTA separates at 0.9999 on frozen CLIP — crops cannot remove a source cue. Gate = paired
+probe with the pool as SOLE negatives, within 0.03 of R0; default = negatives cut from
+inside the positive videos (T2).
+→ `core/docs/D2CITY_EDA.md`, `colab/D2City/eda_normal_bags.ipynb` §4
+
 ### C7 [MEDIUM] Deps — don't call library internals that drift
 The LR schedule is an in-house `LambdaLR` rather than
 `transformers.get_scheduler`, to avoid HF internal-API churn across versions.
@@ -323,6 +332,8 @@ The LR schedule is an in-house `LambdaLR` rather than
 | read or report a positive/negative score gap, a score range, or "the curves widened" | **C31** — divide by the within-clip σ |
 | pre-register a success criterion for a loss arm | **C31** (make it scale-invariant), C14 |
 | judge the DADA Phase 1 arms, or wonder whether C29 was refuted | `core/docs/RESULTS_DADA_PHASE1.md` §7 — falsified, and C29 still stands |
+| add normal/negative bags from ANOTHER dataset (D2City, BDD100K, `0_Normal_Driving`, …) | **C38** — run the G-X transfer probe first (pool as sole negatives vs in-video R0, paired folds); "same camera/country/fps" is not evidence. Default: T2 in-video negatives |
+| read a source-separability probe (S) as an admission verdict | **C38** — it is a claim gate; frozen CLIP separates every dashcam corpus from DADA (DoTA 0.9999) |
 | add or change a loss | C7, **C37**, `core/docs/TRAINING.md` (deviations) |
 | set a loss WEIGHT, or read a raw loss value as "the head fits badly" | **C37** — measure the constant-predictor MSE on its target first; `R² = 1 − loss/V`, weight = `1/V`, never a sweep (lesson 14) |
 | add an auxiliary REGRESSION head (flow, depth, pose, reconstruction) beside classification losses | **C37** — they are not on a comparable scale by default, and the mismatch reaches every parameter they share |
@@ -344,7 +355,7 @@ The LR schedule is an in-house `LambdaLR` rather than
 
 - **Experiment discipline:** C14, C16, C17, **C30**, **C33**, **C35**
 - **Env / platform:** C1, C3, **C21**
-- **Data & caches:** C2, C9, C10, C11, C13, **C18**, **C20**, **C23**, **C25**, **C26**, **C28**, **C32**
+- **Data & caches:** C2, C9, C10, C11, C13, **C18**, **C20**, **C23**, **C25**, **C26**, **C28**, **C32**, **C38**
 - **Comparability / protocol:** C8, C8b, C12, C13
 - **Metrics:** C12, **C22**, **C27**, **C28**, **C31**
 - **Supply chain:** C4

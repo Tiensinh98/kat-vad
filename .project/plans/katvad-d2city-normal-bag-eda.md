@@ -1,8 +1,8 @@
 # KAT-VAD — D2City as the normal-bag pool for DADA-2000 original (feasibility EDA)
 
-**Branch:** `main` (KAT-VAD v1). **Status:** planned; notebook written and dry-run end-to-end
-(6 real D2City clips, synthetic DADA/DoTA, fake encoder — mechanics only, no number is data);
-nothing measured.
+**Branch:** `main` (KAT-VAD v1). **Status:** **CLOSED — NO-GO (measured 2026-09-25).** G-X FAIL
+(Δ(X−R0) = −0.090, t95 [−0.101, −0.079]), G-M fail (−0.0123), shortcut AUC 1.000. T2 stays.
+Results: Appendix A · `core/docs/D2CITY_EDA.md` · lesson C38.
 **Author:** sinhpham · **Opened:** 2026-09-24
 **Runbook:** `colab/D2City/eda_normal_bags.ipynb`
 **Parent:** `.project/plans/katvad-dada-original-corpus.md` (T2). This plan does **not**
@@ -212,15 +212,23 @@ flow extraction for D2City would have to replicate the crop, C13).
 
 ---
 
-## Appendix A — Results (fill after the run)
+## Appendix A — Results (measured 2026-09-25; write-up `core/docs/D2CITY_EDA.md`)
+
+Raw: `outputs/EDA/D2City/`. All mechanics gates pass, so the probe rows are readable.
 
 | quantity | V0 | V1 |
 |---|---:|---:|
-| G-I decodable / fps25 | | |
-| G-L length AUC (L-match) | | |
-| S / S-ref | | |
-| R0 `auc_macro` | | |
-| X `auc_macro`, Δ(X−R0) t95 | | |
-| M `auc_macro`, Δ(M−R0) t95 | | |
-| shortcut AUC (X / M) | | |
-| verdict | | |
+| G-I decodable / fps25 / duration | 1.000 / 1.000 / 0.996 — PASS | (same decode) |
+| G-L length AUC (L-match) | **0.5009** — PASS (1,391 drawn = placed; L-raw 0.9949) | (same segments) |
+| S / S-ref | 1.0000 / 0.9999 — both at ceiling, uninformative | 1.0000 / 0.9999 |
+| R0 `auc_macro` | **0.6763** — sane | 0.6763 |
+| X `auc_macro`, Δ(X−R0) t95 | **0.5864, −0.0899 [−0.1011, −0.0787]**, 5/5 folds < −0.06 | 0.5767, −0.0996 [−0.1121, −0.0870] |
+| M `auc_macro`, Δ(M−R0) t95 | 0.6639, **−0.0123 [−0.0155, −0.0091]**, 5/5 folds < 0 | 0.6617, −0.0146 [−0.0189, −0.0102] |
+| shortcut AUC (R0 / X / M) | 0.820 / **1.000** / **0.999** | 0.757 / 1.000 / 0.999 |
+| verdict | **G-X FAIL, G-M fail → NO-GO** | FAIL / fail |
+
+**Arm on record: V0** (V1 lowers X by 0.010, S unchanged). **Row taken: NO-GO — stay on
+T2; third separate-pool failure** (lesson C38). No hood/logo-mask arm was added after
+the read-out (lesson 14). The montage's DADA row was empty (frames not on Drive), so the
+visual check against DADA was not performed. A1 is still unsettled: D2City's per-second
+autocorrelation sits above DADA's at every lag.

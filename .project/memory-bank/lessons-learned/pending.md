@@ -1319,6 +1319,9 @@ and report `drawn / placed`. Never accept draws conditionally on fitting.*
 **Gate status.** Gates 1/2/4 plausibly hold; Gate 3 (measured on real data) **not
 yet** — the 0.578 is from 6 clips. Keep pending; promote if the real run's lever
 table shows the per-clip variant leaking (it can be recomputed in seconds).
+**2026-09-25 update.** The real run measured only the packed recipe (L-match 0.5009 over
+1,391 bags, 0 unplaced); the per-clip variant was not re-measured. Gate 3 is still open.
+D2City is NO-GO (C38), so there is no downstream consumer. Leave pending.
 
 ---
 
@@ -1338,3 +1341,6 @@ checked: max diff 0.0); log RSS per fold; persist each arm to Drive so a crash k
 
 **Gate status.** Gate 3 **not met**: the crash message and RSS were never seen — the OOM
 diagnosis is inferred. Promote only if the patched run's RSS log confirms it.
+**2026-09-25 update.** The patched notebook ran §4 to completion (both arms, `probe_V{0,1}.json`
+written), which is consistent with OOM but is not proof: no RSS line and no runtime log
+came back. Still pending.

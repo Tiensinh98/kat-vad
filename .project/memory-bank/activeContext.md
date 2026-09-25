@@ -26,14 +26,41 @@
 > this branch *this file and `progress.md` are the only durable record of the
 > attribution campaign*. Do not delete them; do not re-run those arms here.
 
-**Last Memory Bank Update:** 2026-09-24, second pass (latest — **D2City normal-bag
-feasibility EDA planned + Colab notebook written and dry-run; nothing measured.**
-Earlier the same day: Option A built in `ae4fded`, not yet run.) *Full six-file
-reconcile.* Counts re-measured at `ef9c3c3`: **89 Python files** (60 source + 29 test),
-**13,833 source LOC**, **24 docs** (21 top-level + 3 under `v3/`), **582 collected** —
-unchanged, because the EDA touches no `core/` code.
+**Last Memory Bank Update:** 2026-09-25 (latest — **D2City EDA RUN and READ OUT: NO-GO.**
+Track 0b closed; T2 + Option A remain the live track. Partial update: `activeContext`,
+`progress`, lessons; the other four core files are untouched because nothing
+architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
+13,833 source LOC, 582 collected); **docs 24 → 25** (+ `core/docs/D2CITY_EDA.md`).
 
-## 2026-09-24 — **D2City AS THE NORMAL-BAG POOL: EDA PLANNED, NOT RUN**
+## 2026-09-25 — **D2City EDA: NO-GO — D2City teaches the source, not the accident**
+
+Write-up: `core/docs/D2CITY_EDA.md` (durable record; raw in `outputs/EDA/D2City/`,
+gitignored). Plan Appendix A filled, status CLOSED. Lesson **C38** promoted.
+
+* **Mechanics all pass:** G-I 700/700 · G-L L-match length AUC **0.5009** (L-raw 0.9949)
+  · R0 sanity **0.6763** (n = 1,860; Gate D0 0.6518 at n = 400) · 0 label/row mismatches.
+* **G-X FAIL:** X `auc_macro` **0.5864**, Δ(X−R0) **−0.0899, t95 [−0.1011, −0.0787]**,
+  5/5 folds < −0.06. **G-M fail:** Δ(M−R0) **−0.0123 [−0.0155, −0.0091]**, 5/5 folds < 0.
+* **Mechanism = source shortcut:** shortcut AUC X **1.000**, M **0.999**; even R0 (never saw
+  D2City) ranks D2City below DADA normals in **82 %** of pairs. S 1.0000 vs S-ref (DoTA)
+  0.9999 — both at ceiling, so "no more foreign than DoTA" is uninformative: *every*
+  foreign dashcam corpus separates from DADA on frozen CLIP.
+* **V1 (2.40:1 band) does not help** (X −0.010, S unchanged) → V0 on record. Montage: hood,
+  bottom-left watermark, red timestamp, cyan cast; V1 keeps hood + logo. A mask arm was
+  **deliberately not added** (lesson 14; S-ref says it could not close the gap).
+* Not settled: A1 (DADA fps) — D2City's per-second autocorrelation sits above DADA's at
+  every lag (content or fps; indistinguishable here). Montage DADA row empty (no frames
+  on Drive) — visual check not done.
+* The §4 crash: patched 2026-09-25 (free encoder/decode RAM, in-place scaler — bit-identical,
+  per-arm resume JSON). The run then completed, but **no RSS log came back**, so pending (w)
+  stays unverified.
+
+**Next action:** none on D2City. Back to **Option A** — run
+`colab/DADA2000Origin/phase_5_zscore.ipynb` (still unrun since `ae4fded`).
+
+---
+
+## 2026-09-24 — **D2City AS THE NORMAL-BAG POOL: EDA PLANNED** *(run 2026-09-25 → NO-GO, above)*
 
 Plan: `.project/plans/katvad-d2city-normal-bag-eda.md`. Runbook:
 `colab/D2City/eda_normal_bags.ipynb` (25 cells). **Both uncommitted** at the end of

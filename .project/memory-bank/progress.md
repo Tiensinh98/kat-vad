@@ -1,10 +1,12 @@
 # Progress
 
-**Last updated:** 2026-09-24 (second pass) — **D2City normal-bag feasibility EDA
-planned; notebook written and dry-run; nothing measured, nothing committed.** Plan
-`.project/plans/katvad-d2city-normal-bag-eda.md`, runbook
-`colab/D2City/eda_normal_bags.ipynb`. No `core/` change — counts unchanged at `ef9c3c3`
-(89 files, 13,833 source LOC, 24 docs, 582 tests). Option A (below) is still unrun.
+**Last updated:** 2026-09-25 — **D2City EDA run and read out: NO-GO** (G-X FAIL, Δ(X−R0)
+−0.090; G-M fail; shortcut AUC 1.000). T2 stays; track 0b closed. `core/docs/D2CITY_EDA.md`
+added (docs 24 → 25); lesson C38. Option A (below) is still unrun.
+
+**Earlier 2026-09-24 (second pass) —** D2City normal-bag feasibility EDA planned; notebook
+written and dry-run. No `core/` change — counts unchanged at `ef9c3c3`
+(89 files, 13,833 source LOC, 582 tests).
 
 **Earlier 2026-09-24 —** **Option A is AUTHORIZED (2026-09-23, construction A1),
 BUILT and COMMITTED (`ae4fded`), and NOT YET RUN.** `core/flow/zscore_cache.py` rebuilds
@@ -167,6 +169,7 @@ these rows plus `core/docs/RESULTS_*.md` are all that survives.
 | **DADA-2000 ORIGINAL — Phase 4, KIP-OFF trunk** (`outputs/REPORTS/DADA2000_orig_phase4/`, 2026-09-16) | T2 (W=20), 3 seeds, 2,040 steps, `score_head_kernel=3`, `mil_topk_pct=5` | **In-domain: `auc_macro` 0.6248 ±0.0165 — ABOVE the 0.5983 per-frame-linear probe — with micro 0.6182 BELOW the 0.7037 clip oracle.** Macro ≥ micro, i.e. **the C14/TAD collapse did NOT reproduce** (TAD: micro 0.9237 ≈ oracle 0.9226, macro fell 0.7578 → 0.6174). Zero-shot DoTA **micro 0.5856 ±0.0230 / macro 0.6113 ±0.0306**; like-for-like vs MSAD kip_off (0.5491/0.5453) **+0.0365 / +0.0660, 3/3 seeds same sign, but t95 ±0.046/±0.080 INCLUDES ZERO**; level with PreVAD kip_off (0.5867/0.6015). Below the MSAD **kip_on** bar (0.6408/0.6529) — a comparison that means nothing until T2's own KIP-on arm runs | **v1** |
 | **DADA-2000 ORIGINAL — Phase 4, the KIP A/B** (`outputs/v1/DADA2000_orig_phase4/`, 2026-09-18) | T2 (W=20), 3 seeds, **paired** — configs differ in exactly one line (`kip.enabled`) | **KIP-on is DOWN in-domain.** T2 micro **0.6182 → 0.6054, Δ = −0.0129, t95 [−0.0249, −0.0008], 3/3 seeds same sign — the only interval that excludes zero.** T2 macro 0.6248 → 0.6046 (Δ −0.0201, CI includes 0). DoTA 0-shot macro 0.6113 → 0.6071 and micro 0.5856 → 0.5914, **both ~20× wider than their own Δ — do not quote them.** `kip_rec` is **92.6–93.0 % of `total`** at `lambda_rec = 1.0`; stage 1 (trunk frozen) plateaus at 20.2, stage 2 (trunk free) falls to 11.3, so **44 % of the reconstruction gain came from rewriting `v^t`**; every task loss ends **+24–32 %** higher than its paired `kip_off` run. **C24: every KIP-on arm here is a fixed ~50 % channel shift — not "motion-gated"** | **v1** |
 | **D1/D2 — KIP loss-scale diagnosis** (`outputs/v1/DADA2000_orig_diag_kip_loss_scale/`, run 2026-09-20, read out 2026-09-21) | — (read-only probe of the Phase-4 checkpoints; no arm re-run, no weight changed) | **D1:** `Z` 71.146 · `V` 31.642 · `W` 16.206 · `K` 11.620 → **`R²_global` 0.6328 (bar ≥0.20 PASS)**, **`K < W` PASS** (`R²_item` **0.2830** — the PMG head fits 28.3 % of *within-item* flow variance, so the motion premise is **not** refuted), **`V` = 31.642 CONFIRMS overweight** (~32× an O(1) objective; equalizing weight **`1/V` = 0.0316**), projection round-trip **0.9239** ∈ [0.9,1.1], **`mag_max` carries 83.0 %** of `E[s²]`, **48.8 %** of target variance is between-item (trip-wire 0.50, missed by 0.012). **D2:** at the shared temporal encoder `rho = \|g_KIP\|/\|g_task\|` = **11.63 (stage 1) → 3.105 (stage-2 end)**, per-seed 3.925/3.027/2.361 → **CONFIRM** (bar ≥1.0); `cos(g_kip_rec, g_task)` = **−0.0010** → **ORTHOGONAL**. Decision row **`capture + orthogonal` → Option A**, unauthorized. Caveat: `rho` sd is 1.56–1.94 per batch at stage 2, and the 11.63→3.10 decay is partly `\|g_task\|` **growing** (4.91→10.07, 7.24→12.46, 6.21→23.61) | **v1** |
+| **D2City normal-bag EDA** (`D2CITY_EDA.md`, 2026-09-25) | — (frozen-CLIP logistic probes, 5 grouped folds, paired) | **NO-GO.** Mechanics pass (G-L length AUC **0.5009**, R0 sanity **0.6763**, n = 1,860). **X (D2City-only negatives) 0.5864, Δ(X−R0) −0.0899 t95 [−0.1011, −0.0787]** (5/5 folds < −0.06 FAIL bar); **M Δ −0.0123 [−0.0155, −0.0091]** (bar −0.01; 5/5 folds < 0). **Shortcut AUC X 1.000 / M 0.999**; R0 alone already 0.820. S 1.0000 vs S-ref DoTA 0.9999 (both ceiling). V1 band crop: X 0.5767, no help → V0. Third separate-pool failure (C38) | **v1** (no `core/` code; notebook) |
 
 **Cross-branch comparability, settled 2026-09-12:** for `kip.enabled=false` a
 `main`-vs-`v3` Δ **is** a Δ. `p1_ctrl` reproduces v3's A0 to 4 dp, and a
@@ -229,7 +232,7 @@ attributed it to any part of KIP:
 
 ## What's left
 
-### D2City as the normal-bag pool — feasibility EDA (new 2026-09-24)
+### D2City as the normal-bag pool — feasibility EDA (2026-09-24) — **CLOSED: NO-GO 2026-09-25**
 
 Plan: `.project/plans/katvad-d2city-normal-bag-eda.md`. Runbook:
 `colab/D2City/eda_normal_bags.ipynb`. Proposed corpus: full-length DADA-original
@@ -241,10 +244,10 @@ replace T2 until G-X/G-M say so.**
 - [x] Plan with pre-registered gates G-I, G-L, R0 sanity, **G-X**, G-M, G-S (claim gate).
 - [x] Notebook written; dry-run end-to-end locally (mechanics only). Fixed a
       short-biased L-match recipe (0.578 → 0.526) and a montage sampling bug.
-- [ ] **User:** upload zips + XML to `Drive/Thesis/data/D2City/`, run on GPU.
-- [ ] Fill plan Appendix A; write `core/docs/D2CITY_EDA.md`; take the verdict row.
-- [ ] If GO: a corpus-build plan (RAFT for D2City under the chosen field of view,
-      new z-score cache, re-derived kernel / top-k for full-length bags).
+- [x] **User:** ran on GPU (2026-09-25; §4 crashed on RAM first — patched, per-arm resume).
+- [x] Plan Appendix A filled; `core/docs/D2CITY_EDA.md` written; **row taken: NO-GO**
+      (G-X FAIL −0.090, G-M fail −0.0123, shortcut 1.000). **Track closed.**
+- [~] ~~If GO: a corpus-build plan~~ — not applicable.
 - [ ] Settle A1 (DADA 30 fps) with one `ffprobe` on a source mp4, if one exists.
 
 ### DADA-2000 **original** corpus — the live track (new 2026-09-15)
