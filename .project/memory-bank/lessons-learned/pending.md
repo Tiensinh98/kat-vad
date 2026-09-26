@@ -1239,6 +1239,15 @@ silent but the blast radius is a report file, not a metric — and **Gate 5 is
 weak**: this tree edits spreadsheets rarely. Keep in `pending.md`; promote only
 if a second artifact round-trip loses something that mattered.
 
+**2026-09-26 update — the stakes are now real.** `Thesis_Report.xlsx` gained
+**7 PNGs** (`xl/media/image1-7.png`, anchored by `drawing2.xml` on the `EDA`
+sheet). An openpyxl save would have deleted them. The T2 update was therefore
+done by patching `xl/worksheets/sheet3.xml` alone: new text as `inlineStr` (so
+`sharedStrings.xml` is untouched), rows shifted by regex, and every other member
+copied verbatim. Verified: 1/25 members changed, 0 unintended cell diffs, hidden
+rows preserved. Still not promoted, because nothing was lost; the hazard is now
+concrete. Script pattern: scratchpad `edit_sheet3.py` (session 2026-09-26).
+
 ---
 
 ## Candidate (iv) — 2026-09-23 — `Trainer.compute_losses` is not repeatable; test inertness by poisoning, not by equality

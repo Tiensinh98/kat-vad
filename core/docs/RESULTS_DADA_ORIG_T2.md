@@ -133,3 +133,47 @@ bounded null and stop spending seeds on v1 KIP.
 - Best zero-shot DoTA from a T2-trained model: KIP-on v2, micro **0.6077** / macro **0.6376**
   (n = 3, sd 0.013 / 0.017). The MSAD KIP-on bar is 0.6408 / 0.6529. It is below that bar on
   both, and the macro gap (−0.015) is within one sd.
+
+## 7. Interpretation: what the z-scored flow contributes, and what it does not
+
+**It removes a harm; it adds no capability.**
+
+| | flow v1 (raw) | flow v2 (z-scored) |
+|---|---|---|
+| `kip_rec` share of `total` (stage 2) | ~93 % | ~48 % |
+| `rho` at the temporal encoder | 3.105: KIP steers the trunk | 0.179: the task steers the trunk |
+| T2 micro vs KIP-off | −0.013 (t95 excludes 0) | +0.0076 (t95 includes 0) |
+
+1. **Repair (measured).** v2 − v1 = +0.020 micro and +0.026 macro, and both intervals
+   exclude zero. This decomposes as ≈ 0.013 recovered from v1's cost plus ≈ 0.008
+   residual over KIP-off.
+2. **The residual +0.0076 is not attributed, and should not be.** On `main` three sources
+   are confounded:
+   - the fixed ~50 % shift (C24), i.e. temporal smoothing, which is the whole MSAD +0.09;
+   - `L_kin`, a second MIL head on the video label (its gradient cosine with the task is
+     +0.6–0.7 by construction);
+   - noise at n = 3.
+
+   Attributing an effect whose interval includes zero spends seeds on nothing.
+3. **Diagnostic (measured).** The rescale falsified a phase-4 reading. "PMG fits 28 % of
+   within-clip flow" (`R²_item` 0.283) was carried by `mag_max`. On the equal-weighted
+   target, the head does worse than a predictor that knows only which clip it is in
+   (0.723 > 0.654), and it fits flow *direction* at `R²` 0.07. From frozen CLIP features,
+   the PMG head learns **how much a clip moves**, not **how motion evolves inside it**.
+4. **Methodological (transferable, C37).** An auxiliary regression target in raw units can
+   capture a shared trunk silently: no error is raised and the loss keeps falling. It is
+   detected by `V` (the constant-predictor MSE) and `rho` (`core.tools.grad_probe`), and
+   repaired by standardizing the target and setting the weight to `1/V`, derived rather
+   than swept.
+5. **Observation, not a claim.** The seed sd of T2 macro is 0.0165 for KIP-off, 0.0055 for
+   KIP-on v1 and **0.0016** for KIP-on v2. That is consistent with the repaired auxiliary
+   losses acting as a regularizer. But the KIP-off spread is one seed (s2026, 0.6057), and
+   n = 3 cannot compare variances.
+
+**Thesis framing.** KIP v1 first hurt, because a raw-unit flow loss captured the trunk.
+That was diagnosed with `V`/`rho` and repaired by normalization, after which KIP is neutral.
+The same repair shows that global flow statistics are not learnable as within-clip dynamics
+from frozen CLIP. With 23 frame-global scalars and a gate that never trains, **"optical flow
+teaches the model motion" is not supported by this design.** What remains open is the
+design (a spatial or region-level flow target; a trainable gate, branch `v3`), not seeds
+or data.
