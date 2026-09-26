@@ -1344,3 +1344,24 @@ diagnosis is inferred. Promote only if the patched run's RSS log confirms it.
 **2026-09-25 update.** The patched notebook ran §4 to completion (both arms, `probe_V{0,1}.json`
 written), which is consistent with OOM but is not proof: no RSS line and no runtime log
 came back. Still pending.
+
+---
+
+## (x) [MEDIUM] Experiments - An auxiliary MIL head's gradient agrees with the task by construction; its cosine is not evidence (2026-09-26)
+
+**Triggers:** grad_probe, cos, L_kin, kinematic_loss, auxiliary loss agrees, gradient alignment, motion evidence
+**Problem:** In phase 5 `cos(g_kin, g_task)` at the shared encoder was **+0.61 / +0.65 / +0.72**
+(3 seeds), the only KIP term aligned with the task. That reads like "motion supervision helps
+the task". But `L_kin = BCE(topk_mean(ŷ_O), ŷ)` is supervised by the **same video label**
+as `L_MIL`, so the two are aligned by construction. It is ≈ 0 at stage-1 end, where `L_kin`
+is not optimized.
+**Bad:** citing a positive gradient cosine as evidence that an auxiliary head carries new information.
+**Good:** before reading a cosine, check whether the auxiliary term's target shares a label with
+the task. If it does, a high cosine is the expected null. Evidence would need a target that
+does not share one (e.g. `L_KIP_rec`, whose cosine is ≈ 0).
+**Candidate rule.** *Read a gradient cosine only against the null implied by the two terms' shared supervision.*
+**Files:** `core/kip/losses.py:kinematic_loss`, `outputs/v1/DADA2000_orig_zscore/r2_grad/*`
+
+**Gate status.** Observed once (one campaign, 3 seeds). Nobody has misread it yet, so the
+"recurring" gate is not met. Leave pending.
+

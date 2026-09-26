@@ -1,0 +1,156 @@
+{
+  "dataset": "DADA2000_orig",
+  "created": "2026-09-26",
+  "src_dir": "/content/p5z/stage/flow_v1/DADA2000_orig",
+  "dst_dir": "/content/p5z/stage/flow_v2_zscore/DADA2000_orig",
+  "coverage": {
+    "sources": 1491,
+    "written_this_run": 1491
+  },
+  "g0": {
+    "checked_this_run": 1491,
+    "max_abs_err": 0.0
+  },
+  "zscore": {
+    "n_items": 4401,
+    "n_rows": 88020,
+    "train_ids_sha1": "dd53964f64fffe32695fc1389f9e75638240ad3f",
+    "stat_names": [
+      "mag_mean",
+      "mag_std",
+      "mag_max",
+      "u_mean",
+      "u_std",
+      "v_mean",
+      "v_std",
+      "angle_hist_00",
+      "angle_hist_01",
+      "angle_hist_02",
+      "angle_hist_03",
+      "angle_hist_04",
+      "angle_hist_05",
+      "angle_hist_06",
+      "angle_hist_07",
+      "angle_hist_08",
+      "angle_hist_09",
+      "angle_hist_10",
+      "angle_hist_11",
+      "angle_hist_12",
+      "angle_hist_13",
+      "angle_hist_14",
+      "angle_hist_15"
+    ],
+    "mean": [
+      4.6423334830725205,
+      5.691451313788997,
+      27.188852554330083,
+      0.39237381906498836,
+      5.884453636562617,
+      -0.3762357472576143,
+      2.755464342496034,
+      0.1337607327732385,
+      0.06238400433559721,
+      0.03171610139719324,
+      0.030097614131900888,
+      0.030890136051008526,
+      0.039314877665188666,
+      0.0886820545208581,
+      0.15467364180378923,
+      0.12298502612196352,
+      0.04102641637800732,
+      0.020125264664661528,
+      0.02607161694265297,
+      0.028117391743543493,
+      0.02200799539962959,
+      0.04353327789669052,
+      0.12461384826218819
+    ],
+    "std": [
+      6.439462616248685,
+      5.7213972352486016,
+      22.717349979095967,
+      5.3401805721421605,
+      6.065971156123725,
+      3.0495038400658876,
+      3.3192422971721123,
+      0.17274293324517087,
+      0.09247563667618094,
+      0.05690992556767002,
+      0.0734790996819398,
+      0.07461281895456084,
+      0.06560679824924898,
+      0.1183860017453133,
+      0.1814547615868473,
+      0.1588674762422219,
+      0.07744007154824269,
+      0.04753623162173158,
+      0.0762987403735861,
+      0.08264872247320587,
+      0.05072152492947187,
+      0.08124151321148768,
+      0.16824685219122212
+    ],
+    "histogram_block_share": 0.6956521739130435
+  },
+  "target": {
+    "items": 4401,
+    "frames": 88020,
+    "dims": 256,
+    "mse_zero_predictor": 1.004740721747207,
+    "mse_global_mean_predictor": 1.004740721747207,
+    "mse_item_mean_predictor": 0.6537363435461414,
+    "between_item_share": 0.34934821551840956,
+    "predicted_second_moment_from_raw": 0.9999999999999989,
+    "note": "L_KIP_rec baselines: divide a measured kip_rec by mse_global_mean_predictor for R^2. predicted_second_moment_from_raw is mean_j E[s_j^2] and must match mse_zero_predictor if the cache and the seeded projection agree."
+  },
+  "gates": {
+    "G1_mean": {
+      "value": 1.2196257788445243e-15,
+      "bar": "<= 0.001",
+      "passed": true,
+      "hard": true
+    },
+    "G1_std": {
+      "value": [
+        0.9999999999999968,
+        1.0000000000000027
+      ],
+      "bar": "in [0.999, 1.001]",
+      "passed": true,
+      "hard": true
+    },
+    "G2a_V": {
+      "value": 1.004740721747207,
+      "bar": "in [0.8, 1.25] (predicted ~1)",
+      "passed": true,
+      "hard": false
+    },
+    "G2b_centred": {
+      "value": 1.0,
+      "bar": "in [0.99, 1.01]",
+      "passed": true,
+      "hard": true
+    },
+    "G2c_roundtrip": {
+      "value": 0.9952816466531144,
+      "bar": "in [0.9, 1.1]",
+      "passed": true,
+      "hard": true
+    },
+    "G2d_between_item_share": {
+      "value": 0.34934821551840956,
+      "bar": "reported; v1 = 0.488, trip-wire 0.5",
+      "passed": true,
+      "hard": false
+    },
+    "G2e_item_oracle_ratio": {
+      "value": 0.6506517844815904,
+      "bar": "reported (W / V)",
+      "passed": true,
+      "hard": false
+    }
+  },
+  "passed": true,
+  "lambda_rec": 0.9953,
+  "note": "lambda_rec = 1/V on THIS cache; never v1's 0.0316 (plan \u00a76.1)"
+}

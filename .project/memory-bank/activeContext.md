@@ -26,13 +26,84 @@
 > this branch *this file and `progress.md` are the only durable record of the
 > attribution campaign*. Do not delete them; do not re-run those arms here.
 
-**Last Memory Bank Update:** 2026-09-26 (latest — **BDD-A EDA RUN and READ OUT: NO-GO.**
+**Last Memory Bank Update:** 2026-09-26 (latest — **Option A / phase 5 READ OUT: "cost removed;
+KIP-v1 neutral on T2"**. Partial update: `activeContext`, `progress`, lessons (C37 outcome,
+pending (x)), plan App. A; docs 26 → 27 (+ `core/docs/RESULTS_DADA_ORIG_T2.md`); code unchanged.)
+Before that, 2026-09-26 (**CCD (`data/CarCrash/`) profiled and PARKED**;
+`activeContext` only.) Before that, 2026-09-26 (**BDD-A EDA RUN and READ OUT: NO-GO.**
 Partial update: `activeContext`, `progress`, lessons (C38 extended); docs 25 → 26
 (+ `core/docs/BDDA_EDA.md`); code counts unchanged.) Previous: 2026-09-25 (**D2City EDA RUN and READ OUT: NO-GO.**
 Track 0b closed; T2 + Option A remain the live track. Partial update: `activeContext`,
 `progress`, lessons; the other four core files are untouched because nothing
 architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 13,833 source LOC, 582 collected); **docs 24 → 25** (+ `core/docs/D2CITY_EDA.md`).
+
+## 2026-09-26 (latest) — **OPTION A READ OUT: cost removed, KIP-v1 NEUTRAL on T2 (bounded null)**
+
+Record: `core/docs/RESULTS_DADA_ORIG_T2.md` (durable). Plan App. A filled, status CLOSED.
+Raw: `outputs/REPORTS/DADA2000_orig_zscore/`, `outputs/v1/DADA2000_orig_zscore/`. Every Δ was
+re-computed locally from the per-seed `results_*.json` and matches the notebook's manifest.
+
+* **Build:** all gates pass. G0 1491/1491 max\|err\| 0.0, **`V_v2` 1.0047 → `lambda_rec` 0.9953**,
+  between-item share 0.349 (v1 0.488).
+* **R-2:** `rho` **3.105 → 0.179**, so the capture is removed (predicted ≈ 0.5).
+* **R-3 (primary):** T2 micro 0.6182 → **0.6258**, Δ **+0.0076, t95 [−0.0002, +0.0154]**, 3/3
+  seeds +. The interval includes 0, so the table reads **"cost removed; neutral"**. R-4 macro
+  +0.0058 (wide). R-5 DoTA +0.022/+0.026, CIs include 0, not decided on.
+* **Descriptive:** v2 − v1 T2 micro **+0.0204 [+0.0010, +0.0398]**, macro **+0.0259**. The
+  phase-4 −0.013 was the loss scale (C37 outcome written).
+* **Caveats:**
+  - R-1 `R²_v2` 0.280, but **`K_v2` 0.72 > item-mean oracle 0.654 → D1-b fails on v2**. v1's
+    "fits within-item flow" came from `mag_max`.
+  - R-1b histogram block `R²` **0.07**, so the direction content is not learned.
+  - `cos(g_kin, g_task)` +0.6–0.7 is by construction (same video label; pending (x)).
+  - C24 is untouched.
+* **Decided:** no fourth seed on R-3 (optional stopping). Stop spending seeds on v1 KIP.
+
+**Next action (user to choose):**
+- **B** — T2 learning curve (KIP-off, 50 % vs 100 % train videos, 3 seeds). This is the CCD
+  reopen condition; the phase-5 "winning config" is KIP-off, since KIP is neutral.
+- **C** — port T2 + `v2_zscore` to branch `v3` for A2/rank on T2 (C24). Only if the thesis
+  needs a motion-gating claim.
+- **D** — stop experiments and write the thesis.
+
+Claude recommended B or D.
+
+## 2026-09-26 — **CCD (Car Crash Dataset) PROFILED: PARKED** — not a T2 replacement
+
+`data/CarCrash/` = **CCD** (Bao et al., ACM MM 2020). Profiled locally on CPU (labels,
+`cv2` probe, 8-frame montage); **no plan, no notebook, no `core/` change.** Raised while
+phase 5 (Option A) was running on Colab.
+
+* **Inventory:** `Crash-1500/` 1,500 mp4 + `Normal/` 3,000 mp4, all **50 frames @ 10 fps
+  = 5.0 s**, 1280×720 (a few 640×360). `Crash-1500.txt` columns: vid, 50 per-frame labels,
+  startframe, YouTube-group index, Day/Night (1325/175), weather (Normal/Snowy/Rainy
+  1141/235/124), ego-involve (801 Yes/699 No). **133 YouTube groups, max 34 clips** → any
+  split must be by group.
+* **Labels are right-censored:** 1,500/1,500 are `0…0 1…1`, onset frame 30–49 (median 36),
+  the accident always runs to the clip end; abnormal frame share 25.6 %. Equal lengths →
+  **no length leak**.
+* **Normal = a separate pool (C38), confirmed visually:** Crash = Russian YouTube dashcams
+  with timestamps and a `CarCrashesTime` watermark; Normal = US streets (per the paper,
+  sampled from BDD100K). Crash+Normal clip oracle **0.8645**. Using Normal as negatives
+  = the D2City/BDD-A failure again → **Normal is excluded**.
+* **Crash-only (T2-style in-video negatives) is the only usable form**, but:
+  - **Position shortcut:** score = frame index → AUC **0.965** (stride 3: 0.963).
+  - **Window ceiling:** DADA W=20 × 0.267 s = 5.33 s > the whole CCD clip. At stride 3
+    (0.30 s/step, 17 steps/clip) W ≤ 10 steps (3 s) or clips lose their negative windows
+    (W=12 → 65 %, W=17 → 3 %). Candidate **stride 3, W=8 (2.4 s), hop 4**: 3311 abn /
+    2689 all-normal windows, 100 % of clips give negatives, in-window position ruler
+    **0.883** (W=6: 0.826). Stride 1 (W=20–30 steps at 0.1 s/step) rejected: time-scale
+    mismatch with DADA/DoTA.
+  - **DoTA contamination risk:** both corpora are YouTube compilations; the group column
+    is an index, not a YouTube id → would need a CLIP near-duplicate check (G-dup) first.
+  - Mixing with T2 (W=20) means two bag lengths → G-L must be measured.
+* **Decision (user, 2026-09-26): PARKED.** Expected gain over T2 W=20 is small (prior, not
+  a measurement). **Reopen condition:** a T2 learning curve (50 % vs 100 % of train videos,
+  several seeds, on the phase-5 winning config) shows `auc_macro` still rising → then G-dup
+  → G-pos (CCD-crash-only probe scored on T2 test, bar ≥ R0 − 0.03). Flat curve → close CCD.
+
+**Next action:** unchanged — read out phase 5 (Option A) when the Colab run finishes.
 
 ## 2026-09-26 (later) — **BDD-A EDA RUN: NO-GO** — fourth separate-pool failure
 

@@ -1,7 +1,8 @@
 # KAT-VAD — Option A: z-scored flow target (`flow/v2_zscore`)
 
-**Status:** **P1 DONE 2026-09-23** (code + tests + docs, uncommitted). P0/P2–P4
-pending (Colab). **Authorized** by the user 2026-09-23 (construction **A1** chosen).
+**Status:** **CLOSED 2026-09-26 — verdict "cost removed; KIP-v1 neutral on T2".**
+P1 done 2026-09-23 (`ae4fded`); P0/P2–P4 run on Colab and read out 2026-09-26 —
+Appendix A. Durable record: `core/docs/RESULTS_DADA_ORIG_T2.md`. **Authorized** by the user 2026-09-23 (construction **A1** chosen).
 **Branch:** `main` (KAT-VAD v1). **Corpus:** `DADA2000_orig` T2 (W=20 hop 8).
 **Parent:** `.project/plans/katvad-kip-loss-scale-diagnosis.md` §5 **A**, Appendix A.3.
 **Fires:** **C2** (new flow cache → every KIP-on number re-measured). **Never
@@ -224,4 +225,58 @@ P1 is the only phase that touches the repo's code. P2–P4 touch Drive and
 
 ## Appendix A — Results
 
-*(empty — filled in P2 and P4, bars above left as written)*
+Bars above left as written. Record: `outputs/REPORTS/DADA2000_orig_zscore/`
+(`run_manifest.json`, `zscore_manifest.json`, per-seed configs and results),
+`outputs/v1/DADA2000_orig_zscore/` (`p2_flow_target_v2/eda_report.*`,
+`r2_grad/s{2024,2025,2026}_{stage1,stage2_kip_on}/grad_probe.*`, checkpoints'
+`metrics.jsonl`). Notebook `colab/DADA2000Origin/phase_5_zscore.ipynb`, run
+2026-09-26 06:56 UTC; torch 2.11.0+cu128, transformers 4.56.2, `core_sha256`
+`4b8e93cc996094d7`. Re-computed locally from the per-seed `results_*.json`:
+every Δ and t95 below matches the notebook's manifest to 4 dp.
+
+### A.1 P0 + P2 — build gates (§6.1)
+
+| id | measured | bar | verdict |
+|---|---|---|---|
+| G0 | 1491/1491 files, max\|err\| **0.0** | ≤ atol | PASS |
+| G0-c | 1491 written == 1491 sources | equal | PASS |
+| G1 | pass | \|mean\| ≤ 1e-3, std ∈ [0.999, 1.001] | PASS |
+| G2-a | `V_v2` **1.0047** | [0.80, 1.25] | PASS |
+| G2-b | pass | [0.99, 1.01] | PASS |
+| G2-c | round-trip **0.995** | [0.9, 1.1] (binds `V` to [0.909, 1.111]) | PASS |
+| G2-d | between-item share **0.349** (v1 0.488) | trip-wire 0.5 | not tripped |
+| G2-e | item-mean MSE 0.654 → oracle `R²_item` **0.349** | reported | — |
+
+`lambda_rec` = **0.9953** (4,401 windows, 88,020 rows, `train_ids_sha1` `dd53964f…`).
+
+### A.2 P3 + P4 — read-out (§6.3)
+
+| id | s2024 | s2025 | s2026 | mean | verdict |
+|---|---:|---:|---:|---:|---|
+| R-1 `R²_v2` | 0.290 | 0.271 | 0.280 | 0.280 | > 0 ✔ |
+| R-1b magnitude / histogram | 0.365 / 0.073 | 0.351 / 0.068 | 0.356 / 0.071 | 0.357 / 0.071 | **risk 1 live** |
+| **R-2** `rho_all` stage-2 end | 0.152 | 0.187 | 0.199 | **0.179** | **< 1.0 → capture removed** (v1 3.105; predicted ≈ 0.5) |
+| **R-3** Δ T2 micro | +0.0065 | +0.0111 | +0.0051 | **+0.0076** | t95 **[−0.0002, +0.0154]** — **includes 0** |
+| R-4 Δ T2 macro | −0.0046 | −0.0043 | +0.0263 | +0.0058 | t95 [−0.0384, +0.0499] |
+| R-5 Δ DoTA micro / macro | | | | +0.0221 / +0.0263 | t95 [−0.011, +0.055] / [−0.019, +0.071] — not decided on |
+
+`cos(g_kip_rec, g_task)` at stage-2 end −0.051 / −0.056 / +0.003; `cos(g_kin, g_task)`
++0.612 / +0.646 / +0.723. The second is by construction: `L_kin` is a MIL BCE
+against the video label, and it is ≈ 0 at stage-1 end, where `L_kin` is not optimized.
+
+**D1-b does not survive the rescale:** `K_v2` = mean `kip_rec` ≈ **0.723** >
+`W_v2` = **0.654** (item-mean oracle). v1 passed D1-b (11.62 < 16.21) on a target
+83 % `mag_max`. On the standardized target, the PMG head does *not* beat item
+identity.
+
+Descriptive, **not** a pre-registered bar: Δ(v2-on − v1-on) T2 micro **+0.0204
+[+0.0010, +0.0398]**, macro **+0.0259 [+0.0160, +0.0358]**, 3/3 seeds each.
+
+### A.3 Decision
+
+Row **`R-2 < 1.0` × `R-3 includes 0` → "cost removed; KIP-v1 neutral on T2"**:
+write a bounded null, and stop spending seeds on v1 KIP. Written:
+`core/docs/RESULTS_DADA_ORIG_T2.md`. **No fourth seed** is to be added to R-3.
+That would be optional stopping, and a positive claim needs a fresh seed triple.
+C24 is untouched. The loss scale explains the phase-4 cost. It does not explain
+any benefit.

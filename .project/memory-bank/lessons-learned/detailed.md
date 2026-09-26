@@ -1322,6 +1322,32 @@ came in at **0.9239** — inside its [0.9, 1.1] band but in the lower half, so a
 new cache version must re-print it; outside the band every `kip_rec` measured on
 that cache is uninterpretable.
 
+**Outcome — the repair, measured (2026-09-26).** Option A (plan
+`katvad-flow-zscore-option-a.md`, App. A) z-scored the 23 raw stats with T2-train
+moments, re-projected them with the same `M`, and set `lambda_rec = 1/V_v2 = 0.9953`.
+All build gates passed (`V_v2` 1.0047, G0 max\|err\| 0.0 over 1,491 files).
+
+| | v1 (`lambda_rec` 1.0) | v2 (0.9953) |
+|---|---:|---:|
+| `rho` at stage-2 end | 3.105 | **0.179** (0.152 / 0.187 / 0.199) |
+| `cos(g_kip_rec, g_task)` | −0.001 | −0.05 / −0.06 / +0.00 |
+| `R²` vs global mean | 0.633 | 0.280 |
+| `K` vs item-mean oracle `W` | 11.62 < 16.21 (**pass**) | 0.72 > 0.654 (**fail**) |
+| T2 micro, KIP-on | 0.6054 | **0.6258** |
+
+The capture is gone, and so is the cost: v2 − v1 is **+0.0204 [+0.0010, +0.0398]**
+on T2 micro and **+0.0259 [+0.0160, +0.0358]** on macro. Against KIP-off, v2 is
+**+0.0076 [−0.0002, +0.0154]**, which the pre-registered table reads as "neutral".
+
+**A second trap, found only after the rescale.** On v1 the PMG head beat the
+item-mean oracle, and that was the evidence that "the motion premise is not
+refuted". On v2 it does not beat it. The v1 pass came from `mag_max`, the one stat
+whose between-clip spread the head could fit. An oracle comparison made on an
+unnormalized target inherits the dominant dimension's story. **Re-run every
+oracle / R² comparison after any target rescale**, and do not carry a pass across
+caches. The angle-histogram block, now 69.6 % of the target, is fitted at `R²`
+0.07.
+
 **Generalizes to:** any auxiliary regression head bolted onto a classification
 objective — depth, flow, pose, reconstruction — whenever the two share a trunk.
 

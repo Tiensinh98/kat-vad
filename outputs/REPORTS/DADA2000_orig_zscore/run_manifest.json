@@ -1,0 +1,116 @@
+{
+  "notebook": "colab/DADA2000Origin/phase_5_zscore.ipynb",
+  "plan": ".project/plans/katvad-flow-zscore-option-a.md",
+  "timestamp": "2026-09-26 06:56:08",
+  "core_sha256": "4b8e93cc996094d7",
+  "torch": "2.11.0+cu128",
+  "transformers": "4.56.2",
+  "flow_v2": {
+    "dir": "/content/drive/MyDrive/Thesis/cache/flow/v2_zscore/DADA2000_orig",
+    "V": 1.004740721747207,
+    "lambda_rec": 0.9953,
+    "gates": {
+      "G1_mean": true,
+      "G1_std": true,
+      "G2a_V": true,
+      "G2b_centred": true,
+      "G2c_roundtrip": true,
+      "G2d_between_item_share": true,
+      "G2e_item_oracle_ratio": true
+    },
+    "between_item_share": 0.34934821551840956
+  },
+  "v1_reference": {
+    "V": 31.642,
+    "K": 11.62,
+    "rho_end": 3.105,
+    "lambda_rec": 1.0
+  },
+  "r1": {
+    "kip_rec": {
+      "2024": 0.7137538504366782,
+      "2025": 0.7322382979533252,
+      "2026": 0.7238329578848446
+    },
+    "r2": {
+      "2024": 0.28961389243238145,
+      "2025": 0.2712166610705399,
+      "2026": 0.27958234177457664
+    }
+  },
+  "r1b": {
+    "2024": {
+      "magnitude 0-6": 0.3652008989679364,
+      "histogram 7-22": 0.07263228234682606,
+      "all 23": 0.1616749047967293
+    },
+    "2025": {
+      "magnitude 0-6": 0.3506604022916524,
+      "histogram 7-22": 0.06825728331314707,
+      "all 23": 0.15420605865443127
+    },
+    "2026": {
+      "magnitude 0-6": 0.35582228344898226,
+      "histogram 7-22": 0.07071031546867024,
+      "all 23": 0.15748352311485236
+    }
+  },
+  "r2": {
+    "rho_stage2": {
+      "2024": 0.15187363694877137,
+      "2025": 0.18749014803094627,
+      "2026": 0.19948578255471927
+    },
+    "captured": false
+  },
+  "rows": {
+    "R-3 T2 micro": {
+      "off": 0.6182179028414322,
+      "v2_on": 0.6257966263293672,
+      "v1_on": 0.6053660745121608,
+      "delta": 0.007578723487935053,
+      "t95": [
+        -0.00023099484537568438,
+        0.015388441821245791
+      ],
+      "signs": "+++"
+    },
+    "R-4 T2 macro": {
+      "off": 0.6247548697940398,
+      "v2_on": 0.6305309407120969,
+      "v1_on": 0.6046336045422093,
+      "delta": 0.005776070918057097,
+      "t95": [
+        -0.03836807543268808,
+        0.049920217268802275
+      ],
+      "signs": "--+"
+    },
+    "R-5 DoTA macro": {
+      "off": 0.6112900301628674,
+      "v2_on": 0.6375590555677878,
+      "v1_on": 0.6070977835630603,
+      "delta": 0.026269025404920338,
+      "t95": [
+        -0.018880016183569288,
+        0.07141806699340997
+      ],
+      "signs": "+++"
+    },
+    "R-5 DoTA micro": {
+      "off": 0.5855984817005983,
+      "v2_on": 0.6077219358159522,
+      "v1_on": 0.5913755288243829,
+      "delta": 0.02212345411535403,
+      "t95": [
+        -0.011009453819049903,
+        0.055256362049757965
+      ],
+      "signs": "+++"
+    }
+  },
+  "verdict": "cost removed; KIP-v1 neutral on T2",
+  "next": "write a bounded null; stop spending seeds on v1 KIP",
+  "pairing": "KIP-off reused from outputs/*_phase4; configs differ in kip.enabled + loss.lambda_rec only",
+  "c24": "untouched: every KIP-on arm is a fixed ~50 % channel shift on main"
+}
