@@ -10,13 +10,13 @@
 >
 > | | `main` (this branch) | `v3` |
 > |---|---|---|
-> | tip | `ae4fded` (2026-09-23; was `4e4ad95`, `702bd5b`) | `bb1516c` |
+> | tip | `cc39882` (2026-09-27; was `ae4fded`, `4e4ad95`, `702bd5b`) | `bb1516c` |
 > | diverged at | `fac71a3` ("docs: Update result for PreVAD") | same |
 > | KIP | **v1 only** — `PMGFlowHead` → `KinematicShift` (frozen 321-param MLP gate) → `MotionScoreHead` | v1 **+** four selectable `gate_type`s, ECMR, gate diagnostics |
 > | `kip.gate_type` | **does not exist** (`core/config.py` raises `KeyError`) | `rank` (default) / `mlp_frozen` / `mlp_ste` / `constant` |
 > | `core/kip/ecmr.py` | absent | present |
 > | `train_only_modules`, `--dump-kip-diag` | absent | present |
-> | tests | **582 collected, 0 fail** (2026-09-24; 565 on 2026-09-21, 563 on 2026-09-18) | 537 green |
+> | tests | **598 collected, 0 fail** (2026-09-27; 582 on 2026-09-24, 565 on 2026-09-21) | 537 green |
 >
 > **The MSAD attribution (2026-09-01) and the 7-arm DADA campaign (2026-09-06) below
 > were produced by the `v3` branch's code; DADA Phase 1, TAD, T2/phase 4, D1/D2 and
@@ -26,7 +26,7 @@
 > this branch *this file and `progress.md` are the only durable record of the
 > attribution campaign*. Do not delete them; do not re-run those arms here.
 
-**Last Memory Bank Update:** 2026-09-26 (latest — **step B read out: INCONCLUSIVE, CCD parked, next = D**.) Before that, 2026-09-26 (**step B built: subset tool, 16 tests, phase-6 notebook**.) Before that, 2026-09-26 (**Option A / phase 5 READ OUT: "cost removed;
+**Last Memory Bank Update:** 2026-09-27 (latest — **KAT-VAD v2 architecture designed and signed off by the advisor; not built**. Full update: all six core files reviewed; counts re-measured: **91 Python files (61 source + 30 test), 14,155 source LOC, 598 tests, 30 docs**.) Before that, 2026-09-26 (**step B read out: INCONCLUSIVE, CCD parked, next = D**.) Before that, 2026-09-26 (**step B built: subset tool, 16 tests, phase-6 notebook**.) Before that, 2026-09-26 (**Option A / phase 5 READ OUT: "cost removed;
 KIP-v1 neutral on T2"**. Partial update: `activeContext`, `progress`, lessons (C37 outcome,
 pending (x)), plan App. A; docs 26 → 27 (+ `core/docs/RESULTS_DADA_ORIG_T2.md`); code unchanged.)
 Before that, 2026-09-26 (**CCD (`data/CarCrash/`) profiled and PARKED**;
@@ -38,7 +38,73 @@ Track 0b closed; T2 + Option A remain the live track. Partial update: `activeCon
 architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 13,833 source LOC, 582 collected); **docs 24 → 25** (+ `core/docs/D2CITY_EDA.md`).
 
-## 2026-09-26 (latest) — **STEP B READ OUT: INCONCLUSIVE → CCD parked → write-up (D)**
+## 2026-09-27 (latest) — **KAT-VAD v2 DESIGNED, ADVISOR SIGN-OFF — not built, not run**
+
+Record: `core/docs/v2/KAT_VAD_PROPOSAL_v2.md` (the *why*, four review-response tables;
+rounds 3–4 are the **advisor's**) + `core/docs/v2/KAT_VAD_v2_ARCHITECTURE.md` (shapes).
+Motivating report: `core/docs/REPORT_T2_OPTICAL_FLOW_FOR_ADVISOR.md` (commit `cc39882`,
+which also moved `core/docs/v3/{RESULTS_DADA.md,setup/*}` → `core/docs/gate/`).
+**Design only: no code, no plan file, nothing run.**
+
+**What v2 is** (two architectural changes, one protocol fix, no new losses):
+* **KIP and RAFT removed.** v1 KIP is a bounded null on T2; the flow head cannot beat a
+  clip-identity predictor (K 0.723 > W 0.654) because frame CLIP carries no in-clip motion.
+* **Motion Stream:** frozen **VideoMAE V2** (distilled K710, ViT-B or ViT-S, chosen in E2)
+  on a causal 1.5 s clip (16 f @ 10 fps) per step, **squashed** to 224² like the CLIP
+  stream. Fused as `h_t = x̃_t + W_u·(c·ũ_t ⊘ σ_u)`, `W_u` zero-init; `σ_u` per-channel
+  std and `c` = CLIP per-channel RMS (≈ 0.44), both frozen from T2-train.
+* **CRN (Clip-Referenced Normalization):** subtract a per-clip reference (source video in
+  training, whole clip at test); CLIP stream rescaled by scalar `s` (E‖x̃‖ = E‖x‖).
+  Reference R1 mean / R2 median / R3 robust mean / R4 strictly-past (warm-up `N_w` = 8)
+  is chosen in E2.
+* **Rate-matched DoTA evaluation** (stride 3 ≈ 0.30 s/step, sliding W = 20 hop 4, scored
+  at native frames), only if E1 supports it on existing checkpoints.
+* **Losses unchanged** = the KIP-off T2 set (`L_neg` stays off, `L_dvs` on). 2 × 2
+  factorial A0 (KIP-off) / A1 (+CRN) / A2 (+motion) / A3 (both) × 5 seeds = 20 runs.
+
+**Decisions and why (each was a review finding):**
+* **No LayerNorm on `ũ`.** A per-token LN divides each step by its own norm and erases the
+  deviation magnitude CRN creates.
+* **Zero-init does not keep the model near the baseline under Adam** (updates ≈
+  lr·sign(g); the motion term reaches CLIP scale in ≈ 14 steps at scale 1, ≈ 32 with `c`).
+  The claim was corrected; the motion share `ρ_u = ‖W_u(·)‖/‖x̃‖` is logged instead.
+* **Where magnitude survives (verified in code):** `V^t = H + Enc(H)`
+  (`core/models/temporal_encoder.py:287`, outer residual around post-LN layers), at
+  ≈ 0.44× the normalized branch. CoAttn is post-LN with no skip (`core/models/fusion.py:56–58`),
+  so `V^u` is re-normalized; magnitude reaches only `H_bin`'s language-agnostic path
+  (`core/models/kat_vad.py:154`).
+* **CRN reference rule (E2):** accident-share histograms first; position ruler `t/T`; the
+  deviation is residualized on a cubic fitted on **normal steps only** (clamped outside
+  their 5th–95th pct); cross-check = position-stratified AUC with **per-clip min-max**
+  before pooling; reject any reference that reverses in the > 50 % share bins. Position
+  artefact applies to all references (R4 by construction, R1–R3 U-shaped under drift).
+* **Squash, no geometry probe.** Measured DADA 1584 × 660 vs DoTA 1280 × 720: squash gap
+  1.24× horizontal / 1.09× vertical; letterbox 1.24× both and ≈ 93 px of DADA content.
+  Hook H8 (short-side + 3 crops) is a limitation: it cannot rescue a failed stream.
+* **Statistics:** one decision interval = paired t95 over 5 seeds on DoTA-dev macro
+  (clip bootstrap reported only; E1 exception). **DoTA-dev/eval fixed 50/50**; T2-val =
+  15 % of T2-train sources. E0b = pooled MDE, descriptive, ≤ 8 df (shared KIP-off seeds).
+* **Adoption:** `F` = best adoptable free arm (A1 if it passes the free rule, else A0).
+  A3 needs A3 − A0 **and** A3 − `F`; A2 needs A2 − A0 **and** A2 − `F`; A1 needs a point
+  estimate ≥ 0 on DoTA-dev and T2-val macro with no share-bin reversal. A motion claim
+  needs A3 − A1 (or A2 − A0) to exclude 0.
+* **Deferred hooks H1–H8:** flow on the motion stream, ONM, `L_neg` with a class mask,
+  SG-NM (bugs listed), clip-context token, DAPT, coarser training rate, 3-crop geometry.
+
+**Next action — the advisor's run order:**
+1. Freeze and commit the splits (T2-val source list, DoTA-dev/eval clip lists) and the
+   proposal's rules; record the commit hash in every read-out.
+2. The re-scoring harness loads DoTA-dev IDs only; DoTA-eval is never printed.
+3. E0 rate audit (minutes). If the gap is not ≈ 3×, skip E1.
+4. E0b + E1 on one harness (re-score existing checkpoints on DoTA-dev).
+5. VideoMAE V2 extraction for E2(d) in parallel.
+6. E2: (a) histograms before (b) reference choice.
+Before any of it: write `.project/plans/katvad-v2-e0-e2.md`. The write-up (D) continues
+in parallel; v2 does not replace it.
+
+**Working note:** reviews the user pastes and calls "thầy" are the **advisor's**. Label them so.
+
+## 2026-09-26 — **STEP B READ OUT: INCONCLUSIVE → CCD parked → write-up (D)**
 
 Record: `RESULTS_DADA_ORIG_T2.md` §8, plan App. A (status CLOSED). Raw:
 `outputs/REPORTS/DADA2000_orig_lcurve/`. Re-computed locally; pairing (`num_epochs` only),

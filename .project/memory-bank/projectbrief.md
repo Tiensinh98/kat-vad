@@ -1,7 +1,10 @@
 # Project Brief — KAT-VAD
 
 **Created:** 2026-07-31 (memory bank re-initialized from commit `b9978ff`)
-**Last reviewed:** 2026-09-24, second pass (scope unchanged; a candidate **second
+**Last reviewed:** 2026-09-27 (**KAT-VAD v2 designed and signed off by the advisor**,
+`core/docs/v2/`: KIP and RAFT are retired from the design in favour of a frozen VideoMAE V2
+motion stream + Clip-Referenced Normalization, gated by E0–E3. Scope of `main`'s *code* is
+unchanged until v2 is built). Previously 2026-09-24, second pass (scope unchanged; a candidate **second
 construction** — DADA full videos + D2City negative bags — is under a feasibility EDA,
 not adopted). Earlier the same day: gate (c)'s repair, Option A, authorized and built,
 not yet measured. Previously 2026-09-21 (gate (c) restated: on T2, the

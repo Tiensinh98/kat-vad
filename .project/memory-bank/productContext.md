@@ -47,6 +47,12 @@ generalization while gaining the motion sensitivity it lacks.
 
 ## What has actually been shown (latest reading 2026-09-21)
 
+*(2026-09-27, no new measurement. The product argument moves in `core/docs/v2/`: motion
+must enter as an **input** (a frozen video encoder), because induction from frame CLIP
+cannot recover motion the input lacks; and the clip-level fixed effect (≈ 75 % of CLIP
+variance, source-separable at 1.000) is removed by CRN because the DoTA metrics discard
+it anyway. "Kinematics-aware" now means motion-bearing features, not trajectories.)*
+
 *(Reviewed 2026-09-24, second pass: no new measurement. The only change is a
 planned feasibility EDA for D2City as an imported normal pool — `progress.md`.)*
 

@@ -1,7 +1,9 @@
 # Tech Context — stack, setup, constraints
 
 **Created:** 2026-07-31 (re-init from `b9978ff`, read off `pyproject.toml`)
-**Last reviewed:** 2026-09-24 (full reconcile — counts re-measured; `core/flow/zscore*`
+**Last reviewed:** 2026-09-27 (counts re-measured: 91 Python files, 14,155 source LOC,
+598 tests, 30 docs; KAT-VAD v2 design adds planned constraints below — no stack change yet).
+Previously 2026-09-24 (full reconcile — counts re-measured; `core/flow/zscore*`
 and the `FLOW_ZSCORE_*` constants added; `colab/` corrected to **tracked**).
 Previously 2026-09-21 (full reconcile — counts re-measured, `grad_probe`
 added, the `core/eda/` "never run on real data" note retired, and the
@@ -90,6 +92,19 @@ Colab points all four at Drive. Full contract: `core/docs/DATA_LAYOUT.md`.
   torch **2.11.0+cu128** / transformers **4.56.2** / Python **3.13.15**.
 
 ## Constraints learned in-tree
+
+### KAT-VAD v2 inputs (measured facts the v2 design depends on; 2026-09-27)
+
+- **Frame sizes:** DADA-2000 original **1584 × 660 (2.40 : 1)** measured on 5 clips × 8
+  frames (`core/docs/DADA_ORIGIN_PHASE0.md` §3.3) — the paper's 1456 × 660 does not match
+  our files. DoTA 1280 × 720. Squash to 224² leaves a 1.24× horizontal / 1.09× vertical
+  scale gap between them.
+- **CLIP feature norm:** mean L2 **9.87** on T2 (raw, not unit-norm;
+  `outputs/EDA/DADA2000_orig_T2_w20s8/eda_report.md`) → ≈ 0.44 per channel.
+- **Planned dependency, not yet added:** VideoMAE V2 distilled checkpoints
+  (`vit_b_k710_dl_from_giant`, `vit_s_k710_dl_from_giant`). Check the loading API with
+  context7 before writing the extractor. SimpleTAD checkpoints fine-tuned on DoTA/DADA are
+  **forbidden** (benchmark labels).
 
 - **PreVAD ships no pixels, so it can never host a KIP-on arm.** The release is
   CLIP features only (`PreVAD/features/ViT-B-16-8p-features.zip`, 35,279 `.npy`).
@@ -224,7 +239,8 @@ Colab points all four at Drive. Full contract: `core/docs/DATA_LAYOUT.md`.
 # tests  (pyproject sets addopts="-q", so the summary line is suppressed;
 #          count with:  pytest --co -q | awk -F': ' '/^core/{s+=$2} END{print s}')
 source .venv/bin/activate && python -m pytest core/tests -q
-# on `main` (2026-09-24): 582 collected, 0 fail.
+# on `main` (2026-09-27): 598 collected, 0 fail.
+# History: 582 (2026-09-24).
 # History: 565 (2026-09-21), 563 (2026-09-18), 546 (2026-09-17), 514 (2026-09-15).
 # The gate matrix in test_{dada,tad}.py was collapsed to the single v1 gate;
 # the `kip.gate_type` parametrization is branch-`v3`-only and stays there.

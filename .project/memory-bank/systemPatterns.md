@@ -397,7 +397,32 @@ on `main` there is only one gate type, so the matrix was collapsed rather than
 the class deleted — `test_kip_off_trains` (arm A0), `test_stage1_warmup_runs`
 and the `config.yaml`-recording tests all survive.
 
-## Planned seams (not built — the v2 plan file does not exist in this tree; this section *is* the record)
+## KAT-VAD v2 architecture — designed 2026-09-27, NOT built
+
+Source of truth: `core/docs/v2/KAT_VAD_v2_ARCHITECTURE.md` (shapes) and
+`core/docs/v2/KAT_VAD_PROPOSAL_v2.md` (rules, review tables). Nothing below exists in code.
+
+```
+frame @ t ─► CLIP ViT-B/16 (frozen) ─► x_t ─► CRN ─► x̃_t = s·(x_t − μ^ref) ─────────────┐
+causal 16f@10fps ─► VideoMAE V2 (frozen) ─► u_t ─► CRN ─► c·(ũ_t ⊘ σ_u) ─► W_u (0-init) ─(+)─► h_t
+h ─► temporal encoder (unchanged) ─► V^t ─► CoAttn(V^t, z) ─► V^u ;  H_bin(V^t, V^u) ; H_mul(V^u, Z^u)
+```
+
+- **Removed vs v1:** the whole KIP module and its losses, stage-1 warm-up, RAFT.
+- **Only new trainable block:** `W_u` (+ bias), ≈ 0.39 M (ViT-B) / 0.20 M (ViT-S).
+  `σ_u`, `c`, `s` and the CRN references are fixed statistics from T2-train.
+- **Magnitude path (verified in `main`'s code, 2026-09-27):** the temporal encoder is
+  post-LN inside but returns `v_feat + encoded` (`temporal_encoder.py:287`), so `H`'s
+  per-step magnitude reaches `V^t` (≈ 0.44× the LN'd branch: ‖H‖ ≈ 9.87 vs √512).
+  CoAttn is post-LN with no outer skip (`fusion.py:56–58`) → `V^u` is re-normalized.
+  `H_bin`'s language-agnostic path reads `V^t` (`kat_vad.py:154`). This is why v2 puts
+  **no per-token LayerNorm** in front of `W_u`.
+- **Arms are switches on one network:** A0 `X`; A1 `s·(X − μ^x)`; A2 `X + W_u·(c·(U − m_u) ⊘ σ_u)`;
+  A3 `s·(X − μ^x) + W_u·(c·(U − μ^u) ⊘ σ_u)`.
+- **Protocol:** DoTA at stride 3 with sliding W = 20 / hop 4 and native-frame scoring
+  (if E1 adopts it); per-clip min-max unchanged.
+
+## Planned seams (not built — `katvad-v2-next-steps.md` does not exist in this tree; this section *is* the record; unrelated to the 2026-09-27 KAT-VAD v2 architecture above)
 
 Recorded here because each one is a *design decision already argued*, and the
 argument is expensive to redo:

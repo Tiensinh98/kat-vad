@@ -1417,3 +1417,39 @@ needs Δ ≤ bar − half-width".
 **Gate status.** Measured once. Overlaps C33 ("a pre-registered threshold must be reachable").
 Merge into C33 as a second trace rather than a new lesson, if promoted.
 
+---
+
+## (aa) [MEDIUM] Architecture - A normalization or init claim must be checked against the optimizer and the downstream norms (2026-09-27)
+
+**Triggers:** zero-init, residual fusion, LayerNorm, per-token norm, AdamW, "starts at the baseline", deviation magnitude, CRN
+**Problem:** Two claims in the KAT-VAD v2 draft read right and were wrong.
+- A per-token LayerNorm before a fused stream divides each step by its own norm. After a
+  mean-subtraction (CRN) that norm *is* the signal, so LN erases it.
+- "Zero-init, so the model stays at the baseline and grows only if it helps" ignores Adam:
+  early updates are ≈ lr·sign(g), so the new term reaches the old stream's scale in tens of
+  steps (≈ 14 at scale 1, ≈ 32 at CLIP scale 0.44, lr 5e-5, d = 768).
+**Bad:** `h = x + W·LN(u − μ)` with `W` zero-init, and the claim "stays near baseline".
+**Good:** a fixed dataset-level scale (`c · (u − μ) ⊘ σ`), the claim "starts at the
+baseline", and a logged share `‖W(·)‖ / ‖x‖` as the evidence the stream is used.
+**Candidate rule.** *Check where a per-step magnitude is re-normalized downstream, and state zero-init as a starting point, never as a constraint, under adaptive optimizers.*
+**Files:** `core/docs/v2/KAT_VAD_PROPOSAL_v2.md` §4.1; `core/models/temporal_encoder.py:287`; `core/models/fusion.py:56-58`
+
+**Gate status.** Found in design review, not observed in a run. Gate 3 not met.
+
+---
+
+## (ab) [MEDIUM] Experiments - Fit a nuisance trend on the negative class only (2026-09-27)
+
+**Triggers:** residualize, position, t/T, detrend, stratified AUC, pooled AUC, per-clip min-max
+**Problem:** The v2 draft removed a position trend with a cubic fitted on **all** steps.
+Accidents sit late in the clip, so the fit partly learned the accidents and subtracting it
+removed real signal. Its model-free cross-check pooled `d_t` across clips, so clip-level
+drift scale leaked back in.
+**Bad:** `f` fitted on all steps; within-bin AUC on raw pooled scores.
+**Good:** `f` fitted on label-0 steps only, never extrapolated beyond their range; per-clip
+min-max before any pooled AUC.
+**Candidate rule.** *Fit a nuisance trend on negatives only, and normalize per clip before pooling scores across clips.*
+**Files:** `core/docs/v2/KAT_VAD_PROPOSAL_v2.md` §4.2
+
+**Gate status.** Found in design review (advisor, round 4). Gate 3 not met.
+

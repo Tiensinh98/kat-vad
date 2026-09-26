@@ -1,6 +1,16 @@
 # Progress
 
-**Last updated:** 2026-09-26 — **BDD-A EDA run and read out: NO-GO** (G-X FAIL on `calm`,
+**Last updated:** 2026-09-27 — **KAT-VAD v2 architecture designed and signed off by the advisor**
+(`core/docs/v2/`, four review rounds). Design only: KIP + RAFT removed; frozen VideoMAE V2
+motion stream (zero-init residual, fixed `σ_u`, `c`) + Clip-Referenced Normalization;
+rate-matched DoTA evaluation; losses unchanged; 2 × 2 factorial × 5 seeds. **No code, no
+measurement.** Next: freeze splits, then E0 → E0b + E1 → E2 (see "What's left"). Counts
+re-measured: **91 Python files (61 source + 30 test), 14,155 source LOC, 598 tests, 30 docs**.
+
+**Earlier 2026-09-26 —** step B (T2 learning curve) read out INCONCLUSIVE; Option A read out
+"cost removed; KIP-v1 neutral" (ledger rows below).
+
+**Earlier 2026-09-26 —** **BDD-A EDA run and read out: NO-GO** (G-X FAIL on `calm`,
 X 0.5492, Δ(X−R0) −0.127; shortcut 1.000; G-M ≈ 0). Fourth separate-pool failure; C38
 extended. `core/docs/BDDA_EDA.md` added (docs 25 → 26). T2 + Option A remain; Option A unrun.
 
@@ -238,6 +248,22 @@ attributed it to any part of KIP:
   +0.09 on a within-clip localization benchmark is what a smoother buys.
 
 ## What's left
+
+### KAT-VAD v2 — E0–E2 gates (new 2026-09-27; design in `core/docs/v2/`, advisor sign-off)
+
+- [ ] Write `.project/plans/katvad-v2-e0-e2.md` (harness, split files, read-out tables).
+- [ ] **Freeze + commit splits and rules first:** T2-val = 15 % of T2-train sources (grouped);
+      DoTA-dev / DoTA-eval = 50 / 50 by video. Record the commit hash in every read-out.
+- [ ] Harness loads DoTA-dev IDs only (DoTA-eval never printed until the final report).
+- [ ] **E0** rate audit from the caches (fps, stride, s/step). Gap not ≈ 3× → skip E1.
+- [ ] **E0b** pooled `MDE_dev` (phase-4 v1−off, phase-5 v2−off, two learning-curve arms;
+      ≤ 8 df), descriptive only. **E1** stride-3 / sliding re-score of the 3 KIP-off
+      checkpoints on DoTA-dev (decided on the clip bootstrap). One harness for both.
+- [ ] **E2** (a) accident-share histograms → (b) position ruler + CRN reference choice →
+      (c) transfer-probe veto → (d) VideoMAE V2-B/S probe (start extraction in parallel).
+- [ ] **E3** 2 × 2 factorial × 5 seeds (20 runs) — only after E2 fixes reference + encoder.
+- [ ] Code to build (none exists): CRN references, motion-stream feature cache + fusion,
+      sliding-window DoTA scorer at stride 3, per-arm switches. Load lessons first.
 
 ### D2City as the normal-bag pool — feasibility EDA (2026-09-24) — **CLOSED: NO-GO 2026-09-25**
 
