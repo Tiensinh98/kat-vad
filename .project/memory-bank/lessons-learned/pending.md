@@ -1397,3 +1397,23 @@ anomaly ids == subset abnormal ids) in `phase_6_learning_curve.ipynb`.
 **Gate status.** Found while designing, not observed as a bug. Gate 3 (it happened) is not
 met. Leave pending until phase 6 runs.
 
+---
+
+## (z) [MEDIUM] Experiments - Borrow a power estimate only from a contrast that varies the same thing (2026-09-26)
+
+**Triggers:** power, t95 half-width, pre-registered bar, learning curve, subset, n=3, FLAT, INCONCLUSIVE
+**Problem:** The T2 learning-curve plan took its paired-diff sd from phase 5 (0.0031 → ±0.008).
+That contrast held the training data fixed and toggled KIP. The learning curve changes the
+data, and draws a different subset per seed, so "which videos" enters the variance. The
+measured Δ50 half-width was **±0.036 (4.5×)**. The FLAT bar (upper < +0.010) became
+unreachable, and the verdict table could only return RISING or INCONCLUSIVE.
+**Bad:** sizing a bar with the sd of a contrast that does not vary the factor under test.
+**Good:** estimate the sd from a contrast of the same kind (e.g. two independent subset
+draws at one fraction, one seed each), or state the bar's reachability explicitly: "FLAT
+needs Δ ≤ bar − half-width".
+**Candidate rule.** *Size a pre-registered bar with variance from a contrast that varies the same factor, and check the bar is reachable at that variance.*
+**Files:** `.project/plans/katvad-t2-learning-curve.md` §3, App. A.4
+
+**Gate status.** Measured once. Overlaps C33 ("a pre-registered threshold must be reachable").
+Merge into C33 as a second trace rather than a new lesson, if promoted.
+

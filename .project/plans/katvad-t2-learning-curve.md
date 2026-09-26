@@ -1,7 +1,9 @@
 # KAT-VAD: T2 learning curve (step B), "is data the bottleneck on T2?"
 
-**Status:** **AUTHORIZED 2026-09-26.** The user chose D-1 fixed steps, D-2 micro primary
-with the macro sign, D-3 25 % + 50 % (6 runs). **Branch:** `main` (KAT-VAD v1). **Corpus:** `DADA2000_orig` T2 (W=20 hop 8).
+**Status:** **CLOSED 2026-09-26. Verdict INCONCLUSIVE** → CCD stays parked → write-up (D).
+Authorized the same day (D-1 fixed steps, D-2 micro primary with the macro sign, D-3 25 % + 50 %).
+Appendix A holds the numbers **and a design defect: the §3 power estimate was ~4.5× too
+narrow, which made FLAT unreachable.** **Branch:** `main` (KAT-VAD v1). **Corpus:** `DADA2000_orig` T2 (W=20 hop 8).
 **Parent:** the CCD reopen condition in `activeContext.md` (2026-09-26, CCD PARKED).
 **Arms:** KIP-off only. Phase 5 read KIP-v1 as neutral on T2
 (`core/docs/RESULTS_DADA_ORIG_T2.md`), so the cheaper arm answers the data question.
@@ -151,11 +153,61 @@ Reported, never decided on:
 | L0 ✅ | local | user authorizes D-1…D-3 (2026-09-26) | this file's status line |
 | L1 ✅ | local | §4.1 tool + §4.2 tests + TRAINING.md/COLAB.md §4.3c; quality gate (ruff/mypy/bandit/pyright clean on the changed files) | suite green: **598 collected, 0 fail** (2026-09-26) |
 | L2 ✅ | local | §4.3 notebook written (22 cells); §1–§3 + §7–§8 dry-run on a synthetic T2 (real `subset_train` + `knn_cache`, fake evals) | cells run end to end |
-| L3 | Colab | build subsets + KNN (CPU), then 6 (or 3) KIP-off runs on GPU, then eval | §5.1 all pass |
-| L4 | local | score §5.2; fill Appendix A; RESULTS §8; memory bank; Thesis_Report | verdict row written |
+| L3 ✅ | Colab | build subsets + KNN (CPU), then 6 (or 3) KIP-off runs on GPU, then eval | §5.1 all pass |
+| L4 ✅ | local | score §5.2; fill Appendix A; RESULTS §8; memory bank (Thesis_Report skipped on the user's instruction) | verdict row written |
 
 ---
 
 ## Appendix A: Results
 
-*(empty; filled in L3/L4, bars above left as written)*
+Bars above left as written. Record: `outputs/REPORTS/DADA2000_orig_lcurve/`
+(`run_manifest.json`, `subsets/*.json`, per-arm `config_*.yaml` and `results_*.json`).
+Notebook run 2026-09-26 10:59 UTC, `core_sha256` `dd6a1349f61ebf00`. Every Δ below was
+re-computed locally from the per-seed `results_*.json` and matches the manifest.
+
+### A.1 Build gates (§5.1)
+
+| id | measured | verdict |
+|---|---|---|
+| G-S1 / G-S2 / G-S3 | the tool raised on none; 50 %: 746/1,491 sources; 25 %: 373/1,491, nested | PASS |
+| G-S4 | 2,028–2,052 steps (50 %: 39–41 epochs × 50–52; 25 %: 76–78 × 26–27) | PASS (±2 %) |
+| G-S5 | KNN anomaly ids == subset abnormal ids, on all 6 | PASS |
+| G-S6 | item fraction 0.498–0.510 (50 %), 0.250–0.254 (25 %) | PASS |
+| pairing | each config differs from its phase-4 KIP-off seed in `train.num_epochs` only | PASS |
+| dropped types | none at either fraction | — |
+| C14 flags | none | — |
+
+### A.2 Read-out (§5.2)
+
+| | 25 % | 50 % | 100 % | Δ25 (50−25), t95 | **Δ50 (100−50), t95** |
+|---|---:|---:|---:|---|---|
+| **T2 micro** | 0.5947 | 0.6083 | 0.6182 | +0.0137 [+0.0017, +0.0256] + + + | **+0.0099 [−0.0266, +0.0463] + − +** |
+| T2 macro | 0.6085 | 0.6180 | 0.6248 | +0.0095 [−0.0076, +0.0267] + + + | +0.0068 [−0.0433, +0.0568] + − − |
+| DoTA micro | 0.5773 | 0.5797 | 0.5856 | +0.0024 [−0.0266, +0.0313] | +0.0059 [−0.0102, +0.0220] |
+| DoTA macro | 0.6029 | 0.6081 | 0.6113 | +0.0052 [−0.0419, +0.0524] | +0.0032 [−0.0180, +0.0244] |
+
+Seed sd of T2 micro by level: 0.0117 (25 %), **0.0165 (50 %)**, 0.0042 (100 %). The 50 %
+s2026 arm (0.5894) drives the Δ50 spread.
+
+### A.3 Decision
+
+The Δ50 micro t95 includes 0 (not RISING), and its upper bound +0.046 ≥ 0.010 (not FLAT),
+so the row is **INCONCLUSIVE → CCD stays parked → D; no seed extension.**
+
+Descriptive (not a bar):
+- In-domain T2 rises monotonically and shallowly, by **≈ +0.01 per doubling** (+0.0137, then
+  +0.0099), i.e. decelerating.
+- **DoTA zero-shot is flat over 4× data**: 25 → 100 % gives +0.008 micro and +0.008 macro,
+  with intervals several times wider.
+- More data of T2's kind does not move the project's headline benchmark. The best case for
+  CCD (≈ one more doubling) is ≈ +0.01 in-domain and ≈ 0 on DoTA.
+
+### A.4 Defect in this plan: the power estimate
+
+§3 took the paired-diff sd from phase 5 (0.0031 → a predicted ±0.008 half-width). That
+contrast held the **training data fixed** and toggled KIP. Here the data itself changes, and
+D-4 draws a different subset per seed, so "which videos" enters the variance. The measured
+Δ50 micro half-width is **±0.036 (4.5×)**. With it, **FLAT (upper < +0.010) was unreachable**
+unless Δ50 ≈ −0.026, so the table could only return RISING or INCONCLUSIVE (C33). The
+verdict stands: DoTA, which carries the decision, does not depend on this. The defect is
+recorded as pending (z).

@@ -1,0 +1,154 @@
+{
+  "notebook": "colab/DADA2000Origin/phase_6_learning_curve.ipynb",
+  "plan": ".project/plans/katvad-t2-learning-curve.md",
+  "timestamp": "2026-09-26 10:59:48",
+  "core_sha256": "dd6a1349f61ebf00",
+  "design": {
+    "seeds": [
+      2024,
+      2025,
+      2026
+    ],
+    "fractions": [
+      0.5,
+      0.25
+    ],
+    "total_steps": 2040,
+    "batch": 64,
+    "kernel": 3,
+    "mil_topk_pct": 5,
+    "kip": "off",
+    "full_arm": "/content/drive/MyDrive/Thesis/outputs/REPORTS/DADA2000_orig_phase4"
+  },
+  "arms": {
+    "f050_s2024": {
+      "epochs": 41,
+      "steps_per_epoch": 50,
+      "steps": 2050,
+      "kept_sources_sha1": "f97774b0045379c9695f7c94e57200a16a61f97d",
+      "t2_auc": 0.6162209960437,
+      "t2_auc_macro": 0.6033755349631388,
+      "dota_auc": 0.5687696411678477,
+      "dota_auc_macro": 0.5968932513198915
+    },
+    "f025_s2024": {
+      "epochs": 78,
+      "steps_per_epoch": 26,
+      "steps": 2028,
+      "kept_sources_sha1": "c24e390f0e8f0d1bd091edb8966cb604bc343ea4",
+      "t2_auc": 0.6007565732468576,
+      "t2_auc_macro": 0.5979469828748792,
+      "dota_auc": 0.5623708553207976,
+      "dota_auc_macro": 0.5845439683556725
+    },
+    "f050_s2025": {
+      "epochs": 40,
+      "steps_per_epoch": 51,
+      "steps": 2040,
+      "kept_sources_sha1": "595b7b460fea48ae583b0a1b14b58627c7c06a27",
+      "t2_auc": 0.619414058323163,
+      "t2_auc_macro": 0.6400928899043599,
+      "dota_auc": 0.6006800769207534,
+      "dota_auc_macro": 0.6336077443128856
+    },
+    "f025_s2025": {
+      "epochs": 78,
+      "steps_per_epoch": 26,
+      "steps": 2028,
+      "kept_sources_sha1": "7a12077ee4d7e6e892c807f988d9008d3406e253",
+      "t2_auc": 0.602103683267395,
+      "t2_auc_macro": 0.6225964214895376,
+      "dota_auc": 0.5892073848610632,
+      "dota_auc_macro": 0.6139821919839946
+    },
+    "f050_s2026": {
+      "epochs": 39,
+      "steps_per_epoch": 52,
+      "steps": 2028,
+      "kept_sources_sha1": "be3e3af7fbbe9a4a88497c18b84c3df509d9e15c",
+      "t2_auc": 0.5894034900613172,
+      "t2_auc_macro": 0.6104912081651821,
+      "dota_auc": 0.5695182532417049,
+      "dota_auc_macro": 0.5937707949713127
+    },
+    "f025_s2026": {
+      "epochs": 76,
+      "steps_per_epoch": 27,
+      "steps": 2052,
+      "kept_sources_sha1": "a1f60d8fe6b58bfdf63b92d99d6d8bbecd00172f",
+      "t2_auc": 0.5812046896719553,
+      "t2_auc_macro": 0.6048382398004531,
+      "dota_auc": 0.5802960224194614,
+      "dota_auc_macro": 0.6100281765089849
+    }
+  },
+  "rows": {
+    "Delta50 t2 auc": {
+      "delta": 0.009871721365372102,
+      "t95": [
+        -0.026598771811085394,
+        0.046342214541829595
+      ],
+      "signs": "+ - +"
+    },
+    "Delta50 t2 auc_macro": {
+      "delta": 0.006768325449812947,
+      "t95": [
+        -0.04328474105484026,
+        0.05682139195446616
+      ],
+      "signs": "+ - -"
+    },
+    "Delta50 dota auc": {
+      "delta": 0.005942491257162878,
+      "t95": [
+        -0.010156330714107733,
+        0.02204131322843349
+      ],
+      "signs": "+ + -"
+    },
+    "Delta50 dota auc_macro": {
+      "delta": 0.003199433294837517,
+      "t95": [
+        -0.01803589045077757,
+        0.024434757040452604
+      ],
+      "signs": "- + -"
+    },
+    "Delta25 t2 auc": {
+      "delta": 0.013657866080657407,
+      "t95": [
+        0.0016919179335689871,
+        0.025623814227745827
+      ],
+      "signs": "+ + +"
+    },
+    "Delta25 t2 auc_macro": {
+      "delta": 0.009525996289270236,
+      "t95": [
+        -0.00762335596750925,
+        0.02667534854604972
+      ],
+      "signs": "+ + +"
+    },
+    "Delta25 dota auc": {
+      "delta": 0.0023645695763279497,
+      "t95": [
+        -0.026602748423767465,
+        0.03133188757642336
+      ],
+      "signs": "+ + -"
+    },
+    "Delta25 dota auc_macro": {
+      "delta": 0.0052391512518125865,
+      "t95": [
+        -0.04188172065198844,
+        0.05236002315561362
+      ],
+      "signs": "+ + -"
+    }
+  },
+  "c14_flags": [],
+  "verdict": "INCONCLUSIVE",
+  "next": "CCD stays parked -> D; no seed extension"
+}

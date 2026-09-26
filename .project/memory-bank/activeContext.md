@@ -26,7 +26,7 @@
 > this branch *this file and `progress.md` are the only durable record of the
 > attribution campaign*. Do not delete them; do not re-run those arms here.
 
-**Last Memory Bank Update:** 2026-09-26 (latest — **step B built: subset tool, 16 tests, phase-6 notebook; not run**.) Before that, 2026-09-26 (**Option A / phase 5 READ OUT: "cost removed;
+**Last Memory Bank Update:** 2026-09-26 (latest — **step B read out: INCONCLUSIVE, CCD parked, next = D**.) Before that, 2026-09-26 (**step B built: subset tool, 16 tests, phase-6 notebook**.) Before that, 2026-09-26 (**Option A / phase 5 READ OUT: "cost removed;
 KIP-v1 neutral on T2"**. Partial update: `activeContext`, `progress`, lessons (C37 outcome,
 pending (x)), plan App. A; docs 26 → 27 (+ `core/docs/RESULTS_DADA_ORIG_T2.md`); code unchanged.)
 Before that, 2026-09-26 (**CCD (`data/CarCrash/`) profiled and PARKED**;
@@ -38,7 +38,27 @@ Track 0b closed; T2 + Option A remain the live track. Partial update: `activeCon
 architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 13,833 source LOC, 582 collected); **docs 24 → 25** (+ `core/docs/D2CITY_EDA.md`).
 
-## 2026-09-26 (latest) — **STEP B (T2 learning curve): BUILT, NOT RUN**
+## 2026-09-26 (latest) — **STEP B READ OUT: INCONCLUSIVE → CCD parked → write-up (D)**
+
+Record: `RESULTS_DADA_ORIG_T2.md` §8, plan App. A (status CLOSED). Raw:
+`outputs/REPORTS/DADA2000_orig_lcurve/`. Re-computed locally; pairing (`num_epochs` only),
+G-S1…S6 all pass, no C14 flag.
+
+* T2 micro 25/50/100 % = 0.5947 / 0.6083 / 0.6182. Δ50 **+0.0099 [−0.027, +0.046]**
+  (primary, `+ − +`); Δ25 +0.0137 [+0.002, +0.026]. In-domain: shallow, decelerating
+  ≈ +0.01 per doubling.
+* **DoTA flat over 4× data** (+0.008 micro and macro, CIs include 0). More T2-like data does
+  not move the headline benchmark, so CCD is not worth reopening for the thesis.
+* **Plan defect:** the power estimate came from phase 5's fixed-data contrast (±0.008).
+  Measured ±0.036, so FLAT was unreachable (C33). Pending (z).
+* `Thesis_Report.xlsx` NOT updated for step B (user's instruction).
+
+**Next action:** D. Consolidate the write-up. `RESULTS_TAD.md` still does not exist, and a
+thesis outline is needed. The only improvement lever with a plausible large effect is the
+**backbone probe** (`DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md` §7.4, no training), which is
+optional and runs in parallel with the write-up.
+
+## 2026-09-26 — **STEP B (T2 learning curve): BUILT, NOT RUN**
 
 Plan `.project/plans/katvad-t2-learning-curve.md`, **authorized** (D-1 fixed 2,040 steps,
 D-2 T2 micro primary + macro sign, D-3 25 % + 50 %, 6 KIP-off runs; 100 % = phase-4 KIP-off

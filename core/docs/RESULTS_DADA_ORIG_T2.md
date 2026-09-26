@@ -177,3 +177,41 @@ from frozen CLIP. With 23 frame-global scalars and a gate that never trains, **"
 teaches the model motion" is not supported by this design.** What remains open is the
 design (a spatial or region-level flow target; a trainable gate, branch `v3`), not seeds
 or data.
+
+## 8. Learning curve: is data the bottleneck on T2? (phase 6, 2026-09-26)
+
+Plan `.project/plans/katvad-t2-learning-curve.md` (App. A). Runbook
+`colab/DADA2000Origin/phase_6_learning_curve.ipynb`. Raw artefacts
+`outputs/REPORTS/DADA2000_orig_lcurve/`.
+
+**Design.**
+- KIP-off, trained on nested subsets of T2's train **source videos** (`core.tools.subset_train`,
+  stratified by type), at 25 % and 50 %, seeds 2024/25/26.
+- Fixed compute: 2,040 ± 2 % steps, with `num_epochs` derived per subset. The KNN cache is
+  rebuilt per subset.
+- 100 % = phase-4 KIP-off, reused. Its configs differ from the subset arms in `num_epochs` only.
+
+| | 25 % | 50 % | 100 % | 25 → 50 | **50 → 100 (primary)** |
+|---|---:|---:|---:|---|---|
+| **T2 micro** | 0.5947 | 0.6083 | 0.6182 | +0.0137 [+0.0017, +0.0256] | **+0.0099 [−0.0266, +0.0463]** |
+| T2 macro | 0.6085 | 0.6180 | 0.6248 | +0.0095 [−0.0076, +0.0267] | +0.0068 [−0.0433, +0.0568] |
+| DoTA micro | 0.5773 | 0.5797 | 0.5856 | +0.0024 [−0.0266, +0.0313] | +0.0059 [−0.0102, +0.0220] |
+| DoTA macro | 0.6029 | 0.6081 | 0.6113 | +0.0052 [−0.0419, +0.0524] | +0.0032 [−0.0180, +0.0244] |
+
+**Verdict (pre-registered): INCONCLUSIVE → CCD stays parked; move to the write-up.**
+
+What it licenses:
+1. **In-domain T2 improves with data, shallowly:** ≈ +0.01 AUC per doubling, and
+   decelerating. The 25 → 50 % step excludes zero; the 50 → 100 % step does not.
+2. **Zero-shot DoTA does not:** 4× the data moves it by +0.008, inside the noise. More data
+   of T2's kind does not raise the headline benchmark. Expanding the corpus with CCD would
+   buy ≈ +0.01 in-domain at best, and ≈ 0 on DoTA, at a domain-shift and contamination risk.
+3. **The levers left** after this and §7 are the representation (the backbone probe,
+   `DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md` §7.4) and the supervision (the DoTA frame probe
+   0.6708 is still above every trained arm). They are not KIP-v1, not seeds, and not more
+   T2-like data.
+
+Caveat: the plan's power estimate was ~4.5× too narrow (plan App. A.4). "FLAT" was
+unreachable at n = 3, so "INCONCLUSIVE" here means "a slope ≤ ~0.04 per doubling, point
+estimate ≈ 0.01", not "no information".
+
