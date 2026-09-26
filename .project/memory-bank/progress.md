@@ -1,6 +1,10 @@
 # Progress
 
-**Last updated:** 2026-09-25 — **D2City EDA run and read out: NO-GO** (G-X FAIL, Δ(X−R0)
+**Last updated:** 2026-09-26 — **BDD-A EDA run and read out: NO-GO** (G-X FAIL on `calm`,
+X 0.5492, Δ(X−R0) −0.127; shortcut 1.000; G-M ≈ 0). Fourth separate-pool failure; C38
+extended. `core/docs/BDDA_EDA.md` added (docs 25 → 26). T2 + Option A remain; Option A unrun.
+
+**Earlier 2026-09-25 —** **D2City EDA run and read out: NO-GO** (G-X FAIL, Δ(X−R0)
 −0.090; G-M fail; shortcut AUC 1.000). T2 stays; track 0b closed. `core/docs/D2CITY_EDA.md`
 added (docs 24 → 25); lesson C38. Option A (below) is still unrun.
 
@@ -170,6 +174,7 @@ these rows plus `core/docs/RESULTS_*.md` are all that survives.
 | **DADA-2000 ORIGINAL — Phase 4, the KIP A/B** (`outputs/v1/DADA2000_orig_phase4/`, 2026-09-18) | T2 (W=20), 3 seeds, **paired** — configs differ in exactly one line (`kip.enabled`) | **KIP-on is DOWN in-domain.** T2 micro **0.6182 → 0.6054, Δ = −0.0129, t95 [−0.0249, −0.0008], 3/3 seeds same sign — the only interval that excludes zero.** T2 macro 0.6248 → 0.6046 (Δ −0.0201, CI includes 0). DoTA 0-shot macro 0.6113 → 0.6071 and micro 0.5856 → 0.5914, **both ~20× wider than their own Δ — do not quote them.** `kip_rec` is **92.6–93.0 % of `total`** at `lambda_rec = 1.0`; stage 1 (trunk frozen) plateaus at 20.2, stage 2 (trunk free) falls to 11.3, so **44 % of the reconstruction gain came from rewriting `v^t`**; every task loss ends **+24–32 %** higher than its paired `kip_off` run. **C24: every KIP-on arm here is a fixed ~50 % channel shift — not "motion-gated"** | **v1** |
 | **D1/D2 — KIP loss-scale diagnosis** (`outputs/v1/DADA2000_orig_diag_kip_loss_scale/`, run 2026-09-20, read out 2026-09-21) | — (read-only probe of the Phase-4 checkpoints; no arm re-run, no weight changed) | **D1:** `Z` 71.146 · `V` 31.642 · `W` 16.206 · `K` 11.620 → **`R²_global` 0.6328 (bar ≥0.20 PASS)**, **`K < W` PASS** (`R²_item` **0.2830** — the PMG head fits 28.3 % of *within-item* flow variance, so the motion premise is **not** refuted), **`V` = 31.642 CONFIRMS overweight** (~32× an O(1) objective; equalizing weight **`1/V` = 0.0316**), projection round-trip **0.9239** ∈ [0.9,1.1], **`mag_max` carries 83.0 %** of `E[s²]`, **48.8 %** of target variance is between-item (trip-wire 0.50, missed by 0.012). **D2:** at the shared temporal encoder `rho = \|g_KIP\|/\|g_task\|` = **11.63 (stage 1) → 3.105 (stage-2 end)**, per-seed 3.925/3.027/2.361 → **CONFIRM** (bar ≥1.0); `cos(g_kip_rec, g_task)` = **−0.0010** → **ORTHOGONAL**. Decision row **`capture + orthogonal` → Option A**, unauthorized. Caveat: `rho` sd is 1.56–1.94 per batch at stage 2, and the 11.63→3.10 decay is partly `\|g_task\|` **growing** (4.91→10.07, 7.24→12.46, 6.21→23.61) | **v1** |
 | **D2City normal-bag EDA** (`D2CITY_EDA.md`, 2026-09-25) | — (frozen-CLIP logistic probes, 5 grouped folds, paired) | **NO-GO.** Mechanics pass (G-L length AUC **0.5009**, R0 sanity **0.6763**, n = 1,860). **X (D2City-only negatives) 0.5864, Δ(X−R0) −0.0899 t95 [−0.1011, −0.0787]** (5/5 folds < −0.06 FAIL bar); **M Δ −0.0123 [−0.0155, −0.0091]** (bar −0.01; 5/5 folds < 0). **Shortcut AUC X 1.000 / M 0.999**; R0 alone already 0.820. S 1.0000 vs S-ref DoTA 0.9999 (both ceiling). V1 band crop: X 0.5767, no help → V0. Third separate-pool failure (C38) | **v1** (no `core/` code; notebook) |
+| **BDD-A normal-bag EDA** (`BDDA_EDA.md`, 2026-09-26) | — (same probes/folds as D2City; R0 reproduces to 3.1e-5) | **NO-GO.** Mechanics pass (G-I 925/926, calm 508; G-L L-T2 length AUC **0.5000**; R0 **0.676227**). **Calm (gate): X 0.5492, Δ(X−R0) −0.1270 t95 [−0.1532, −0.1008]** (5/5 folds < −0.06); M Δ −0.0029 [−0.0062, +0.0004] (G-M pass, no gain). `all`: X 0.5375, Δ −0.1387. **Shortcut X 1.000 / M 0.999**; R0 0.374 (BDD-A starts *above* DADA normals — reverse of D2City). S 1.0000 vs S-ref 0.9999. L-T2 oracle 0.7037 → 0.8813 at mix 1.0. Fourth separate-pool failure (C38) | **v1** (no `core/` code; notebook) |
 
 **Cross-branch comparability, settled 2026-09-12:** for `kip.enabled=false` a
 `main`-vs-`v3` Δ **is** a Δ. `p1_ctrl` reproduces v3's A0 to 4 dp, and a
@@ -249,6 +254,17 @@ replace T2 until G-X/G-M say so.**
       (G-X FAIL −0.090, G-M fail −0.0123, shortcut 1.000). **Track closed.**
 - [~] ~~If GO: a corpus-build plan~~ — not applicable.
 - [ ] Settle A1 (DADA 30 fps) with one `ffprobe` on a source mp4, if one exists.
+
+### BDD-A as a T2 negative-bag pool — EDA (2026-09-25) — **CLOSED: NO-GO 2026-09-26**
+
+Plan: `.project/plans/katvad-bdda-normal-bag-eda.md`. Runbook: `colab/BDDA/eda_normal_bags.ipynb`.
+Write-up: `core/docs/BDDA_EDA.md`.
+
+- [x] Local inventory of `data/BDDA/` (BDD-A training split, 926 mp4 + 1 Hz GPS); plan with
+      pre-registered gates; notebook dry-run.
+- [x] **User:** ran on GPU (2026-09-26); outputs in `outputs/EDA/BDDA/`.
+- [x] Appendix A filled; **row taken: NO-GO** (G-X FAIL −0.127 on calm). **Track closed.**
+- [~] ~~Download the validation split / BDD100K~~ — conditional on a pass; not applicable.
 
 ### DADA-2000 **original** corpus — the live track (new 2026-09-15)
 

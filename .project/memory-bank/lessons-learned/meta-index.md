@@ -262,13 +262,15 @@ feature cache is keyed by SOURCE clip and a window is a slice.
   `core/constants.py:DADA_ORIGIN_WINDOW_LENGTH`
 
 ### C38 [CRITICAL] Data — admit an imported normal pool by transfer probe, not similarity
-Third separate-pool failure (0_Normal_Driving C28/C32 · TAD C14 · D2City). D2City as the
+Separate-pool failures: 0_Normal_Driving C28/C32 · TAD C14 · D2City · BDD-A. D2City as the
 only negatives: within-DADA `auc_macro` **0.5864** vs in-video **0.6763**, Δ **−0.090**
 (5/5 folds), shortcut AUC **1.000**; added beside in-video negatives still −0.012. DADA vs
 DoTA separates at 0.9999 on frozen CLIP — crops cannot remove a source cue. Gate = paired
 probe with the pool as SOLE negatives, within 0.03 of R0; default = negatives cut from
-inside the positive videos (T2).
-→ `core/docs/D2CITY_EDA.md`, `colab/D2City/eda_normal_bags.ipynb` §4
+inside the positive videos (T2). **Fourth failure 2026-09-26, BDD-A (US, calm arm):** X
+0.5492, Δ **−0.127**, shortcut 1.000 — even though R0 had ranked BDD-A *above* DADA
+normals (0.374). A separable pool ends at shortcut 1.0 whichever side it starts on.
+→ `core/docs/D2CITY_EDA.md`, `core/docs/BDDA_EDA.md`, `colab/{D2City,BDDA}/eda_normal_bags.ipynb` §4
 
 ### C7 [MEDIUM] Deps — don't call library internals that drift
 The LR schedule is an in-house `LambdaLR` rather than
@@ -332,7 +334,7 @@ The LR schedule is an in-house `LambdaLR` rather than
 | read or report a positive/negative score gap, a score range, or "the curves widened" | **C31** — divide by the within-clip σ |
 | pre-register a success criterion for a loss arm | **C31** (make it scale-invariant), C14 |
 | judge the DADA Phase 1 arms, or wonder whether C29 was refuted | `core/docs/RESULTS_DADA_PHASE1.md` §7 — falsified, and C29 still stands |
-| add normal/negative bags from ANOTHER dataset (D2City, BDD100K, `0_Normal_Driving`, …) | **C38** — run the G-X transfer probe first (pool as sole negatives vs in-video R0, paired folds); "same camera/country/fps" is not evidence. Default: T2 in-video negatives |
+| add normal/negative bags from ANOTHER dataset (D2City, BDD-A, BDD100K, `0_Normal_Driving`, …) | **C38** — run the G-X transfer probe first (pool as sole negatives vs in-video R0, paired folds); "same camera/country/fps" is not evidence. Default: T2 in-video negatives |
 | read a source-separability probe (S) as an admission verdict | **C38** — it is a claim gate; frozen CLIP separates every dashcam corpus from DADA (DoTA 0.9999) |
 | add or change a loss | C7, **C37**, `core/docs/TRAINING.md` (deviations) |
 | set a loss WEIGHT, or read a raw loss value as "the head fits badly" | **C37** — measure the constant-predictor MSE on its target first; `R² = 1 − loss/V`, weight = `1/V`, never a sweep (lesson 14) |

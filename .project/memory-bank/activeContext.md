@@ -26,11 +26,68 @@
 > this branch *this file and `progress.md` are the only durable record of the
 > attribution campaign*. Do not delete them; do not re-run those arms here.
 
-**Last Memory Bank Update:** 2026-09-25 (latest — **D2City EDA RUN and READ OUT: NO-GO.**
+**Last Memory Bank Update:** 2026-09-26 (latest — **BDD-A EDA RUN and READ OUT: NO-GO.**
+Partial update: `activeContext`, `progress`, lessons (C38 extended); docs 25 → 26
+(+ `core/docs/BDDA_EDA.md`); code counts unchanged.) Previous: 2026-09-25 (**D2City EDA RUN and READ OUT: NO-GO.**
 Track 0b closed; T2 + Option A remain the live track. Partial update: `activeContext`,
 `progress`, lessons; the other four core files are untouched because nothing
 architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 13,833 source LOC, 582 collected); **docs 24 → 25** (+ `core/docs/D2CITY_EDA.md`).
+
+## 2026-09-26 (later) — **BDD-A EDA RUN: NO-GO** — fourth separate-pool failure
+
+Write-up: `core/docs/BDDA_EDA.md` (raw in `outputs/EDA/BDDA/`). Plan Appendix A filled,
+status CLOSED. Lesson **C38** extended (index/detailed/meta-index).
+
+* **Mechanics pass:** G-I 925/926 (calm 508) · G-L L-T2 length AUC **0.5000** · R0
+  **0.676227** = D2City's 0.676258 (\|Δ\| 3.1e-5 — the DADA side is the same pipeline).
+* **G-X FAIL (calm):** X **0.5492**, Δ(X−R0) **−0.1270 [−0.1532, −0.1008]**, 5/5 folds
+  < −0.06 — worse than D2City (−0.090). `all`: X 0.5375, Δ −0.139. Calm helps by +0.012 only.
+* **G-M pass at ≈ 0** (−0.0029 [−0.0062, +0.0004]) — no gain; shortcut M 0.999.
+* **New fact:** R0 (never saw BDD-A) ranks BDD-A frames *above* DADA normals in 63 % of pairs
+  (shortcut 0.374; D2City was 0.820 the other way). As negatives the probe flips it to
+  **1.000** anyway: the prior side does not matter, separability does. No overlay in BDD-A,
+  so the shortcut needs no watermark.
+* Cost if it had passed: L-T2 clip oracle 0.7037 → **0.8813** at mix 1.0 (C33).
+* **No further BDD downloads.** Tracks 0b (D2City) and BDD-A both closed.
+
+**Next action:** Option A — run `colab/DADA2000Origin/phase_5_zscore.ipynb` (unrun since
+`ae4fded`).
+
+## 2026-09-26 — **BDD-A AS A T2 NEGATIVE-BAG POOL: EDA BUILT** *(run the same day → NO-GO, above)*
+
+Plan: `.project/plans/katvad-bdda-normal-bag-eda.md`. Runbook: `colab/BDDA/eda_normal_bags.ipynb`
+(23 cells, the D2City protocol with the same bars). **Uncommitted.** No `core/` change.
+**Prior = NO-GO** (C38: D2City shortcut 1.000; DADA vs DoTA S-ref 0.9999).
+
+* **`data/BDDA/` is BDD-A (Berkeley DeepDrive *Attention*), not BDD100K.** The user renamed
+  `data/BDD100KVideo` → `data/BDDA`. The clips are collected around **braking events**: 926
+  training mp4 (1280×720; `922.mp4` undecodable) + 1 Hz GPS. fps 89 % ≈ 30, 11 % ≈ 60 (one
+  clip at 120). ~10 s each (p95 14 s, max 32). GPS: min accel p50 −2.59 m/s². **Calm arm
+  (≥ −3 m/s²) = 508 usable clips.** The gate is read on `calm`; `all` is descriptive.
+  Validation split (200 clips) not needed — the notebook reads `data/BDDA/validation/` if
+  uploaded, ids split-prefixed.
+* Design deltas vs D2City: **per-clip stride** `round(fps × 0.267)` (8 / 16); **no V1 crop
+  arm** (lesson 14, C38); length construction **L-T2** = BDD-A cut into T2's own W=20 hop 8
+  windows vs T2 test windows; probes take whole clips as negatives; **R0 fitted once and
+  must reproduce D2City's 0.676258** (same DADA folds and seed); `probes.json` resumable.
+* Dry-run 2026-09-26 (real BDD-A inventory/GPS/decode, synthetic DADA, fake encoder): every
+  cell runs, G-I PASS on the real data (925 usable, 508 calm), G-L 0.5000 by construction,
+  synthetic R0 = 1.0 → "PIPELINE BUG" as designed. The synthetic run shows that adding
+  all-normal BDD-A windows **raises the T2 clip oracle** (0.68 → 0.86 at mix 1.0, C33): a
+  cost if it ever passes.
+* Montage: San Francisco streets, visible hood, **no overlay** (no timestamp or logo, unlike
+  D2City). Hard-braking frames = crosswalks, red lights, pedestrians.
+* Download note: `dl.yf.io` throttles each connection to ~15 KB/s. 8 parallel ranges ≈ 700 KB/s
+  (`aria2c -x16 -s16 -c`). mot20 = 5 fps tracking frames (unfit); `bdd100k_videos.zip` = 1.8 TB.
+  Only download more if BDD-A **passes**.
+
+**Next action (user, Colab):** upload `data/BDDA/archive.zip` (3.3 GB; members
+`training/{camera_videos,gps_jsons}/…`, macOS `__MACOSX/`/`._*` junk skipped by the notebook)
+to `Drive/Thesis/data/BDDA/`, sync `core/`, run the notebook on GPU, bring back
+`outputs/EDA/BDDA/*`; fill the plan's Appendix A. Option A (phase 5) is still unrun.
+
+---
 
 ## 2026-09-25 — **D2City EDA: NO-GO — D2City teaches the source, not the accident**
 

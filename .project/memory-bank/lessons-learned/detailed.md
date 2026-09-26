@@ -1366,3 +1366,14 @@ construction (0.5000).
 alternative is a RAFT extraction, a z-score cache, a corpus build and a 3-seed campaign,
 all on a pool that would teach "which camera".
 
+**Addendum 2026-09-26 — the fourth pool, BDD-A.** Same protocol, same DADA folds (R0
+reproduced D2City's to 3.1e-5), gate read on the `calm` GPS arm because BDD-A is collected
+around braking events. X = **0.5492**, Δ(X−R0) = **−0.1270** [−0.1532, −0.1008], 5/5 folds
+past −0.06, shortcut **1.000**. That is worse than D2City, with **no overlay** in the
+frames (no logo, no timestamp), so the shortcut does not need a watermark. The new
+information is R0's starting side: before any training it ranked BDD-A frames *above* DADA
+normals (shortcut 0.374), whereas D2City started below (0.820). Using BDD-A as the negatives
+flipped it to 1.000 anyway. **The direction of the prior gap does not predict admission;
+separability does, and on frozen CLIP every foreign dashcam corpus is separable.** G-M
+passed only because Δ(M−R0) ≈ −0.003. It is not a gain. `core/docs/BDDA_EDA.md`.
+
