@@ -1374,3 +1374,26 @@ does not share one (e.g. `L_KIP_rec`, whose cosine is ≈ 0).
 **Gate status.** Observed once (one campaign, 3 seeds). Nobody has misread it yet, so the
 "recurring" gate is not met. Leave pending.
 
+---
+
+## (y) [MEDIUM] Experiments - A data-subset arm must rebuild every cache keyed to the train split, and fix compute explicitly (2026-09-26)
+
+**Triggers:** learning curve, subset, fraction of data, labels_train, knn_cache, num_epochs, steps per epoch, cosine horizon
+**Problem:** Two quiet ways to get a wrong learning curve on this code.
+- **The DVS KNN cache is keyed to `labels_train.json`** (`core/data/knn_cache.py:183`).
+  Reusing the full corpus's cache on a subset splices in normals the arm never trains on.
+  Nothing raises.
+- **`steps/epoch = ceil(2 · N_abnormal / batch)`**, and `num_epochs` also sets the cosine
+  horizon. A subset trained with the full run's `num_epochs` gets fewer steps *and* a
+  different schedule, which confounds "less data" with "less training".
+
+**Bad:** a subset `labels_train.json` + the parent's `--knn-cache` + `train.num_epochs=20`.
+**Good:** `core.tools.subset_train`, then `core.data.knn_cache --data-dir <subset>`, then
+`num_epochs = round(total_steps / steps_per_epoch)`. Gate G-S4 (±2 %) and G-S5 (KNN
+anomaly ids == subset abnormal ids) in `phase_6_learning_curve.ipynb`.
+**Candidate rule.** *Rebuild every train-split-keyed cache on a subset, and derive `num_epochs` from a fixed step budget.*
+**Files:** `core/tools/subset_train.py`, `core/data/knn_cache.py:183`, `core/train.py:210-213`
+
+**Gate status.** Found while designing, not observed as a bug. Gate 3 (it happened) is not
+met. Leave pending until phase 6 runs.
+

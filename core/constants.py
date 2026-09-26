@@ -43,6 +43,10 @@ META_FILENAME = "meta.json"  # per-video scenario/class/split/window (diagnostic
 # every loader behaves exactly as before. See core/docs/DATA_LAYOUT.md.
 WINDOWS_FILENAME = "windows.json"
 WINDOW_ID_SEPARATOR = "__w"  # "{source}__w{index:03d}"
+# core.tools.subset_train: a train-source subset of a dataset dir (learning curve,
+# plan katvad-t2-learning-curve.md). Written beside the filtered labels_train.json.
+SUBSET_MANIFEST_FILENAME = "subset_manifest.json"
+SUBSET_UNTYPED_GROUP = "__all__"  # stratum used when meta.json carries no class_name
 
 CLIP_CACHE_DIR = CACHE_ROOT / "clip"
 CACHE_PART_SUFFIX = ".part"  # in-flight write; renamed onto the target when complete

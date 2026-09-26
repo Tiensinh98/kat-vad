@@ -95,6 +95,25 @@ typo — an unrecognized value must not leave the arm silently off.
    (`train.cosine_warmup_lambda`, unit-tested) instead of
    `transformers.get_scheduler` — avoids HF internal-API drift (lesson P4).
 
+## Data learning curves (`core.tools.subset_train`)
+
+The training set is exactly the ids in `labels_train.json`, so a learning-curve
+arm trains on a **subset dataset dir**, not on a flag. `python -m
+core.tools.subset_train --data-dir <full> --out-dir <sub> --fraction F --seed S
+[--nest-in <larger sub>]` keeps `round(n_type · F)` whole **source videos** per
+accident type, copies every other file byte for byte (so the test split is the
+parent's), and writes `subset_manifest.json`. It raises on a leaked test source,
+a lost class, or a nest that escapes its parent. Two things the tool does
+**not** do, and a runbook must:
+- **Rebuild the KNN cache on the subset dir.** The parent's cache names normals
+  the arm never trains on.
+- **Hold compute fixed.** `steps/epoch = ceil(2 · N_abnormal / batch)` and
+  `train.num_epochs` is also the cosine horizon, so set
+  `num_epochs = round(total_steps / steps_per_epoch)` per subset.
+
+Runbook: `colab/DADA2000Origin/phase_6_learning_curve.ipynb`. Plan:
+`.project/plans/katvad-t2-learning-curve.md`.
+
 ## Resumability contract
 
 A run writes exactly one checkpoint, `checkpoint_last.pt`, at each epoch

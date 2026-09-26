@@ -26,7 +26,7 @@
 > this branch *this file and `progress.md` are the only durable record of the
 > attribution campaign*. Do not delete them; do not re-run those arms here.
 
-**Last Memory Bank Update:** 2026-09-26 (latest — **Option A / phase 5 READ OUT: "cost removed;
+**Last Memory Bank Update:** 2026-09-26 (latest — **step B built: subset tool, 16 tests, phase-6 notebook; not run**.) Before that, 2026-09-26 (**Option A / phase 5 READ OUT: "cost removed;
 KIP-v1 neutral on T2"**. Partial update: `activeContext`, `progress`, lessons (C37 outcome,
 pending (x)), plan App. A; docs 26 → 27 (+ `core/docs/RESULTS_DADA_ORIG_T2.md`); code unchanged.)
 Before that, 2026-09-26 (**CCD (`data/CarCrash/`) profiled and PARKED**;
@@ -38,7 +38,21 @@ Track 0b closed; T2 + Option A remain the live track. Partial update: `activeCon
 architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 13,833 source LOC, 582 collected); **docs 24 → 25** (+ `core/docs/D2CITY_EDA.md`).
 
-## 2026-09-26 (latest) — **OPTION A READ OUT: cost removed, KIP-v1 NEUTRAL on T2 (bounded null)**
+## 2026-09-26 (latest) — **STEP B (T2 learning curve): BUILT, NOT RUN**
+
+Plan `.project/plans/katvad-t2-learning-curve.md`, **authorized** (D-1 fixed 2,040 steps,
+D-2 T2 micro primary + macro sign, D-3 25 % + 50 %, 6 KIP-off runs; 100 % = phase-4 KIP-off
+reused). New `core/tools/subset_train.py` (+16 tests, suite **598 / 0 fail**),
+`SUBSET_MANIFEST_FILENAME` in constants, runbook `colab/DADA2000Origin/phase_6_learning_curve.ipynb`
+(dry-run on a synthetic T2 OK). Also: `RESULTS_DADA_ORIG_T2.md` §7 *Interpretation* written;
+`Thesis_Report.xlsx` Training Results §5/§7 updated (sheet3.xml-only patch — the EDA sheet
+holds 7 images an openpyxl save would drop). **Uncommitted.**
+
+**Next action (user, Colab):** sync `core/` to Drive, run `phase_6_learning_curve.ipynb` on GPU,
+bring back `outputs/REPORTS/DADA2000_orig_lcurve/`. Verdict row RISING / FLAT / INCONCLUSIVE
+decides CCD (RISING → CCD plan; else → write-up D).
+
+## 2026-09-26 — **OPTION A READ OUT: cost removed, KIP-v1 NEUTRAL on T2 (bounded null)**
 
 Record: `core/docs/RESULTS_DADA_ORIG_T2.md` (durable). Plan App. A filled, status CLOSED.
 Raw: `outputs/REPORTS/DADA2000_orig_zscore/`, `outputs/v1/DADA2000_orig_zscore/`. Every Δ was

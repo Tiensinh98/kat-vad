@@ -248,6 +248,22 @@ G2-c (projection round-trip ∈ [0.9, 1.1]). Train with
 lambda_rec>`. Resumable; `--force` refits and rewrites everything. On Drive,
 stage both roots to local disk first and `rsync` the result back (lesson C10).
 
+### 4.3c Train-source subsets for a learning curve (CPU, seconds)
+
+```bash
+!python -m core.tools.subset_train \
+  --data-dir "$KATVAD_DATA_ROOT/DADA2000_orig" \
+  --out-dir  /content/p6/subsets/f050_s2024 --fraction 0.5 --seed 2024
+!python -m core.tools.subset_train \
+  --data-dir "$KATVAD_DATA_ROOT/DADA2000_orig" \
+  --out-dir  /content/p6/subsets/f025_s2024 --fraction 0.25 --seed 2024 \
+  --nest-in  /content/p6/subsets/f050_s2024
+```
+
+Then build a KNN cache **on each subset dir** (4.4), and derive
+`train.num_epochs` for a fixed step budget (`TRAINING.md`, *Data learning curves*).
+The whole sequence is `colab/DADA2000Origin/phase_6_learning_curve.ipynb`.
+
 ### 4.4 Build the DVS KNN filler cache (CPU, fast)
 
 ```bash
