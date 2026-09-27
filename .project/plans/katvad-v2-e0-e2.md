@@ -212,7 +212,7 @@ Trước khi sửa bất kỳ symbol nào: `trace_call_path` + báo blast radius
 
 | Phase | Kết quả | Commit | Ngày |
 |---|---|---|---|
-| P0 | T2-val 219 src / 645 win; DoTA-dev 702 clip / 93 vid, eval 700 / 86; >70 bin chỉ 19 clip dev; addendum D1–D6 | (commit P0) | 2026-09-27 |
+| P0 | T2-val 219 src / 645 win; DoTA-dev 702 clip / 93 vid, eval 700 / 86; >70 bin chỉ 19 clip dev; addendum D1–D6 | `7422975` | 2026-09-27 |
 | P1 K | | | |
 | P2 E0/E2(a–c) | | | |
 | P3 E1/E0b | | | |

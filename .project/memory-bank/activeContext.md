@@ -50,7 +50,7 @@ Plan `.project/plans/katvad-v2-e0-e2.md` (user-approved order: freeze → kill-s
 * **T2-val** 219 / 1,491 train sources, 645 windows (472 / 173), stratified by `type`. **DoTA-dev** 702 clips / 93 videos, **eval** 700 / 86 — grouped by YouTube video (1,402 clips from **179** videos). Share bins dev/eval: <30 343/343, 30–50 247/247, 50–70 93/90, **>70 19/20** (the CRN no-reversal rule is noisy there; flagged).
 * At native frames every DoTA val clip is abnormal; the "3 normal clips" were stride-8 rounding.
 * Found: `subset_train` stratifies T2 by `class_name`, which is constant → the phase-6 draw was unstratified (pending (ac)). DoTA bootstrap must resample videos (pending (ad)).
-* Suite **622 / 0 fail** (+24 `test_v2_splits.py`).
+* Suite **622 / 0 fail** (+24 `test_v2_splits.py`). **Frozen at commit `7422975`** — cite it in every v2 read-out.
 
 **Next action:** P1 kill-switch — context7 check of the VideoMAE V2 distilled loading API, then `core/tools/extract_video_features.py`; in parallel P2 (E0 + E2(a–c), numpy on CLIP caches pulled from Drive).
 
