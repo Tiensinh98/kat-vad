@@ -333,6 +333,26 @@ SEED = 2024
 MAX_VIS_LEN = 512  # sliding-window length for full-video eval
 
 # ---------------------------------------------------------------------------
+# KAT-VAD v2 decision splits (proposal core/docs/v2/KAT_VAD_PROPOSAL_v2.md §7.2,
+# plan .project/plans/katvad-v2-e0-e2.md P0). Frozen once by
+# `python -m core.tools.freeze_splits` and committed; every v2 decision reads
+# T2-val / DoTA-dev only. DoTA-eval is sealed until the final report.
+# ---------------------------------------------------------------------------
+V2_SPLITS_DIR = Path(__file__).resolve().parent / "splits" / "v2"
+V2_SPLITS_MANIFEST_FILENAME = "SPLITS_MANIFEST.json"
+V2_SPLIT_FILE_SUFFIX = ".txt"
+V2_SPLIT_T2_VAL = "t2_val_sources"
+V2_SPLIT_DOTA_DEV = "dota_dev"
+V2_SPLIT_DOTA_EVAL = "dota_eval"
+V2_SEALED_SPLITS = frozenset({V2_SPLIT_DOTA_EVAL})
+V2_T2_VAL_FRACTION = 0.15  # of T2-train SOURCE videos, per accident type
+V2_DOTA_DEV_FRACTION = 0.5  # of DoTA val clips, grouped by source YouTube video
+V2_SPLIT_SEED = SEED
+# Accident-share bins (proposal §4.2 step 2): share = anomaly frames / clip frames.
+V2_SHARE_BIN_EDGES = (0.3, 0.5, 0.7)
+V2_SHARE_BIN_LABELS = ("<30", "30-50", "50-70", ">70")
+
+# ---------------------------------------------------------------------------
 # Evaluation score pooling (lesson C12)
 #
 # Micro AUC concatenates every video's frames into one ranking, so the

@@ -1453,3 +1453,36 @@ min-max before any pooled AUC.
 
 **Gate status.** Found in design review (advisor, round 4). Gate 3 not met.
 
+
+---
+
+## (ac) [MEDIUM] Data - A stratum key that is constant over the corpus stratifies nothing (2026-09-27)
+
+**Triggers:** stratify, stratum, class_name, subset, draw_subset, split, per type
+**Problem:** `core/tools/subset_train.load_train_pool` stratifies T2 sources by `class_name`,
+but every T2 window's `class_name` is `CarAccident` (5,507 / 5,507). The "stratified by accident
+type" draw of the phase-6 learning curve was therefore **one stratum**: a plain random draw of
+sources. Nothing raised; the docstring still says per type.
+**Bad:** stratum = a metadata field chosen by name, never counted.
+**Good:** stratum = the field that actually varies (`type`, 1..52; as `dada_origin.split_by_type`
+does), and the tool logs the number of strata it found.
+**Candidate rule.** *Count the distinct values of a stratum key before trusting a stratified draw; one value means the draw is unstratified.*
+**Files:** `core/tools/subset_train.py:124-132`; `core/tools/freeze_splits.py` (`t2_pool_from_meta` uses `type`)
+
+**Gate status.** Found by reading code while freezing the v2 splits (P0). Impact on the
+learning-curve result is unmeasured (likely small: 1,491 sources). Gate 3 not met.
+
+---
+
+## (ad) [MEDIUM] Metrics - Bootstrap DoTA over source videos, not clips (2026-09-27)
+
+**Triggers:** bootstrap, DoTA, CI, clip-level, paired bootstrap, dev split
+**Problem:** DoTA's 1,402 val clips come from **179** YouTube videos (up to 19 clips each).
+Clips from one video share camera, scene and often the same accident, so a clip-level
+bootstrap treats correlated clips as independent and narrows the interval.
+**Bad:** resample clip ids.
+**Good:** resample `dota_group(clip_id)` groups and keep all their clips; split DoTA by group.
+**Candidate rule.** *Resample and split at the level where observations are independent.*
+**Files:** `core/data/v2_splits.py` (`dota_group`, `grouped_split`); `core/docs/v2/PREREG_ADDENDUM.md` D3
+
+**Gate status.** Design-level; no interval has been recomputed both ways yet (E1 will). Gate 3 not met.

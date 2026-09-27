@@ -2,6 +2,10 @@
 
 > ## ⚠️ BRANCH IDENTITY — READ BEFORE ANYTHING ELSE
 >
+> **Branch `v2` note (2026-09-27):** this copy was carried from `main` onto branch **`v2`**
+> (the KAT-VAD v2 build line, off `main@cc39882`). The `main`/`v3` table below still holds;
+> on `v2` the code is `main`'s v1 **plus** the v2 P0 split freeze. Tests on `v2`: **622 / 0 fail**.
+>
 > **This memory bank is the `main` branch's copy, and `main` is KAT-VAD **v1**.**
 > The v3 KIP gate rebuild is **not** in this tree; it lives on branch **`v3`**,
 > which carries its own copy of this file. The memory bank is git-tracked per
@@ -38,7 +42,19 @@ Track 0b closed; T2 + Option A remain the live track. Partial update: `activeCon
 architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 13,833 source LOC, 582 collected); **docs 24 → 25** (+ `core/docs/D2CITY_EDA.md`).
 
-## 2026-09-27 (latest) — **KAT-VAD v2 DESIGNED, ADVISOR SIGN-OFF — not built, not run**
+## 2026-09-27 (latest) — **v2 P0 DONE: decision splits frozen, pre-registration addendum** (branch `v2`)
+
+Plan `.project/plans/katvad-v2-e0-e2.md` (user-approved order: freeze → kill-switch K → E0/E2(a–c) ∥ E1+E0b → E2(d) → build → pilot → go/no-go; D1–D6 deviate from proposal §10.2, recorded in `core/docs/v2/PREREG_ADDENDUM.md`).
+
+* `core/splits/v2/` via `python -m core.tools.freeze_splits --t2-meta outputs/EDA/DADA2000_orig_T2_w20s8/meta.json` (`--check` verifies). Reader = `core.data.v2_splits.load_split` (sha1-checked; DoTA-eval raises `SealedSplitError` unless `final=True`).
+* **T2-val** 219 / 1,491 train sources, 645 windows (472 / 173), stratified by `type`. **DoTA-dev** 702 clips / 93 videos, **eval** 700 / 86 — grouped by YouTube video (1,402 clips from **179** videos). Share bins dev/eval: <30 343/343, 30–50 247/247, 50–70 93/90, **>70 19/20** (the CRN no-reversal rule is noisy there; flagged).
+* At native frames every DoTA val clip is abnormal; the "3 normal clips" were stride-8 rounding.
+* Found: `subset_train` stratifies T2 by `class_name`, which is constant → the phase-6 draw was unstratified (pending (ac)). DoTA bootstrap must resample videos (pending (ad)).
+* Suite **622 / 0 fail** (+24 `test_v2_splits.py`).
+
+**Next action:** P1 kill-switch — context7 check of the VideoMAE V2 distilled loading API, then `core/tools/extract_video_features.py`; in parallel P2 (E0 + E2(a–c), numpy on CLIP caches pulled from Drive).
+
+## 2026-09-27 — **KAT-VAD v2 DESIGNED, ADVISOR SIGN-OFF — not built, not run**
 
 Record: `core/docs/v2/KAT_VAD_PROPOSAL_v2.md` (the *why*, four review-response tables;
 rounds 3–4 are the **advisor's**) + `core/docs/v2/KAT_VAD_v2_ARCHITECTURE.md` (shapes).

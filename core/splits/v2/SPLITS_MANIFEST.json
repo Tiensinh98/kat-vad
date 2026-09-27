@@ -1,0 +1,150 @@
+{
+  "dota": {
+    "all_normal_clips": {},
+    "clips_dev": 702,
+    "clips_eval": 700,
+    "clips_per_share_bin": {
+      "30-50": {
+        "dev": 247,
+        "eval": 247
+      },
+      "50-70": {
+        "dev": 93,
+        "eval": 90
+      },
+      "<30": {
+        "dev": 343,
+        "eval": 343
+      },
+      ">70": {
+        "dev": 19,
+        "eval": 20
+      }
+    },
+    "clips_total": 1402,
+    "fraction": 0.5,
+    "group": "source YouTube video (clip id minus its trailing _frame)",
+    "groups_dev": 93,
+    "groups_eval": 86,
+    "groups_total": 179,
+    "stratum": "share bin of the source video's median clip share"
+  },
+  "inputs": {
+    "dota_metadata": {
+      "name": "metadata_val.json",
+      "sha1": "a997a930d9f2ef0526939c8a1a5ada825cdf37b3"
+    },
+    "dota_split": {
+      "name": "val_split.txt",
+      "sha1": "0125d78281867c11eb5d064a03ed207a43fe577e"
+    },
+    "t2_meta": {
+      "name": "meta.json",
+      "sha1": "7b13d23996b57e04304482f77c83c67537602479"
+    }
+  },
+  "plan": ".project/plans/katvad-v2-e0-e2.md P0",
+  "proposal": "core/docs/v2/KAT_VAD_PROPOSAL_v2.md \u00a77.2",
+  "sealed": [
+    "dota_eval"
+  ],
+  "seed": 2024,
+  "splits": {
+    "dota_dev": {
+      "count": 702,
+      "sha1": "b0adfcd0739af9b253e09227b6e9f1493843ddc5"
+    },
+    "dota_eval": {
+      "count": 700,
+      "sha1": "e65a03229aaead43bc7206f3956faeaf1f445211"
+    },
+    "t2_val_sources": {
+      "count": 219,
+      "sha1": "3508688f30222a763469e37589d8ee173ca7dc8b"
+    }
+  },
+  "t2_val": {
+    "fraction": 0.15,
+    "kept_by_type": {
+      "1": 5,
+      "10": 19,
+      "11": 28,
+      "12": 5,
+      "13": 1,
+      "14": 4,
+      "15": 0,
+      "16": 0,
+      "17": 0,
+      "18": 1,
+      "19": 0,
+      "2": 1,
+      "20": 0,
+      "21": 1,
+      "22": 0,
+      "23": 0,
+      "24": 2,
+      "3": 2,
+      "30": 0,
+      "33": 0,
+      "34": 0,
+      "36": 0,
+      "37": 10,
+      "38": 8,
+      "39": 3,
+      "4": 2,
+      "40": 2,
+      "41": 2,
+      "42": 3,
+      "43": 23,
+      "44": 0,
+      "45": 1,
+      "47": 0,
+      "48": 9,
+      "49": 5,
+      "5": 18,
+      "50": 23,
+      "51": 2,
+      "52": 1,
+      "53": 1,
+      "54": 0,
+      "55": 0,
+      "56": 4,
+      "57": 5,
+      "58": 0,
+      "59": 2,
+      "6": 14,
+      "60": 0,
+      "61": 2,
+      "7": 2,
+      "8": 6,
+      "9": 2
+    },
+    "label_rule": "abnormal iff positive_frames > 0",
+    "stratum": "type",
+    "train_sources_total": 1491,
+    "train_windows_total": 4401,
+    "types_without_val_source": [
+      "15",
+      "16",
+      "17",
+      "19",
+      "20",
+      "22",
+      "23",
+      "30",
+      "33",
+      "34",
+      "36",
+      "44",
+      "47",
+      "54",
+      "55",
+      "58",
+      "60"
+    ],
+    "val_sources": 219,
+    "val_windows": 645,
+    "val_windows_abnormal": 472,
+    "val_windows_normal": 173
+  }
+}

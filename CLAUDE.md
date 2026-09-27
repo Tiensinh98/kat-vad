@@ -544,13 +544,14 @@ codebase-memory-mcp cli index_repository '{"repo_path": "/path/to/your-project"}
 
 ### 14.0.1 WHICH BRANCH AM I ON? (READ FIRST — the tree differs)
 
-The repository carries **two live branches with different KIP code**. They share
+The repository carries **three live branches** (`main` = v1, `v3` = gate rebuild, `v2` = the v2 build line off `main`). They share
 history up to `fac71a3`; the memory bank under `.project/memory-bank/` is tracked
 **per branch**, so the one you just loaded describes *this* branch only.
 
 | Branch | What the code is | KIP gate | Tests |
 | --- | --- | --- | --- |
 | **`main` (tip `cc39882`)** | **KAT-VAD v1** — the original KIP: `PMGFlowHead` + `KinematicShift` (frozen 321-param MLP gate) + `MotionScoreHead`. Plus the DoTA / PreVAD / TAD / DADA adapters, `core/eda/`, and `core/data/windows.py`. | **v1 only.** No `kip.gate_type`, no `core/kip/ecmr.py`, no gate diagnostics, no train-only inference graph. | **598 collected, 0 fail** (2026-09-27) |
+| **`v2` (from `main@cc39882`)** | **KAT-VAD v2 build line** — `main`'s v1 code + the v2 design docs (`core/docs/v2/`) + v2 P0 (2026-09-27): frozen decision splits `core/splits/v2/` (`core/data/v2_splits.py`, `core/tools/freeze_splits.py`), `core/docs/v2/PREREG_ADDENDUM.md`. Model code for v2 (CRN, motion stream) is **not built yet**; plan `.project/plans/katvad-v2-e0-e2.md`. | v1 only (as `main`); v2 trains with KIP off. | **622 collected, 0 fail** (2026-09-27) |
 | **`v3` (tip `bb1516c`)** | v1 **+** the 2026-08-30 gate rebuild: four selectable `gate_type`s (`rank`/`mlp_frozen`/`mlp_ste`/`constant`), ECMR, `train_only_modules`, `--dump-kip-diag`. | v3, default `rank`. | 537 green |
 
 **Run `git branch --show-current` before acting on anything in §14.5.** Writing
