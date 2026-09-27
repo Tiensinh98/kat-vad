@@ -26,7 +26,7 @@
 > this branch *this file and `progress.md` are the only durable record of the
 > attribution campaign*. Do not delete them; do not re-run those arms here.
 
-**Last Memory Bank Update:** 2026-09-26 (latest — **step B read out: INCONCLUSIVE, CCD parked, next = D**.) Before that, 2026-09-26 (**step B built: subset tool, 16 tests, phase-6 notebook**.) Before that, 2026-09-26 (**Option A / phase 5 READ OUT: "cost removed;
+**Last Memory Bank Update:** 2026-09-27 (latest — **DVS audit of T2: `is_egocentric=false` dropped, C29 recurs, KNN clean**; `activeContext`, pending (aa), `RESULTS_DADA_ORIG_T2.md` §9; code unchanged.) Before that, 2026-09-26 (**step B read out: INCONCLUSIVE, CCD parked, next = D**.) Before that, 2026-09-26 (**step B built: subset tool, 16 tests, phase-6 notebook**.) Before that, 2026-09-26 (**Option A / phase 5 READ OUT: "cost removed;
 KIP-v1 neutral on T2"**. Partial update: `activeContext`, `progress`, lessons (C37 outcome,
 pending (x)), plan App. A; docs 26 → 27 (+ `core/docs/RESULTS_DADA_ORIG_T2.md`); code unchanged.)
 Before that, 2026-09-26 (**CCD (`data/CarCrash/`) profiled and PARKED**;
@@ -38,7 +38,28 @@ Track 0b closed; T2 + Option A remain the live track. Partial update: `activeCon
 architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 13,833 source LOC, 582 collected); **docs 24 → 25** (+ `core/docs/D2CITY_EDA.md`).
 
-## 2026-09-26 (latest) — **STEP B READ OUT: INCONCLUSIVE → CCD parked → write-up (D)**
+## 2026-09-27 (latest) — **DVS AUDIT OF T2: two deviations, one non-issue**
+
+Record: `core/docs/RESULTS_DADA_ORIG_T2.md` §9. Pending (aa). No training, no `core/` change.
+Measured from the 15 phase-4/5 `config.yaml`, the T2 W=20 hop 8 `meta.json` and the KNN
+cache (`test/knn_cache.npz`, gitignored, = phase-4/5 T2 train cache).
+
+* **D-1 `is_egocentric=false`** on every T2 run. `DADA_SETUP.md:596` says `true`, and the
+  T2 notebooks never pass the flag, so it was dropped rather than decided. P(synth) = **0.30**
+  with 1–4 fillers, instead of 0.15 with 1.
+* **D-2 C29 recurs:** `dvs_anchor_mode=span` on two-class windows. Anchor positive share
+  mean **0.453**, 53.8 % below one half, so ≈ 55 % of the anchor pseudo-labels are wrong on
+  ≈ 15 % of samples. This is the largest of the three.
+* **D-3 KNN same-source fillers: negligible.** 5.8 % of neighbours share the source video;
+  ≈ 0.5 % of samples contain a row-overlapping filler.
+* Paired Δs (KIP on/off, v2/v1, learning curve) stand. Absolute T2 levels may be depressed.
+  The size is unmeasured.
+
+**Next action:** still **D** (write-up), carrying §9 as a caveat. The optional repair arm
+(`is_egocentric=true` + `dvs_anchor_mode=ignore`, KIP-off × 3, paired vs phase-4 KIP-off)
+is **not authorized**. It is the user's call.
+
+## 2026-09-26 — **STEP B READ OUT: INCONCLUSIVE → CCD parked → write-up (D)**
 
 Record: `RESULTS_DADA_ORIG_T2.md` §8, plan App. A (status CLOSED). Raw:
 `outputs/REPORTS/DADA2000_orig_lcurve/`. Re-computed locally; pairing (`num_epochs` only),

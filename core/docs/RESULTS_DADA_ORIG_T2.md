@@ -215,3 +215,29 @@ Caveat: the plan's power estimate was ~4.5× too narrow (plan App. A.4). "FLAT" 
 unreachable at n = 3, so "INCONCLUSIVE" here means "a slope ≤ ~0.04 per doubling, point
 estimate ≈ 0.01", not "no information".
 
+
+## 9. Caveat: the DVS configuration every T2 run trained under (audited 2026-09-27)
+
+Found after the fact, by reading the run configs and simulating the sampler
+(`core/data/dataset.py:145`, `core/data/synthesis.py`) over the T2 W=20 hop 8 `meta.json`
+and the phase-4/5 KNN cache. No training was run.
+
+All 15 phase-4/5 `config.yaml` carry the same DVS block: `data.is_egocentric: false`,
+`dvs.theta 0.7`, `delta_m 5`, `knn_filler_ratio 0.5`, `loss.dvs_anchor_mode: span`. Phase 6
+uses the same notebook command shape.
+
+| # | Finding | Measured | Weight |
+|---|---|---|---|
+| D-1 | **`is_egocentric=false` on a dashcam corpus.** `DADA_SETUP.md:596` requires `true`, and its §9 lists `false` as a mistake. None of `phase_{4,5_zscore,6_learning_curve}.ipynb` passes the flag, and no T2 plan or result mentions it. It looks dropped, not decided. | P(synth) = **0.30** (not 0.15), 1–4 fillers (not 1). Unsynthesized samples are 20 rows, synthesized ones 40–100. `MAX_VIS_LEN` 512, so nothing is truncated. | Deviation from the spec, undocumented |
+| D-2 | **C29 recurs on T2.** `span` sets `y^p = 1` on all 20 anchor rows, but a T2 abnormal window is two-class. | Over the 3,242 train abnormal windows, positive rows / 20: mean **0.453**, median 0.45. **53.8 %** are below one half, and 1.1 % are fully positive. So ≈ 55 % of the anchor-span pseudo-labels are wrong, on ≈ 15 % of training samples (abnormal half × P(synth)). | **Largest** |
+| D-3 | KNN fillers from the anchor's own source video | The cache matches T2 train exactly (3,242 anchors, k=10, all neighbours train-normal, 1,149/1,159 used). Same-source neighbours: mean **5.8 %**, row-overlapping 3.0 %. Simulated (200k draws): P(≥1 same-source filler \| abnormal synth) **0.068**, P(≥1 row-overlapping filler) **0.035**, i.e. **≈ 0.5 %** of all training samples. Mild hub: `t50_v056__w002` is drawn 250×, ≈ 9× the mean. | Negligible |
+
+**What this does and does not change.**
+- Every paired Δ in §2–§8 stands. D-1…D-3 are identical in both arms of every contrast: KIP
+  on/off, v2/v1, and the subset fractions.
+- The **absolute** T2 levels (micro 0.6182, macro 0.6248 KIP-off) were measured under
+  D-1 + D-2 and may be depressed by them. Do not present them as the corpus ceiling.
+- **Not measured:** the size of that depression. The repair arm (`data.is_egocentric=true` +
+  `loss.dvs_anchor_mode=ignore`, KIP-off × 3 seeds, paired against phase-4 KIP-off) is
+  **not authorized**. On TAD `ignore` did not help (TAD_SETUP §15.1), but TAD collapsed for
+  a different reason (C14).

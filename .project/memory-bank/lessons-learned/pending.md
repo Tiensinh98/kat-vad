@@ -1417,3 +1417,27 @@ needs Δ ≤ bar − half-width".
 **Gate status.** Measured once. Overlaps C33 ("a pre-registered threshold must be reachable").
 Merge into C33 as a second trace rather than a new lesson, if promoted.
 
+
+---
+
+## (aa) [MEDIUM] Experiments - A new runbook must carry forward every corpus-identity flag its predecessor set (2026-09-27)
+
+**Triggers:** new notebook, runbook, colab, is_egocentric, dvs_anchor_mode, --set, corpus switch, DADA, T2
+**Problem:** `DADA_SETUP.md` requires `data.is_egocentric=true` for every DADA run, and the
+DADA-archive campaign set it. The T2 notebooks (`phase_4`, `phase_5_zscore`,
+`phase_6_learning_curve`) were written fresh and pass only the flags their plan changed
+(`score_head_kernel`, `mil_topk_pct`, …). The ego flag fell back to its default `false`, and
+nothing raised. As a result every T2 run trained at P(synth) 0.30 with 1–4 fillers instead of
+0.15 with 1. The same notebooks also kept `dvs_anchor_mode=span` on two-class windows, which
+the C29 trigger map ("enable DVS on a corpus whose abnormal clips are not trimmed") already
+flags. Found 11 days and 3 campaigns later (`RESULTS_DADA_ORIG_T2.md` §9).
+**Bad:** a new notebook whose `--set` list is "what this plan changes".
+**Good:** start the command from the predecessor runbook's full flag list for that corpus,
+and diff the resulting `config.yaml` against a predecessor run's before the first GPU hour.
+The diff should show only the keys the plan names.
+**Candidate rule.** *Diff a new runbook's first `config.yaml` against the corpus's previous run and account for every changed key.*
+**Files:** `colab/DADA2000Origin/phase_4.ipynb` (train cell), `core/docs/DADA_SETUP.md:596`, `core/config.py:118`
+
+**Gate status.** Observed once (gate 3 met). Impact is unmeasured: paired Δs are unaffected
+and absolute levels may be depressed. Severity stays MEDIUM until a repair arm measures it.
+The C29 part is a recurrence, so add it to C29 as a trace, not as a new lesson.
