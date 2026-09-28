@@ -1486,3 +1486,35 @@ bootstrap treats correlated clips as independent and narrows the interval.
 **Files:** `core/data/v2_splits.py` (`dota_group`, `grouped_split`); `core/docs/v2/PREREG_ADDENDUM.md` D3
 
 **Gate status.** Design-level; no interval has been recomputed both ways yet (E1 will). Gate 3 not met.
+
+---
+
+## (ae) [MEDIUM] Experiments - A "point ≤ 0" leg turns a KILL rule into a coin-flip on a null (2026-09-28)
+
+**Triggers:** kill switch, KILL rule, pre-register, point estimate ≤ 0, null delta, redundant feature, equivalence
+**Problem:** Kill-switch K (addendum §3, carried into §6.1) kills the motion stream iff both
+Δ(`[x;u]` − `x`) have point ≤ 0 **and** upper < +0.03. A `u` that adds nothing to `x` (synthetic:
+`u = x·M`) gives Δ ≈ ±1e-4 with upper ≈ 4e-4, so the upper-bound leg passes and the verdict is
+decided by the **sign of noise**: KILL on 1 of seeds 0–3, GO on the other 3. The rule cannot
+reliably kill the very case it exists to kill (C33's reachability, one level up: the bar is
+reachable but not *stable*).
+**Bad:** `kill = mean <= 0 and high < bar`.
+**Good:** an equivalence-style leg on the bound alone (`high < bar`: "no gain ≥ bar is
+compatible with the data"), or a margin (`mean <= +ε`) — chosen and registered **before** K runs.
+**Candidate rule.** *Run a pre-registered decision rule on a synthetic null before committing it; a null must land on one verdict, not both.*
+**Files:** `core/tools/kill_switch_probe.py:decide`, `core/tests/test_kill_switch_probe.py::TestRunK::test_redundant_u_gives_a_null_delta_and_the_literal_rule`
+
+**Gate status.** Measured on synthetic data only. **Applied 2026-09-28:** user chose option A (upper
+bound only), in addendum §6.1 before K ran; the advisor is to be told. Gate 3 not met.
+
+---
+
+## (af) [LOW] Data - A new per-video extractor must create its output dir itself (2026-09-28)
+
+**Triggers:** extractor, output_dir, save_array, .part, FileNotFoundError
+**Problem:** `extract_video_features.extract_frame_directory` wrote through `save_array` into a
+directory nobody created; the CLIP extractor's copy does `mkdir` first. Caught by the resume test,
+not by a run. **Candidate rule.** *Copying an extractor loop means copying its preconditions (mkdir, resume, atomic write) with it — or sharing the loop.*
+**Files:** `core/tools/extract_video_features.py:extract_frame_directory`
+
+**Gate status.** One occurrence, caught in test. Gate 2 (recurrence) not met.

@@ -1,6 +1,6 @@
 # KAT-VAD v2 — Exploration plan: freeze → kill-switch → E0–E2 → build → pilot → go/no-go for E3
 
-**Status:** APPROVED 2026-09-27; P0 DONE (splits frozen). Next: P1.
+**Status:** APPROVED 2026-09-27; P0 DONE (splits frozen). **2026-09-28: Amendment 1 (D7–D9) — DoTA pixels mất; K chạy trên T2, E1 bỏ, endpoint motion chờ thầy.** Next: P1 (T2-only).
 **Branch:** `v2` (tách từ `main@cc39882`; code = v1 + docs v2). Mọi code của plan này nằm trên `v2`.
 **Nguồn:** `core/docs/v2/KAT_VAD_PROPOSAL_v2.md` (§4, §7.2, §10) + `KAT_VAD_v2_ARCHITECTURE.md`.
 Proposal thắng plan ở phần *what* (thành phần, rule adoption). Plan này đổi **thứ tự** và thêm
@@ -23,7 +23,7 @@ Proposal thắng plan ở phần *what* (thành phần, rule adoption). Plan nà
 | # | Assumption / constraint | Hệ quả nếu sai |
 |---|---|---|
 | A1 | DADA-2000 original = **30 fps** (chỉ có trong literature; release là PNG, không đo được fps từ file) | clip 10 fps "mỗi frame thứ 3" sai tỉ lệ thời gian; ghi rõ là assumption trong mọi read-out |
-| A2 | Frames DoTA + DADA original, CLIP caches `*_ncc`, checkpoints phase-4/5/lcurve đều nằm trên Drive | local chỉ có `results.json` (không có per-clip score) → E0b/E1 **bắt buộc chạy trên Colab** |
+| A2 | ~~Frames DoTA~~ + DADA original, CLIP caches `*_ncc`, checkpoints phase-4/5/lcurve đều nằm trên Drive | **SAI cho DoTA (2026-09-28):** chỉ còn `clip/DoTA_s8_ncc` + `labels_s8`. Hệ quả = addendum §6 (D7 K chỉ T2, D8 bỏ E1, D9 A2/A3 không có endpoint DoTA). DADA original vẫn đúng |
 | A3 | Compute = Colab A100 40 GB; dev = macOS CPU, data-free tests | extraction VideoMAE bị I/O-bound từ Drive → copy frames sang SSD local của runtime trước |
 | A4 | DoTA: 1,397 clip / **179 video gốc** (max 19 clip/video), 3 clip toàn normal | split và bootstrap phải **group theo video gốc**, không theo clip |
 | C1 | Không đụng `LaGoVAD-PreVAD/`; code chỉ trong `core/` | — |
@@ -85,6 +85,13 @@ Mọi rule quyết định khác (eligibility E2(d), rule chọn reference, adop
 
 ### P1 — Kill-switch K: VideoMAE có signal không (ngày 2–4, Colab)
 
+> **Amendment 1 (D7):** subset DoTA-dev và probe (i)/(ii) bên dưới **không chạy được**. Thiết kế thay thế,
+> đã commit trước khi chạy: `core/docs/v2/PREREG_ADDENDUM.md` §6.1 — ~300 source T2-train (không T2-val),
+> whole source ở stride 8, (i′) source-grouped CV + (ii′) type-grouped CV, CI bootstrap theo source.
+> Code: `core/models/videomae_v2.py`, `core/tools/extract_video_features.py`, `core/tools/kill_switch_probe.py`;
+> runbook `colab/v2/p1_kill_switch.ipynb`. Weights VideoMAE V2 **không có trong transformers** → vendor model,
+> pin HF commit + sha256, `torch.load(weights_only=True)`.
+
 **Goal:** biết sớm motion stream có đáng làm tiếp không, trước khi đầu tư extraction đầy đủ và code model.
 
 - [ ] `mcp context7` xác minh API load VideoMAE V2 distilled (`vit_b_k710_dl_from_giant`, `vit_s_k710_dl_from_giant`):
@@ -100,7 +107,8 @@ Mọi rule quyết định khác (eligibility E2(d), rule chọn reference, adop
   (i) in-domain DoTA-dev grouped CV: CLIP-only vs `u`-only vs `[x ; u]`; (ii) transfer T2-subset → DoTA-dev-subset.
   Cluster bootstrap theo video cho CI.
 - [ ] **Rule (commit trong P0):**
-  - **KILL motion stream** nếu cả hai Δ(`[x;u]` − CLIP) có point estimate ≤ 0 **và** cận trên CI < +0.03.
+  - ~~**KILL motion stream** nếu cả hai Δ(`[x;u]` − CLIP) có point estimate ≤ 0 **và** cận trên CI < +0.03.~~
+    **Sửa 2026-09-28 (option A, user chốt, addendum §6.1):** KILL nếu cả hai Δ có cận trên < +0.03; bỏ vế point ≤ 0 (tung đồng xu trên null, pending (ae)).
   - **Positive control:** `u`-only in-domain phải > 0.5 rõ ràng (CI loại 0.5). Nếu không → nghi bug pipeline, sửa rồi chạy lại, **không** KILL.
   - Còn lại → GO sang P4. K **không** quyết định eligibility (subset quá nhỏ); E2(d) ở P4 mới quyết định.
 
@@ -122,6 +130,9 @@ Mọi rule quyết định khác (eligibility E2(d), rule chọn reference, adop
 
 ### P3 — Protocol: E1 + E0b (ngày 3–7, Colab)
 
+> **Amendment 1 (D8): E1 bỏ** (cần cache DoTA stride 3 = cần pixel). Protocol giữ s8 whole-clip min-max.
+> Chỉ còn **E0b** (re-score trên `DoTA_s8_ncc`). Các task stride-3 / evaluator sliding bên dưới: không làm.
+
 **Goal:** chốt stride/protocol DoTA; đo `MDE_dev`.
 
 - [ ] Cache CLIP DoTA stride 3: `extract_clip_features --stride 3` → `cache/clip/DoTA_s3_ncc` (mới, C2); labels `dota.py --stride 3`.
@@ -134,6 +145,9 @@ Mọi rule quyết định khác (eligibility E2(d), rule chọn reference, adop
 **Deliverables:** `outputs/REPORTS/v2_E1_E0b/` + read-out (protocol chốt, `MDE_dev`).
 
 ### P4 — Encoder choice: E2(d) đầy đủ (ngày 7–10, Colab; chỉ khi P1 = GO)
+
+> **Amendment 1 (D9):** rule eligibility trên DoTA-dev không tính được. Trước P4, thầy chọn endpoint cho motion
+> (commit thành Amendment 2). Nếu K = KILL thì P4 biến mất, D9 không còn ý nghĩa.
 
 - [ ] Extract VideoMAE-B và -S tại **stride chốt ở P3**: T2-train subsample, T2-val, DoTA-dev. (DoTA-eval: extract được nhưng không score.)
 - [ ] Probe đúng representation mỗi arm đưa vào trunk: A2 `c·(u − m_u)⊘σ_u`; A3 `c·ũ⊘σ_u` với reference từ P2. Rule eligibility proposal: in-domain DoTA-dev ≥ +0.10 **hoặc** transfer ≥ +0.03 so với CLIP-only; chọn transfer tốt nhất, trong 0.02 thì encoder rẻ hơn thắng.
@@ -188,7 +202,7 @@ Trước khi sửa bất kỳ symbol nào: `trace_call_path` + báo blast radius
 | Risk | Tác động | Giảm thiểu |
 |---|---|---|
 | VideoMAE V2 distilled không load được trong `transformers 4.56`, cần remote code | P1 trễ 1–2 ngày | context7 ngày 2; vendor model def + pin weight sha; fallback: `VideoMAEModel` HF gốc chỉ khi thầy đồng ý (khác ứng viên đã pre-register) |
-| Kill-switch false negative trên subset | Giết oan motion stream | Rule KILL chỉ khi point ≤ 0 **và** CI upper < +0.03; positive control chặn trường hợp bug |
+| Kill-switch false negative trên subset | Giết oan motion stream | Rule KILL chỉ khi CI upper < +0.03 ở cả hai Δ (option A); positive control chặn trường hợp bug |
 | I/O Drive → Colab chậm | Extraction mất nhiều ngày | Copy frames sang SSD runtime; extractor resumable (skip file có sẵn); đo throughput ở P1 |
 | E1 đổi stride → CRN chọn trên phân phối sai | Reference sai | D2: chọn ở cả hai stride |
 | Clip DoTA tương quan trong video | CI hẹp giả, E1 adopt oan | D3: cluster bootstrap |

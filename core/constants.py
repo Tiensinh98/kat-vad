@@ -58,7 +58,9 @@ FLOW_PROJECTION_FILENAME = "flow_projection.npz"
 # one dataset's train split -- never the default flow dir; pass --flow-dir.
 FLOW_ZSCORE_CACHE_VERSION = "v2_zscore"
 FLOW_ZSCORE_CACHE_DIR = CACHE_ROOT / "flow" / FLOW_ZSCORE_CACHE_VERSION
-FLOW_ZSCORE_STATS_FILENAME = "zscore_stats.npz"  # per dataset dir: mean, std, provenance
+FLOW_ZSCORE_STATS_FILENAME = (
+    "zscore_stats.npz"  # per dataset dir: mean, std, provenance
+)
 FLOW_ZSCORE_MANIFEST_FILENAME = "zscore_manifest.json"
 KNN_CACHE_DIR = CACHE_ROOT / "knn"
 KNN_CACHE_FILENAME = "knn_cache.npz"
@@ -306,7 +308,9 @@ EQUALIZE_ANCHOR_CHOICES = (
 # (.project/plans/katvad-dada-phase2-corpus-rebuild.md §4.2).
 WINDOW_LENGTH = 32  # sampled frames per window; T becomes constant
 WINDOW_STRIDE = 16  # hop between consecutive windows (50 % overlap at the default)
-WINDOW_MIN_POSITIVE = 1  # a window is abnormal iff it holds >= this many positive frames
+WINDOW_MIN_POSITIVE = (
+    1  # a window is abnormal iff it holds >= this many positive frames
+)
 # Cap on windows from ONE source clip, evenly spaced. A fixed hop alone gives
 # each clip windows in proportion to its length; DADA-2000's normal clips are
 # ~3x longer than its accident clips (raw median 139 vs 49), so uncapped
@@ -351,6 +355,49 @@ V2_SPLIT_SEED = SEED
 # Accident-share bins (proposal §4.2 step 2): share = anomaly frames / clip frames.
 V2_SHARE_BIN_EDGES = (0.3, 0.5, 0.7)
 V2_SHARE_BIN_LABELS = ("<30", "30-50", "50-70", ">70")
+
+# ---------------------------------------------------------------------------
+# KAT-VAD v2 motion stream: frozen VideoMAE V2 distilled (proposal §4.1,
+# addendum §3/§6.1). Not in `transformers` -- the model is vendored in
+# core/models/videomae_v2.py and the weights are pinned by HF commit AND
+# sha256 (lesson C4); they load with torch.load(weights_only=True).
+# ---------------------------------------------------------------------------
+VIDEOMAE_REPO_ID = "OpenGVLab/VideoMAE2"
+VIDEOMAE_REVISION = "706cc172d65ebd4dedbee3f9c0183a93df9fa125"
+VIDEOMAE_ENCODER_B = "vit_b_k710_dl_from_giant"
+VIDEOMAE_ENCODER_S = "vit_s_k710_dl_from_giant"
+VIDEOMAE_WEIGHTS_SUBDIR = "distill"
+VIDEOMAE_WEIGHTS_SHA256 = {
+    VIDEOMAE_ENCODER_B: "8141a6955e0700d11bf15928fe6d61e5cfe482606fed8cfdddb1b922c0fd88ec",
+    VIDEOMAE_ENCODER_S: "24fb71687fa3671b8387cadfbcbab0f72af695692e93cf1ecc82caa888626172",
+}
+# (embed_dim, depth, num_heads) of the upstream vit_{base,small}_patch16_224.
+VIDEOMAE_ARCH = {
+    VIDEOMAE_ENCODER_B: (768, 12, 12),
+    VIDEOMAE_ENCODER_S: (384, 12, 6),
+}
+VIDEOMAE_PATCH_SIZE = 16
+VIDEOMAE_TUBELET_SIZE = 2
+VIDEOMAE_MLP_RATIO = 4
+VIDEOMAE_LN_EPS = 1e-6
+VIDEOMAE_CLIP_FRAMES = 16  # frames per clip the checkpoint was trained on
+# ImageNet statistics: VideoMAE V2's fine-tuning pipeline normalizes with these
+# (its inference example), not with the (0.5, 0.5, 0.5) of the timm `_cfg` stub.
+VIDEOMAE_IMAGE_MEAN = (0.485, 0.456, 0.406)
+VIDEOMAE_IMAGE_STD = (0.229, 0.224, 0.225)
+# DADA-2000 = 30 fps is an ASSUMPTION from the literature (plan A1): the release
+# ships PNGs. Every 3rd frame -> 10 fps, 16 frames -> a causal 1.5 s clip.
+DADA_ASSUMED_FPS = 30
+VIDEOMAE_CLIP_FRAME_STEP = 3
+VIDEO_CACHE_DIR = CACHE_ROOT / "video"
+VIDEO_MANIFEST_FILENAME = "video_manifest.json"
+# Kill-switch K on T2 (addendum §6.1): subset size, bootstrap, verdict bars.
+V2_K_SOURCES = 300
+V2_K_BOOTSTRAP = 2000
+V2_K_KILL_UPPER = 0.03  # KILL needs every Δ upper bound below this
+V2_K_CONTROL_FLOOR = 0.5  # positive control: u-only CI lower bound above this
+V2_K_CI = 0.95
+V2_K_GATE_D0_MACRO = 0.6518  # printed beside the x-only probe, not gated
 
 # ---------------------------------------------------------------------------
 # Evaluation score pooling (lesson C12)

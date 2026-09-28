@@ -58,7 +58,8 @@ Facts the freeze surfaced:
   - (i) in-domain DoTA-dev, video-grouped CV: CLIP-only vs `u`-only vs `[x ; u]`;
   - (ii) transfer, T2 subset → DoTA-dev subset.
   - All intervals are cluster bootstraps over videos.
-- **KILL the motion stream** if **both** Δ(`[x;u]` − CLIP) have a point estimate ≤ 0 **and** an
+- *(Superseded by §6.1, 2026-09-28: the point-estimate leg is dropped.)*
+  **KILL the motion stream** if **both** Δ(`[x;u]` − CLIP) have a point estimate ≤ 0 **and** an
   upper CI bound < +0.03.
 - **Positive control:** the `u`-only in-domain AUC must have a CI that excludes 0.5. If it does
   not, the pipeline is suspected and fixed, and **K does not KILL**.
@@ -86,3 +87,53 @@ E3 runs only if all of the following hold:
 - the test suite and the quality gate are green.
 
 The E3 arms are the survivors of E2. Seeds, decision interval and adoption rules follow proposal §10.
+
+---
+
+## 6. Amendment 1 (2026-09-28) — DoTA pixels are gone: D7–D9
+
+Written **before any v2 number is read**; nothing of P1–P3 had run. Cite this file's commit
+beside `7422975` in every v2 read-out.
+
+**Fact.** The project holds no DoTA pixels. The Drive copy of the frames was deleted, the
+official links in `MoonBlvd/Detection-of-Traffic-Anomaly` return 404, and all 184 source
+YouTube videos in `DoTA_urls.txt` are unavailable. What survives on Drive (confirmed by the
+user 2026-09-28) is the stride-8 CLIP cache `clip/DoTA_s8_ncc` and `labels_s8`. So every
+number that needs a new DoTA feature is unmeasurable: a stride-3 CLIP cache, and any
+VideoMAE feature. Plan assumption A2 was wrong for DoTA; it holds for DADA-original.
+
+| # | Change | Why |
+|---|---|---|
+| D7 | **Kill-switch K runs on T2 alone** (design below). Probe (i) on DoTA-dev and probe (ii) T2 → DoTA are replaced by (i′) and (ii′) | (i) and (ii) both need VideoMAE features on DoTA |
+| D8 | **E1 is dropped.** The DoTA protocol stays stride 8, whole clip, per-clip min-max (today's). D2's stride-3 branch is dropped. **E0 is kept as a record only**: it can no longer switch anything | E1's arms B and C need a stride-3 DoTA cache, which needs pixels |
+| D9 | **The motion arms (A2, A3) have no DoTA endpoint. This amendment does not choose one.** If K = KILL, D9 is moot: v2 keeps A0/A1, both scorable on the DoTA s8 cache. If K = GO, the advisor chooses the motion endpoint **before P4**, and the choice is committed as Amendment 2 before any motion number is read as a decision | The proposal's E2(d) eligibility rule (DoTA-dev in-domain ≥ +0.10 or transfer ≥ +0.03) and the E3 decision interval for A2/A3 cannot be computed as written. Choosing a replacement after seeing K would be choosing it on the data |
+
+### 6.1 Kill-switch K on T2 (D7, fixed now)
+
+- **Encoder:** unchanged, VideoMAE V2-B distilled (`vit_b_k710_dl_from_giant`), weights pinned
+  by HF commit and sha256 (`core/constants.py`).
+- **Subset:** about 300 **T2-train** sources with **no T2-val source** (`draw_subset`,
+  stratified by accident `type`, seed 2024). The drawn list and its sha1 are written beside the read-out.
+- **Unit: the whole source video at stride 8**, with frame labels from the annotation span,
+  built through `dada_origin.make_record` + `sampled_frame_labels` (Gate D0's convention).
+  Windows are not used because T2's train windows carry no frame labels.
+- **Features:** CLIP `x` (the existing `clip/DADA2000_orig` cache), `u` (VideoMAE on the causal
+  1.5 s clip that ends at each CLIP step), and `[x ; u]`. If `len(u) ≠ len(x)` for any source, the probe raises.
+- **Probe:** the `core.eda` frame linear probe (standardized logistic regression, balanced), 5 folds:
+  - (i′) **source-grouped** CV: in-domain;
+  - (ii′) **type-grouped** CV: every test fold holds accident types absent from its train fold.
+    **This is not a domain transfer.** It is the stricter of the two generalization reads left
+    without DoTA pixels, and the read-out says so.
+- **Metric and interval:** macro = mean per-source frame AUC over two-class sources. Δ is paired
+  per source. The 95 % CI is a percentile bootstrap over **sources** (B = 2000, seed 2024).
+- **Rule (amends §3, chosen 2026-09-28 before any K number, option A):** **KILL** if **both**
+  Δ(`[x;u]` − `x`) have an upper bound < +0.03, i.e. no gain ≥ 0.03 is compatible with the data.
+  §3's extra leg "point estimate ≤ 0" is **dropped**. On a synthetic `u` that adds nothing to `x`,
+  Δ was about ±1e-4, and that leg made the verdict a sign coin-flip (KILL on 1 of seeds 0–3). A
+  rule that cannot reliably kill the null it exists for is not a rule. Price: a real gain below
+  +0.03 with a tight CI is killed too. That gain is below the proposal's own +0.03 transfer
+  eligibility bar, so it would not have become eligible anyway. **Positive control:** `u`-only under (i′) must have a CI lower
+  bound > 0.5. If it does not, the pipeline is suspected and fixed, and **K does not KILL**.
+  Otherwise **GO**. K still never makes an encoder eligible.
+- **Printed, not gated:** the `x`-only (i′) macro beside Gate D0's 0.6518 (different subset,
+  same convention), and the extraction throughput.

@@ -42,7 +42,25 @@ Track 0b closed; T2 + Option A remain the live track. Partial update: `activeCon
 architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 13,833 source LOC, 582 collected); **docs 24 → 25** (+ `core/docs/D2CITY_EDA.md`).
 
-## 2026-09-27 (latest) — **v2 P0 DONE: decision splits frozen, pre-registration addendum** (branch `v2`)
+## 2026-09-28 (latest) — **v2 Amendment 1 (DoTA pixels gone) + P1 kill-switch BUILT, NOT RUN** (branch `v2`)
+
+* **DoTA has no pixels** (memory `dota-frames-unrecoverable`); the user confirmed `clip/DoTA_s8_ncc` + `labels_s8` are still on Drive.
+  `core/docs/v2/PREREG_ADDENDUM.md` §6 (user-approved): **D7** K runs on T2 only, **D8** E1 dropped (protocol stays s8 whole-clip min-max; E0 = record only),
+  **D9** A2/A3 have no DoTA endpoint; not chosen here; if K = GO, the advisor picks one (Amendment 2) **before P4**. Plan updated (A2, P1, P3, P4).
+* **K design (§6.1):** ~300 T2-train sources (no T2-val), whole source at stride 8, labels = Gate D0 rule; `x` / `u` / `[x;u]`;
+  (i′) source-grouped + (ii′) type-grouped CV (NOT a domain transfer); bootstrap over sources; the rule has the same form as §3.
+* **Built:** `core/models/videomae_v2.py` (vendored; VideoMAE V2 distilled is **not in transformers**; HF `OpenGVLab/VideoMAE2@706cc17…` + sha256;
+  `weights_only=True`; **parity vs upstream max |Δ| 1.5e-6** on real ViT-S weights), `core/tools/extract_video_features.py`
+  (causal 16×3 frames ending at CLIP step, squash 224 + ImageNet norm, manifest-guarded cache `cache/video/<enc>/<ds>_s8_squash`),
+  `core/tools/kill_switch_probe.py` (`pick` / `run`), `colab/v2/p1_kill_switch.ipynb`, `core/docs/v2/MOTION_STREAM_K.md`, constants `VIDEOMAE_*`, `V2_K_*`.
+  `preprocess_frames` NOT touched (trace = CRITICAL; the v1 cache transform).
+* **Suite 664 / 0 fail** (+42). Quality gate clean on the new files.
+* **Rule amended (user chose option A, 2026-09-28, before K ran):** KILL iff both Δ upper < +0.03; the P0 `point ≤ 0` leg was a coin-flip on a null (synthetic redundant `u`: KILL 1/4 seeds → now 4/4). Addendum §6.1, pending (ae). **Tell the advisor** (it amends the rule they approved).
+* **Not committed yet.** Amendment 1 must be committed (and pushed to Drive's `kat-vad`) **before** K runs; cite its hash beside `7422975`.
+
+**Next action:** user decides the rule question → commit → run `colab/v2/p1_kill_switch.ipynb` (A100) → record verdict in plan App. A.
+
+## 2026-09-27 — **v2 P0 DONE: decision splits frozen, pre-registration addendum** (branch `v2`)
 
 Plan `.project/plans/katvad-v2-e0-e2.md` (user-approved order: freeze → kill-switch K → E0/E2(a–c) ∥ E1+E0b → E2(d) → build → pilot → go/no-go; D1–D6 deviate from proposal §10.2, recorded in `core/docs/v2/PREREG_ADDENDUM.md`).
 
