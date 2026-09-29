@@ -45,7 +45,22 @@ expensive for a deployable detector. KIP resolves that trade:
 The result should be a detector that keeps LaGoVAD's definition-conditioned
 generalization while gaining the motion sensitivity it lacks.
 
-## What has actually been shown (latest reading 2026-09-21)
+## What has actually been shown (latest reading 2026-09-28, branch `v2`)
+
+**v2's two components now each have one position-clean piece of evidence, and both are modest.**
+- **Motion stream (K + K-pos, T2 whole sources, frozen probes):** a frozen VideoMAE V2-B feature
+  `u` scores 0.760 macro vs CLIP 0.615 — but a no-pixel relative-position ruler scores 0.730 there,
+  and CLIP adds only **+0.004** over position. What `u` adds beyond CLIP *and* position is
+  **+0.043 [+0.023, +0.064]**. Real, about a third of the headline, and in-domain only (DoTA has
+  no pixels left, so no motion transfer read exists).
+- **CRN (E2(c), T2-train → DoTA-dev transfer probe):** clip-referenced features beat raw CLIP by
+  **+0.030 [+0.020, +0.040]**, with any of the four references. E2(b)'s rule picked R1, but its
+  metric was dominated by the trend it subtracts (`−f` alone 0.764), so *which* reference is
+  better is not identified.
+- **The product lesson of the week:** DADA accidents sit mid-video, so any score with a
+  position shape looks like a detector. Every frame-level number now carries a position ruler.
+
+*(Earlier reading, 2026-09-21, kept below.)*
 
 *(2026-09-27, no new measurement. The product argument moves in `core/docs/v2/`: motion
 must enter as an **input** (a frozen video encoder), because induction from frame CLIP

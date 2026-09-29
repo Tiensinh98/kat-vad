@@ -397,10 +397,11 @@ on `main` there is only one gate type, so the matrix was collapsed rather than
 the class deleted — `test_kip_off_trains` (arm A0), `test_stage1_warmup_runs`
 and the `config.yaml`-recording tests all survive.
 
-## KAT-VAD v2 architecture — designed 2026-09-27, NOT built
+## KAT-VAD v2 architecture — designed 2026-09-27; model NOT built, P0–P2 tools built (branch `v2`)
 
 Source of truth: `core/docs/v2/KAT_VAD_v2_ARCHITECTURE.md` (shapes) and
-`core/docs/v2/KAT_VAD_PROPOSAL_v2.md` (rules, review tables). Nothing below exists in code.
+`core/docs/v2/KAT_VAD_PROPOSAL_v2.md` (rules, review tables). The network below is not in code yet;
+what exists is listed under "v2 build patterns".
 
 ```
 frame @ t ─► CLIP ViT-B/16 (frozen) ─► x_t ─► CRN ─► x̃_t = s·(x_t − μ^ref) ─────────────┐
@@ -419,10 +420,27 @@ h ─► temporal encoder (unchanged) ─► V^t ─► CoAttn(V^t, z) ─► V^
   **no per-token LayerNorm** in front of `W_u`.
 - **Arms are switches on one network:** A0 `X`; A1 `s·(X − μ^x)`; A2 `X + W_u·(c·(U − m_u) ⊘ σ_u)`;
   A3 `s·(X − μ^x) + W_u·(c·(U − μ^u) ⊘ σ_u)`.
-- **Protocol:** DoTA at stride 3 with sliding W = 20 / hop 4 and native-frame scoring
-  (if E1 adopts it); per-clip min-max unchanged.
+- **Protocol:** ~~DoTA at stride 3 with sliding W = 20 / hop 4~~ — **dropped by Amendment 1 (D8):
+  DoTA has no pixels.** DoTA stays stride 8, whole clip, per-clip min-max, scored only from the
+  `clip/DoTA_s8_ncc` cache. Motion arms (A2/A3) have **no DoTA endpoint**; the advisor picks one (D9 → Amendment 2).
+- **CRN reference:** **R1** (whole-clip mean) by the E2 rule (2026-09-28); see `RESULTS_E2_CRN.md` for why
+  the choice among R1–R4 is not identified.
 
-## Planned seams (not built — `katvad-v2-next-steps.md` does not exist in this tree; this section *is* the record; unrelated to the 2026-09-27 KAT-VAD v2 architecture above)
+### v2 build patterns (2026-09-27/28)
+
+| Piece | Where | Pattern |
+|---|---|---|
+| Frozen splits | `core/splits/v2/` + `core/data/v2_splits.load_split` | sha1-checked; DoTA-eval raises `SealedSplitError` unless `final=True`; DoTA split grouped by YouTube video (`dota_group`) |
+| Motion encoder | `core/models/videomae_v2.py` | Vendored (not in `transformers`), HF revision + sha256 pinned, `weights_only=True`, parity 1.5e-6 vs upstream |
+| `u` cache | `core/tools/extract_video_features.py` → `cache/video/<enc>/<ds>_s8_squash/` | Row `i` = CLIP step `i`; causal 16 frames × step 3 ending at raw frame `8i`; first 6 steps clamp to frame 0 (padding); manifest-guarded (C2) |
+| CRN references | `core/crn/reference.py` | **One** implementation of R1–R4, shared by E2 and the P5 model; R4 strictly past after an 8-step warm-up (short clip → R1) |
+| Probes | `core/eda/features.py` (`_probe_fit_predict`, `transfer_scores`) | One standardized, balanced logistic probe for grouped-CV and transfer reads |
+| Decision tools | `core/tools/{kill_switch_probe,crn_select}.py` | Apply the pre-registered rule mechanically, write `*_readout.{json,md}`; diagnostics are separate subcommands/columns labelled "printed, not gated" |
+| Intervals | same | Bootstrap over **sources/videos**, never frames or DoTA clips (D3) |
+| Position control | same | Every frame-level macro prints a no-pixel position ruler; a detrended score prints its own trend `−f` (pending (ah)) |
+
+
+## Planned seams — v1/v3 KIP line (not built; unrelated to the KAT-VAD v2 architecture above)
 
 Recorded here because each one is a *design decision already argued*, and the
 argument is expensive to redo:

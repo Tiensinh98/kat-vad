@@ -1,8 +1,9 @@
 # Tech Context — stack, setup, constraints
 
 **Created:** 2026-07-31 (re-init from `b9978ff`, read off `pyproject.toml`)
-**Last reviewed:** 2026-09-27 (counts re-measured: 91 Python files, 14,155 source LOC,
-598 tests, 30 docs; KAT-VAD v2 design adds planned constraints below — no stack change yet).
+**Last reviewed:** 2026-09-28, branch `v2` (counts re-measured: **103 Python files (69 source + 34 test),
+16,366 source LOC, 691 tests, 33 docs**; new: VideoMAE V2 vendored model, `u` extractor, K / K-pos / E2 tools,
+`core/crn/`, frozen splits; no new dependency — sklearn/numpy/torch/timm-free). Before that 2026-09-27 (91 files, 14,155 LOC, 598 tests, 30 docs on `main`).
 Previously 2026-09-24 (full reconcile — counts re-measured; `core/flow/zscore*`
 and the `FLOW_ZSCORE_*` constants added; `colab/` corrected to **tracked**).
 Previously 2026-09-21 (full reconcile — counts re-measured, `grad_probe`
@@ -47,10 +48,11 @@ the same day, the text-branch + `L_neg` constraints.
 | `core/data/` | msad, dota, prevad, **tad**, **dada**, dataset (DVS), synthesis, knn_cache, collate, definitions, video_io, dataset_files |
 | `core/flow/raft_extract.py` | RAFT → 23-d stats → seeded 256-d projection |
 | `core/flow/zscore.py` / `zscore_cache.py` | **new 2026-09-23 (Option A).** Numpy leaf (`MomentAccumulator`, `ZScoreStats`, `standardize`) + CLI `python -m core.flow.zscore_cache --data-dir … --dataset … [--src-root cache/flow/v1] [--dst-root cache/flow/v2_zscore] [--force]`. Rebuilds `e_O` from v1's raw stats; gates G0–G2; writes `zscore_stats.npz` + `zscore_manifest.json` (holds the derived `lambda_rec`). CPU, minutes, no torch |
+| **v2 (branch `v2`)** | `core/models/videomae_v2.py` (vendored VideoMAE V2 distilled, pinned rev + sha256) · `core/tools/extract_video_features.py` (`u` cache) · `core/tools/kill_switch_probe.py` (`pick`/`run`/`diag`) · `core/tools/crn_select.py` (E0 + E2(a–c)) · `core/tools/freeze_splits.py` + `core/data/v2_splits.py` + `core/splits/v2/` · `core/crn/reference.py` (R1–R4). Constants `VIDEOMAE_*`, `V2_*`, `DOTA_FPS`, `DADA_ASSUMED_FPS` |
 | `core/tools/` | download, extract_clip_features, **feature_cache**, **rescore**, visualize, **eda**, **grad_probe** (431 L, new 2026-09-18 — per-term `autograd.grad` against 4 parameter groups; read-only, no optimizer step, raises if its re-summed terms do not reproduce `compute_losses`'s `total`) |
 | `core/eda/` | corpus, labels, protocol, features, report — the pre-flight profiler (`python -m core.tools.eda report\|compare`), runbook `core/docs/EDA.md`. **Run on real data since 2026-09-15**: Gate D0, Gate W, and the D1 flow-target baselines (§4.3.1 — `flow_stats` reports the zero / global-mean / item-mean MSE a constant predictor scores on `e_O`, the per-stat `E[s²]` share, and a projection round-trip check) |
-| `core/docs/` | **20 files on `main`**: COLAB, DATA_LAYOUT, DOTA_EVAL, **EDA**, PREVAD_SETUP, **TAD_SETUP**, **DADA_SETUP**, **DADA_ORIGIN_PHASE0** (new 2026-09-15), DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE, TRAINING, proposal, spec, 7 × RESULTS_\*.md, REPORT_KIP_MSAD_DOTA_PREVAD |
-| `core/docs/v3/` | **On `main`: only `RESULTS_DADA.md` + `setup/{DADA_V3_SETUP,TAD_V3_SETUP}.md`** (3 files). ARCHITECTURE, spec_v3, audit_addendum_PreVAD, RESULTS_V3_GATE_ATTRIBUTION and `setup/MSAD_DOTA_V3_SETUP.md` are **branch `v3` only**. `core/docs/v2/` does not exist on either branch — do not cite it |
+| `core/docs/` | **33 docs on `v2`** (25 top-level + `gate/` 3 + `v2/` 5: PROPOSAL_v2, v2_ARCHITECTURE, PREREG_ADDENDUM, MOTION_STREAM_K, RESULTS_E2_CRN). Older note — **20 files on `main`**: COLAB, DATA_LAYOUT, DOTA_EVAL, **EDA**, PREVAD_SETUP, **TAD_SETUP**, **DADA_SETUP**, **DADA_ORIGIN_PHASE0** (new 2026-09-15), DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE, TRAINING, proposal, spec, 7 × RESULTS_\*.md, REPORT_KIP_MSAD_DOTA_PREVAD |
+| `core/docs/v3/` | **On `main`: only `RESULTS_DADA.md` + `setup/{DADA_V3_SETUP,TAD_V3_SETUP}.md`** (3 files). ARCHITECTURE, spec_v3, audit_addendum_PreVAD, RESULTS_V3_GATE_ATTRIBUTION and `setup/MSAD_DOTA_V3_SETUP.md` are **branch `v3` only**. (On `main`/`v2` the surviving v3 files moved to `core/docs/gate/` in `cc39882`.) `core/docs/v2/` = the KAT-VAD v2 docs (2026-09-27+), not the old gate-line spec v2 |
 
 **Measured on `main`, 2026-09-24 (`ae4fded`):** **89 Python files** (60 source + 29 test),
 **13,833 LOC** source. **24 markdown docs** under `core/docs/**` (21 top-level + 3
@@ -239,6 +241,7 @@ Colab points all four at Drive. Full contract: `core/docs/DATA_LAYOUT.md`.
 # tests  (pyproject sets addopts="-q", so the summary line is suppressed;
 #          count with:  pytest --co -q | awk -F': ' '/^core/{s+=$2} END{print s}')
 source .venv/bin/activate && python -m pytest core/tests -q
+# on `v2` (2026-09-28): 691 collected, 0 fail (+K-pos, +CRN/E2).
 # on `main` (2026-09-27): 598 collected, 0 fail.
 # History: 582 (2026-09-24).
 # History: 565 (2026-09-21), 563 (2026-09-18), 546 (2026-09-17), 514 (2026-09-15).
@@ -248,7 +251,20 @@ source .venv/bin/activate && python -m pytest core/tests -q
 # quality gates (before every commit)
 source .venv/bin/activate && ruff check * && mypy * && bandit * && pycycle * && pyright *
 # note: pycycle runs as `cd core && pycycle --here`
+# zsh does not word-split "$F": pass file lists as an array  F=(a.py b.py); ruff check $F
+
+# v2 P2 (local, CPU, ~35 s): E0 + E2(a-c)
+python -m core.tools.crn_select --dota-labels-dir data/DoTA/labels_s8 \
+  --dota-clip-dir cache/clip/DoTA_s8_ncc --t2-meta outputs/EDA/DADA2000_orig_T2_w20s8/meta.json \
+  --annotation data/DADA/dada标注.xlsx --census outputs/EDA/DADA2000_orig_T2/counts/*.json \
+  --dada-clip-dir cache/clip/DADA2000_orig --out-dir outputs/v2/REPORTS/v2_E2abc
+# v2 P1 (Colab; needs the u cache): kill_switch_probe {pick,run,diag} — runbook colab/v2/p1_kill_switch.ipynb
 ```
+
+**Local v2 data (2026-09-28):** `cache/clip/{DADA2000_orig (1,945), DoTA_s8_ncc (1,397)}`, `data/DoTA/labels_s8/`
+(`frame_labels_test.json`, `meta.json`), `data/DADA/dada标注.xlsx`, census `outputs/EDA/DADA2000_orig_T2/counts/`.
+The VideoMAE `u` cache lives on Drive only. Colab code is **uploaded to Drive, not a git checkout** — read-outs
+say `commit: UNKNOWN`, which is expected.
 
 Colab run sequence (downloads → preprocess → extract → gate (a) → stage 1 →
 stage 2 → eval): `core/docs/COLAB.md`. Its later sections are the experiment

@@ -1518,3 +1518,42 @@ not by a run. **Candidate rule.** *Copying an extractor loop means copying its p
 **Files:** `core/tools/extract_video_features.py:extract_frame_directory`
 
 **Gate status.** One occurrence, caught in test. Gate 2 (recurrence) not met.
+
+---
+
+## (ag) [MEDIUM] Experiments - A frame probe on a corpus with mid-video anomalies needs a position ruler beside it (2026-09-28)
+
+**Triggers:** frame linear probe, kill switch, macro AUC, position ruler, relative position, causal clip, padding, DADA, mid-video anomaly
+**Problem:** K read `u` (VideoMAE) 0.760 vs CLIP 0.615 macro on 295 DADA-original sources. On the
+same sources, with **no feature read**, a relative-position tent `−|t/L − 0.525|` scores **0.729**
+(DADA accidents sit at 36 %–71 % of `L`), and the flag "this step's causal clip is padded with
+frame 0" alone scores **0.573** (the first 6 stride-8 steps are always normal). A frame feature
+that sees 1.5 s of context can pick up "early / static" or "something happens mid-video" and read
+as a strong motion signal.
+**Bad:** report `u` vs `x` alone and call the gap motion.
+**Good:** print the label-only rulers (absolute t, padded flag, relative-position tent) beside every
+frame-probe macro; test `[x;u;p]` vs `[x;p]` and a pad-drop re-run (`kill_switch_probe diag`).
+**Candidate rule.** *Print what position alone scores before crediting a feature with a frame-level gain.*
+**Files:** `core/tools/kill_switch_probe.py:run_diag`, `core/docs/v2/PREREG_ADDENDUM.md` §6.2
+
+**Measured 2026-09-28 (K-pos):** `p` alone 0.730 out-of-fold; `[x;p]` 0.734, so CLIP adds +0.004 over position; `[x;u;p]` − `[x;p]` = +0.043 [+0.023, +0.064].
+About two thirds of K's +0.13 was position. Pad drop explained none of it. Gate D0 (0.6518, whole sources) had no position ruler beside it.
+**Gate status.** One corpus, measured. Gate 2 (recurrence) not met.
+
+---
+
+## (ah) [HIGH] Experiments - Residualizing a score on a position trend injects the trend as a position prior (2026-09-28)
+
+**Triggers:** residualize, position trend, detrend, r = d - f(t/T), CRN reference choice, E2(b), position artefact, U-shape, tent
+**Problem:** E2(b) scores `r_t = d_t − f(t/T)` with `f` a cubic fitted on T2-val *normal* steps, to remove the
+position artefact. For whole-clip references `f` is U-shaped, so `−f` is a mid-clip tent; on DoTA (accidents
+mid-to-late) **`−f` alone scores 0.764 macro, above `r` (0.690) and `d` (0.522)**. The pre-registered choice
+ranked the shapes of `−f`, and R4 (rising `f`) was excluded for its trend, not its deviation. The 5-bin
+stratified cross-check did not catch it (`−f` 0.596 there, like `d`).
+**Bad:** decide on `macro(d − f)` and print only the `t/T` ruler.
+**Good:** print `macro(−f)` (the trend alone) beside `r`; decide on a read that cannot see `t` (a linear
+probe on the normalized features, E2(c)), or require `r` to beat `−f`.
+**Candidate rule.** *Score any detrended metric against its own trend alone before trusting it.*
+**Files:** `core/tools/crn_select.py:evaluate_reference` (`minus_f`), `core/docs/v2/RESULTS_E2_CRN.md`
+
+**Gate status.** One occurrence, measured on real data. Gate 2 (recurrence) not met.

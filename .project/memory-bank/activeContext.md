@@ -4,7 +4,8 @@
 >
 > **Branch `v2` note (2026-09-27):** this copy was carried from `main` onto branch **`v2`**
 > (the KAT-VAD v2 build line, off `main@cc39882`). The `main`/`v3` table below still holds;
-> on `v2` the code is `main`'s v1 **plus** the v2 P0 split freeze. Tests on `v2`: **622 / 0 fail**.
+> on `v2` the code is `main`'s v1 **plus** the v2 P0–P2 tools (splits, VideoMAE extractor, K/K-pos, `core/crn/`, `crn_select`).
+> Tests on `v2`: **691 / 0 fail** (2026-09-28).
 >
 > **This memory bank is the `main` branch's copy, and `main` is KAT-VAD **v1**.**
 > The v3 KIP gate rebuild is **not** in this tree; it lives on branch **`v3`**,
@@ -30,7 +31,16 @@
 > this branch *this file and `progress.md` are the only durable record of the
 > attribution campaign*. Do not delete them; do not re-run those arms here.
 
-**Last Memory Bank Update:** 2026-09-27 (latest — **KAT-VAD v2 architecture designed and signed off by the advisor; not built**. Full update: all six core files reviewed; counts re-measured: **91 Python files (61 source + 30 test), 14,155 source LOC, 598 tests, 30 docs**.) Before that, 2026-09-26 (**step B read out: INCONCLUSIVE, CCD parked, next = D**.) Before that, 2026-09-26 (**step B built: subset tool, 16 tests, phase-6 notebook**.) Before that, 2026-09-26 (**Option A / phase 5 READ OUT: "cost removed;
+**Last Memory Bank Update:** 2026-09-28 (latest — **full update, branch `v2`: P1 K = GO, K-pos, P2 E0/E2 read out**; all six core files reviewed;
+counts re-measured: **103 Python files (69 source + 34 test), 16,366 source LOC, 691 tests, 33 docs**.)
+
+> **TL;DR — where v2 stands (2026-09-28).** Splits frozen `7422975`. K = GO; `u` adds **+0.043 [+0.023, +0.064]**
+> beyond CLIP + position (position alone 0.73 on whole DADA sources; 0.575 on T2-val windows). CRN = **R1** by the
+> rule; E2(b)'s metric is position-confounded (`−f` 0.764), E2(c) transfer **+0.030 [+0.020, +0.040]**.
+> **Blocked on the advisor:** D9 motion endpoint + keep-R1 → Amendment 2. **Unblocked:** P5 build; P3 E0b needs
+> Drive checkpoints. **Uncommitted:** the K-pos + P2 work (15 files) — ask before committing.
+
+Before that, 2026-09-27 ( **KAT-VAD v2 architecture designed and signed off by the advisor; not built**. Full update: all six core files reviewed; counts re-measured: **91 Python files (61 source + 30 test), 14,155 source LOC, 598 tests, 30 docs**.) Before that, 2026-09-26 (**step B read out: INCONCLUSIVE, CCD parked, next = D**.) Before that, 2026-09-26 (**step B built: subset tool, 16 tests, phase-6 notebook**.) Before that, 2026-09-26 (**Option A / phase 5 READ OUT: "cost removed;
 KIP-v1 neutral on T2"**. Partial update: `activeContext`, `progress`, lessons (C37 outcome,
 pending (x)), plan App. A; docs 26 → 27 (+ `core/docs/RESULTS_DADA_ORIG_T2.md`); code unchanged.)
 Before that, 2026-09-26 (**CCD (`data/CarCrash/`) profiled and PARKED**;
@@ -42,7 +52,51 @@ Track 0b closed; T2 + Option A remain the live track. Partial update: `activeCon
 architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 13,833 source LOC, 582 collected); **docs 24 → 25** (+ `core/docs/D2CITY_EDA.md`).
 
-## 2026-09-28 (latest) — **v2 Amendment 1 (DoTA pixels gone) + P1 kill-switch BUILT, NOT RUN** (branch `v2`)
+## 2026-09-28 (latest) — **P2 E0/E2(a–c) RUN: CRN = R1 (mechanical), but E2(b)'s metric is position-confounded** (branch `v2`)
+
+* Built `core/crn/reference.py` (R1–R4, shared with P5), `core/tools/crn_select.py` (E0 + E2(a–c), one CLI),
+  `core/eda/features.py:transfer_scores` (shared by the grouped-CV probe). Impl. choices I1–I9 pre-registered in addendum §7.
+  Read-out `outputs/v2/REPORTS/v2_E2abc/`; record `core/docs/v2/RESULTS_E2_CRN.md`. Suite **691 / 0 fail** (+17).
+* **E0** 3.00× (fps assumptions). **E2(a)** DoTA-dev bins = freeze (343/247/93/19); T2-val 114/91/13/1; coverage 0.223 → metric `r`.
+* **E2(b)** DoTA-dev `r`: R1 0.6902 · R2 0.6899 · R3 0.6711 · R4 0.4956 (reversal) → **R1**. But **`−f` alone = 0.764** (R1) — above `r`;
+  `f` is U-shaped for R1–R3, rising for R4. The choice ranks `−f`'s shape. Stratified cross-check leaks too (`−f` 0.596). Pending (ah).
+  Fixed a spec deviation before the final run: the stratified eligibility leg now reads `d` (§4.2 step 3), not `r`; verdict unchanged.
+* **E2(c)** clean: T2-train → DoTA-dev probe on `x − μ^ref` beats raw 0.6277 by **+0.030 [+0.020, +0.040]** (R1); R2 +0.030, R3 +0.025, R4 +0.034.
+* **Advisor questions now:** D9 endpoint (Amendment 2) **and** keep R1 vs amend the E2(b) selection metric (recommended: keep R1).
+
+**Next action:** advisor decisions → Amendment 2. Unblocked meanwhile: P5 build (CRN input module + `MotionResidual`, local CPU).
+
+## 2026-09-28 — **K-pos RUN: NOT_PAD, BEYOND_POSITION — u is real but ⅓ of K's Δ** (branch `v2`)
+
+* `outputs/v2/DADA2000_orig/v2_K/k_diag.{json,md}`. (P) pad drop: `u` 0.758 (unchanged), `x` 0.615 → 0.646, Δ +0.106 [+0.080, +0.130] → **NOT_PAD**.
+* (Q) `p` (cubic in t/L) **0.730** OOF · `[x;p]` **0.734** · `[x;u;p]` 0.777 → Δ **+0.043 [+0.023, +0.064]** (i′), **+0.039 [+0.018, +0.061]** (ii′) → **BEYOND_POSITION**.
+* **Read:** K's +0.13 was ≈ ⅔ position. `u` still adds ~+0.04 (CI excludes 0 on both probes; lower bound < +0.03). **CLIP adds +0.004 over position on whole DADA sources.**
+  Gate D0's 0.6518 sat below a no-pixel ruler it never printed (pending (ag)).
+* **T2-val windows (label-only, local, 470 two-class windows):** best position ruler **0.575** (`t`, later = abnormal); anomaly start/end medians 25 % / 90 %.
+  Windowing removes most of the position shortcut → T2-val windows are the defensible motion endpoint; whole-source macro is not.
+
+**Next action:** advisor decides D9 (motion endpoint → Amendment 2) with the K + K-pos numbers; recommended = T2-val window macro, paired vs A0/A1,
+position ruler 0.575 printed beside. P2 (E0, E2(a–c)) waits for the CLIP caches pulled to local.
+
+## 2026-09-28 — **K = GO; K-pos diagnostic pre-registered + built** (branch `v2`)
+
+* **K read-out** (`outputs/v2/DADA2000_orig/v2_K/`, 295 T2-train sources, sha1 `634a105d…`): `u` **0.760** [0.740, 0.781],
+  `x` 0.615, `[x;u]` 0.747; Δ([x;u]−x) **+0.132 [+0.109, +0.155]** (i′), **+0.126 [+0.101, +0.152]** (ii′). Control passes.
+  **Verdict GO**, not borderline. (ii′) ≈ (i′) → not accident-type memorization. `[x;u]` < `u`: concat costs the linear probe a little.
+* **Provenance:** the user uploads code to Drive directly (no git checkout), so `commit` = UNKNOWN is expected; the notebook's
+  Amendment-1 assert is the provenance. **Do not chase git hashes for Colab runs** (user, 2026-09-28).
+* **Position risk (label-only, measured):** relative-position tent **0.729** (in-sample, 2 params), padded-clip flag 0.573,
+  absolute t 0.529. DADA accidents sit at 36 %–71 % of `L`. → `u`'s gain is not yet shown to be motion. Pending (ag).
+* **K-pos (addendum §6.2, printed, not gated):** `python -m core.tools.kill_switch_probe diag …` → `k_diag.{json,md}`;
+  (P) pad drop (6 steps) → PAD_EXPLAINS/NOT_PAD; (Q) `[x;u;p]` vs `[x;p]`, `p` cubic in t/L → POSITION_PROXY/BEYOND_POSITION.
+  Notebook §4b (CPU, reuses caches). Suite **674 / 0 fail** (+10).
+* **Advisor to be told:** (1) the KILL-rule amendment (option A); (2) K = GO → D9 endpoint choice (Amendment 2) before P4;
+  (3) K-pos result once run.
+
+**Next action:** user runs notebook §4b → paste `k_diag.md`; send the advisor note; in parallel P2 (E0, E2(a–c)) needs the
+CLIP caches `clip/DADA2000_orig` (T2) + `clip/DoTA_s8_ncc` + `labels_s8` pulled from Drive to local.
+
+## 2026-09-28 — **v2 Amendment 1 (DoTA pixels gone) + P1 kill-switch BUILT, NOT RUN** (branch `v2`)
 
 * **DoTA has no pixels** (memory `dota-frames-unrecoverable`); the user confirmed `clip/DoTA_s8_ncc` + `labels_s8` are still on Drive.
   `core/docs/v2/PREREG_ADDENDUM.md` §6 (user-approved): **D7** K runs on T2 only, **D8** E1 dropped (protocol stays s8 whole-clip min-max; E0 = record only),

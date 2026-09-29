@@ -227,8 +227,8 @@ Trước khi sửa bất kỳ symbol nào: `trace_call_path` + báo blast radius
 | Phase | Kết quả | Commit | Ngày |
 |---|---|---|---|
 | P0 | T2-val 219 src / 645 win; DoTA-dev 702 clip / 93 vid, eval 700 / 86; >70 bin chỉ 19 clip dev; addendum D1–D6 | `7422975` | 2026-09-27 |
-| P1 K | | | |
-| P2 E0/E2(a–c) | | | |
+| P1 K | **GO.** 295 src / 12,409 fr. `u` 0.760, `x` 0.615; Δ([x;u]−x) +0.132 [+0.109, +0.155] (i′), +0.126 [+0.101, +0.152] (ii′); control lower 0.740. Label-only rulers: position tent 0.729, pad flag 0.573 → **K-pos (§6.2): NOT_PAD** (pad drop: Δ +0.106 [+0.080, +0.130] / +0.100) · **BEYOND_POSITION** (`p` 0.730, `[x;p]` 0.734, `[x;u;p]` 0.777; Δ +0.043 [+0.023, +0.064] (i′), +0.039 [+0.018, +0.061] (ii′)) — ≈ 2/3 of K's Δ is position. T2-val windows: position ruler only 0.575. Read-out `outputs/v2/DADA2000_orig/v2_K/` | code uploaded to Drive directly (not a git checkout); ≥ Amendment 1 by the notebook assert | 2026-09-28 |
+| P2 E0/E2(a–c) | **Mechanical verdict R1, veto passed** — but E2(b)'s `r` is dominated by `−f` (trend alone 0.764 > `r` 0.690 on DoTA-dev): reference choice not identified. E2(c) clean: CRN beats raw on T2-train → DoTA-dev transfer, +0.025…+0.034, all CIs > 0. E0 3.00×; E2(a) bins = freeze. `core/docs/v2/RESULTS_E2_CRN.md`; impl. choices addendum §7 | local run | 2026-09-28 |
 | P3 E1/E0b | | | |
 | P4 E2(d) | | | |
 | P6 pilot | | | |

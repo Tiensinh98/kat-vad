@@ -1,7 +1,7 @@
 # Project Brief — KAT-VAD
 
 **Created:** 2026-07-31 (memory bank re-initialized from commit `b9978ff`)
-**Last reviewed:** 2026-09-27 (**KAT-VAD v2 designed and signed off by the advisor**,
+**Last reviewed:** 2026-09-28 (branch **`v2`**: v2 P0–P2 run — splits frozen `7422975`, kill-switch K = **GO** (VideoMAE `u` adds +0.04 [+0.02, +0.06] beyond CLIP + position), CRN = **R1** by the rule but the E2(b) selection metric is position-confounded; E2(c) transfer +0.03. Scope unchanged: v2 = LaGoVAD + motion stream + CRN, gated by E0–E3; model not built yet). Before that 2026-09-27 (**KAT-VAD v2 designed and signed off by the advisor**,
 `core/docs/v2/`: KIP and RAFT are retired from the design in favour of a frozen VideoMAE V2
 motion stream + Clip-Referenced Normalization, gated by E0–E3. Scope of `main`'s *code* is
 unchanged until v2 is built). Previously 2026-09-24, second pass (scope unchanged; a candidate **second
@@ -13,7 +13,9 @@ attribute it to an unnormalized reconstruction target capturing the shared trunk
 Earlier: 2026-09-15, the DADA-2000 **original** release adopted as the training
 corpus and DoTA pinned as held-out; the same day, TAD run end to end.
 
-> **Branch:** `main` (tip `ae4fded`) is the **KAT-VAD v1** line — KIP as
+> **Branch `v2`** (this copy, off `main@cc39882`) = `main`'s v1 code + the v2 design, pre-registration and P0–P2 tools (`core/splits/v2/`, `core/models/videomae_v2.py`, `core/tools/{freeze_splits,extract_video_features,kill_switch_probe,crn_select}.py`, `core/crn/`).
+>
+> **Branch:** `main` (tip `cc39882`) is the **KAT-VAD v1** line — KIP as
 > originally specified: `PMGFlowHead` → `KinematicShift` with the frozen
 > 321-parameter MLP gate → `MotionScoreHead`. The v3 gate rebuild (four
 > `gate_type`s, ECMR, gate diagnostics) is on branch **`v3`** (tip `bb1516c`),
@@ -44,7 +46,11 @@ benchmark is the motion-dominated DoTA.
 | `core/docs/v3/RESULTS_V3_GATE_ATTRIBUTION.md` **(branch `v3` only — on `main` the numbers live in [[progress]]'s results ledger)** | **The attribution result** (2026-09-01) — read before claiming KIP does anything |
 | `core/docs/v3/RESULTS_DADA.md` | **The DADA-2000 campaign** (2026-09-06) — read before quoting any DADA number |
 | `.project/plans/katvad-v3-kip-gate-rebuild.md` | **The live plan** — v3 Phase-3 rebuild, phases 0–5, measured appendices A–E |
-| ~~`core/docs/v2/*`, `.project/plans/katvad-v2-next-steps.md`~~ | **Do not exist in this tree.** v3 supersedes them; do not cite them |
+| `core/docs/v2/{KAT_VAD_PROPOSAL_v2,KAT_VAD_v2_ARCHITECTURE}.md` | **KAT-VAD v2** (2026-09-27, advisor sign-off): motion stream + CRN, E0–E3, adoption rules. Unrelated to the old "spec v2" of the gate line |
+| `core/docs/v2/PREREG_ADDENDUM.md` | Pre-registration: frozen splits (§1), run order D1–D6, K (§3, §6.1), Amendment 1 D7–D9 (DoTA pixels gone), K-pos (§6.2), E2 impl. choices I1–I9 (§7). **Cite beside `7422975` in every v2 read-out** |
+| `core/docs/v2/{MOTION_STREAM_K,RESULTS_E2_CRN}.md` | P1 (K + K-pos) and P2 (E0/E2) results — the durable record (`outputs/` is gitignored) |
+| `.project/plans/katvad-v2-e0-e2.md` | **The live v2 plan** (P0–P7) with read-out Appendix A |
+| ~~`.project/plans/katvad-v2-next-steps.md`~~ | Does not exist; do not cite |
 | `core/docs/PREVAD_SETUP.md` | PreVAD download/setup/trunk-transfer runbook |
 | `.project/plans/kat-vad-implementation.md` | Phase plan 0–7 with per-task checkboxes |
 | `LaGoVAD-PreVAD/` | Baseline reference. **READ-ONLY, never modify** |
@@ -147,7 +153,9 @@ the current headline.
 ## Non-negotiables
 
 - `LaGoVAD-PreVAD/` is never modified.
-- **Branch discipline.** `main` = v1, `v3` = the gate rebuild. Do not write v3
+- **v2 pre-registration discipline (2026-09-27/28).** Every v2 decision rule is committed to `core/docs/v2/PREREG_ADDENDUM.md` *before* its number is read; a diagnostic added after a result is labelled "printed, not gated" and never changes a verdict; a rule found defective is flagged to the advisor and amended as a numbered Amendment — never silently swapped. DoTA-eval stays sealed (`SealedSplitError`) until the final report.
+- **Print what position alone scores beside every frame-level macro** (pending (ag)/(ah)): on whole DADA sources a no-pixel relative-position ruler reaches 0.73, and a detrended score's own trend `−f` reached 0.764 on DoTA-dev.
+- **Branch discipline.** `main` = v1, `v3` = the gate rebuild, `v2` = the v2 build line. Do not write v3
   gate code on `main`; do not assume a v3 doc or flag exists here. Check
   `git branch --show-current` and `grep gate_type core/config.py` before running
   any runbook command.
