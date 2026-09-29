@@ -1,241 +1,229 @@
 # KAT-VAD v2 — Exploration plan: freeze → kill-switch → E0–E2 → build → pilot → go/no-go for E3
 
-**Status:** APPROVED 2026-09-27; P0 DONE (splits frozen). **2026-09-28: Amendment 1 (D7–D9) — DoTA pixels mất; K chạy trên T2, E1 bỏ, endpoint motion chờ thầy.** Next: P1 (T2-only).
-**Branch:** `v2` (tách từ `main@cc39882`; code = v1 + docs v2). Mọi code của plan này nằm trên `v2`.
-**Nguồn:** `core/docs/v2/KAT_VAD_PROPOSAL_v2.md` (§4, §7.2, §10) + `KAT_VAD_v2_ARCHITECTURE.md`.
-Proposal thắng plan ở phần *what* (thành phần, rule adoption). Plan này đổi **thứ tự** và thêm
-**kiểm tra kỹ thuật**. Mọi chỗ lệch khỏi §10.2 đều có lý do trong §3 và được commit vào addendum ở P0,
-**trước** khi có bất kỳ con số nào.
+**Branch:** `v2` (tách từ `main@cc39882`; code = v1 + tool v2). Mọi code của plan này nằm trên `v2`.
+**Nguồn:** `core/docs/v2/KAT_VAD_PROPOSAL_v2.md` (§4, §7, §10) + `KAT_VAD_v2_ARCHITECTURE.md`.
+**Pre-registration:** `core/docs/v2/PREREG_ADDENDUM.md` — D1–D6 (P0), Amendment 1 D7–D9 (§6), impl. choices I1–I9 (§7),
+Amendment 2 D10–D11 + J1–J9 (§8). Proposal thắng plan ở phần *what*; addendum thắng proposal ở những điểm nó sửa.
+**Last updated:** 2026-09-29.
+
+---
+
+## 0. Trạng thái hiện tại (đọc cái này trước)
+
+Ký hiệu: ✅ xong · 🟡 đang làm / chờ chạy · ⛔ bị chặn · ⬜ chưa bắt đầu
+
+| Phase | Trạng thái | Kết quả / việc còn lại | Commit |
+|---|:-:|---|---|
+| **P0** Freeze | ✅ | Splits T2-val 219 src, DoTA-dev 702 / eval 700 (sealed); addendum D1–D6 | `7422975` |
+| **P1** Kill-switch K | ✅ | **GO** (+0.13), nhưng K-pos: chỉ **+0.043 [+0.023, +0.064]** vượt CLIP + position | `8001cf1`, `7b20444` |
+| **P2** E0 / E2(a–c) | ✅ (s8) | CRN = **R1** (mechanical; metric E2(b) bị position confound), E2(c) transfer **+0.030 [+0.020, +0.040]**. Nhánh s3 (D11) chỉ chạy nếu E1 chọn B/C | `7b20444` |
+| **P3** E1 | 🟡 | Code + notebook xong. **Chờ user chạy `colab/v2/p3_e1.ipynb`** | `0ab760d` |
+| **P3** E0b | ⬜ | Chưa có notebook. Cần xác nhận ckpt phase-5 + lcurve 25/50 % trên Drive | — |
+| **P4** Encoder E2(d) | ⛔ | Chặn bởi **D9** (endpoint motion chưa chốt). Chỉ extract được trên T2 | — |
+| **P5** Build v2 | ⬜ | Không bị chặn — làm được ngay (local CPU) | — |
+| **P6** Pilot | ⬜ | Cần P4 + P5 | — |
+| **P7** Go/no-go | ⬜ | Cần P6 | — |
+
+**Việc tiếp theo, theo thứ tự:**
+1. **User:** chạy `colab/v2/p3_e1.ipynb`, dán `e1_readout.md` → điền Appendix A, quyết định có chạy D11 không.
+2. **Claude (song song):** P5 build ở local.
+3. **User chốt D9** (endpoint motion; đề xuất ở §6 P4) → mở khoá P4.
+4. **Claude:** notebook E0b khi user xác nhận ckpt trên Drive.
+
+**Test suite hiện tại:** 715 collected, 0 fail (2026-09-29).
 
 ---
 
 ## 1. Summary
 
-- Mục tiêu: trả lời trong 2–3 tuần câu hỏi *"v2 có đáng chạy factorial 20 run (E3) không, và chạy với cấu hình nào?"*
-  (reference CRN, encoder, protocol DoTA) — **không train để quyết định**, chỉ probe + re-score + 1 pilot kỹ thuật.
-- Rủi ro lớn nhất của v2 là **motion stream không mang signal** (frozen VideoMAE V2 có thể chỉ là appearance).
-  Nếu vậy, v2 co lại còn CRN + protocol. Vì thế kiểm tra nó **đầu tiên**, trên subset, bằng một kill-switch probe.
-- Scope: P0 → P7 chi tiết. E3 chỉ là phase khung, được gate bởi P7.
+- Mục tiêu: trả lời *"v2 có đáng chạy factorial 20 run (E3) không, và với cấu hình nào?"* (reference CRN, encoder,
+  protocol DoTA) — **không train để quyết định**, chỉ probe + re-score + 1 pilot kỹ thuật.
+- Rủi ro lớn nhất — motion stream không có signal — đã kiểm ở P1: **có signal, nhưng nhỏ** (≈ ⅓ con số K ban đầu, phần
+  còn lại là position). Motion **không đo được trên DoTA** (không còn pixel) → mọi claim motion là in-domain T2.
+- CRN đo được trên DoTA (CLIP-only). Protocol DoTA (stride/window) quyết định bởi E1.
 - Không có loss mới, không tune gì theo Δ trên DoTA-dev (lesson 14).
 
 ## 2. Assumptions & Constraints
 
-| # | Assumption / constraint | Hệ quả nếu sai |
+| # | Assumption / constraint | Trạng thái |
 |---|---|---|
-| A1 | DADA-2000 original = **30 fps** (chỉ có trong literature; release là PNG, không đo được fps từ file) | clip 10 fps "mỗi frame thứ 3" sai tỉ lệ thời gian; ghi rõ là assumption trong mọi read-out |
-| A2 | ~~Frames DoTA~~ + DADA original, CLIP caches `*_ncc`, checkpoints phase-4/5/lcurve đều nằm trên Drive | **SAI cho DoTA (2026-09-28):** chỉ còn `clip/DoTA_s8_ncc` + `labels_s8`. Hệ quả = addendum §6 (D7 K chỉ T2, D8 bỏ E1, D9 A2/A3 không có endpoint DoTA). DADA original vẫn đúng |
-| A3 | Compute = Colab A100 40 GB; dev = macOS CPU, data-free tests | extraction VideoMAE bị I/O-bound từ Drive → copy frames sang SSD local của runtime trước |
-| A4 | DoTA: 1,397 clip / **179 video gốc** (max 19 clip/video), 3 clip toàn normal | split và bootstrap phải **group theo video gốc**, không theo clip |
+| A1 | DADA-2000 original = **30 fps** (chỉ có trong literature) | Vẫn là assumption; ghi trong mọi read-out |
+| A2 | Data trên Drive | **DoTA: không còn pixel.** Còn CLIP `DoTA_s1_ncc` (1,397 clip, verified `s1[::8] == DoTA_s8_ncc` 30/30) + `DoTA_s8_ncc` + `labels_s8` → mọi stride CLIP đều dựng được; **VideoMAE trên DoTA thì không**. DADA original đủ frame |
+| A3 | Compute = Colab (GPU); dev = macOS CPU, test không cần data | Mọi bước cần data thật → giao notebook Colab, không kéo data về local |
+| A4 | DoTA: 1,402 clip / **179 video gốc** (max 19 clip/video) | Split và bootstrap group theo video gốc (D3) |
 | C1 | Không đụng `LaGoVAD-PreVAD/`; code chỉ trong `core/` | — |
-| C2 | Cache gắn với transform + stride (C2/C13): stride 3 = **cache mới**, không ghi đè `*_s8` | — |
-| C3 | DoTA-eval và T2-test chỉ mở một lần (final, sau E3) | — |
-| C4 | Timeline 2–3 tuần | P5 (build) chạy song song P3/P4 |
+| C2 | Cache gắn transform + stride (C2/C13) | s3 = `s1[::3]` in-memory, không ghi cache mới |
+| C3 | DoTA-eval và T2-test mở một lần (final, sau E3) | `load_split(..., final=True)` là cửa duy nhất (`SealedSplitError`) |
 
-## 3. Deviations from the advisor's run order (§10.2) — and why
+## 3. Deviations từ run order của thầy (§10.2) và các amendment
 
-| # | Advisor | Plan này | Lý do |
-|---|---|---|---|
-| D1 | E0 → E0b+E1 → E2; VideoMAE extraction song song | **P1 kill-switch VideoMAE trên subset ngay sau freeze**, trước E1 | Rủi ro lớn nhất cần biết sớm nhất (~ngày 4). E1/E0b rẻ nhưng không đổi được go/no-go của cả v2. |
-| D2 | E2(b) chọn CRN reference sau E1 | E2(b) chạy **ở cả stride 8 và stride 3**, lấy kết quả theo stride mà E1 chọn | E1 đổi step rate của DoTA → `t/T`, deviation, share bin đều đổi. Chọn reference ở stride 8 rồi eval ở stride 3 là chọn trên phân phối khác. Numpy, rẻ. |
-| D3 | Clip-level paired bootstrap trên DoTA-dev | Bootstrap **theo video gốc** (cluster bootstrap) | 179 video, tới 19 clip/video tương quan → bootstrap theo clip thu hẹp CI giả tạo. Áp dụng cho E1 (quyết định) và mọi bootstrap báo cáo. |
-| D4 | Không có | **P6 pilot** 1 seed × 4 arm (seed **2099**, ngoài 2024–2028), chỉ đọc cơ chế + T2-val, **không in DoTA-dev** | Bắt bug trước khi đốt 20 run. Seed ngoài bộ pre-registered nên không làm bẩn E3. |
-| D5 | Không có | **A0 regression check**: A0 trên code v2 phải khớp KIP-off phase-4 | Code v2 sửa forward/dataset; A0 phải chứng minh vẫn là baseline, không thì mọi Δ vô nghĩa (C5 tinh thần). |
-| D6 | E2(d) probe các encoder trên cùng feature | Thêm **temporal-shuffle control** (xáo 16 frame trong clip) cho encoder được chọn — chỉ diagnostic | Phân biệt "VideoMAE thêm motion" vs "VideoMAE chỉ là CLIP thứ hai". Không quyết định adoption, nhưng quyết định **cách viết** claim "kinematics-aware". |
+| # | Nội dung | Ở đâu |
+|---|---|---|
+| D1 | Kill-switch K chạy ngay sau freeze, trước E1 | addendum §2 |
+| D2 | Reference CRN lấy ở stride mà E1 chọn (E2(b) ở cả s8 và s3) | §2; khôi phục có điều kiện bởi D11 |
+| D3 | Mọi bootstrap DoTA resample **video gốc** (cluster), kể cả interval quyết định của E1 | §2 |
+| D4 | Pilot P6: seed **2099**, 4 arm, chỉ đọc cơ chế + T2-val, **không in DoTA-dev** | §2 |
+| D5 | A0 regression: A0 trên code v2 phải khớp KIP-off phase-4 | §2 |
+| D6 | Temporal-shuffle control cho encoder được chọn (chỉ diagnostic) | §2 |
+| D7 | K chạy trên T2 thay vì DoTA-dev (không có pixel DoTA) | Amendment 1, §6 |
+| ~~D8~~ | ~~E1 bỏ~~ — **đảo lại bởi D10** | §6 → §8 |
+| D9 | Motion arms (A2/A3) không có endpoint DoTA; **endpoint chưa chốt** | §6 — **đang mở** |
+| D10 | E1 chạy lại từ `DoTA_s1_ncc` (user duyệt, chưa qua thầy) | Amendment 2, §8 |
+| D11 | E2(b)/(c) đọc lại ở s3 **chỉ khi** E1 chọn B hoặc C | §8 |
 
-Mọi rule quyết định khác (eligibility E2(d), rule chọn reference, adoption E3, `F`) **giữ nguyên proposal**.
+Mọi rule quyết định khác (rule chọn reference, adoption E3, `F`) giữ nguyên proposal.
 
 ## 4. Plan Metadata
 
 - **Plan type:** Research campaign — no-training probes + model build + engineering pilot
-- **Size / scope:** Large (≈ 6 module mới trong `core/`, 3 extraction, 1 pilot 4 run)
-- **Estimated duration:** 13–16 ngày làm việc (2–3 tuần)
 - **Storage path:** `@.project/plans/katvad-v2-e0-e2.md`
 
 ## 5. Phases Overview
 
-| Phase | Goal | Ngày | Phụ thuộc | Train? |
-|---|---|---|---|:-:|
-| P0 Freeze | Split + rules + addendum commit; DoTA-eval guard | 1 | — | no |
-| P1 Kill-switch K | VideoMAE-B có signal không, trên subset | 2–4 | P0 | no |
-| P2 Local audits | E0 rate audit, E2(a) histograms, E2(b) ruler + CRN reference (2 stride), E2(c) veto | 2–5 (song song) | P0; E2(b) stride 3 cần cache P3 | no |
-| P3 Protocol | E1 (A/B/C) + E0b trên một harness, DoTA-dev only | 3–7 | P0 | no |
-| P4 Encoder choice | E2(d) full: B vs S, probe representation từng arm, shuffle control | 7–10 | P1 GO, P3 (stride) | no |
-| P5 Build v2 | Config, input stats, dataset, `MotionResidual`, CRN, logging, tests | 5–11 (song song) | P2 interface CRN | — |
-| P6 Pilot | 1 seed × 4 arm, cơ chế + guardrails + A0 regression | 11–14 | P4, P5 | yes (4 run) |
-| P7 Go/no-go | Checklist → E3 runbook hoặc báo cáo dừng | 14–16 | P6 | no |
-| (E3) | 2 × 2 × 5 seeds = 20 run | sau plan | P7 GO | yes |
+| Phase | Goal | Phụ thuộc | Train? | Chạy ở |
+|---|---|---|:-:|---|
+| P0 Freeze | Split + rules + addendum; DoTA-eval guard | — | no | local |
+| P1 Kill-switch K | VideoMAE-B có signal không (T2) | P0 | no | Colab |
+| P2 Audits | E0, E2(a–c): reference CRN | P0 | no | local |
+| P3 Protocol | E1 (A/B/C) + E0b, DoTA-dev | P0 | no | Colab |
+| P4 Encoder | E2(d): B vs S, shuffle control, full T2 extract | P1 GO, **D9** | no | Colab |
+| P5 Build v2 | Config, stats, dataset, CRN, `MotionResidual`, diagnostics, tests | P2 | — | local |
+| P6 Pilot | 1 seed × 4 arm, cơ chế + guardrails + A0 regression | P4, P5 | yes (4 run) | Colab |
+| P7 Go/no-go | Checklist → runbook E3 hoặc báo cáo dừng | P6 | no | — |
+| (E3) | 2 × 2 × 5 seeds = 20 run | P7 GO | yes | Colab |
 
 ## 6. Detailed Tasks by Phase
 
-### P0 — Freeze (ngày 1)
+### P0 — Freeze ✅ (`7422975`, 2026-09-27)
 
-**Goal:** mọi thứ quyết định sau này đọc trên split cố định và rule đã commit.
+- [x] `core/tools/freeze_splits.py` + `core/data/v2_splits.py`: T2-val = 15 % source video T2-train (grouped theo type);
+  DoTA-dev/eval 50/50 grouped theo video gốc, stratified theo share bin. Output `core/splits/v2/*.txt` + `SPLITS_MANIFEST.json` (sha1).
+- [x] DoTA-eval guard: `load_split` raise `SealedSplitError` trừ khi `final=True`.
+- [x] `core/docs/v2/PREREG_ADDENDUM.md` D1–D6 + rule K + pilot read-out + go/no-go.
+- [x] CLAUDE.md §14.0.1 hàng `v2`, banner branch trong `activeContext.md`.
 
-- [ ] `core/tools/freeze_splits.py` (argparse): tạo
-  - `T2-val` = 15 % **source video** của T2-train, grouped, seed cố định trong `constants.py`;
-  - `DoTA-dev / DoTA-eval` = 50/50, **grouped theo video gốc** (`clip_id.rsplit('_', 1)[0]`),
-    stratified theo accident-share bin để hai nửa cân nhau; 3 clip toàn normal ghi rõ nằm bên nào.
-  - Output `core/splits/v2/{t2_val_sources,dota_dev,dota_eval}.txt` + `SPLITS_MANIFEST.json` (sha1 từng list, seed, commit).
-- [ ] DoTA-eval guard: loader nhận `--split dev|eval|full`; `eval`/`full` raise trừ khi có `--final`. Test: mặc định không thể in số eval.
-- [ ] Addendum pre-registration `core/docs/v2/PREREG_ADDENDUM.md`: D1–D6 + kill-switch rule (P1) + pilot read-out (P6) + go/no-go (P7).
-- [ ] Housekeeping: thêm hàng `v2` vào bảng CLAUDE.md §14.0.1 và banner branch trong `activeContext.md`.
-- [ ] Commit (≤ 20 file, add từng file). Ghi hash vào mọi read-out sau.
+### P1 — Kill-switch K ✅ (`8001cf1` K, `7b20444` K-pos; 2026-09-28)
 
-**Deliverables:** split files + manifest, guard + test, addendum, commit hash.
+Thiết kế đã sửa theo D7 (addendum §6.1): ~300 source T2-train, whole source s8, probe (i′) source-grouped + (ii′) type-grouped.
 
-### P1 — Kill-switch K: VideoMAE có signal không (ngày 2–4, Colab)
+- [x] VideoMAE V2 vendored: `core/models/videomae_v2.py` (pin HF commit + sha256, `weights_only=True`).
+- [x] `core/tools/extract_video_features.py`: causal 16 f @ 10 fps, squash 224², pad đầu clip bằng lặp frame đầu, cache có manifest.
+- [x] `core/tools/kill_switch_probe.py` (`pick` / `run` / `diag`) + tests; runbook `colab/v2/p1_kill_switch.ipynb`.
+- [x] **K = GO**: `u` 0.760 vs CLIP 0.615, Δ +0.13; positive control qua.
+- [x] **K-pos** (§6.2, printed): NOT_PAD; BEYOND_POSITION — `u` thêm **+0.043 [+0.023, +0.064]** vượt CLIP + position.
+  Position ruler: 0.730 trên whole source, **0.575** trên T2-val windows.
 
-> **Amendment 1 (D7):** subset DoTA-dev và probe (i)/(ii) bên dưới **không chạy được**. Thiết kế thay thế,
-> đã commit trước khi chạy: `core/docs/v2/PREREG_ADDENDUM.md` §6.1 — ~300 source T2-train (không T2-val),
-> whole source ở stride 8, (i′) source-grouped CV + (ii′) type-grouped CV, CI bootstrap theo source.
-> Code: `core/models/videomae_v2.py`, `core/tools/extract_video_features.py`, `core/tools/kill_switch_probe.py`;
-> runbook `colab/v2/p1_kill_switch.ipynb`. Weights VideoMAE V2 **không có trong transformers** → vendor model,
-> pin HF commit + sha256, `torch.load(weights_only=True)`.
+### P2 — Audits E0 / E2(a–c) ✅ ở s8 (`7b20444`, 2026-09-28)
 
-**Goal:** biết sớm motion stream có đáng làm tiếp không, trước khi đầu tư extraction đầy đủ và code model.
+- [x] `core/crn/reference.py`: R1–R4 (R4 strictly-past, warm-up 8), dùng chung cho probe và model P5.
+- [x] `core/tools/crn_select.py`: E0 (gộp vào đây thay vì `rate_audit.py`), E2(a), E2(b), E2(c) + tests. Impl. choices I1–I9 (§7).
+- [x] **E0** 3.00× → E1 không bị skip.
+- [x] **E2(a)** bins DoTA-dev = freeze (343/247/93/19); coverage 0.223 → metric `r`.
+- [x] **E2(b)** → **R1** (mechanical). Caveat: `−f` alone 0.764 > `r` 0.690 → lựa chọn reference không được xác định (pending (ah)).
+- [x] **E2(c)** CRN − raw transfer **+0.030 [+0.020, +0.040]** → veto qua. Mọi reference +0.025…+0.034.
+- [ ] **(D11, có điều kiện)** Nếu E1 chọn B/C: thêm `--stride` cho `crn_select`, đọc lại E2(b)/(c) trên DoTA-dev ở s3
+  (từ `s1[::3]`), notebook Colab. Nếu E1 giữ A: đóng task này.
 
-- [ ] `mcp context7` xác minh API load VideoMAE V2 distilled (`vit_b_k710_dl_from_giant`, `vit_s_k710_dl_from_giant`):
-  có nằm trong `transformers 4.56` không, có cần `trust_remote_code` không. Nếu cần remote code → vendor
-  định nghĩa model vào `core/` và pin revision/sha của weight (C4; bandit).
-- [ ] `core/tools/extract_video_features.py` (argparse): causal 16 f @ 10 fps kết thúc tại step, squash 224², VideoMAE mean/std,
-  mean-pool token → `u_t`. Đầu clip: pad bằng lặp frame đầu (ghi rõ). Cache `cache/video/<encoder>/<dataset>_s<stride>_squash/`,
-  kèm manifest (encoder sha, stride, fps assumption, transform). Log throughput (steps/s) để ước tính P4.
-- [ ] Tests (CPU, model giả): index causal (không lookahead), mapping stride/fps DADA (×3) vs DoTA (×1), shape, pad đầu clip.
-- [ ] Subset: DoTA-dev ~200 clip (stratified theo share bin, grouped) + T2 ~300 source video (train phần, không đụng T2-val);
-  **ViT-B** (ứng viên mạnh nhất: nếu B không có signal thì S cũng không), stride 8 để ghép với cache CLIP hiện có.
-- [ ] Probe (tái dùng `core/eda/features.py`: `frame_linear_probe`, không viết lại):
-  (i) in-domain DoTA-dev grouped CV: CLIP-only vs `u`-only vs `[x ; u]`; (ii) transfer T2-subset → DoTA-dev-subset.
-  Cluster bootstrap theo video cho CI.
-- [ ] **Rule (commit trong P0):**
-  - ~~**KILL motion stream** nếu cả hai Δ(`[x;u]` − CLIP) có point estimate ≤ 0 **và** cận trên CI < +0.03.~~
-    **Sửa 2026-09-28 (option A, user chốt, addendum §6.1):** KILL nếu cả hai Δ có cận trên < +0.03; bỏ vế point ≤ 0 (tung đồng xu trên null, pending (ae)).
-  - **Positive control:** `u`-only in-domain phải > 0.5 rõ ràng (CI loại 0.5). Nếu không → nghi bug pipeline, sửa rồi chạy lại, **không** KILL.
-  - Còn lại → GO sang P4. K **không** quyết định eligibility (subset quá nhỏ); E2(d) ở P4 mới quyết định.
+Record: `core/docs/v2/RESULTS_E2_CRN.md`.
 
-**Deliverables:** extractor + tests, subset caches, `outputs/REPORTS/v2_K/k_readout.md` (GO/KILL + throughput).
-**Nếu KILL:** P4 bỏ, P5 bỏ motion stream (chỉ CRN), P6 còn 2 arm (A0, A1). Báo thầy trước khi đi tiếp.
+### P3 — Protocol: E1 🟡 + E0b ⬜
 
-### P2 — Local audits: E0, E2(a), E2(b), E2(c) (ngày 2–5, song song P1)
+**E1** (Amendment 2, J1–J9, `0ab760d`):
 
-**Goal:** chốt reference CRN (hoặc bỏ CRN) chỉ bằng numpy trên cache CLIP.
+- [x] `core/tools/rate_matched_eval.py`: A = `s1[::8]` whole · B = `s1[::3]` whole · C = `s1[::3]` W20 hop 4 overlap-average;
+  nội suy về native frame; label native từ annotation theo độ dài s1; seed-average; paired Δ vs A, cluster bootstrap
+  10k theo video gốc; rule J7; position ruler + per-seed + per-bin + micro in kèm (không quyết định).
+- [x] J9 regression gate: A step-level phải khớp `max_score` phase-4 (atol 1e-4) trước khi chấm B/C.
+- [x] `cluster_bootstrap_ci` chuyển vào `core/metrics.py` (crn_select dùng chung). +24 test; smoke end-to-end OK.
+- [x] Runbook `colab/v2/p3_e1.ipynb` (stage 702 file dev về `/content`, spot check s1 vs s8).
+- [ ] **User chạy notebook** → điền Appendix A. Nếu J9 fail: dừng, debug, không nới tolerance.
+- [ ] Ghi `core/docs/v2/RESULTS_E1.md` + cập nhật memory bank.
 
-- [ ] Kéo cache CLIP T2 + DoTA (s8, sau đó s3 từ P3) từ Drive về local (nhỏ, vài chục MB).
-- [ ] **E0** `core/tools/rate_audit.py`: fps, stride, s/step, độ dài clip (giây) cho T2 và DoTA → xác nhận/bác gap ≈ 3×. Nếu không ≈ 3× → bỏ E1 (proposal).
-- [ ] `core/crn/reference.py` — **một** implementation R1–R4 (R4 strictly-past, warm-up `N_w`=8), dùng chung cho probe và cho model ở P5 (DRY). Tests: R4 không nhìn tương lai; t < N_w dùng mean N_w bước đầu; R2/R3 đúng định nghĩa.
-- [ ] **E2(a)** histogram accident-share trên DoTA-dev và DADA source video; tỉ lệ clip bắt đầu normal; coverage của normal steps ở fifth cuối `t/T` (quyết định có kích hoạt coverage fallback không).
-- [ ] **E2(b)** `core/tools/crn_select.py`: position ruler theo share bin → `d_t`, `f` cubic fit trên normal steps của T2-val (clamp 5–95 pct) → `r_t` macro per bin + stratified AUC (min-max per clip trước khi pool) → rule chọn §4.2 bước 4–5. **Chạy ở stride 8 và stride 3** (D2).
-- [ ] **E2(c)** transfer-probe veto (T2-train → DoTA-dev), reference đã chọn vs raw.
+**E0b** (descriptive, không quyết định gì):
 
-**Deliverables:** `outputs/REPORTS/v2_E2abc/` + read-out (reference được chọn cho mỗi stride, hoặc "CRN dropped").
+- [ ] User xác nhận trên Drive: ckpt phase-4 KIP-on (v1), phase-5 KIP-on (v2 zscore), lcurve 25 % / 50 %.
+- [ ] Notebook re-score các ckpt đó trên DoTA-dev (s8, protocol cũ) → pooled SD của 4 contrast (≤ 8 df) →
+  `MDE_dev = 2.776 · SD_pooled / √5`. Tái dùng harness E1 (arm A) thay vì viết mới.
 
-### P3 — Protocol: E1 + E0b (ngày 3–7, Colab)
+### P4 — Encoder choice E2(d) ⛔ (chặn bởi D9)
 
-> **Amendment 1 (D8): E1 bỏ** (cần cache DoTA stride 3 = cần pixel). Protocol giữ s8 whole-clip min-max.
-> Chỉ còn **E0b** (re-score trên `DoTA_s8_ncc`). Các task stride-3 / evaluator sliding bên dưới: không làm.
->
-> **Amendment 2 (2026-09-29, D10–D11): E1 sống lại.** Drive có `clip/DoTA_s1_ncc` (1,397 clip; `s1[::8]` == `DoTA_s8_ncc`
-> 30/30) → s3 = `s1[::3]`, không cần pixel. Implementation J1–J9 chốt trong addendum §8 trước mọi số.
-> **Built:** `core/tools/rate_matched_eval.py` (+24 test, smoke end-to-end OK), runbook `colab/v2/p3_e1.ipynb`.
-> Label native lấy thẳng từ annotation theo độ dài s1 (không cần `dota.py --stride 3`); A qua J9 regression gate
-> (max_score phase-4) trước khi chấm B/C. **Chờ user chạy Colab.** D2 (E2(b)/(c) ở s3) chỉ chạy nếu E1 chọn B/C.
+**D9 cần chốt trước** (người chốt: user; thầy chỉ khi user muốn). Đề xuất:
+endpoint motion = **macro trên T2-val windows**, paired A2/A3 vs A0/A1 theo seed, **in position ruler 0.575 bên cạnh**.
+Chốt thành Amendment 3 trong addendum **trước** khi đọc bất kỳ số motion nào.
 
-**Goal:** chốt stride/protocol DoTA; đo `MDE_dev`.
+Sau khi D9 chốt:
 
-- [ ] Cache CLIP DoTA stride 3: `extract_clip_features --stride 3` → `cache/clip/DoTA_s3_ncc` (mới, C2); labels `dota.py --stride 3`.
-- [ ] Evaluator: thêm chế độ sliding **W=20, hop 4, trung bình phần chồng** + **nội suy score về native frame** (hiện `sliding_window_scores` cắt theo `max_vis_len`, cần `trace_call_path` trước khi sửa). Arm A cũng đi qua cùng nội suy, để so cùng evaluator.
-- [ ] Tests: nội suy về native frame giữ đúng độ dài; hop-average với W chia/không chia hết; stride 8 whole-clip qua harness mới khớp `results.json` cũ (regression).
-- [ ] **E1:** 3 checkpoint KIP-off phase-4 × {A: s8 whole, B: s3 whole, C: s3 sliding W20} trên DoTA-dev. Quyết định bằng **cluster bootstrap theo video** (D3), rule proposal.
-- [ ] **E0b:** re-score (s8, protocol cũ) phase-4 KIP-on v1, phase-5 KIP-on v2, lcurve 25 % / 50 % trên DoTA-dev → pooled SD, `MDE_dev` (≤ 8 df, descriptive). Kiểm tra trước là ckpt lcurve có trên Drive.
-- [ ] In position ruler cạnh mọi macro.
-
-**Deliverables:** `outputs/REPORTS/v2_E1_E0b/` + read-out (protocol chốt, `MDE_dev`).
-
-### P4 — Encoder choice: E2(d) đầy đủ (ngày 7–10, Colab; chỉ khi P1 = GO)
-
-> **Amendment 1 (D9):** rule eligibility trên DoTA-dev không tính được. Trước P4, thầy chọn endpoint cho motion
-> (commit thành Amendment 2). Nếu K = KILL thì P4 biến mất, D9 không còn ý nghĩa.
-
-- [ ] Extract VideoMAE-B và -S tại **stride chốt ở P3**: T2-train subsample, T2-val, DoTA-dev. (DoTA-eval: extract được nhưng không score.)
-- [ ] Probe đúng representation mỗi arm đưa vào trunk: A2 `c·(u − m_u)⊘σ_u`; A3 `c·ũ⊘σ_u` với reference từ P2. Rule eligibility proposal: in-domain DoTA-dev ≥ +0.10 **hoặc** transfer ≥ +0.03 so với CLIP-only; chọn transfer tốt nhất, trong 0.02 thì encoder rẻ hơn thắng.
-- [ ] Lặp E2(b) trên `[x ; u]` (proposal §4.2 bước 3) với encoder đã chọn.
-- [ ] **D6 shuffle control:** encoder đã chọn, xáo 16 frame trong clip → probe lại. Chỉ report.
+- [ ] Extract VideoMAE-B và -S trên T2-train subsample + T2-val (stride 8). **Không có DoTA** (không pixel).
+- [ ] Probe đúng representation mỗi arm: A2 `c·(u − m_u)⊘σ_u`; A3 `c·ũ⊘σ_u` với reference R1. Rule eligibility thay
+  cho rule DoTA-dev của proposal = rule theo endpoint D9.
+- [ ] Lặp E2(b) trên `[x ; u]` với encoder đã chọn (in `−f` bên cạnh, pending (ah)).
+- [ ] **D6 shuffle control** (xáo 16 frame trong clip) → chỉ report.
 - [ ] Extract full T2 (train + val + test) cho encoder đã chọn.
 
 **Deliverables:** `outputs/REPORTS/v2_E2d/` + read-out: encoder, eligibility, shuffle Δ; full T2 cache.
 
-### P5 — Build v2 model (ngày 5–11, song song; local CPU)
+### P5 — Build v2 model ⬜ (không bị chặn; local CPU)
 
-Trước khi sửa bất kỳ symbol nào: `trace_call_path` + báo blast radius; load `meta-index.md`; context7 cho API ngoài.
+Trước khi sửa symbol nào: `trace_call_path` + báo blast radius; load `meta-index.md`; context7 cho API ngoài.
 
-- [ ] Config `v2` section trong `core/config.py`: `crn.enabled`, `crn.reference ∈ {mean, median, robust, past}`, `crn.warmup`,
-  `motion.enabled`, `motion.feature_dir`, `motion.encoder`, `motion.stats_path`. Với v2 **ép `kip.enabled=false`** (raise nếu cả hai bật).
-- [ ] `core/tools/build_v2_stats.py`: từ T2-train **trừ T2-val** → `s`, `m_u`, `σ_u`, `c`; manifest có `train_ids_sha1` (cùng mẫu với `zscore_manifest.json`). Stats bị bind vào split: mismatch → raise.
-- [ ] Data: reference CRN tính trên **source video** (train) / **clip** (test) ở data layer (dùng `core/crn/reference.py`), không trong model. Load `u` song song `x`, assert độ dài khớp từng video (fail loud).
-- [ ] Model: `MotionResidual` (Linear `d_v→512`, weight + bias zero-init) cộng vào input trước temporal encoder; không LayerNorm. Log `ρ_u` và `‖W_u‖` mỗi 50 step.
-- [ ] Checkpoint: key mới qua `ckpt_compat` (C5) — A0 load ckpt KIP-off cũ không lỗi; A2/A3 thiếu `W_u` → raise.
-- [ ] Diagnostics cho mọi arm (proposal §10.1): source-shortcut AUC trên `V^t` và `y^bin`, position probe (R² `t/T`) trên `V^t`, macro theo share bin.
-- [ ] Tests:
-  - `TestV2A0IsKipOff`: config A0 cho forward giống hệt KIP-off, cùng seed.
-  - `W_u = 0` ⇒ output A2 ≡ A0 lúc init.
-  - `s` giữ `E‖x̃‖ = E‖x‖` trên dữ liệu giả.
-  - R4 streaming: score tại t không đổi khi thêm step sau t.
-  - stats `train_ids_sha1` mismatch → raise.
-- [ ] Quality gate §11 + full suite xanh (hiện 598). Docs: `core/docs/v2/TRAINING_V2.md` (flags, cache, stats).
-- [ ] Lesson candidate sau khi build (§7 CLAUDE.md).
+- [ ] Config `v2` trong `core/config.py`: `crn.enabled`, `crn.reference ∈ {R1..R4}` (mặc định R1), `crn.warmup`,
+  `motion.enabled`, `motion.feature_dir`, `motion.encoder`, `motion.stats_path`. Raise nếu v2 bật cùng `kip.enabled`.
+- [ ] `core/tools/build_v2_stats.py`: từ T2-train **trừ T2-val** → `s`, `m_u`, `σ_u`, `c`; manifest `train_ids_sha1`; mismatch → raise.
+- [ ] Data layer: reference CRN tính trên source video (train) / clip (test) bằng `core/crn/reference.py`; load `u` song song `x`,
+  assert độ dài khớp từng video.
+- [ ] Model: `MotionResidual` (Linear `d_v→512`, weight + bias zero-init) cộng vào input trước temporal encoder; không LayerNorm.
+  Log `ρ_u` và `‖W_u‖` mỗi 50 step.
+- [ ] Checkpoint qua `ckpt_compat` (C5): A0 load ckpt KIP-off cũ được; A2/A3 thiếu `W_u` → raise.
+- [ ] Diagnostics mọi arm: source-shortcut AUC trên `V^t` và `y^bin`, position probe (R² `t/T`) trên `V^t`, macro theo share bin.
+- [ ] Tests: `TestV2A0IsKipOff`; `W_u = 0` ⇒ A2 ≡ A0 lúc init; `s` giữ `E‖x̃‖ = E‖x‖`; R4 streaming không nhìn tương lai;
+  stats sha1 mismatch → raise.
+- [ ] Quality gate §11 + full suite xanh (baseline 715). Docs `core/docs/v2/TRAINING_V2.md`. Lesson candidate.
 
-### P6 — Pilot (ngày 11–14, Colab; 4 run)
+### P6 — Pilot ⬜
 
 **Goal:** chứng minh pipeline đúng về cơ chế. **Không** quyết định adoption.
 
-- [ ] Seed **2099**, A0/A1/A2/A3, T2-train trừ T2-val, hyper-params proposal §8.
+- [ ] Seed **2099**, A0/A1/A2/A3, T2-train trừ T2-val, hyper-params proposal §8. Notebook Colab.
 - [ ] Đọc **chỉ**: T2-val (macro, micro, clip oracle), guardrails (micro < oracle, macro ≥ micro, micro ≥ A0 − 0.01),
-  `ρ_u` theo thời gian, `‖W_u‖` tăng từ 0, loss curves, clip-level AUC vs macro (dấu hiệu collapse C14), position R², source-shortcut.
-- [ ] **DoTA-dev không in trong pilot** (lesson 14: thấy Δ pilot là muốn tune).
-- [ ] **A0 regression (D5):** so A0-pilot với ckpt KIP-off phase-4 re-score trên **T2-val** (T2-test vẫn đóng). Kỳ vọng ≈ −0.002 (mất 15 % data train). Chênh > ~0.02 → dừng, debug.
-- [ ] Nếu `ρ_u` ≈ 0 suốt run → motion stream không được dùng; ghi nhận, không sửa lr/`c` (sẽ là tune).
+  `ρ_u` theo thời gian, `‖W_u‖` tăng từ 0, loss curves, clip-level AUC vs macro (C14), position R², source-shortcut.
+- [ ] **DoTA-dev không in trong pilot** (lesson 14).
+- [ ] **A0 regression (D5):** A0-pilot vs ckpt KIP-off phase-4 trên T2-val; chênh > ~0.02 → dừng, debug.
+- [ ] `ρ_u` ≈ 0 suốt run → ghi nhận motion không được dùng; **không** sửa lr/`c`.
 
-**Deliverables:** `outputs/REPORTS/v2_pilot/` + read-out cơ chế.
+### P7 — Go/no-go cho E3 ⬜
 
-### P7 — Go/no-go cho E3 (ngày 14–16)
-
-- [ ] Checklist GO: splits committed; protocol chốt; reference chốt (hoặc CRN dropped); encoder eligible (hoặc motion dropped); A0 regression pass; guardrails pass cho mọi arm pilot; không collapse; suite xanh; quality gate xanh.
-- [ ] Viết runbook E3 `colab/v2/e3_factorial.ipynb` (5 seeds 2024–2028 × arm còn sống), cost estimate từ throughput pilot.
-- [ ] Cập nhật memory bank (`activeContext`, `progress`, `systemPatterns`), báo thầy bảng quyết định P1–P6.
-- [ ] Nếu NO-GO: report bounded null / thành phần bị drop, theo proposal §10.3.
+- [ ] Checklist GO: splits committed; protocol chốt (E1); reference chốt (hoặc CRN dropped); encoder eligible theo D9
+  (hoặc motion dropped); A0 regression pass; guardrails pass; không collapse; suite + quality gate xanh.
+- [ ] Runbook E3 `colab/v2/e3_factorial.ipynb` (seeds 2024–2028 × arm còn sống), cost estimate từ pilot.
+- [ ] Cập nhật memory bank; bảng quyết định P1–P6 (gửi thầy nếu user muốn).
+- [ ] NO-GO → report bounded null / thành phần bị drop (proposal §10.3).
 
 ## 7. Risks & Mitigations
 
-| Risk | Tác động | Giảm thiểu |
-|---|---|---|
-| VideoMAE V2 distilled không load được trong `transformers 4.56`, cần remote code | P1 trễ 1–2 ngày | context7 ngày 2; vendor model def + pin weight sha; fallback: `VideoMAEModel` HF gốc chỉ khi thầy đồng ý (khác ứng viên đã pre-register) |
-| Kill-switch false negative trên subset | Giết oan motion stream | Rule KILL chỉ khi CI upper < +0.03 ở cả hai Δ (option A); positive control chặn trường hợp bug |
-| I/O Drive → Colab chậm | Extraction mất nhiều ngày | Copy frames sang SSD runtime; extractor resumable (skip file có sẵn); đo throughput ở P1 |
-| E1 đổi stride → CRN chọn trên phân phối sai | Reference sai | D2: chọn ở cả hai stride |
-| Clip DoTA tương quan trong video | CI hẹp giả, E1 adopt oan | D3: cluster bootstrap |
-| Dùng DoTA-dev nhiều lần (E1, E2, E3) | Selection optimism | DoTA-eval chỉ mở ở final; đo optimism bằng dev−eval |
-| Sửa forward/dataset làm lệch baseline | Mọi Δ vô nghĩa | `TestV2A0IsKipOff` + A0 regression ở pilot |
-| CRN reference trên source video chứa accident dài (T2 cắt từ trong accident video) | Đảo thứ hạng | E2(a) histogram + rule reversal; T2-val có bin > 50 % |
-| A1 (30 fps) sai | Clip motion sai tỉ lệ thời gian | Ghi assumption; nếu có metadata fps từ xlsx thì đối chiếu ở E0 |
-| 2–3 tuần không đủ | E3 trễ | P5 song song; nếu P1 KILL, P4 biến mất và plan ngắn lại ~4 ngày |
-| Stats `σ_u/c/s` rò T2-val | Leak nhẹ vào quyết định in-domain | Build từ T2-train trừ val, bind sha1 |
-
-## 8. Next Steps for the User
-
-1. Duyệt D1–D6 (nhất là D3 cluster bootstrap và D4 seed pilot 2099). Nên cho thầy xem D1–D3 vì chúng sửa §10.2.
-2. Xác nhận trên Drive có: frames DoTA + DADA original, checkpoint phase-4 (KIP-off/on), phase-5, lcurve 25/50 %.
-3. Chốt có cho phép vendor code VideoMAE V2 (nếu không có trong `transformers 4.56`) hay không.
-4. Cho em bắt đầu P0 (freeze split + addendum + housekeeping CLAUDE.md branch `v2`).
+| Risk | Tác động | Giảm thiểu | Trạng thái |
+|---|---|---|---|
+| Motion signal chủ yếu là position | Claim "kinematics-aware" sai | K-pos; in position ruler cạnh mọi macro; D6 shuffle | Đã đo: ≈ ⅔ K là position |
+| Motion không có endpoint DoTA | Không có claim zero-shot cho motion | D9 → endpoint T2-val windows | **Mở** |
+| Metric detrended mang position prior (`−f`) | Chọn reference sai | In `−f`; E2(c) probe không thấy `t` | Đã thấy ở E2(b) |
+| J9 fail (harness E1 lệch phase-4) | E1 không so được | Dừng, debug, không nới tolerance | Chờ chạy |
+| Clip DoTA tương quan trong video | CI hẹp giả | D3 cluster bootstrap | Đã áp dụng |
+| Dùng DoTA-dev nhiều lần (E1, E2, E3) | Selection optimism | DoTA-eval sealed; đo optimism dev − eval ở final | — |
+| Sửa forward/dataset làm lệch baseline | Mọi Δ vô nghĩa | `TestV2A0IsKipOff` + A0 regression | P5/P6 |
+| `ρ_u` ≈ 0 (motion không được dùng) | A2/A3 = A0 | Ghi nhận, không tune | P6 |
+| Stats `σ_u/c/s` rò T2-val | Leak nhẹ | Build từ T2-train trừ val, bind sha1 | P5 |
+| A1 (30 fps) sai | Clip motion sai tỉ lệ thời gian | Ghi assumption | Mở |
 
 ---
 
-## Appendix A — Read-outs (điền sau khi chạy)
+## Appendix A — Read-outs
 
 | Phase | Kết quả | Commit | Ngày |
 |---|---|---|---|
-| P0 | T2-val 219 src / 645 win; DoTA-dev 702 clip / 93 vid, eval 700 / 86; >70 bin chỉ 19 clip dev; addendum D1–D6 | `7422975` | 2026-09-27 |
-| P1 K | **GO.** 295 src / 12,409 fr. `u` 0.760, `x` 0.615; Δ([x;u]−x) +0.132 [+0.109, +0.155] (i′), +0.126 [+0.101, +0.152] (ii′); control lower 0.740. Label-only rulers: position tent 0.729, pad flag 0.573 → **K-pos (§6.2): NOT_PAD** (pad drop: Δ +0.106 [+0.080, +0.130] / +0.100) · **BEYOND_POSITION** (`p` 0.730, `[x;p]` 0.734, `[x;u;p]` 0.777; Δ +0.043 [+0.023, +0.064] (i′), +0.039 [+0.018, +0.061] (ii′)) — ≈ 2/3 of K's Δ is position. T2-val windows: position ruler only 0.575. Read-out `outputs/v2/DADA2000_orig/v2_K/` | code uploaded to Drive directly (not a git checkout); ≥ Amendment 1 by the notebook assert | 2026-09-28 |
-| P2 E0/E2(a–c) | **Mechanical verdict R1, veto passed** — but E2(b)'s `r` is dominated by `−f` (trend alone 0.764 > `r` 0.690 on DoTA-dev): reference choice not identified. E2(c) clean: CRN beats raw on T2-train → DoTA-dev transfer, +0.025…+0.034, all CIs > 0. E0 3.00×; E2(a) bins = freeze. `core/docs/v2/RESULTS_E2_CRN.md`; impl. choices addendum §7 | local run | 2026-09-28 |
-| P3 E1/E0b | | | |
+| P0 | T2-val 219 src / 645 win; DoTA-dev 702 clip / 93 vid, eval 700 / 86; `>70` bin chỉ 19 clip dev; addendum D1–D6 | `7422975` | 2026-09-27 |
+| P1 K | **GO.** 295 src / 12,409 fr. `u` 0.760, `x` 0.615; Δ([x;u]−x) +0.132 [+0.109, +0.155] (i′), +0.126 [+0.101, +0.152] (ii′); control lower 0.740. **K-pos:** NOT_PAD (pad drop Δ +0.106 [+0.080, +0.130]); BEYOND_POSITION (`p` 0.730, `[x;p]` 0.734, `[x;u;p]` 0.777; Δ +0.043 [+0.023, +0.064] (i′), +0.039 [+0.018, +0.061] (ii′)). T2-val windows position ruler 0.575. `outputs/v2/DADA2000_orig/v2_K/` | Colab (code upload, `commit: UNKNOWN`) | 2026-09-28 |
+| P2 E0/E2(a–c) | **R1 (mechanical), veto qua.** E2(b) `r` bị `−f` chi phối (0.764 > 0.690) → reference không được xác định. E2(c) +0.025…+0.034, mọi CI > 0. E0 3.00×. `core/docs/v2/RESULTS_E2_CRN.md` | `7b20444` | 2026-09-28 |
+| P3 E1 | *Chờ chạy.* Label-only fact (smoke run): position ruler `t/N` trên DoTA-dev native ≈ 0.566 | `0ab760d` (harness) | — |
+| P3 E0b | | | |
 | P4 E2(d) | | | |
 | P6 pilot | | | |
 | P7 | | | |
