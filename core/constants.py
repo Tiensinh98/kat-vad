@@ -413,6 +413,17 @@ V2_E2_BOOTSTRAP = 2000
 V2_E2_CI = 0.95
 V2_E2_REVERSAL_FLOOR = 0.5  # r_t AUC in both >50 % bins and stratified AUC must stay >= this
 
+# --- v2 E1: rate-matched DoTA evaluation (proposal §7.3/§10.1; addendum §8, J1-J9) ---
+V2_E1_STRIDE_A = 8  # arm A: today's protocol, whole clip
+V2_E1_STRIDE_BC = 3  # arms B and C: 0.30 s/step at 10 fps, matching T2's 0.27 s
+V2_E1_WINDOW = 20  # arm C: T2's training window, in steps
+V2_E1_HOP = 4  # arm C: window hop, in steps
+V2_E1_ARMS = ("A", "B", "C")
+V2_E1_BOOTSTRAP = 10000  # §10.1: 10,000 resamples (clusters = source video, D3)
+V2_E1_CI = 0.95
+V2_E1_TIE_MARGIN = 0.01  # J7: both eligible and means closer than this -> B
+V2_E1_REGRESSION_ATOL = 1e-4  # J9: step-level A vs phase-4 max_score
+
 # ---------------------------------------------------------------------------
 # Evaluation score pooling (lesson C12)
 #

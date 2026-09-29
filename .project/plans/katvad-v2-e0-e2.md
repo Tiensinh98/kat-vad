@@ -132,6 +132,12 @@ Mọi rule quyết định khác (eligibility E2(d), rule chọn reference, adop
 
 > **Amendment 1 (D8): E1 bỏ** (cần cache DoTA stride 3 = cần pixel). Protocol giữ s8 whole-clip min-max.
 > Chỉ còn **E0b** (re-score trên `DoTA_s8_ncc`). Các task stride-3 / evaluator sliding bên dưới: không làm.
+>
+> **Amendment 2 (2026-09-29, D10–D11): E1 sống lại.** Drive có `clip/DoTA_s1_ncc` (1,397 clip; `s1[::8]` == `DoTA_s8_ncc`
+> 30/30) → s3 = `s1[::3]`, không cần pixel. Implementation J1–J9 chốt trong addendum §8 trước mọi số.
+> **Built:** `core/tools/rate_matched_eval.py` (+24 test, smoke end-to-end OK), runbook `colab/v2/p3_e1.ipynb`.
+> Label native lấy thẳng từ annotation theo độ dài s1 (không cần `dota.py --stride 3`); A qua J9 regression gate
+> (max_score phase-4) trước khi chấm B/C. **Chờ user chạy Colab.** D2 (E2(b)/(c) ở s3) chỉ chạy nếu E1 chọn B/C.
 
 **Goal:** chốt stride/protocol DoTA; đo `MDE_dev`.
 

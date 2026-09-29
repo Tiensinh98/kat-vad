@@ -51,7 +51,7 @@ from core.crn.reference import deviation, reference
 from core.data.dada_origin import load_counts
 from core.data.v2_splits import dota_group, load_split, share_bin
 from core.eda.features import transfer_scores
-from core.metrics import frame_auc
+from core.metrics import cluster_bootstrap_ci, frame_auc
 from core.tools.freeze_splits import t2_pool_from_meta
 from core.tools.kill_switch_probe import source_labels, write_json_atomic, write_text_atomic
 
@@ -68,7 +68,6 @@ METRIC_R = "r"
 METRIC_STRAT = "stratified"
 VERDICT_DROPPED = "CRN_DROPPED"
 VERDICT_VETOED = "CRN_VETOED"
-PERCENT = 100.0
 
 
 @dataclass(frozen=True)
@@ -196,27 +195,7 @@ def cluster_ci(
     values: dict[str, float], corpus: Corpus, resamples: int, seed: int
 ) -> dict[str, float] | None:
     """Mean of ``values`` and a percentile CI resampling ``corpus.group`` clusters (D3)."""
-    if not values:
-        return None
-    groups = sorted({corpus.group[v] for v in values})
-    index = {g: i for i, g in enumerate(groups)}
-    sums = np.zeros(len(groups))
-    counts = np.zeros(len(groups))
-    for v, value in values.items():
-        sums[index[corpus.group[v]]] += value
-        counts[index[corpus.group[v]]] += 1
-    rng = np.random.default_rng(seed)
-    draw = rng.integers(0, len(groups), size=(resamples, len(groups)))
-    means = sums[draw].sum(axis=1) / counts[draw].sum(axis=1)
-    tail = (1.0 - constants.V2_E2_CI) / 2.0 * PERCENT
-    low, high = np.percentile(means, [tail, PERCENT - tail])
-    return {
-        "mean": float(np.mean(list(values.values()))),
-        "low": float(low),
-        "high": float(high),
-        "clips": len(values),
-        "clusters": len(groups),
-    }
+    return cluster_bootstrap_ci(values, corpus.group, resamples, seed, constants.V2_E2_CI)
 
 
 def macro_by_bin(

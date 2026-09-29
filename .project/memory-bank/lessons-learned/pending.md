@@ -1557,3 +1557,18 @@ probe on the normalized features, E2(c)), or require `r` to beat `−f`.
 **Files:** `core/tools/crn_select.py:evaluate_reference` (`minus_f`), `core/docs/v2/RESULTS_E2_CRN.md`
 
 **Gate status.** One occurrence, measured on real data. Gate 2 (recurrence) not met.
+
+## (ai) [MEDIUM] Experiments - "Needs pixels" is a claim about caches, not data: audit every stride before dropping an arm (2026-09-29)
+
+**Triggers:** amendment, drop experiment, needs pixels, stride 3, re-extract, cache inventory, DoTA_s1, unmeasurable
+**Problem:** Amendment 1 (D8) dropped E1 because "a stride-3 DoTA cache needs pixels". A stride-1 CLIP
+cache (`DoTA_s1_ncc`, built 2026-08 for `_ncc` and documented in `core/docs/COLAB.md` R5 as the source of
+`DoTA_s8_ncc`) had survived on Drive the whole time; `s1[::3]` *is* the stride-3 cache. One day of the
+pre-registered run order was amended away on an unchecked premise.
+**Bad:** "the pixels are gone, so every new stride is unmeasurable."
+**Good:** before declaring an arm unmeasurable, list what caches exist at which stride and whether the
+needed one is a subsample (`range(0, N, s)` makes `s1[::k]` exact); verify with a `s1[::8] == s8` spot check.
+**Candidate rule.** *Check the cache inventory (and the doc that built it) before amending an arm away for missing inputs.*
+**Files:** `core/docs/v2/PREREG_ADDENDUM.md` §6 (D8) and §8 (D10), `core/docs/COLAB.md` R5
+
+**Gate status.** One occurrence. Gate 2 (recurrence) not met.

@@ -52,7 +52,22 @@ Track 0b closed; T2 + Option A remain the live track. Partial update: `activeCon
 architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 13,833 source LOC, 582 collected); **docs 24 → 25** (+ `core/docs/D2CITY_EDA.md`).
 
-## 2026-09-28 (latest) — **P2 E0/E2(a–c) RUN: CRN = R1 (mechanical), but E2(b)'s metric is position-confounded** (branch `v2`)
+## 2026-09-29 (latest) — **E1 revived (Amendment 2) and built; waiting on Colab** (branch `v2`)
+
+* User found `clip/DoTA_s1_ncc` on Drive (1,397 files). Verified on Colab: `s1[::8]` == `DoTA_s8_ncc` 30/30 → same transform/backbone.
+  Any CLIP stride on DoTA is derivable without pixels; VideoMAE on DoTA still impossible (D9 unchanged).
+* User instruction: **do not report to the advisor, proceed.** Amendment 2 (addendum §8: D10 reverses D8, D11 restores D2
+  conditionally, J1–J9) written before any E1 number and marked "user-authorized, not advisor-reviewed".
+* Built `core/tools/rate_matched_eval.py` (A s8 whole / B s3 whole / C s3 W20 hop4 → native-frame interpolation →
+  seed-avg → per-clip paired Δ vs A, cluster bootstrap 10k over source videos → J7 rule; J9 regression gate first).
+  `cluster_bootstrap_ci` moved to `core/metrics.py` (crn_select delegates). Suite **715 / 0 fail** (+24).
+* Runbook `colab/v2/p3_e1.ipynb`. Committed before reading numbers. P0/P1 do not re-run; P2 re-reads only if E1 adopts B/C.
+* Label-only fact from the smoke run: DoTA-dev position ruler `t/N` at native frames ≈ **0.566** (labels are real; scores were fake).
+* User preference (this session): **deliver Colab notebooks, never ask to pull data to local.**
+
+**Next action:** user runs `p3_e1.ipynb` and pastes `e1_readout.md`. Meanwhile: P5 build (local, data-free).
+
+## 2026-09-28 — **P2 E0/E2(a–c) RUN: CRN = R1 (mechanical), but E2(b)'s metric is position-confounded** (branch `v2`)
 
 * Built `core/crn/reference.py` (R1–R4, shared with P5), `core/tools/crn_select.py` (E0 + E2(a–c), one CLI),
   `core/eda/features.py:transfer_scores` (shared by the grouped-CV probe). Impl. choices I1–I9 pre-registered in addendum §7.

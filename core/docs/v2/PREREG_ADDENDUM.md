@@ -182,3 +182,36 @@ sources 0.73, T2-val windows 0.575). No deviation `d_t` of any reference has bee
 | I7 | Intervals: cluster bootstrap, B = 2000, seed 2024; DoTA clusters = source video (D3), T2 clusters = source. Printed, not decided on (steps 4–5 are point rules), except E2(c) | §1: a `>70` pass/fail is flagged (`decided_by_gt70`), not silently accepted |
 | I8 | E2(c) probe = the `core.eda` logistic frame probe fitted on T2-train sources (all T2-train minus T2-val, whole, s8), scored on DoTA-dev; CRN input `x − μ^ref` (the scalar `s` is absorbed by standardization). Veto iff the chosen reference's paired Δ vs raw has upper < 0 | Step 6 as written; D3 for the interval |
 | I9 | E0 fps: DoTA **10** (dataset release), DADA **30** (assumption A1). Record only (D8) | E1 is dropped; E0 switches nothing |
+
+## 8. Amendment 2 (2026-09-29) — a DoTA stride-1 CLIP cache exists: E1 and D2 restored (D10–D11)
+
+Written **before any E1 number is read**. No DoTA score at stride 3 or at native frames has been
+computed by any code in this tree. **Authorized by the user on 2026-09-29; not reviewed by the
+advisor** (the user's instruction). D9 (the motion endpoint) stays open; this amendment does not
+touch it.
+
+**Fact.** Drive holds `clip/DoTA_s1_ncc` (1,397 clips). `s1[::8]` equals `DoTA_s8_ncc` on 30/30
+random clips (`np.allclose`, atol 1e-4), so it was built with the same `no_center_crop`
+transform, the same CLIP backbone and the same `range(0, N, stride)` sampling. Every CLIP stride
+is therefore derivable without pixels. Pixels are still gone, so D7 and D9 stand.
+
+| # | Change | Why |
+|---|---|---|
+| D10 | **D8 is reversed: E1 runs as proposal §10.2 wrote it**, on DoTA-dev, on the three phase-4 KIP-off stage-2 checkpoints (seeds 2024–2026, `checkpoint_last.pt`). E0 read 3.00×, so E1's skip condition does not fire | D8's only reason was "a stride-3 cache needs pixels"; `s1[::3]` is that cache |
+| D11 | **D2 is restored, conditionally.** If E1 adopts B or C, E2(b) and E2(c) are re-read on DoTA-dev at stride 3 before P5 fixes the CRN reference; the T2 side is unchanged. If E1 keeps A, the P2 read-out stands as is | The reference must be taken at the stride E1 adopts (D2) |
+
+### 8.1 E1 implementation choices (fixed now)
+
+`python -m core.tools.rate_matched_eval`, runbook `colab/v2/p3_e1.ipynb`.
+
+| # | Choice | Why |
+|---|---|---|
+| J1 | Native frame count `N` = rows of `DoTA_s1_ncc`. Native labels = `sampled_frame_labels` at stride 1 with `total_frames = N` (the baseline's arithmetic; equal to the raw `[start, end)` window when `N` matches the annotation). Clips where `N` differs from the annotation's `num_frames` are counted and printed | One ground truth for every arm, and it is the one the s8 labels were rounded from |
+| J2 | A = `s1[::8]`, whole clip. B = `s1[::3]`, whole clip. C = `s1[::3]` in windows of W = 20 steps, hop 4 (starts 0, 4, …, plus one window ending at the last step if the hop misses it); a step's score is the mean over the windows that cover it. A clip of ≤ 20 steps is one window (C = B there). Whole clip = one forward pass (the longest dev clip is < 100 steps at s3, below `max_vis_len` 512) | Proposal §7.3 |
+| J3 | Step `t` sits at native frame `t · stride`; scores are linearly interpolated to frames `0 … N−1` and held constant past the last sampled frame. All three arms go through the same interpolation | "Scores are interpolated to native frames, and the baseline is re-scored under the same evaluator" (§7.3) |
+| J4 | Seed averaging: per native frame, the mean of the three checkpoints' sigmoid scores | "Seed-averaged scores" (§10.1) |
+| J5 | Decision metric: macro AUC over the two-class DoTA-dev clips at native frames. Per-clip AUC is rank-based, so per-clip min-max does not change it. Micro AUC (per-clip min-max) is printed, never decided on | The v2 DoTA endpoint is macro (§10.1) |
+| J6 | Interval: per-clip paired Δ = AUC(arm) − AUC(A) on seed-averaged scores; cluster bootstrap over source videos (D3), 10,000 resamples, seed 2024, 95 % percentile | §10.1's E1 exception, with D3's clusters |
+| J7 | **Rule.** Arm X ∈ {B, C} is eligible iff its Δ interval's lower bound is > 0. None eligible → keep A. One → adopt it. Both → the larger mean Δ, unless the two means differ by < 0.01, in which case B (no windowing) | §10.1: "adopt B or C if the interval excludes 0"; the proposal names no tie rule and a negative interval is not a reason to switch |
+| J8 | Printed, never decided on: per-seed macro per arm, macro per share bin, micro, and the no-pixel position ruler `t/N` at native frames (identical for every arm, since the labels are shared) | Print position beside every frame-level macro (pending (ag)) |
+| J9 | **Hard regression gate.** Arm A at step level (before interpolation) must reproduce every DoTA-dev clip's `max_score` in that seed's phase-4 `eval_dota_kip_off/results.json` within 1e-4. A failure stops the run before B or C is scored. Only DoTA-dev entries are read; DoTA-eval labels are never loaded | A harness that cannot reproduce the old protocol cannot be trusted to compare against it |

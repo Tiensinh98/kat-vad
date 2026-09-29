@@ -141,7 +141,45 @@ def pooled_metrics(
     }
 
 
+def cluster_bootstrap_ci(
+    values: dict[str, float],
+    groups: dict[str, str],
+    resamples: int,
+    seed: int,
+    level: float,
+) -> dict[str, float] | None:
+    """Mean of per-item ``values`` and a percentile CI resampling their clusters.
+
+    Clusters are drawn with replacement and the statistic is the item mean over
+    the drawn clusters (v2 addendum D3: DoTA clips of one source video are
+    correlated, so a clip bootstrap understates the variance). ``None`` when
+    ``values`` is empty.
+    """
+    if not values:
+        return None
+    names = sorted({groups[item] for item in values})
+    index = {name: i for i, name in enumerate(names)}
+    sums = np.zeros(len(names))
+    counts = np.zeros(len(names))
+    for item, value in values.items():
+        sums[index[groups[item]]] += value
+        counts[index[groups[item]]] += 1
+    rng = np.random.default_rng(seed)
+    draw = rng.integers(0, len(names), size=(resamples, len(names)))
+    means = sums[draw].sum(axis=1) / counts[draw].sum(axis=1)
+    tail = (1.0 - level) / 2.0 * 100.0
+    low, high = np.percentile(means, [tail, 100.0 - tail])
+    return {
+        "mean": float(np.mean(list(values.values()))),
+        "low": float(low),
+        "high": float(high),
+        "clips": len(values),
+        "clusters": len(names),
+    }
+
+
 __all__ = [
+    "cluster_bootstrap_ci",
     "frame_ap",
     "frame_auc",
     "macro_video_auc",
