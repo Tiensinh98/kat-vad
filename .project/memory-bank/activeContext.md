@@ -52,7 +52,19 @@ Track 0b closed; T2 + Option A remain the live track. Partial update: `activeCon
 architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 13,833 source LOC, 582 collected); **docs 24 → 25** (+ `core/docs/D2CITY_EDA.md`).
 
-## 2026-09-29 (latest) — **E1 revived (Amendment 2) and built; waiting on Colab** (branch `v2`)
+## 2026-09-29 (latest) — **E1 run 1 stopped at J9: two phase-4 checkpoints are mid-training snapshots → Amendment 3** (branch `v2`)
+
+* Drive `DADA2000_orig_phase4/s{2025,2026}/stage2_kip_off/checkpoint_last.pt` = step **510 / 1530** of 2040 (metrics.jsonl
+  complete). s2024 = 2040 and passed J9 on 702/702 clips (harness == `core.evaluate`). Finished weights of s2025/s2026 lost;
+  phase-4 numbers stay valid (computed on VM-local ckpts). Pending lesson (aj).
+* **Amendment 3** (addendum §9, user-authorized): D12 retrain s2025/s2026 with phase 4's exact command; J9′ = s1[::8] vs
+  the s8 cache on the same ckpt (no old results.json); J10 = ckpt `global_step` must equal metrics' last step.
+* New `colab/v2/p3_retrain_kipoff.ipynb` (config.yaml diffed against phase 4; Drive copy verified by step + sha256).
+  `p3_e1.ipynb` updated (Thesis / Thesis-V2 layout, CKPTS map, s8 staging). Suite **720 / 0 fail**. No E1 number read yet.
+
+**Next action:** user uploads code → retrain notebook → E1 notebook → paste `e1_readout.md`. Meanwhile P5 (local).
+
+## 2026-09-29 — **E1 revived (Amendment 2) and built; waiting on Colab** (branch `v2`)
 
 * User found `clip/DoTA_s1_ncc` on Drive (1,397 files). Verified on Colab: `s1[::8]` == `DoTA_s8_ncc` 30/30 → same transform/backbone.
   Any CLIP stride on DoTA is derivable without pixels; VideoMAE on DoTA still impossible (D9 unchanged).

@@ -1,8 +1,9 @@
 """v2 E1: rate-matched DoTA evaluation on existing checkpoints (no training).
 
 Proposal §7.3 / §10.1, pre-registered in ``core/docs/v2/PREREG_ADDENDUM.md`` §8
-(Amendment 2, choices J1-J9). Every arm reads the same stride-1 CLIP cache
-``DoTA_s1_ncc`` and is scored against the same native-frame labels:
+(Amendment 2, choices J1-J8) and §9 (Amendment 3: D12, J9', J10). Every arm reads
+the same stride-1 CLIP cache ``DoTA_s1_ncc`` and is scored against the same
+native-frame labels:
 
 * **A** = ``s1[::8]``, whole clip (today's protocol, 0.8 s/step);
 * **B** = ``s1[::3]``, whole clip (0.3 s/step, T2's rate);
@@ -11,17 +12,19 @@ Proposal §7.3 / §10.1, pre-registered in ``core/docs/v2/PREREG_ADDENDUM.md`` �
 Step ``t`` sits at native frame ``t * stride`` and is linearly interpolated to
 every native frame (J3). Per-frame scores are averaged over the checkpoints (J4);
 the decision is the per-clip paired macro Δ vs A with a source-video cluster
-bootstrap (J6), under the J7 rule. Before B or C is scored, A at step level must
-reproduce each checkpoint's phase-4 ``max_score`` on every DoTA-dev clip (J9).
+bootstrap (J6), under the J7 rule. A checkpoint is scored only if its stored
+``global_step`` equals the last step of the ``metrics.jsonl`` beside it (J10), and
+before B or C is scored, A's step-level curve from ``s1[::8]`` must equal the same
+checkpoint's curve on the ``DoTA_s8_ncc`` cache on every DoTA-dev clip (J9').
 DoTA-eval is sealed: only DoTA-dev ids are loaded.
 
 CLI::
 
     python -m core.tools.rate_matched_eval \\
         --run s2024 runs/s2024/stage2_kip_off/checkpoint_last.pt \\
-            runs/s2024/eval_dota_kip_off/results.json \\
         --run s2025 ... --run s2026 ... \\
-        --s1-dir cache/clip/DoTA_s1_ncc --metadata data/DoTA/metadata_val.json \\
+        --s1-dir cache/clip/DoTA_s1_ncc --s8-dir cache/clip/DoTA_s8_ncc \\
+        --metadata data/DoTA/metadata_val.json \\
         --split-file data/DoTA/val_split.txt --data-dir data/DoTA/labels_s8 \\
         --out-dir outputs/v2/REPORTS/v2_E1
 """
@@ -50,7 +53,7 @@ from core.metrics import cluster_bootstrap_ci, frame_auc, macro_video_auc, poole
 from core.models.kat_vad import KATVAD
 from core.models.text_encoding import TEXT_ENCODER_CLIP, TextEncodeFn, make_text_encoder
 from core.tools.kill_switch_probe import write_json_atomic, write_text_atomic
-from core.train import load_class_names
+from core.train import METRICS_FILENAME, load_class_names
 
 LOGGER = logging.getLogger(__name__)
 
@@ -78,11 +81,10 @@ PROTOCOLS = {
 
 @dataclass(frozen=True)
 class Run:
-    """One checkpoint to re-score and the phase-4 results it must reproduce."""
+    """One checkpoint to re-score."""
 
     name: str
     ckpt: Path
-    results: Path
 
 
 @dataclass(frozen=True)
@@ -134,18 +136,40 @@ def native_labels(record: DotaRecord, num_frames: int) -> np.ndarray:
 
 
 def regression_mismatches(
-    step_max: dict[str, float], per_video: dict[str, dict[str, float]], atol: float
+    harness: dict[str, np.ndarray], reference: dict[str, np.ndarray], atol: float
 ) -> list[str]:
-    """DoTA-dev clips whose step-level A max differs from phase-4's ``max_score`` (J9)."""
+    """Clips whose step-level A curve (``s1[::8]``) differs from the s8-cache curve (J9')."""
     bad = []
-    for video_id, value in sorted(step_max.items()):
-        if video_id not in per_video:
-            bad.append(f"{video_id}: absent from phase-4 results")
-            continue
-        old = per_video[video_id]["max_score"]
-        if abs(value - old) > atol:
-            bad.append(f"{video_id}: {value:.6f} vs {old:.6f}")
+    for video_id, curve in sorted(harness.items()):
+        ref = reference.get(video_id)
+        if ref is None:
+            bad.append(f"{video_id}: no reference curve")
+        elif ref.shape != curve.shape:
+            bad.append(f"{video_id}: {curve.shape} vs {ref.shape} steps")
+        elif not np.allclose(curve, ref, rtol=0.0, atol=atol):
+            bad.append(f"{video_id}: max |diff| {np.abs(curve - ref).max():.6f}")
     return bad
+
+
+def metrics_last_step(metrics: Path) -> int:
+    """The last ``global_step`` logged in a run's ``metrics.jsonl``."""
+    lines = [line for line in metrics.read_text(encoding="utf-8").splitlines() if line.strip()]
+    if not lines:
+        raise ValueError(f"{metrics} is empty")
+    return int(json.loads(lines[-1])["global_step"])
+
+
+def check_finished(ckpt_step: int, metrics: Path, name: str) -> None:
+    """J10: refuse a checkpoint whose step is not the run's last logged step."""
+    if not metrics.is_file():
+        raise FileNotFoundError(f"J10: {name} has no {metrics.name} beside its checkpoint")
+    last = metrics_last_step(metrics)
+    if ckpt_step != last:
+        raise RuntimeError(
+            f"J10 FAILED for {name}: checkpoint global_step {ckpt_step} != "
+            f"{metrics.name} last step {last} (a mid-training snapshot)"
+        )
+    LOGGER.info("J10 PASSED for %s: finished checkpoint at step %d", name, last)
 
 
 def decide(deltas: dict[str, dict[str, float] | None]) -> dict[str, Any]:
@@ -232,42 +256,67 @@ def score_steps(
     return overlap_average(parts, len(feats))
 
 
+def load_finished_model(run: Run, device: torch.device) -> tuple[KATVAD, int, TextEncodeFn]:
+    """Model in eval mode, after the J10 gate on its stored ``global_step``."""
+    payload = torch.load(run.ckpt, map_location="cpu", weights_only=False)  # nosec B614 - own ckpt
+    step = int(payload.get("global_step", -1)) if isinstance(payload, dict) else -1
+    del payload
+    check_finished(step, run.ckpt.parent / METRICS_FILENAME, run.name)
+    cfg = load_config(None, DOTA_OVERRIDES)
+    model = load_model_for_scoring(cfg, device, run.ckpt, None, TEXT_ENCODER_CLIP, DOTA_OVERRIDES)
+    text_encode_fn = make_text_encoder(model, TEXT_ENCODER_CLIP, device, dim=cfg.model.hidden_dim)
+    return model, step, text_encode_fn
+
+
 def score_run(
     run: Run,
     clips: dict[str, Clip],
     data_dir: Path,
     device: torch.device,
     arms: tuple[str, ...],
-) -> tuple[dict[str, dict[str, np.ndarray]], dict[str, float]]:
-    """Native-frame scores per arm for one checkpoint, plus A's step-level max per clip."""
-    cfg = load_config(None, DOTA_OVERRIDES)
-    model = load_model_for_scoring(cfg, device, run.ckpt, None, TEXT_ENCODER_CLIP, DOTA_OVERRIDES)
-    text_encode_fn = make_text_encoder(model, TEXT_ENCODER_CLIP, device, dim=cfg.model.hidden_dim)
+    s8_dir: Path | None = None,
+) -> tuple[dict[str, dict[str, np.ndarray]], int]:
+    """Native-frame scores per arm for one checkpoint and its ``global_step``.
+
+    With ``s8_dir`` (and arm A requested) the J9' gate runs before returning: A's
+    step-level curve from ``s1[::8]`` must equal the curve on the s8 cache.
+    """
+    model, step, text_encode_fn = load_finished_model(run, device)
     class_names = load_class_names(data_dir)
     native: dict[str, dict[str, np.ndarray]] = {arm: {} for arm in arms}
-    step_max: dict[str, float] = {}
+    harness_a: dict[str, np.ndarray] = {}
+    reference_a: dict[str, np.ndarray] = {}
+    protocol_a = PROTOCOLS[KEEP_A]
     for video_id, clip in sorted(clips.items()):
         for arm in arms:
             protocol = PROTOCOLS[arm]
             feats = torch.from_numpy(np.ascontiguousarray(clip.s1[:: protocol.stride]))
             steps = score_steps(model, feats, text_encode_fn, class_names, video_id, protocol)
-            if arm == "A":
-                step_max[video_id] = float(steps.max())
+            if arm == KEEP_A:
+                harness_a[video_id] = steps
             native[arm][video_id] = to_native(steps, protocol.stride, len(clip.s1))
+        if s8_dir is not None and KEEP_A in arms:
+            s8 = torch.from_numpy(np.load(s8_dir / f"{video_id}.npy").astype(np.float32))
+            reference_a[video_id] = score_steps(
+                model, s8, text_encode_fn, class_names, video_id, protocol_a
+            )
     LOGGER.info("%s: scored %d clips x arms %s", run.name, len(clips), ",".join(arms))
-    return native, step_max
+    if s8_dir is not None and KEEP_A in arms:
+        check_regression(run.name, harness_a, reference_a)
+    return native, step
 
 
-def check_regression(run: Run, step_max: dict[str, float]) -> None:
-    """J9: stop before B/C if A cannot reproduce the phase-4 run."""
-    per_video = json.loads(run.results.read_text(encoding="utf-8"))["per_video"]
-    bad = regression_mismatches(step_max, per_video, constants.V2_E1_REGRESSION_ATOL)
+def check_regression(
+    name: str, harness: dict[str, np.ndarray], reference: dict[str, np.ndarray]
+) -> None:
+    """J9': stop before B/C if the s1 input path differs from the evaluator's s8 path."""
+    bad = regression_mismatches(harness, reference, constants.V2_E1_REGRESSION_ATOL)
     if bad:
         raise RuntimeError(
-            f"J9 regression FAILED for {run.name}: {len(bad)} DoTA-dev clips differ "
-            f"from {run.results}: {bad[:5]}"
+            f"J9' regression FAILED for {name}: {len(bad)} DoTA-dev clips differ "
+            f"between s1[::8] and the s8 cache: {bad[:5]}"
         )
-    LOGGER.info("J9 regression PASSED for %s (%d clips)", run.name, len(step_max))
+    LOGGER.info("J9' regression PASSED for %s (%d clips)", name, len(harness))
 
 
 # ---------------------------------------------------------------------------
@@ -347,10 +396,12 @@ def render_markdown(readout: dict[str, Any]) -> str:
     lines = [
         "# v2 E1: rate-matched DoTA-dev evaluation",
         "",
-        f"Addendum §8 (J1-J9). Runs: {', '.join(readout['runs'])}. "
+        f"Addendum §8-§9 (J1-J8, J9', J10). Runs: {', '.join(readout['runs'])}. "
         f"Clips: {readout['clips']} DoTA-dev; "
         f"s1 length != annotation: {readout['off_length']}.",
-        "J9 regression: PASSED on every run.",
+        "J10 finished checkpoints (global_step): "
+        + ", ".join(f"{k} {v}" for k, v in readout["global_steps"].items())
+        + ". J9' regression (s1[::8] == s8 cache): PASSED on every run.",
         "",
         _row(["Arm", "Macro (seed-avg) [95 % cluster CI]", "Δ vs A", "Micro (min-max)"]),
         "|---|---|---|---|",
@@ -381,21 +432,24 @@ def render_markdown(readout: dict[str, Any]) -> str:
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
-    runs = [Run(name, Path(ckpt), Path(results)) for name, ckpt, results in args.run]
+    runs = [Run(name, Path(ckpt)) for name, ckpt in args.run]
     device = resolve_device(args.device)
     clips, off_length = load_dev_clips(args.s1_dir, args.metadata, args.split_file)
     per_run: dict[str, dict[str, dict[str, np.ndarray]]] = {}
+    steps: dict[str, int] = {}
     for r in runs:
-        native, step_max = score_run(r, clips, args.data_dir, device, ("A",))
-        check_regression(r, step_max)
+        native, steps[r.name] = score_run(
+            r, clips, args.data_dir, device, (KEEP_A,), s8_dir=args.s8_dir
+        )
         per_run[r.name] = native
     for r in runs:
         native, _ = score_run(r, clips, args.data_dir, device, ("B", "C"))
         per_run[r.name].update(native)
     readout: dict[str, Any] = {
-        "addendum": "core/docs/v2/PREREG_ADDENDUM.md §8",
+        "addendum": "core/docs/v2/PREREG_ADDENDUM.md §8-§9",
         "runs": [r.name for r in runs],
         "checkpoints": {r.name: str(r.ckpt) for r in runs},
+        "global_steps": steps,
         "clips": len(clips),
         "off_length": off_length,
         "summary": summarize(per_run, clips, args.seed),
@@ -410,10 +464,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n", 1)[0])
     parser.add_argument(
-        "--run", nargs=3, action="append", required=True, metavar=("NAME", "CKPT", "RESULTS"),
-        help="checkpoint to re-score and its phase-4 eval_dota results.json (repeat per seed)",
+        "--run", nargs=2, action="append", required=True, metavar=("NAME", "CKPT"),
+        help="finished checkpoint to re-score, metrics.jsonl beside it (repeat per seed)",
     )
     parser.add_argument("--s1-dir", type=Path, required=True, help="cache/clip/DoTA_s1_ncc")
+    parser.add_argument(
+        "--s8-dir", type=Path, required=True, help="cache/clip/DoTA_s8_ncc (J9' reference)"
+    )
     parser.add_argument("--metadata", type=Path, required=True, help="metadata_val.json")
     parser.add_argument("--split-file", type=Path, required=True, help="val_split.txt")
     parser.add_argument("--data-dir", type=Path, required=True, help="DoTA labels dir (defs.json)")

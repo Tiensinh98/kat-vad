@@ -69,21 +69,56 @@ class TestNative:
 
 
 class TestRegression:
+    """J9': s1[::8] curve vs the s8-cache curve, every step."""
+
     def test_match_within_tolerance(self) -> None:
-        per_video = {"a": {"max_score": 0.5}, "b": {"max_score": 0.9}}
-        assert e1.regression_mismatches({"a": 0.50001, "b": 0.9}, per_video, 1e-4) == []
+        ref = {"a": np.array([0.1, 0.5]), "b": np.array([0.9])}
+        harness = {"a": np.array([0.10005, 0.5]), "b": np.array([0.9])}
+        assert e1.regression_mismatches(harness, ref, 1e-4) == []
 
-    def test_mismatch_and_absent_reported(self) -> None:
-        bad = e1.regression_mismatches({"a": 0.6, "c": 0.1}, {"a": {"max_score": 0.5}}, 1e-4)
-        assert len(bad) == 2 and "absent" in bad[1]
+    def test_any_step_off_is_reported_not_just_the_max(self) -> None:
+        ref = {"a": np.array([0.1, 0.9])}
+        bad = e1.regression_mismatches({"a": np.array([0.3, 0.9])}, ref, 1e-4)
+        assert len(bad) == 1 and "max |diff| 0.2" in bad[0]
 
-    def test_check_regression_raises(self, tmp_path: Path) -> None:
-        results = tmp_path / "results.json"
-        results.write_text(json.dumps({"per_video": {"a": {"max_score": 0.5}}}))
-        run = e1.Run("s1", tmp_path / "ckpt.pt", results)
-        with pytest.raises(RuntimeError, match="J9 regression FAILED"):
-            e1.check_regression(run, {"a": 0.7})
-        e1.check_regression(run, {"a": 0.5})
+    def test_length_and_missing_reported(self) -> None:
+        ref = {"a": np.array([0.1, 0.2])}
+        bad = e1.regression_mismatches(
+            {"a": np.array([0.1]), "c": np.array([0.1])}, ref, 1e-4
+        )
+        assert len(bad) == 2 and "steps" in bad[0] and "no reference" in bad[1]
+
+    def test_check_regression_raises(self) -> None:
+        ref = {"a": np.array([0.5])}
+        with pytest.raises(RuntimeError, match="J9' regression FAILED"):
+            e1.check_regression("s1", {"a": np.array([0.7])}, ref)
+        e1.check_regression("s1", {"a": np.array([0.5])}, ref)
+
+
+def _metrics(path: Path, steps: list[int]) -> Path:
+    path.write_text("".join(json.dumps({"epoch": 0, "global_step": s}) + "\n" for s in steps))
+    return path
+
+
+class TestFinishedCheckpoint:
+    """J10: a checkpoint whose step is not the run's last logged step is refused."""
+
+    def test_finished_passes(self, tmp_path: Path) -> None:
+        e1.check_finished(2040, _metrics(tmp_path / "m.jsonl", [510, 1530, 2040]), "s")
+
+    def test_mid_training_snapshot_raises(self, tmp_path: Path) -> None:
+        metrics = _metrics(tmp_path / "m.jsonl", [510, 1530, 2040])
+        with pytest.raises(RuntimeError, match=r"J10 FAILED.*510 != .* 2040"):
+            e1.check_finished(510, metrics, "s2025")
+
+    def test_missing_metrics_raises(self, tmp_path: Path) -> None:
+        with pytest.raises(FileNotFoundError, match="J10"):
+            e1.check_finished(2040, tmp_path / "metrics.jsonl", "s")
+
+    def test_last_step_ignores_blank_lines(self, tmp_path: Path) -> None:
+        path = tmp_path / "m.jsonl"
+        path.write_text('{"global_step": 5}\n\n{"global_step": 9}\n\n')
+        assert e1.metrics_last_step(path) == 9
 
 
 def _ci(mean: float, low: float) -> dict[str, float]:
@@ -169,6 +204,13 @@ class TestSummarize:
         assert out["delta_vs_A"]["B"]["clusters"] == 6
         printed = {"position_ruler", "macro_by_share_bin", "per_seed_macro", "micro_minmax"}
         assert set(out["printed"]) == printed
-        assert "adopt B" in e1.render_markdown(
-            {"runs": ["s1", "s2"], "clips": 12, "off_length": 0, "summary": out}
+        md = e1.render_markdown(
+            {
+                "runs": ["s1", "s2"],
+                "clips": 12,
+                "off_length": 0,
+                "global_steps": {"s1": 2040, "s2": 2040},
+                "summary": out,
+            }
         )
+        assert "adopt B" in md and "s2 2040" in md

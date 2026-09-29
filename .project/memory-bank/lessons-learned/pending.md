@@ -1572,3 +1572,21 @@ needed one is a subsample (`range(0, N, s)` makes `s1[::k]` exact); verify with 
 **Files:** `core/docs/v2/PREREG_ADDENDUM.md` §6 (D8) and §8 (D10), `core/docs/COLAB.md` R5
 
 **Gate status.** One occurrence. Gate 2 (recurrence) not met.
+
+## (aj) [HIGH] Checkpoints - A synced checkpoint is final only if its own global_step says so (2026-09-29)
+
+**Triggers:** checkpoint_last.pt, sync_to_drive, Drive FUSE, resume, already trained, epochs_done, metrics.jsonl, re-score old checkpoint
+**Problem:** Phase 4 trained on VM disk and copied `checkpoint_last.pt` + `metrics.jsonl` to Drive after each 5-epoch
+chunk. For s2025 and s2026 the final 480 MB checkpoint never landed (Drive holds step **510** and **1530** of 2040)
+while `metrics.jsonl` did. The notebook's "already trained" test read `metrics.jsonl`, so nothing flagged it for
+10 days; E1 would have averaged a 25 %-trained model into its decision had J9 not compared against old scores.
+**Bad:** `if epochs_done(drive_dir) >= NUM_EPOCHS: skip` (reads the log, trusts the weights).
+**Good:** read `torch.load(ckpt)['global_step']` and require it to equal the last `global_step` in `metrics.jsonl`
+before skipping, resuming or scoring (`rate_matched_eval.check_finished`, J10); after a sync, `fsync` the Drive copy
+and compare sha256 with the local file.
+**Candidate rule.** *Verify a checkpoint's own step against its run log before using it; never infer it from the log.*
+**Files:** `colab/DADA2000Origin/phase_4.ipynb` (`train_arm`, `epochs_done`), `core/tools/rate_matched_eval.py:check_finished`,
+`colab/v2/p3_retrain_kipoff.ipynb` §3, `core/docs/v2/PREREG_ADDENDUM.md` §9
+
+**Gate status.** One occurrence (two seeds), measured. Gate 2 (recurrence) not met — but phase 5 and the learning
+curve used the same sync code, so E0b's checkpoints must be checked the same way before it is built.

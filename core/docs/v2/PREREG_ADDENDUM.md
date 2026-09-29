@@ -214,4 +214,31 @@ is therefore derivable without pixels. Pixels are still gone, so D7 and D9 stand
 | J6 | Interval: per-clip paired Δ = AUC(arm) − AUC(A) on seed-averaged scores; cluster bootstrap over source videos (D3), 10,000 resamples, seed 2024, 95 % percentile | §10.1's E1 exception, with D3's clusters |
 | J7 | **Rule.** Arm X ∈ {B, C} is eligible iff its Δ interval's lower bound is > 0. None eligible → keep A. One → adopt it. Both → the larger mean Δ, unless the two means differ by < 0.01, in which case B (no windowing) | §10.1: "adopt B or C if the interval excludes 0"; the proposal names no tie rule and a negative interval is not a reason to switch |
 | J8 | Printed, never decided on: per-seed macro per arm, macro per share bin, micro, and the no-pixel position ruler `t/N` at native frames (identical for every arm, since the labels are shared) | Print position beside every frame-level macro (pending (ag)) |
-| J9 | **Hard regression gate.** Arm A at step level (before interpolation) must reproduce every DoTA-dev clip's `max_score` in that seed's phase-4 `eval_dota_kip_off/results.json` within 1e-4. A failure stops the run before B or C is scored. Only DoTA-dev entries are read; DoTA-eval labels are never loaded | A harness that cannot reproduce the old protocol cannot be trusted to compare against it |
+| J9 | ~~**Hard regression gate.** Arm A at step level (before interpolation) must reproduce every DoTA-dev clip's `max_score` in that seed's phase-4 `eval_dota_kip_off/results.json` within 1e-4. A failure stops the run before B or C is scored. Only DoTA-dev entries are read; DoTA-eval labels are never loaded~~ **Replaced by J9′ (Amendment 3, §9)** | A harness that cannot reproduce the old protocol cannot be trusted to compare against it |
+
+## 9. Amendment 3 (2026-09-29) — two of the three phase-4 KIP-off checkpoints are mid-training snapshots (D12, J9′, J10)
+
+Written **before any E1 number is read**: the first E1 run stopped at J9 before B or C was scored
+and before any macro, micro or Δ was computed. **Authorized by the user on 2026-09-29; not reviewed
+by the advisor.**
+
+**Fact (measured on Drive, 2026-09-29).** `outputs/DADA2000_orig_phase4/s{seed}/stage2_kip_off/checkpoint_last.pt`:
+
+| seed | checkpoint `global_step` | `metrics.jsonl` last step | J9 |
+|---|---|---|---|
+| 2024 | 2040 | 2040 | **passed** on all 702 DoTA-dev clips |
+| 2025 | **510** (epoch 5) | 2040 | failed on all 702 clips |
+| 2026 | **1530** (epoch 15) | 2040 | not reached |
+
+Phase 4 trained on VM-local disk and synced to Drive after every 5-epoch chunk; the final
+checkpoints of s2025 and s2026 never landed on Drive while their `metrics.jsonl` did, and the
+notebook's "already trained" check reads `metrics.jsonl`, not the checkpoint. The phase-4 DoTA and
+T2 numbers were computed on the local, finished checkpoints and stay valid; the finished weights of
+s2025 and s2026 are lost. s2024's J9 pass shows the harness's scoring reproduces `core.evaluate`
+exactly on a finished checkpoint.
+
+| # | Change | Why |
+|---|---|---|
+| D12 | **E1's checkpoints = s2024 (phase 4, finished) + s2025 and s2026 retrained** with phase 4's exact stage-2 KIP-off command (`colab/DADA2000Origin/phase_4.ipynb` `train_cmd`: `train.num_epochs=20`, `train.amp=true`, `model.score_head_kernel=3`, `loss.mil_topk_pct=5`, `kip.enabled=false`, same T2 corpus, CLIP cache and KNN cache), runbook `colab/v2/p3_retrain_kipoff.ipynb`, written to `Thesis-V2/outputs/v2_p4_retrain/`. The retrained seeds are not bit-identical to the lost ones; their phase-4 DoTA macros (0.6466, 0.5928) are printed beside the retrained ones, never gated | J4 needs three checkpoints; a 1-seed E1 would drop the training-variance averaging the rule assumes. The retrained checkpoints also serve P6's A0 regression (D5) |
+| J9′ | **Regression gate, replacing J9.** For every checkpoint, arm A's step-level curve from `s1[::8]` must equal, within 1e-4 on every step of every DoTA-dev clip, the curve the same checkpoint gives through the evaluator's input path (the `DoTA_s8_ncc` cache, whole clip, per-item verbalizer). No old `results.json` is read and no label is read. A failure stops the run before B or C is scored | J9 tied the gate to one historical checkpoint file; J9′ tests what J9 was for (the harness input path equals the evaluator's) and works for any checkpoint. The scoring code itself is already validated against `core.evaluate` by s2024's J9 pass |
+| J10 | **Finished-checkpoint gate.** A checkpoint is used only if its stored `global_step` equals the last `global_step` in the `metrics.jsonl` beside it; otherwise the run raises before scoring | The defect behind D12; a mid-training snapshot otherwise scores silently |

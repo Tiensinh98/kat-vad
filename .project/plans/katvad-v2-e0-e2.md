@@ -17,20 +17,24 @@ Ký hiệu: ✅ xong · 🟡 đang làm / chờ chạy · ⛔ bị chặn · ⬜
 | **P0** Freeze | ✅ | Splits T2-val 219 src, DoTA-dev 702 / eval 700 (sealed); addendum D1–D6 | `7422975` |
 | **P1** Kill-switch K | ✅ | **GO** (+0.13), nhưng K-pos: chỉ **+0.043 [+0.023, +0.064]** vượt CLIP + position | `8001cf1`, `7b20444` |
 | **P2** E0 / E2(a–c) | ✅ (s8) | CRN = **R1** (mechanical; metric E2(b) bị position confound), E2(c) transfer **+0.030 [+0.020, +0.040]**. Nhánh s3 (D11) chỉ chạy nếu E1 chọn B/C | `7b20444` |
-| **P3** E1 | 🟡 | Code + notebook xong. **Chờ user chạy `colab/v2/p3_e1.ipynb`** | `0ab760d` |
-| **P3** E0b | ⬜ | Chưa có notebook. Cần xác nhận ckpt phase-5 + lcurve 25/50 % trên Drive | — |
+| **P3** E1 | 🟡 | Lần chạy đầu dừng ở J9: ckpt s2025/s2026 trên Drive là snapshot giữa chừng (step 510 / 1530). Amendment 3: **train lại s2025/s2026** (`p3_retrain_kipoff.ipynb`) → chạy lại `p3_e1.ipynb` | `0ab760d` + Amendment 3 |
+| **P3** E0b | ⬜ | Chưa có notebook. Ckpt phase-5 + lcurve có thể cũng là snapshot (pending (aj)) → kiểm `global_step` trước | — |
 | **P4** Encoder E2(d) | ⛔ | Chặn bởi **D9** (endpoint motion chưa chốt). Chỉ extract được trên T2 | — |
 | **P5** Build v2 | ⬜ | Không bị chặn — làm được ngay (local CPU) | — |
 | **P6** Pilot | ⬜ | Cần P4 + P5 | — |
 | **P7** Go/no-go | ⬜ | Cần P6 | — |
 
 **Việc tiếp theo, theo thứ tự:**
-1. **User:** chạy `colab/v2/p3_e1.ipynb`, dán `e1_readout.md` → điền Appendix A, quyết định có chạy D11 không.
+1. **User:** upload code mới lên `Thesis-V2/kat-vad` → chạy `colab/v2/p3_retrain_kipoff.ipynb` tới khi §3 in VERIFIED →
+   chạy `colab/v2/p3_e1.ipynb`, dán `e1_readout.md` → điền Appendix A, quyết định có chạy D11 không.
 2. **Claude (song song):** P5 build ở local.
 3. **User chốt D9** (endpoint motion; đề xuất ở §6 P4) → mở khoá P4.
 4. **Claude:** notebook E0b khi user xác nhận ckpt trên Drive.
 
-**Test suite hiện tại:** 715 collected, 0 fail (2026-09-29).
+**Test suite hiện tại:** 720 collected, 0 fail (2026-09-29).
+
+**Drive layout (từ 2026-09-29):** code + outputs v2 ở `Thesis-V2/` (`kat-vad/`, `outputs/`); data, cache, ckpts và
+run v1 (phase 4) ở `Thesis/`, chỉ đọc.
 
 ---
 
@@ -70,6 +74,7 @@ Ký hiệu: ✅ xong · 🟡 đang làm / chờ chạy · ⛔ bị chặn · ⬜
 | D9 | Motion arms (A2/A3) không có endpoint DoTA; **endpoint chưa chốt** | §6 — **đang mở** |
 | D10 | E1 chạy lại từ `DoTA_s1_ncc` (user duyệt, chưa qua thầy) | Amendment 2, §8 |
 | D11 | E2(b)/(c) đọc lại ở s3 **chỉ khi** E1 chọn B hoặc C | §8 |
+| D12 | Ckpt E1 = s2024 (phase 4) + s2025/s2026 **train lại** đúng lệnh phase 4; J9 → **J9′** (s1[::8] vs cache s8, cùng ckpt, không dùng `results.json` cũ); **J10** ckpt phải là bước cuối | Amendment 3, §9 |
 
 Mọi rule quyết định khác (rule chọn reference, adoption E3, `F`) giữ nguyên proposal.
 
@@ -133,15 +138,23 @@ Record: `core/docs/v2/RESULTS_E2_CRN.md`.
 - [x] `core/tools/rate_matched_eval.py`: A = `s1[::8]` whole · B = `s1[::3]` whole · C = `s1[::3]` W20 hop 4 overlap-average;
   nội suy về native frame; label native từ annotation theo độ dài s1; seed-average; paired Δ vs A, cluster bootstrap
   10k theo video gốc; rule J7; position ruler + per-seed + per-bin + micro in kèm (không quyết định).
-- [x] J9 regression gate: A step-level phải khớp `max_score` phase-4 (atol 1e-4) trước khi chấm B/C.
+- [x] J9 regression gate (bản đầu): A step-level khớp `max_score` phase-4 (atol 1e-4) trước khi chấm B/C.
 - [x] `cluster_bootstrap_ci` chuyển vào `core/metrics.py` (crn_select dùng chung). +24 test; smoke end-to-end OK.
-- [x] Runbook `colab/v2/p3_e1.ipynb` (stage 702 file dev về `/content`, spot check s1 vs s8).
-- [ ] **User chạy notebook** → điền Appendix A. Nếu J9 fail: dừng, debug, không nới tolerance.
+- [x] Runbook `colab/v2/p3_e1.ipynb` (layout Thesis / Thesis-V2, stream log subprocess, cài `av einops faiss-cpu`).
+- [x] **Lần chạy 1 (2026-09-29): dừng ở J9.** s2024 pass 702/702 (harness = `core.evaluate`); s2025 fail 702/702.
+  Nguyên nhân: ckpt Drive s2025 step 510, s2026 step 1530, `metrics.jsonl` đủ 2040 → bản cuối chưa từng lên Drive (pending (aj)).
+  Chưa có số E1 nào được tính.
+- [x] **Amendment 3** (§9): D12 train lại s2025/s2026; J9′ (s1[::8] vs cache s8 cùng ckpt, mọi step); J10 (ckpt step == metrics).
+  Harness sửa theo (+5 test, smoke OK); runbook train lại `colab/v2/p3_retrain_kipoff.ipynb` (so `config.yaml` với phase 4,
+  verify step + sha256 trên Drive).
+- [ ] **User:** chạy `p3_retrain_kipoff.ipynb` (tới VERIFIED) → `p3_e1.ipynb` → dán read-out. J9′/J10 fail: dừng, không nới.
 - [ ] Ghi `core/docs/v2/RESULTS_E1.md` + cập nhật memory bank.
 
 **E0b** (descriptive, không quyết định gì):
 
-- [ ] User xác nhận trên Drive: ckpt phase-4 KIP-on (v1), phase-5 KIP-on (v2 zscore), lcurve 25 % / 50 %.
+- [ ] User xác nhận trên Drive: ckpt phase-4 KIP-on (v1), phase-5 KIP-on (v2 zscore), lcurve 25 % / 50 % — **và mỗi ckpt
+  qua J10** (`global_step` == dòng cuối `metrics.jsonl`); cùng code sync với phase 4 nên có thể cũng là snapshot.
+  Contrast của E0b cần ckpt KIP-off: dùng s2024 + s2025/s2026 train lại.
 - [ ] Notebook re-score các ckpt đó trên DoTA-dev (s8, protocol cũ) → pooled SD của 4 contrast (≤ 8 df) →
   `MDE_dev = 2.776 · SD_pooled / √5`. Tái dùng harness E1 (arm A) thay vì viết mới.
 
@@ -222,7 +235,7 @@ Trước khi sửa symbol nào: `trace_call_path` + báo blast radius; load `met
 | P0 | T2-val 219 src / 645 win; DoTA-dev 702 clip / 93 vid, eval 700 / 86; `>70` bin chỉ 19 clip dev; addendum D1–D6 | `7422975` | 2026-09-27 |
 | P1 K | **GO.** 295 src / 12,409 fr. `u` 0.760, `x` 0.615; Δ([x;u]−x) +0.132 [+0.109, +0.155] (i′), +0.126 [+0.101, +0.152] (ii′); control lower 0.740. **K-pos:** NOT_PAD (pad drop Δ +0.106 [+0.080, +0.130]); BEYOND_POSITION (`p` 0.730, `[x;p]` 0.734, `[x;u;p]` 0.777; Δ +0.043 [+0.023, +0.064] (i′), +0.039 [+0.018, +0.061] (ii′)). T2-val windows position ruler 0.575. `outputs/v2/DADA2000_orig/v2_K/` | Colab (code upload, `commit: UNKNOWN`) | 2026-09-28 |
 | P2 E0/E2(a–c) | **R1 (mechanical), veto qua.** E2(b) `r` bị `−f` chi phối (0.764 > 0.690) → reference không được xác định. E2(c) +0.025…+0.034, mọi CI > 0. E0 3.00×. `core/docs/v2/RESULTS_E2_CRN.md` | `7b20444` | 2026-09-28 |
-| P3 E1 | *Chờ chạy.* Label-only fact (smoke run): position ruler `t/N` trên DoTA-dev native ≈ 0.566 | `0ab760d` (harness) | — |
+| P3 E1 | *Lần 1 dừng ở J9 (ckpt s2025/s2026 là snapshot step 510/1530; s2024 pass) → Amendment 3, train lại.* Label-only fact (smoke run): position ruler `t/N` trên DoTA-dev native ≈ 0.566 | `0ab760d` + Amendment 3 | 2026-09-29 |
 | P3 E0b | | | |
 | P4 E2(d) | | | |
 | P6 pilot | | | |
