@@ -153,3 +153,84 @@ class TestSourceLabels:
         monkeypatch.setattr(ksp, "parse_annotation", lambda _path: [])
         with pytest.raises(ValueError, match="lack an annotation"):
             ksp.source_labels(tmp_path / "a.xlsx", {}, ["t01_v001"], stride=8)
+
+
+def _diag_corpus(
+    u_mode: str, rng: np.random.Generator
+) -> tuple[dict[str, np.ndarray], dict[str, int], dict[str, np.ndarray], dict[str, np.ndarray]]:
+    """Mid-video anomalies after the padded steps; ``x`` weakly carries the label.
+
+    ``u_mode``: ``pad`` = u only flags the padded leading steps (always normal);
+    ``position`` = u is a noisy view of relative position, and the anomaly sits at a
+    near-fixed relative position (so position explains it); ``extra`` = u sees the label.
+    """
+    n_pad = ksp.padded_steps(constants.FRAME_STRIDE)
+    labels: dict[str, np.ndarray] = {}
+    types: dict[str, int] = {}
+    x: dict[str, np.ndarray] = {}
+    u: dict[str, np.ndarray] = {}
+    mixing = rng.normal(size=(constants.V2_K_POSITION_DEGREE, DIM_U))
+    for i in range(N_SOURCES):
+        vid = f"t{i % N_TYPES + 1:02d}_v{i:03d}"
+        low, high = (n_pad + 6, n_pad + 10) if u_mode == "position" else (n_pad, STEPS - 8)
+        start = int(rng.integers(low, high))
+        y = np.zeros(STEPS, dtype=np.int64)
+        y[start:start + 8] = 1
+        labels[vid], types[vid] = y, i % N_TYPES + 1
+        x[vid] = rng.normal(size=(STEPS, DIM_X)) + 0.5 * y[:, None]
+        noise = rng.normal(size=(STEPS, DIM_U))
+        if u_mode == "pad":
+            flag = (np.arange(STEPS) < n_pad).astype(np.float64)
+            u[vid] = noise + 3.0 * flag[:, None]
+        elif u_mode == "position":
+            u[vid] = ksp.position_features(STEPS) @ mixing + 0.01 * noise
+        else:
+            u[vid] = noise + 1.5 * y[:, None]
+    return labels, types, x, u
+
+
+class TestDiag:
+    @pytest.mark.parametrize(("stride", "expected"), [(8, 6), (3, 15), (45, 1), (46, 1)])
+    def test_padded_steps_match_the_extractor_clamp(self, stride: int, expected: int) -> None:
+        assert ksp.padded_steps(stride) == expected
+        from core.tools.extract_video_features import causal_clip_indices
+        clamped = [i for i in range(expected + 3)
+                   if causal_clip_indices(stride * i)[0] == 0 and stride * i < 45]
+        assert len(clamped) == expected
+
+    def test_position_features_are_relative(self) -> None:
+        p = ksp.position_features(10)
+        assert p.shape == (10, constants.V2_K_POSITION_DEGREE)
+        np.testing.assert_allclose(p[:, 0], (np.arange(10) + 0.5) / 10)
+        np.testing.assert_allclose(p[:, 2], p[:, 0] ** 3)
+
+    def test_pad_only_u_reads_pad_explains(self) -> None:
+        diag = ksp.run_diag(*_diag_corpus("pad", np.random.default_rng(SEED)),
+                            seed=SEED, resamples=FAST_BOOT)
+        assert diag["pad"]["steps_dropped_per_source"] == 6
+        assert diag["pad"]["reading"] == ksp.READ_PAD_EXPLAINS
+
+    def test_position_only_u_reads_position_proxy(self) -> None:
+        diag = ksp.run_diag(*_diag_corpus("position", np.random.default_rng(SEED)),
+                            seed=SEED, resamples=FAST_BOOT)
+        assert diag["position"]["reading"] == ksp.READ_POSITION_PROXY
+
+    def test_informative_u_survives_both(self) -> None:
+        diag = ksp.run_diag(*_diag_corpus("extra", np.random.default_rng(SEED)),
+                            seed=SEED, resamples=FAST_BOOT)
+        assert diag["pad"]["reading"] == ksp.READ_NOT_PAD
+        assert diag["position"]["reading"] == ksp.READ_BEYOND_POSITION
+        text = ksp.render_diag_markdown(diag)
+        assert "not gated" in text and "BEYOND_POSITION" in text
+
+    def test_run_k_is_unchanged_by_the_refactor(self) -> None:
+        corpus = _corpus("extra", np.random.default_rng(SEED))
+        readout = ksp.run_k(*corpus, seed=SEED, resamples=FAST_BOOT)
+        assert set(readout["arms"]["i_source"]) == set(ksp.FEATURE_SETS)
+        assert set(readout["delta_xu_minus_x"]) == set(ksp.PROBES)
+
+    def test_cli_parses_diag_without_commit(self) -> None:
+        args = ksp.build_arg_parser().parse_args(
+            ["diag", "--ids-file", "i", "--annotation", "a", "--census", "c",
+             "--clip-dir", "x", "--video-dir", "v", "--out-dir", "o"])
+        assert args.command == "diag" and args.commit == "n/a"

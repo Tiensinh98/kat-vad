@@ -156,6 +156,27 @@ def variance_decomposition(features: dict[str, np.ndarray]) -> dict[str, Any]:
     }
 
 
+def transfer_scores(
+    train_matrix: np.ndarray, train_target: np.ndarray, test_matrix: np.ndarray, seed: int
+) -> np.ndarray:
+    """Decision scores on ``test_matrix`` from the frame probe fitted on the train side.
+
+    The same standardized, class-balanced logistic probe as the grouped-CV one, so an
+    in-domain and a transfer read differ only in where the probe was fitted.
+    """
+    if len(np.unique(train_target)) < 2:
+        raise ValueError("a transfer probe needs both classes on the train side")
+    scaler = StandardScaler().fit(train_matrix)
+    model = LogisticRegression(
+        C=constants.EDA_PROBE_C,
+        max_iter=constants.EDA_PROBE_MAX_ITER,
+        class_weight="balanced",
+        random_state=seed,
+    )
+    model.fit(scaler.transform(train_matrix), train_target)
+    return np.asarray(model.decision_function(scaler.transform(test_matrix)), dtype=np.float64)
+
+
 def _probe_fit_predict(
     matrix: np.ndarray, target: np.ndarray, groups: np.ndarray, folds: int, seed: int
 ) -> np.ndarray:
@@ -170,15 +191,9 @@ def _probe_fit_predict(
         if len(np.unique(target[train_idx])) < 2:
             LOGGER.warning("A probe fold has a single class; its scores stay at 0")
             continue
-        scaler = StandardScaler().fit(matrix[train_idx])
-        model = LogisticRegression(
-            C=constants.EDA_PROBE_C,
-            max_iter=constants.EDA_PROBE_MAX_ITER,
-            class_weight="balanced",
-            random_state=seed,
+        predictions[test_idx] = transfer_scores(
+            matrix[train_idx], target[train_idx], matrix[test_idx], seed
         )
-        model.fit(scaler.transform(matrix[train_idx]), target[train_idx])
-        predictions[test_idx] = model.decision_function(scaler.transform(matrix[test_idx]))
     return predictions
 
 

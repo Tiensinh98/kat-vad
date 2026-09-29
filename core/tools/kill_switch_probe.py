@@ -26,11 +26,17 @@ DoTA has no pixels left, so K runs on T2 alone. Two subcommands:
     the positive control (``u`` under (i'), CI lower > 0.5) failing overrides KILL
     with ``SUSPECT_PIPELINE``; otherwise GO.
 
+``diag``
+    Addendum §6.2, printed and not gated: (P) drop the padded leading steps and
+    re-run the three sets; (Q) ``p``, ``[x;p]``, ``[x;u;p]`` with ``p`` a cubic in
+    relative position -- does ``u`` add anything beyond where the step sits?
+
 CLI::
 
     python -m core.tools.kill_switch_probe pick --t2-meta <T2>/meta.json \\
         --out-dir outputs/REPORTS/v2_K
-    python -m core.tools.kill_switch_probe run --ids-file outputs/REPORTS/v2_K/k_sources.txt \\
+    python -m core.tools.kill_switch_probe {run,diag} \\
+        --ids-file outputs/REPORTS/v2_K/k_sources.txt \\
         --annotation <DADA>/dada标注.xlsx --census '<counts>/*.json' \\
         --clip-dir cache/clip/DADA2000_orig \\
         --video-dir cache/video/vit_b_k710_dl_from_giant/DADA2000_orig_s8_squash \\
@@ -71,6 +77,13 @@ READOUT_MD = "k_readout.md"
 VERDICT_KILL = "KILL"
 VERDICT_GO = "GO"
 VERDICT_SUSPECT = "SUSPECT_PIPELINE"
+POS_DELTA = ("xup", "xp")
+DIAG_JSON = "k_diag.json"
+DIAG_MD = "k_diag.md"
+READ_PAD_EXPLAINS = "PAD_EXPLAINS"
+READ_NOT_PAD = "NOT_PAD"
+READ_POSITION_PROXY = "POSITION_PROXY"
+READ_BEYOND_POSITION = "BEYOND_POSITION"
 PERCENT = 100.0
 
 
@@ -207,6 +220,41 @@ def decide(deltas: dict[str, dict[str, float]], control: dict[str, float]) -> st
     return VERDICT_KILL if kill else VERDICT_GO
 
 
+def two_class_ids(labels: dict[str, np.ndarray]) -> list[str]:
+    """Sorted sources holding both classes; too few for a grouped CV raises."""
+    ids = sorted(v for v in labels if 0 < int(labels[v].sum()) < len(labels[v]))
+    if len(ids) < constants.EDA_PROBE_MIN_CLIPS:
+        raise ValueError(f"only {len(ids)} two-class sources; K needs a real subset")
+    return ids
+
+
+def probe_block(
+    sets: dict[str, dict[str, np.ndarray]],
+    delta: tuple[str, str],
+    labels: dict[str, np.ndarray],
+    types: dict[str, int],
+    ids: list[str],
+    folds: int,
+    seed: int,
+    resamples: int,
+) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, float]]]:
+    """Every feature set in ``sets`` under (i') and (ii'), plus the paired Δ ``delta``."""
+    groupings = {
+        "i_source": {v: i for i, v in enumerate(ids)},
+        "ii_type": {v: types[v] for v in ids},
+    }
+    arms: dict[str, dict[str, Any]] = {}
+    deltas: dict[str, dict[str, float]] = {}
+    for probe, group_of in groupings.items():
+        aucs = {
+            name: per_source_auc(features, labels, group_of, ids, folds, seed)
+            for name, features in sets.items()
+        }
+        arms[probe] = {name: bootstrap_ci(a, resamples, seed) for name, a in aucs.items()}
+        deltas[probe] = bootstrap_ci(aucs[delta[0]] - aucs[delta[1]], resamples, seed)
+    return arms, deltas
+
+
 def run_k(
     labels: dict[str, np.ndarray],
     types: dict[str, int],
@@ -218,23 +266,10 @@ def run_k(
 ) -> dict[str, Any]:
     """All probes, intervals and the verdict (no I/O)."""
     check_alignment(labels, x, u)
-    ids = sorted(v for v in labels if 0 < int(labels[v].sum()) < len(labels[v]))
-    if len(ids) < constants.EDA_PROBE_MIN_CLIPS:
-        raise ValueError(f"only {len(ids)} two-class sources; K needs a real subset")
-    groupings = {
-        "i_source": {v: i for i, v in enumerate(ids)},
-        "ii_type": {v: types[v] for v in ids},
-    }
-    sets = feature_sets(x, u)
-    arms: dict[str, dict[str, Any]] = {}
-    deltas: dict[str, dict[str, float]] = {}
-    for probe, group_of in groupings.items():
-        aucs = {
-            name: per_source_auc(sets[name], labels, group_of, ids, folds, seed)
-            for name in FEATURE_SETS
-        }
-        arms[probe] = {name: bootstrap_ci(a, resamples, seed) for name, a in aucs.items()}
-        deltas[probe] = bootstrap_ci(aucs[DELTA[0]] - aucs[DELTA[1]], resamples, seed)
+    ids = two_class_ids(labels)
+    arms, deltas = probe_block(
+        feature_sets(x, u), DELTA, labels, types, ids, folds, seed, resamples
+    )
     verdict = decide(deltas, arms[CONTROL_PROBE]["u"])
     return {
         "sources_two_class": len(ids),
@@ -257,6 +292,122 @@ def run_k(
         "gate_d0_macro_reference": constants.V2_K_GATE_D0_MACRO,
         "verdict": verdict,
     }
+
+
+# ---------------------------------------------------------------------------
+# diag (addendum §6.2: printed, not gated)
+# ---------------------------------------------------------------------------
+def padded_steps(stride: int) -> int:
+    """Leading steps whose causal clip reaches before frame 0 (clamped = frame 0 repeated)."""
+    span = constants.VIDEOMAE_CLIP_FRAME_STEP * (constants.VIDEOMAE_CLIP_FRAMES - 1)
+    return -(-span // stride)
+
+
+def position_features(length: int) -> np.ndarray:
+    """``[τ, τ², …]`` with ``τ = (t + 0.5) / L``: relative position, no pixel read."""
+    tau = (np.arange(length, dtype=np.float64) + 0.5) / length
+    return np.stack([tau ** (k + 1) for k in range(constants.V2_K_POSITION_DEGREE)], axis=1)
+
+
+def _tail(rows: dict[str, np.ndarray], start: int) -> dict[str, np.ndarray]:
+    return {v: a[start:] for v, a in rows.items()}
+
+
+def _read(deltas: dict[str, dict[str, float]], null_name: str, alt_name: str) -> str:
+    """§6.2 reading: ``null_name`` iff every Δ upper < the K bar."""
+    null = all(d["high"] < constants.V2_K_KILL_UPPER for d in deltas.values())
+    return null_name if null else alt_name
+
+
+def run_diag(
+    labels: dict[str, np.ndarray],
+    types: dict[str, int],
+    x: dict[str, np.ndarray],
+    u: dict[str, np.ndarray],
+    stride: int = constants.FRAME_STRIDE,
+    folds: int = constants.EDA_PROBE_FOLDS,
+    seed: int = constants.V2_SPLIT_SEED,
+    resamples: int = constants.V2_K_BOOTSTRAP,
+) -> dict[str, Any]:
+    """(P) pad drop and (Q) beyond position, K's probe and bar (no I/O)."""
+    check_alignment(labels, x, u)
+    n_pad = padded_steps(stride)
+    pad_labels = _tail(labels, n_pad)
+    pad_ids = two_class_ids(pad_labels)
+    pad_arms, pad_deltas = probe_block(
+        feature_sets(_tail(x, n_pad), _tail(u, n_pad)), DELTA,
+        pad_labels, types, pad_ids, folds, seed, resamples,
+    )
+    ids = two_class_ids(labels)
+    p = {v: position_features(len(labels[v])) for v in labels}
+    pos_sets = {
+        "p": p,
+        "xp": {v: np.concatenate([x[v], p[v]], axis=1) for v in labels},
+        "xup": {v: np.concatenate([x[v], u[v], p[v]], axis=1) for v in labels},
+    }
+    pos_arms, pos_deltas = probe_block(
+        pos_sets, POS_DELTA, labels, types, ids, folds, seed, resamples
+    )
+    return {
+        "pad": {
+            "steps_dropped_per_source": n_pad,
+            "sources_two_class": len(pad_ids),
+            "sources_lost": len(ids) - len(pad_ids),
+            "arms": pad_arms,
+            "delta_xu_minus_x": pad_deltas,
+            "reading": _read(pad_deltas, READ_PAD_EXPLAINS, READ_NOT_PAD),
+        },
+        "position": {
+            "features": f"tau^1..tau^{constants.V2_K_POSITION_DEGREE}, tau=(t+0.5)/L",
+            "sources_two_class": len(ids),
+            "arms": pos_arms,
+            "delta_xup_minus_xp": pos_deltas,
+            "reading": _read(pos_deltas, READ_POSITION_PROXY, READ_BEYOND_POSITION),
+        },
+        "bar": constants.V2_K_KILL_UPPER,
+        "folds": folds,
+        "seed": seed,
+        "bootstrap": resamples,
+        "status": "printed, not gated (addendum §6.2); K's verdict is unchanged",
+    }
+
+
+def render_diag_markdown(diag: dict[str, Any]) -> str:
+    """Human read-out of ``run_diag``; the JSON beside it is the record."""
+    pad, pos = diag["pad"], diag["position"]
+    lines = [
+        "# Kill-switch K — K-pos diagnostic (printed, not gated)",
+        "",
+        "Pre-registration: `core/docs/v2/PREREG_ADDENDUM.md` §6.2. K's verdict is unchanged.",
+        f"Code: {diag.get('commit', 'n/a')}",
+        "",
+        f"## (P) Pad drop — first {pad['steps_dropped_per_source']} steps removed "
+        f"({pad['sources_two_class']} two-class sources, {pad['sources_lost']} lost)",
+        "",
+        "| probe | x | u | [x;u] | Δ([x;u] - x) |",
+        "|---|---|---|---|---|",
+    ]
+    for probe, title in PROBES.items():
+        arm = pad["arms"][probe]
+        lines.append(f"| {title} | {_fmt(arm['x'])} | {_fmt(arm['u'])} | {_fmt(arm['xu'])} | "
+                     f"{_fmt(pad['delta_xu_minus_x'][probe])} |")
+    lines += [
+        "", f"Reading: **{pad['reading']}**", "",
+        f"## (Q) Beyond position — p = {pos['features']} "
+        f"({pos['sources_two_class']} two-class sources)",
+        "",
+        "| probe | p | [x;p] | [x;u;p] | Δ([x;u;p] - [x;p]) |",
+        "|---|---|---|---|---|",
+    ]
+    for probe, title in PROBES.items():
+        arm = pos["arms"][probe]
+        lines.append(f"| {title} | {_fmt(arm['p'])} | {_fmt(arm['xp'])} | {_fmt(arm['xup'])} | "
+                     f"{_fmt(pos['delta_xup_minus_xp'][probe])} |")
+    lines += [
+        "", f"Reading: **{pos['reading']}**", "",
+        f"Null reading iff both Δ upper < +{diag['bar']} (K's bar); B = {diag['bootstrap']}.",
+    ]
+    return "\n".join(lines) + "\n"
 
 
 def _fmt(ci: dict[str, float]) -> str:
@@ -326,15 +477,18 @@ def build_arg_parser() -> argparse.ArgumentParser:
     pick.add_argument("--seed", type=int, default=constants.V2_SPLIT_SEED)
     pick.add_argument("--target", type=int, default=constants.V2_K_SOURCES)
     run = sub.add_parser("run", help="probe and apply the pre-registered rule")
-    run.add_argument("--ids-file", type=Path, required=True)
-    run.add_argument("--annotation", type=Path, required=True)
-    run.add_argument("--census", nargs="+", required=True,
-                     help="census JSON globs ({video_id: frames on disk})")
-    run.add_argument("--clip-dir", type=Path, required=True)
-    run.add_argument("--video-dir", type=Path, required=True)
-    run.add_argument("--out-dir", type=Path, required=True)
-    run.add_argument("--stride", type=int, default=constants.FRAME_STRIDE)
+    diag = sub.add_parser("diag", help="K-pos diagnostic, addendum §6.2 (printed, not gated)")
+    for cmd in (run, diag):
+        cmd.add_argument("--ids-file", type=Path, required=True)
+        cmd.add_argument("--annotation", type=Path, required=True)
+        cmd.add_argument("--census", nargs="+", required=True,
+                         help="census JSON globs ({video_id: frames on disk})")
+        cmd.add_argument("--clip-dir", type=Path, required=True)
+        cmd.add_argument("--video-dir", type=Path, required=True)
+        cmd.add_argument("--out-dir", type=Path, required=True)
+        cmd.add_argument("--stride", type=int, default=constants.FRAME_STRIDE)
     run.add_argument("--commit", required=True, help="git commit of the tree that ran K")
+    diag.add_argument("--commit", default="n/a", help="code provenance note (optional)")
     return parser
 
 
@@ -353,21 +507,29 @@ def main(argv: list[str] | None = None) -> None:
     manifest_path = args.video_dir / constants.VIDEO_MANIFEST_FILENAME
     video_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))  # before compute
     labels, types = source_labels(args.annotation, load_counts(args.census), ids, args.stride)
-    readout = run_k(
-        labels, types, load_features(args.clip_dir, ids), load_features(args.video_dir, ids)
-    )
-    readout.update({
+    x = load_features(args.clip_dir, ids)
+    u = load_features(args.video_dir, ids)
+    provenance = {
         "commit": args.commit,
         "ids_sha1": lines_sha1(ids),
         "ids_requested": len(ids),
         "clip_dir": str(args.clip_dir),
         "video_dir": str(args.video_dir),
         "video_manifest": video_manifest,
-    })
+    }
+    if args.command == "diag":
+        diag = run_diag(labels, types, x, u, stride=args.stride)
+        diag.update(provenance)
+        write_json_atomic(args.out_dir / DIAG_JSON, diag)
+        write_text_atomic(args.out_dir / DIAG_MD, render_diag_markdown(diag))
+        LOGGER.info("K-pos: pad %s, position %s -> %s", diag["pad"]["reading"],
+                    diag["position"]["reading"], args.out_dir)
+        return
+    readout = run_k(labels, types, x, u)
+    readout.update(provenance)
     write_json_atomic(args.out_dir / READOUT_JSON, readout)
     write_text_atomic(args.out_dir / READOUT_MD, render_markdown(readout))
     LOGGER.info("K verdict: %s -> %s", readout["verdict"], args.out_dir)
-
 
 if __name__ == "__main__":
     main()

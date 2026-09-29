@@ -137,3 +137,48 @@ VideoMAE feature. Plan assumption A2 was wrong for DoTA; it holds for DADA-origi
   Otherwise **GO**. K still never makes an encoder eligible.
 - **Printed, not gated:** the `x`-only (i′) macro beside Gate D0's 0.6518 (different subset,
   same convention), and the extraction throughput.
+
+### 6.2 K-pos diagnostic (2026-09-28, written after K = GO, before any diagnostic number)
+
+**Status: printed, not gated.** It cannot change K's verdict (GO stands, §6.1) and it makes no
+encoder eligible. It exists to give the advisor data for the D9 endpoint choice.
+
+**What was seen before writing this.** K's read-out (§6.1: `u` 0.760, `x` 0.615, Δ +0.13) and
+three **label-only** rulers on the same 295 sources, no feature read: absolute step index
+0.529; "the step's causal clip is padded" 0.573; a position tent `−|t/L − c|` with `c` fit
+in-sample 0.729 (`c` = 0.525). DADA accidents sit mid-video (median span 36 %–71 % of `L`).
+
+**Two questions, one subcommand** (`kill_switch_probe diag`, same inputs, sources and seed as
+`run`; writes `k_diag.{json,md}` and never touches `k_readout.*`):
+
+- **(P) Pad drop.** The first `ceil(3·15 / stride)` steps (6 at stride 8) have a causal clip
+  that repeats frame 0; they are always normal. Drop them from `x`, `u` and the labels,
+  re-filter to two-class sources, re-run `x`, `u`, `[x;u]` under (i′) and (ii′).
+  Read: **PAD_EXPLAINS** iff both Δ(`[x;u]` − `x`) have upper < +0.03; else **NOT_PAD**.
+- **(Q) Beyond position.** `p_t = [τ, τ², τ³]`, `τ = (t + 0.5)/L` (the cubic of E2(b)).
+  Probe `p`, `[x;p]`, `[x;u;p]` on all steps under (i′) and (ii′).
+  Read: **POSITION_PROXY** iff both Δ(`[x;u;p]` − `[x;p]`) have upper < +0.03; else
+  **BEYOND_POSITION**. `p` alone is the out-of-fold version of the tent ruler above.
+
+Probe, metric, bootstrap and the +0.03 bar are §6.1's, unchanged.
+
+---
+
+## 7. E0 / E2(a–c) implementation choices (2026-09-28, before any E2 number)
+
+The rule is proposal §4.2 steps 1–6, applied mechanically by `python -m core.tools.crn_select`
+(references in `core/crn/reference.py`). The proposal leaves these points open; they are fixed here.
+Already seen before writing: K, K-pos (§6.2) and label-only position rulers on T2 (whole
+sources 0.73, T2-val windows 0.575). No deviation `d_t` of any reference has been computed.
+
+| # | Choice | Why |
+|---|---|---|
+| I1 | **T2-val unit = the 219 whole source videos** at s8, labels from the annotation span (Gate D0 / K convention) | CRN's reference is computed over the source video in training (§4.2); T2 windows are not the unit CRN sees |
+| I2 | Share = native annotation span for DoTA (the freeze's stratum, so the bins match §1's counts); the s8 label mean for T2 sources | DoTA-dev bins must match the frozen stratification |
+| I3 | Position ruler and `f` use `t/T`, `t = 0..T−1` | §4.2 step 2 as written |
+| I4 | R4 on a clip shorter than `N_w` = 8 steps: the warm-up is all its steps (= R1) | DoTA's median clip is ~13 steps; the proposal does not define this case |
+| I5 | Steps 4–5 read on **DoTA-dev**: both `>50 %` bins (`50-70`, `>70`) of the decision metric ≥ 0.5 **and** DoTA-dev stratified AUC ≥ 0.5. An empty bin is a fail. T2-val is printed, not decided on | Step 4 names DoTA-dev for the overall; the bin check is read on the same set |
+| I6 | Coverage fallback (step 3) is read on the `f`-fit set: T2-val normal steps with `t/T ≥ 0.8` | The fallback exists because `f` lacks late normal steps |
+| I7 | Intervals: cluster bootstrap, B = 2000, seed 2024; DoTA clusters = source video (D3), T2 clusters = source. Printed, not decided on (steps 4–5 are point rules), except E2(c) | §1: a `>70` pass/fail is flagged (`decided_by_gt70`), not silently accepted |
+| I8 | E2(c) probe = the `core.eda` logistic frame probe fitted on T2-train sources (all T2-train minus T2-val, whole, s8), scored on DoTA-dev; CRN input `x − μ^ref` (the scalar `s` is absorbed by standardization). Veto iff the chosen reference's paired Δ vs raw has upper < 0 | Step 6 as written; D3 for the interval |
+| I9 | E0 fps: DoTA **10** (dataset release), DADA **30** (assumption A1). Record only (D8) | E1 is dropped; E0 switches nothing |

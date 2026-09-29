@@ -398,6 +398,20 @@ V2_K_KILL_UPPER = 0.03  # KILL needs every Δ upper bound below this
 V2_K_CONTROL_FLOOR = 0.5  # positive control: u-only CI lower bound above this
 V2_K_CI = 0.95
 V2_K_GATE_D0_MACRO = 0.6518  # printed beside the x-only probe, not gated
+V2_K_POSITION_DEGREE = 3  # K-pos (addendum §6.2): cubic in relative position, as E2(b)
+
+# --- v2 CRN + E0/E2(a-c) (proposal §4.2, §10.2; plan P2) ---
+DOTA_FPS = 10  # DoTA ships frames at 10 fps (MoonBlvd/Detection-of-Traffic-Anomaly README)
+V2_CRN_REFERENCES = ("R1", "R2", "R3", "R4")  # mean / median / robust mean / past-only
+V2_CRN_WARMUP_STEPS = 8  # R4's N_w (proposal §4.2)
+V2_CRN_ROBUST_KEEP = 0.5  # R3: mean of the half of steps closest (l2) to the median
+V2_E2_TREND_DEGREE = 3  # f: cubic in t/T fitted on T2-val normal steps
+V2_E2_TREND_CLAMP_PCT = (5.0, 95.0)  # f held at its boundary outside these percentiles of t/T
+V2_E2_STRAT_BINS = 5  # position-stratified AUC: equal bins of t/T
+V2_E2_COVERAGE_MIN = 0.05  # last fifth of t/T must hold >= this share of normal steps
+V2_E2_BOOTSTRAP = 2000
+V2_E2_CI = 0.95
+V2_E2_REVERSAL_FLOOR = 0.5  # r_t AUC in both >50 % bins and stratified AUC must stay >= this
 
 # ---------------------------------------------------------------------------
 # Evaluation score pooling (lesson C12)
