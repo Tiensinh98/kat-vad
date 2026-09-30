@@ -200,6 +200,12 @@ is therefore derivable without pixels. Pixels are still gone, so D7 and D9 stand
 | D10 | **D8 is reversed: E1 runs as proposal §10.2 wrote it**, on DoTA-dev, on the three phase-4 KIP-off stage-2 checkpoints (seeds 2024–2026, `checkpoint_last.pt`). E0 read 3.00×, so E1's skip condition does not fire | D8's only reason was "a stride-3 cache needs pixels"; `s1[::3]` is that cache |
 | D11 | **D2 is restored, conditionally.** If E1 adopts B or C, E2(b) and E2(c) are re-read on DoTA-dev at stride 3 before P5 fixes the CRN reference; the T2 side is unchanged. If E1 keeps A, the P2 read-out stands as is | The reference must be taken at the stride E1 adopts (D2) |
 
+**D11 executed (2026-09-30; a record, not an amendment).** E1 adopted B, so E2(b)/(c) were re-read on
+DoTA-dev at stride 3 (`colab/v2/p2_e2_s3.ipynb`, s8 == s1@8 gate passed). The §4.2 rule, unchanged,
+picks **R2** (DoTA-dev `r` 0.7092 vs R1 0.7081); the E2(c) veto passes (+0.037 [+0.027, +0.047]).
+**The CRN reference for every CRN arm is R2.** R1 and R2 are within noise; no tie clause is added
+after the fact. Record: `core/docs/v2/RESULTS_E2_CRN.md` §D11.
+
 ### 8.1 E1 implementation choices (fixed now)
 
 `python -m core.tools.rate_matched_eval`, runbook `colab/v2/p3_e1.ipynb`.

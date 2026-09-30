@@ -16,11 +16,13 @@ Nothing in the trunk, heads, losses, windowing or DVS. Two things are added:
 | Arm | `--clip-dir` | `v2.crn` | `v2.motion` | `model.motion_dim` |
 |---|---|---|---|---|
 | A0 | the plain CLIP cache (`cache/clip/DADA2000_orig`) | `none` | `none` | 0 |
-| A1 | a baked A1 cache | `R1` (E2's choice) | `none` | 0 |
+| A1 | a baked A1 cache | `R2` (E2's choice at s3, D11) | `none` | 0 |
 | A2 | a baked A2 cache | `none` | encoder | 768 (B) / 384 (S) |
-| A3 | a baked A3 cache | `R1` | encoder | 768 / 384 |
+| A3 | a baked A3 cache | `R2` | encoder | 768 / 384 |
 
-Every v2 arm also needs `kip.enabled=false` (validated; v2 retires KIP).
+Every v2 arm also needs `kip.enabled=false` (validated; v2 retires KIP). The reference is **R2** (median):
+E2 re-read at stride 3 under D11 picked it over R1 by a tie-level margin (`RESULTS_E2_CRN.md` §D11);
+the code accepts any of R1–R4, and the manifest records which one a cache was baked with.
 
 ## 2. Build the input cache
 
@@ -32,23 +34,29 @@ reference is the source video in training and in evaluation (K2).
 # A1 (CRN only; no motion features needed)
 python -m core.tools.build_v2_inputs fit \
   --t2-dir data/DADA2000_orig --clip-dir cache/clip/DADA2000_orig \
-  --crn R1 --motion none --out-dir cache/v2/A1_R1/DADA2000_orig
+  --crn R2 --motion none --out-dir cache/v2/A1_R2/DADA2000_orig
 
 # A3 (needs the full-T2 VideoMAE cache from P4)
 python -m core.tools.build_v2_inputs fit \
   --t2-dir data/DADA2000_orig --clip-dir cache/clip/DADA2000_orig \
   --video-dir cache/video/vit_b_k710_dl_from_giant/DADA2000_orig_s8_squash \
-  --crn R1 --motion vit_b_k710_dl_from_giant --out-dir cache/v2/A3_R1_B/DADA2000_orig
+  --crn R2 --motion vit_b_k710_dl_from_giant --out-dir cache/v2/A3_R2_B/DADA2000_orig
 ```
 
 `apply` bakes another corpus with the **fitted** statistics; each clip is its own reference. Only
 CLIP-only arms (A0/A1) can be scored on DoTA — it has no pixels, so no VideoMAE features (addendum D9).
+DoTA is read at protocol B (E1): `--stride 3` over the stride-1 cache, so the clip reference is
+taken over the stride-3 rows the model sees.
 
 ```bash
 python -m core.tools.build_v2_inputs apply \
-  --stats-dir cache/v2/A1_R1/DADA2000_orig --clip-dir cache/clip/DoTA_s8_ncc \
-  --ids-file core/splits/v2/dota_dev.txt --out-dir cache/v2/A1_R1/DoTA_s8_ncc
+  --stats-dir cache/v2/A1_R2/DADA2000_orig --clip-dir cache/clip/DoTA_s1_ncc --stride 3 \
+  --ids-file core/splits/v2/dota_dev.txt --out-dir cache/v2/A1_R2/DoTA_s3_from_s1
 ```
+
+**Open (before P6):** `core.evaluate` scores DoTA at stride 8 against `labels_s8`, and
+`core.tools.rate_matched_eval` reads the raw CLIP cache. Neither yet scores a baked stride-3 DoTA
+cache at native frames, so protocol B for a v2 arm needs that path first.
 
 Each output directory holds `{id}.npy` (float32 rows, width 512 or 512 + d_v), `v2_input_stats.npz`
 and `v2_input_manifest.json` (`arm`, `crn`, `motion`, `s`, `c`, `train_ids_sha1`, source dirs).
@@ -63,8 +71,8 @@ python -m core.train \
   --set train.stage=2 --set train.seed=2099 --set train.num_epochs=20 --set train.amp=true \
   --set data.dataset=DADA2000_orig \
   --set model.score_head_kernel=3 --set loss.mil_topk_pct=5 --set kip.enabled=false \
-  --set v2.crn=R1 --set v2.motion=vit_b_k710_dl_from_giant --set model.motion_dim=768 \
-  --data-dir data/DADA2000_orig --clip-dir cache/v2/A3_R1_B/DADA2000_orig \
+  --set v2.crn=R2 --set v2.motion=vit_b_k710_dl_from_giant --set model.motion_dim=768 \
+  --data-dir data/DADA2000_orig --clip-dir cache/v2/A3_R2_B/DADA2000_orig \
   --knn-cache cache/knn/DADA2000_orig/knn_cache.npz --output-dir runs/A3_s2099
 ```
 

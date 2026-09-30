@@ -22,11 +22,11 @@ CLI::
     python -m core.tools.build_v2_inputs fit \\
         --t2-dir data/DADA2000_orig --clip-dir cache/clip/DADA2000_orig \\
         [--video-dir cache/video/vit_b_k710_dl_from_giant/DADA2000_orig_s8_squash] \\
-        --crn R1 --motion none --out-dir cache/v2/A1_R1/DADA2000_orig
+        --crn R2 --motion none --out-dir cache/v2/A1_R2/DADA2000_orig
 
     python -m core.tools.build_v2_inputs apply \\
-        --stats-dir cache/v2/A1_R1/DADA2000_orig --clip-dir cache/clip/DoTA_s1_ncc --stride 3 \\
-        --ids-file core/splits/v2/dota_dev.txt --out-dir cache/v2/A1_R1/DoTA_s3_from_s1
+        --stats-dir cache/v2/A1_R2/DADA2000_orig --clip-dir cache/clip/DoTA_s1_ncc --stride 3 \\
+        --ids-file core/splits/v2/dota_dev.txt --out-dir cache/v2/A1_R2/DoTA_s3_from_s1
 
 ``--stride N`` subsamples each clip's rows ``[::N]`` before baking (DoTA at the E1 protocol
 B = ``s1[::3]``); the CRN reference is then taken over the subsampled clip, as the model sees it.

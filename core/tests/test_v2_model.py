@@ -42,7 +42,8 @@ class TestConfig:
         validate_v2(cfg)  # a v1 KIP-on default config stays valid
 
     @pytest.mark.parametrize(
-        ("crn", "motion"), [("R1", "none"), ("none", ENCODER_S), ("R4", ENCODER_S)]
+        ("crn", "motion"),
+        [("R1", "none"), ("R2", "none"), ("none", ENCODER_S), ("R2", ENCODER_S), ("R4", ENCODER_S)],
     )
     def test_every_arm_validates(self, crn: str, motion: str) -> None:
         validate_v2(_v2_config(crn, motion))
@@ -155,7 +156,7 @@ class TestStats:
         )
         assert stats.c == pytest.approx(np.linalg.norm(raw, axis=1).mean() / np.sqrt(8))
 
-    @pytest.mark.parametrize("crn", ["none", "R1", "R4"])
+    @pytest.mark.parametrize("crn", ["none", "R1", "R2", "R3", "R4"])
     def test_motion_columns_have_rms_c_per_channel(self, crn: str) -> None:
         clips, motions = _sources(np.random.default_rng(1))
         stats = v2_inputs.fit_stats(clips, motions, crn, ENCODER_S)
@@ -217,16 +218,16 @@ def fixture(tmp_path_factory: pytest.TempPathFactory) -> FixtureLayout:
 
 @pytest.fixture(scope="module")
 def a3_cache(fixture: FixtureLayout, tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Bake A3 (R1 + VideoMAE-S-shaped random motion) for every fixture video."""
+    """Bake A3 (R2, the D11 reference, + VideoMAE-S-shaped motion) for every fixture video."""
     rng = np.random.default_rng(7)
     ids = sorted(p.stem for p in fixture.clip_dir.glob("*.npy"))
     clips = {v: np.load(fixture.clip_dir / f"{v}.npy") for v in ids}
     motions = {v: rng.normal(0.0, 1.0, (len(x), D_S)).astype(np.float32) for v, x in clips.items()}
-    stats = v2_inputs.fit_stats({v: clips[v] for v in fixture.train_ids}, motions, "R1", ENCODER_S)
+    stats = v2_inputs.fit_stats({v: clips[v] for v in fixture.train_ids}, motions, "R2", ENCODER_S)
     out = tmp_path_factory.mktemp("a3_cache")
     width = build_v2_inputs.bake(ids, clips, motions, stats, out)
     v2_inputs.save_stats(out, stats)
-    manifest = {"arm": "A3", "crn": "R1", "motion": ENCODER_S, "width": width}
+    manifest = {"arm": "A3", "crn": "R2", "motion": ENCODER_S, "width": width}
     (out / constants.V2_INPUT_MANIFEST_FILENAME).write_text(json.dumps(manifest))
     return out
 
@@ -240,7 +241,7 @@ def _args(fixture: FixtureLayout, clip_dir: Path, out: Path, v2: bool) -> list[s
         "--set", "train.device=cpu", "--set", "kip.enabled=false",
     ]
     if v2:
-        args += ["--set", "v2.crn=R1", "--set", f"v2.motion={ENCODER_S}",
+        args += ["--set", "v2.crn=R2", "--set", f"v2.motion={ENCODER_S}",
                  "--set", f"model.motion_dim={D_S}"]
     return args
 

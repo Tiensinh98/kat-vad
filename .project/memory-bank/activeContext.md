@@ -6,7 +6,7 @@
 > (the KAT-VAD v2 build line, off `main@cc39882`). The `main`/`v3` table below still holds;
 > on `v2` the code is `main`'s v1 **plus** the v2 tools (splits, VideoMAE extractor, K/K-pos, `core/crn/`, `crn_select`,
 > `rate_matched_eval` (E1), `build_v2_inputs` + `core/data/v2_inputs.py` + `MotionResidual` (P5, uncommitted)).
-> Tests on `v2`: **754 / 0 fail** (2026-09-30, incl. uncommitted P5/D11).
+> Tests on `v2`: **758 / 0 fail** (2026-09-30).
 >
 > **This memory bank is the `main` branch's copy, and `main` is KAT-VAD **v1**.**
 > The v3 KIP gate rebuild is **not** in this tree; it lives on branch **`v3`**,
@@ -36,12 +36,11 @@
 all six core files + CLAUDE.md reviewed; counts re-measured: **109 Python files (73 source + 36 test), 17,520 source LOC,
 754 tests, 35 docs**.)
 
-> **TL;DR — where v2 stands (2026-09-30).** P0–P2 done (CRN = R1 at s8, E2(c) +0.030). **E1 = B**: DoTA at stride 3
-> (`s1[::3]` from the surviving `DoTA_s1_ncc`) beats s8 by **+0.033 [+0.019, +0.048]** on the same checkpoints — a
-> protocol fix, not a better model. **D11 fired:** run `colab/v2/p2_e2_s3.ipynb` → the stride-3 verdict fixes the CRN
-> reference. **P5 built** (baked v2 input cache + zero-init `W_u`); left: diagnostics tool, A2/A3 bakes (need P4).
-> **Blocked:** P4 on D9 (motion endpoint — the user decides; advisor not consulted by the user's choice).
-> **Uncommitted since `7ce8bf5`:** 22 files (P5 + E1 record + D11) — split into 2 commits, only when the user says.
+> **TL;DR — where v2 stands (2026-09-30).** P0–P3 done. **E1 = B**: DoTA at stride 3 beats s8 by **+0.033
+> [+0.019, +0.048]** (protocol fix, not a better model). **D11 read out: CRN reference = R2** (median) — `r` 0.7092 vs
+> R1 0.7081 is a tie; the rule's pick stands, E2(c) agrees (+0.037). **P5 core committed** (baked v2 input cache +
+> zero-init `W_u`, docs/tests on R2). Left before P6: diagnostics tool + a DoTA protocol-B scoring path for a baked
+> cache. **Blocked:** P4 on D9 (motion endpoint — the user decides).
 > **Rules this session:** never auto-commit; ship real-data runs as Colab notebooks; Drive = `Thesis/` (data, caches,
 > v1 runs, read-only) + `Thesis-V2/` (code `kat-vad/`, v2 outputs).
 
@@ -58,7 +57,23 @@ Track 0b closed; T2 + Option A remain the live track. Partial update: `activeCon
 architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 13,833 source LOC, 582 collected); **docs 24 → 25** (+ `core/docs/D2CITY_EDA.md`).
 
-## 2026-09-30 (latest) — **E1 READ OUT: adopt B (DoTA s3); D11 tooling built** (branch `v2`, uncommitted)
+## 2026-09-30 (latest) — **D11 READ OUT: CRN reference = R2; batch committed** (branch `v2`)
+
+* `colab/v2/p2_e2_s3.ipynb` run on Colab. Gate s8 == s1@8: identical tables (only the corpus label differs); vs the
+  P2 read-out E2(b) identical, E2(c) ≤ 0.0012 drift.
+* DoTA-dev s3 `r`: R1 0.7081 · **R2 0.7092** · R3 0.6997 · R4 0.7049 (R4 eligible at s3: 33-step clips, warm-up ¼).
+  Verdict **R2**. R1 vs R2 = tie (s8 −0.0003, s3 +0.0011, CI ±0.015); no tie clause added (lesson 14).
+* E2(c) raw 0.6234 → R2 +0.0368 [+0.027, +0.047] (best; R1 +0.033). `−f` alone 0.793 > every `r` → E2(b) still
+  position-dominated; the CRN claim rests on E2(c).
+* Records: `RESULTS_E2_CRN.md` §D11, addendum §8 "D11 executed", plan §0/P2/App. A. `TRAINING_V2.md` + e2e test → R2;
+  tests parametrized over R2/R3. No local v2 cache existed, nothing to rebake.
+* **Gap found:** no path scores a baked stride-3 DoTA cache at native frames (`core.evaluate` = s8, `rate_matched_eval`
+  = raw CLIP). Needed before P6.
+* The P5 + E1 + D11-tooling batch was committed by the user as `a20781b` (one commit); this R2 record is a follow-up commit.
+
+**Next action:** user decides D9; Claude builds the P5 diagnostics tool + the DoTA protocol-B path for v2 arms.
+
+## 2026-09-30 — **E1 READ OUT: adopt B (DoTA s3); D11 tooling built** (branch `v2`, uncommitted)
 
 * E1 (`core/docs/v2/RESULTS_E1.md`): J10 3×2040, J9′ pass. Macro A 0.6294 · **B 0.6628, Δ +0.0334 [+0.019, +0.048]** ·
   C 0.6644 (+0.0350); tie → **B**. Per seed +0.035/+0.033/+0.042; by share bin <30 % +0.040 → >70 % +0.012 (kernel 3 =
@@ -68,7 +83,7 @@ architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
   notebook `colab/v2/p2_e2_s3.ipynb` with an s8-vs-s1@8 regression gate (0 diffs locally with a s1 rebuilt from s8).
 * Suite 754 / 0 fail. Everything since `7ce8bf5` is uncommitted (P5 + E1 record + D11).
 
-**Next action:** user runs `p2_e2_s3.ipynb` → stride-3 verdict fixes the CRN reference; user reviews + commits.
+**Next action (done — see above):** ~~user runs `p2_e2_s3.ipynb`~~ → R2.
 
 ## 2026-09-30 — **P5 built (uncommitted): v2 input cache + MotionResidual** (branch `v2`)
 
