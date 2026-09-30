@@ -434,6 +434,17 @@ V2_INPUT_MANIFEST_FILENAME = "v2_input_manifest.json"
 V2_MIN_SIGMA = 1e-6  # a constant motion channel is left unscaled rather than divided by ~0
 V2_NORM_EPS = 1e-12  # guards rho_u = ||W_u u|| / ||x|| against an all-zero x
 
+# --- MM-AU / CAP-DATA Phase 0: provenance probe (.project/plans/katvad-mmau-phase0.md §3-§4) ---
+MMAU_CAP_DATASET = "MMAU_CAP"
+MMAU_HF_REPO = "JeffreyChou/MM-AU"
+MMAU_CAP_VIDEOS = 9768  # rows of cap_text_annotations.xls; fewer cached -> partial (no branch)
+MMAU_MATCH_TOP_K = 5  # descriptor retrieval candidates; the K-th is the hard null
+MMAU_MATCH_EXACT = 0.99  # containment >= this: same frames, re-encoded at most
+MMAU_MATCH_NEAR = 0.95  # containment >= this: same video, processed differently
+MMAU_NULL_FLAG_SHARE = 0.01  # > this share of hard nulls at >= NEAR -> threshold unreliable
+MMAU_COVERAGE_BAR = 0.95  # branch P needs exact coverage >= this on all DoTA and on DoTA-dev
+MMAU_ALIGN_MIN_POINTS = 2  # a rate/offset fit needs at least this many matched frames
+
 # ---------------------------------------------------------------------------
 # Evaluation score pooling (lesson C12)
 #

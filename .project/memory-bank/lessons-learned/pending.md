@@ -1605,3 +1605,18 @@ on a float, it would have silently zeroed the motion term on every *valid* step 
 **Files:** `core/data/collate.py:68`, `core/models/motion_residual.py:forward`, `core/tests/test_v2_model.py`
 
 **Gate status.** One occurrence, caught in test. Gate 2 (recurrence) not met.
+
+## (al) [HIGH] Data - An aggregator corpus re-hosts the benchmarks you hold out: check provenance by content before calling it zero-shot (2026-09-30)
+
+**Triggers:** new benchmark, MM-AU, CAP-DATA, aggregated dataset, "larger than DoTA", zero-shot, held-out, contamination
+**Problem:** MM-AU/CAP-DATA looked like a bigger replacement for DoTA. Its paper says CAP-DATA collects **CCD, A3D,
+DoTA and DADA-2000** — the held-out benchmark *and* the training corpus (T2) — and its annotation has **no
+provenance column**. Used as a zero-shot test it would have scored the model partly on its own training videos.
+**Bad:** swap the benchmark for the bigger aggregator because the sizes look better.
+**Good:** read the collection section of the dataset paper, then match every held-out and training clip against it
+by content (`core.tools.mmau_match`: descriptor retrieval + frame containment) and exclude the hits before any score.
+**Candidate rule.** *Before evaluating on an aggregator corpus, content-match it against every training and held-out
+corpus and drop the overlap.*
+**Files:** `.project/plans/katvad-mmau-phase0.md`, `core/tools/mmau_match.py`
+
+**Gate status.** One occurrence, caught before any download. Gate 2 (recurrence) not met.

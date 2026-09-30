@@ -19,13 +19,14 @@ Ký hiệu: ✅ xong · 🟡 đang làm / chờ chạy · ⛔ bị chặn · ⬜
 | **P2** E0 / E2(a–c) | ✅ | **D11 ở s3: CRN = R2** (`r` 0.7092 vs R1 0.7081 — hoà trong nhiễu, luật chọn R2), E2(c) R2 **+0.037 [+0.027, +0.047]**. s8 cũ = R1. `RESULTS_E2_CRN.md` §D11 | `7b20444`, `a20781b` + D11 record |
 | **P3** E1 | ✅ | **Adopt B** (DoTA s3 whole clip): Δ vs A **+0.033 [+0.019, +0.048]**, C +0.035 (tie → B); 3/3 seed dương. `core/docs/v2/RESULTS_E1.md` | `0ab760d` + Amendment 3 (`7ce8bf5`) |
 | **P3** E0b | ⬜ | Chưa có notebook. Ckpt phase-5 + lcurve có thể cũng là snapshot (pending (aj)) → kiểm `global_step` trước | — |
-| **P4** Encoder E2(d) | ⛔ | Chặn bởi **D9** (endpoint motion chưa chốt). Chỉ extract được trên T2 | — |
+| **P4** Encoder E2(d) | ⛔ | Chặn bởi **D9** — chờ **MM-AU P0** (`katvad-mmau-phase0.md`): CAP-DATA có thể chứa pixel DoTA | — |
 | **P5** Build v2 | 🟡 | Model + input cache + manifest + tests xong (`a20781b`), reference = R2. Còn: đường chấm DoTA protocol B cho cache v2, diagnostics tool (source-shortcut / position R² trên `V^t`), bake A2/A3 (chờ P4 full-T2 VideoMAE) | `a20781b` |
 | **P6** Pilot | ⬜ | Cần P4 + P5 | — |
 | **P7** Go/no-go | ⬜ | Cần P6 | — |
 
 **Việc tiếp theo, theo thứ tự:**
-1. **User chốt D9** (endpoint motion) → mở khoá P4 (A2/A3).
+1. **D9 chờ MM-AU Phase 0** (`.project/plans/katvad-mmau-phase0.md`, notebook `colab/v2/mmau_p0.ipynb`): nếu CAP-DATA
+   chứa pixel DoTA (nhánh P) → D9 = DoTA như proposal; không thì T2-val + MMAU-clean (nhánh C). User chạy P0b (nhóm `1-10`) trước.
 2. **Claude:** P5 diagnostics tool; đường chấm DoTA protocol B cho arm v2 (A1 trên cache bake, hiện `core.evaluate`
    chỉ chấm s8 và `rate_matched_eval` chỉ đọc CLIP thô); notebook E0b (sau khi user kiểm J10 của ckpt phase-5/lcurve).
 3. A1 (R2) bake + pilot được ngay khi (2) xong.

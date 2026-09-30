@@ -57,6 +57,23 @@ Track 0b closed; T2 + Option A remain the live track. Partial update: `activeCon
 architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 13,833 source LOC, 582 collected); **docs 24 → 25** (+ `core/docs/D2CITY_EDA.md`).
 
+## 2026-09-30 (latest) — **MM-AU / CAP-DATA Phase 0 built: can CAP give DoTA its pixels back?** (branch `v2`)
+
+* User asked to replace DoTA with MM-AU. Measured: HF `JeffreyChou/MM-AU` (public, CC-BY-NC-4.0) = CAP-DATA 9,768
+  videos (267 GB, 5 groups) + DADA-2000 1,962 (124 GB = T2's corpus, not downloaded). The CAP paper says CAP-DATA
+  collects **CCD, A3D, DoTA, DADA-2000**; `cap_text_annotations.xls` has **no provenance column**. Annotation: 100 %
+  accident, median 135 frames, abnormal share median **0.494** (DoTA 0.306).
+* Advice given: do **not** replace DoTA (pre-reg primary endpoint, LaGoVAD comparability, CAP contains DoTA anyway).
+  Use CAP to (a) recover DoTA pixels → D9 = DoTA as the proposal wrote, or (b) a clean secondary benchmark.
+* Built: plan `.project/plans/katvad-mmau-phase0.md` (matching rule §3 + D9 branch rule §4, fixed before numbers),
+  `core/tools/mmau_match.py` (descriptor top-5 + frame containment κ; exact ≥ 0.99, near ≥ 0.95; hard null = 5th;
+  branches P / P_PRIME / C / UNRELIABLE / FEASIBILITY_ONLY), 10 tests, `colab/v2/mmau_p0.ipynb` (HF → Drive mirror
+  with size check, streamed `cat | tar -xz` to VM disk, census vs annotation, CLIP s1 `_ncc` →
+  `Thesis/cache/clip/MMAU_CAP_s1_ncc/`, match). Pending lesson (al). User: Drive 5 TB, L4 (A100 if needed).
+* Uncommitted.
+
+**Next action:** user runs `mmau_p0.ipynb` with `GROUPS = ['1-10']` (feasibility) → paste read-out; then all groups.
+
 ## 2026-09-30 (latest) — **D11 READ OUT: CRN reference = R2; batch committed** (branch `v2`)
 
 * `colab/v2/p2_e2_s3.ipynb` run on Colab. Gate s8 == s1@8: identical tables (only the corpus label differs); vs the
