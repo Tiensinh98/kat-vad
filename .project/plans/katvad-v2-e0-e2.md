@@ -16,22 +16,21 @@ Ký hiệu: ✅ xong · 🟡 đang làm / chờ chạy · ⛔ bị chặn · ⬜
 |---|:-:|---|---|
 | **P0** Freeze | ✅ | Splits T2-val 219 src, DoTA-dev 702 / eval 700 (sealed); addendum D1–D6 | `7422975` |
 | **P1** Kill-switch K | ✅ | **GO** (+0.13), nhưng K-pos: chỉ **+0.043 [+0.023, +0.064]** vượt CLIP + position | `8001cf1`, `7b20444` |
-| **P2** E0 / E2(a–c) | ✅ (s8) | CRN = **R1** (mechanical; metric E2(b) bị position confound), E2(c) transfer **+0.030 [+0.020, +0.040]**. Nhánh s3 (D11) chỉ chạy nếu E1 chọn B/C | `7b20444` |
-| **P3** E1 | 🟡 | Lần chạy đầu dừng ở J9: ckpt s2025/s2026 trên Drive là snapshot giữa chừng (step 510 / 1530). Amendment 3: **train lại s2025/s2026** (`p3_retrain_kipoff.ipynb`) → chạy lại `p3_e1.ipynb` | `0ab760d` + Amendment 3 |
+| **P2** E0 / E2(a–c) | 🟡 | s8: CRN = **R1** (mechanical), E2(c) +0.030. **D11 kích hoạt (E1 chọn B): đọc lại E2(b)/(c) ở s3** — notebook `p2_e2_s3.ipynb` | `7b20444` |
+| **P3** E1 | ✅ | **Adopt B** (DoTA s3 whole clip): Δ vs A **+0.033 [+0.019, +0.048]**, C +0.035 (tie → B); 3/3 seed dương. `core/docs/v2/RESULTS_E1.md` | `0ab760d` + Amendment 3 (`7ce8bf5`) |
 | **P3** E0b | ⬜ | Chưa có notebook. Ckpt phase-5 + lcurve có thể cũng là snapshot (pending (aj)) → kiểm `global_step` trước | — |
 | **P4** Encoder E2(d) | ⛔ | Chặn bởi **D9** (endpoint motion chưa chốt). Chỉ extract được trên T2 | — |
-| **P5** Build v2 | ⬜ | Không bị chặn — làm được ngay (local CPU) | — |
+| **P5** Build v2 | 🟡 | Model + input cache + manifest + tests xong (uncommitted). Còn: diagnostics tool (source-shortcut / position R² trên `V^t`), bake A2/A3 (chờ P4 full-T2 VideoMAE) | — (chưa commit) |
 | **P6** Pilot | ⬜ | Cần P4 + P5 | — |
 | **P7** Go/no-go | ⬜ | Cần P6 | — |
 
 **Việc tiếp theo, theo thứ tự:**
-1. **User:** upload code mới lên `Thesis-V2/kat-vad` → chạy `colab/v2/p3_retrain_kipoff.ipynb` tới khi §3 in VERIFIED →
-   chạy `colab/v2/p3_e1.ipynb`, dán `e1_readout.md` → điền Appendix A, quyết định có chạy D11 không.
-2. **Claude (song song):** P5 build ở local.
-3. **User chốt D9** (endpoint motion; đề xuất ở §6 P4) → mở khoá P4.
-4. **Claude:** notebook E0b khi user xác nhận ckpt trên Drive.
+1. **User:** chạy `colab/v2/p2_e2_s3.ipynb` (D11: E2(b)/(c) trên DoTA-dev ở s3) → dán read-out → chốt reference CRN.
+2. **User:** review + cho commit phần P5 và E1 read-out (đang uncommitted).
+3. **Claude:** P5 diagnostics tool; notebook E0b (sau khi user kiểm J10 của ckpt phase-5/lcurve).
+4. **User chốt D9** (endpoint motion) → mở khoá P4.
 
-**Test suite hiện tại:** 720 collected, 0 fail (2026-09-29).
+**Test suite hiện tại:** 748 collected, 0 fail (2026-09-30, gồm P5 chưa commit).
 
 **Drive layout (từ 2026-09-29):** code + outputs v2 ở `Thesis-V2/` (`kat-vad/`, `outputs/`); data, cache, ckpts và
 run v1 (phase 4) ở `Thesis/`, chỉ đọc.
@@ -126,8 +125,12 @@ Thiết kế đã sửa theo D7 (addendum §6.1): ~300 source T2-train, whole so
 - [x] **E2(a)** bins DoTA-dev = freeze (343/247/93/19); coverage 0.223 → metric `r`.
 - [x] **E2(b)** → **R1** (mechanical). Caveat: `−f` alone 0.764 > `r` 0.690 → lựa chọn reference không được xác định (pending (ah)).
 - [x] **E2(c)** CRN − raw transfer **+0.030 [+0.020, +0.040]** → veto qua. Mọi reference +0.025…+0.034.
-- [ ] **(D11, có điều kiện)** Nếu E1 chọn B/C: thêm `--stride` cho `crn_select`, đọc lại E2(b)/(c) trên DoTA-dev ở s3
-  (từ `s1[::3]`), notebook Colab. Nếu E1 giữ A: đóng task này.
+- [x] **(D11 — KÍCH HOẠT, E1 chọn B) — code xong (uncommitted):** `crn_select --dota-s1-dir --dota-stride N`
+  (`load_dota_dev_s1`: `s1[::N]`, label từ annotation qua `core.data.dota.resized_frame_labels`); rate audit theo stride
+  từng corpus; `build_v2_inputs apply --stride`. +6 test. Notebook `colab/v2/p2_e2_s3.ipynb` có **cổng regression**
+  (đường s8 == đường s1 ở stride 8, mọi số) — đã thử local bằng s1 dựng từ s8: **0 khác biệt** (label annotation ==
+  `labels_s8` trên 702 clip).
+- [ ] **User chạy `p2_e2_s3.ipynb`** → dán read-out stride 3 → verdict s3 = reference CRN cho P5 (D2).
 
 Record: `core/docs/v2/RESULTS_E2_CRN.md`.
 
@@ -147,8 +150,10 @@ Record: `core/docs/v2/RESULTS_E2_CRN.md`.
 - [x] **Amendment 3** (§9): D12 train lại s2025/s2026; J9′ (s1[::8] vs cache s8 cùng ckpt, mọi step); J10 (ckpt step == metrics).
   Harness sửa theo (+5 test, smoke OK); runbook train lại `colab/v2/p3_retrain_kipoff.ipynb` (so `config.yaml` với phase 4,
   verify step + sha256 trên Drive).
-- [ ] **User:** chạy `p3_retrain_kipoff.ipynb` (tới VERIFIED) → `p3_e1.ipynb` → dán read-out. J9′/J10 fail: dừng, không nới.
-- [ ] Ghi `core/docs/v2/RESULTS_E1.md` + cập nhật memory bank.
+- [x] User chạy `p3_retrain_kipoff.ipynb` (VERIFIED) → `p3_e1.ipynb`. J10 (3 × step 2040) và J9′ pass.
+- [x] **Read-out (2026-09-30): adopt B.** A 0.6294 · B 0.6628 (Δ +0.0334 [+0.019, +0.048]) · C 0.6644 (Δ +0.0350);
+  ruler 0.566. Δ theo bin: <30 % +0.040 → >70 % +0.012. `core/docs/v2/RESULTS_E1.md`.
+- [x] Protocol DoTA cho P6/E3 = **B** (s1[::3] cả clip, nội suy native), in protocol A bên cạnh.
 
 **E0b** (descriptive, không quyết định gì):
 
@@ -175,22 +180,31 @@ Sau khi D9 chốt:
 
 **Deliverables:** `outputs/REPORTS/v2_E2d/` + read-out: encoder, eligibility, shuffle Δ; full T2 cache.
 
-### P5 — Build v2 model ⬜ (không bị chặn; local CPU)
+### P5 — Build v2 model 🟡 (local CPU; **uncommitted** 2026-09-30)
 
-Trước khi sửa symbol nào: `trace_call_path` + báo blast radius; load `meta-index.md`; context7 cho API ngoài.
+Thiết kế (user duyệt 2026-09-29, addendum §10 K1–K6): CRN + motion scaling **bake offline** thành v2 input cache;
+model chỉ thêm `W_u`. Không sửa `dataset.py` / `synthesis.py` / `collate.py`.
 
-- [ ] Config `v2` trong `core/config.py`: `crn.enabled`, `crn.reference ∈ {R1..R4}` (mặc định R1), `crn.warmup`,
-  `motion.enabled`, `motion.feature_dir`, `motion.encoder`, `motion.stats_path`. Raise nếu v2 bật cùng `kip.enabled`.
-- [ ] `core/tools/build_v2_stats.py`: từ T2-train **trừ T2-val** → `s`, `m_u`, `σ_u`, `c`; manifest `train_ids_sha1`; mismatch → raise.
-- [ ] Data layer: reference CRN tính trên source video (train) / clip (test) bằng `core/crn/reference.py`; load `u` song song `x`,
-  assert độ dài khớp từng video.
-- [ ] Model: `MotionResidual` (Linear `d_v→512`, weight + bias zero-init) cộng vào input trước temporal encoder; không LayerNorm.
-  Log `ρ_u` và `‖W_u‖` mỗi 50 step.
-- [ ] Checkpoint qua `ckpt_compat` (C5): A0 load ckpt KIP-off cũ được; A2/A3 thiếu `W_u` → raise.
-- [ ] Diagnostics mọi arm: source-shortcut AUC trên `V^t` và `y^bin`, position probe (R² `t/T`) trên `V^t`, macro theo share bin.
-- [ ] Tests: `TestV2A0IsKipOff`; `W_u = 0` ⇒ A2 ≡ A0 lúc init; `s` giữ `E‖x̃‖ = E‖x‖`; R4 streaming không nhìn tương lai;
-  stats sha1 mismatch → raise.
-- [ ] Quality gate §11 + full suite xanh (baseline 715). Docs `core/docs/v2/TRAINING_V2.md`. Lesson candidate.
+- [x] Config: `model.motion_dim` (0 = tắt) + section `v2` (`crn`, `motion`); `validate_v2` (giá trị hợp lệ, motion ⇔ dim,
+  dim khớp encoder, raise nếu v2 + KIP). `"v2"` thêm vào `ARCH_SECTIONS` → evaluate đọc v2 từ checkpoint.
+- [x] `core/data/v2_inputs.py`: `fit_stats` (`s`, `c`, `m_u`, `σ_u` trên T2-train trừ val), `bake_rows`, manifest,
+  `check_input_manifest`. `core/tools/build_v2_inputs.py` (`fit` / `apply`), ghi atomic, manifest có `train_ids_sha1`.
+  **Chạy thật local (A1 R1):** 1272 train + 219 val source, bake 1861, `c` 0.436 (spec ≈ 0.44), `s` 3.82; window T2 cắt
+  từ cache bake khớp công thức (2e-7).
+- [x] `core/models/motion_residual.py`: `Linear d_v→512` zero-init, không LayerNorm, padding không nhận motion, `ρ_u`.
+  Gắn vào `KATVAD.forward` khi `motion_dim > 0`. `metrics.jsonl` có `motion_share` + `w_u_norm` mỗi batch (không vào loss).
+- [x] `train` / `evaluate` kiểm manifest cache ↔ `cfg.v2` (K4).
+- [x] Ckpt compat: ckpt cũ (không `motion_dim` / `v2`) load như A0; A0 state vào model motion (strict) → raise.
+- [x] Tests `core/tests/test_v2_model.py` (28): config, zero-init ≡ no-motion (cùng weights), padding, `s` giữ
+  `E‖x̃‖ = E‖x‖`, cột motion RMS = `c`, R4 không nhìn tương lai, manifest, **e2e A3 train → evaluate** trên fixture.
+  Full suite 748 / 0 fail; ruff / mypy / pyright / bandit / pycycle sạch.
+- [x] Docs `core/docs/v2/TRAINING_V2.md`. Notebook train lại: §3 so config theo YAML, cho phép key v2-only ở giá trị tắt
+  (kiểm với config phase-4 thật: 0 khác biệt cho s2025/s2026).
+- [x] Lesson candidate (ak) (quy ước `padding_mask`).
+- [ ] **Diagnostics tool** (proposal §10.1): source-shortcut AUC trên `V^t` và `y^bin`, position probe (R² `t/T`) trên `V^t`,
+  macro theo share bin — đọc checkpoint, dùng ở P6.
+- [ ] Bake A2/A3 trên Colab — cần full-T2 VideoMAE cache (P4, chặn bởi D9). A1 bake được ngay (notebook P6).
+- [ ] User review → commit.
 
 ### P6 — Pilot ⬜
 
@@ -235,7 +249,7 @@ Trước khi sửa symbol nào: `trace_call_path` + báo blast radius; load `met
 | P0 | T2-val 219 src / 645 win; DoTA-dev 702 clip / 93 vid, eval 700 / 86; `>70` bin chỉ 19 clip dev; addendum D1–D6 | `7422975` | 2026-09-27 |
 | P1 K | **GO.** 295 src / 12,409 fr. `u` 0.760, `x` 0.615; Δ([x;u]−x) +0.132 [+0.109, +0.155] (i′), +0.126 [+0.101, +0.152] (ii′); control lower 0.740. **K-pos:** NOT_PAD (pad drop Δ +0.106 [+0.080, +0.130]); BEYOND_POSITION (`p` 0.730, `[x;p]` 0.734, `[x;u;p]` 0.777; Δ +0.043 [+0.023, +0.064] (i′), +0.039 [+0.018, +0.061] (ii′)). T2-val windows position ruler 0.575. `outputs/v2/DADA2000_orig/v2_K/` | Colab (code upload, `commit: UNKNOWN`) | 2026-09-28 |
 | P2 E0/E2(a–c) | **R1 (mechanical), veto qua.** E2(b) `r` bị `−f` chi phối (0.764 > 0.690) → reference không được xác định. E2(c) +0.025…+0.034, mọi CI > 0. E0 3.00×. `core/docs/v2/RESULTS_E2_CRN.md` | `7b20444` | 2026-09-28 |
-| P3 E1 | *Lần 1 dừng ở J9 (ckpt s2025/s2026 là snapshot step 510/1530; s2024 pass) → Amendment 3, train lại.* Label-only fact (smoke run): position ruler `t/N` trên DoTA-dev native ≈ 0.566 | `0ab760d` + Amendment 3 | 2026-09-29 |
+| P3 E1 | **Adopt B.** Ckpt: s2024 phase 4 + s2025/s2026 train lại (J10 2040 ×3, J9′ pass). Macro A 0.6294 · **B 0.6628 (Δ +0.0334 [+0.019, +0.048])** · C 0.6644 (Δ +0.0350 [+0.020, +0.050]); tie → B. Seed Δ +0.035/+0.033/+0.042. Ruler 0.566. `core/docs/v2/RESULTS_E1.md` | harness `0ab760d`, Amendment 3 `7ce8bf5`; Colab (code upload) | 2026-09-30 |
 | P3 E0b | | | |
 | P4 E2(d) | | | |
 | P6 pilot | | | |

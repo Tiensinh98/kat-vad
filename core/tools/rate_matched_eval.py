@@ -32,7 +32,6 @@ CLI::
 from __future__ import annotations
 
 import argparse
-import dataclasses
 import json
 import logging
 from dataclasses import dataclass
@@ -45,7 +44,7 @@ import torch
 from core import constants
 from core.config import load_config
 from core.data.definitions import dataset_abbr, item_verbalizer
-from core.data.dota import DotaRecord, parse_metadata, read_split_ids, sampled_frame_labels
+from core.data.dota import DotaRecord, parse_metadata, read_split_ids, resized_frame_labels
 from core.data.v2_splits import dota_group, load_split, share_bin
 from core.device import resolve_device
 from core.inference import load_model_for_scoring, make_class_feats_fn, sliding_window_scores
@@ -131,8 +130,7 @@ def to_native(step_scores: np.ndarray, stride: int, num_frames: int) -> np.ndarr
 
 def native_labels(record: DotaRecord, num_frames: int) -> np.ndarray:
     """Stride-1 labels over the cache's frame count, by the baseline's arithmetic (J1)."""
-    resized = dataclasses.replace(record, total_frames=num_frames)
-    return np.asarray(sampled_frame_labels(resized, 1), dtype=np.int64)
+    return np.asarray(resized_frame_labels(record, num_frames, 1), dtype=np.int64)
 
 
 def regression_mismatches(

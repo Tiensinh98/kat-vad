@@ -42,7 +42,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -243,6 +243,16 @@ def sampled_frame_labels(record: DotaRecord, stride: int) -> list[int]:
     for index in range(start, end):
         labels[index] = 1
     return labels
+
+
+def resized_frame_labels(record: DotaRecord, total_frames: int, stride: int) -> list[int]:
+    """``sampled_frame_labels`` over a cache's own frame count (v2 E1/D11, addendum J1).
+
+    A stride-1 CLIP cache fixes the clip length; the normalized span is rounded
+    onto ``range(0, total_frames, stride)`` by the same baseline arithmetic, so
+    the labels line up row-for-row with ``s1[::stride]``.
+    """
+    return sampled_frame_labels(replace(record, total_frames=total_frames), stride)
 
 
 def build_frame_labels(

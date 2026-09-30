@@ -424,6 +424,16 @@ V2_E1_CI = 0.95
 V2_E1_TIE_MARGIN = 0.01  # J7: both eligible and means closer than this -> B
 V2_E1_REGRESSION_ATOL = 1e-4  # J9: step-level A vs phase-4 max_score
 
+# --- v2 model inputs (architecture §4-§5, §11; plan P5) ---
+# CRN and the motion scaling are parameter-free, so they are baked offline into a
+# "v2 input cache" whose rows are [x_or_x~ ; c*u~/sigma_u]; the model only adds W_u.
+V2_OFF = "none"  # v2.crn / v2.motion value that switches a stream off
+V2_CRN_CHOICES = (V2_OFF, *V2_CRN_REFERENCES)
+V2_MOTION_CHOICES = (V2_OFF, VIDEOMAE_ENCODER_B, VIDEOMAE_ENCODER_S)
+V2_INPUT_MANIFEST_FILENAME = "v2_input_manifest.json"
+V2_MIN_SIGMA = 1e-6  # a constant motion channel is left unscaled rather than divided by ~0
+V2_NORM_EPS = 1e-12  # guards rho_u = ||W_u u|| / ||x|| against an all-zero x
+
 # ---------------------------------------------------------------------------
 # Evaluation score pooling (lesson C12)
 #

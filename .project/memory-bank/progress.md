@@ -1,11 +1,16 @@
 # Progress
 
-**Last updated:** 2026-09-28 (branch `v2`) — **v2 P0–P2 measured.** Splits frozen (`7422975`);
-Amendment 1 (DoTA pixels gone: K on T2, E1 dropped, motion endpoint → advisor, D9). **K = GO**; K-pos:
-`u` adds **+0.043 [+0.023, +0.064]** beyond CLIP + position (≈ ⅓ of K's +0.13). **E2: CRN = R1** by the
-rule, but `r`'s ranking is `−f`'s shape (trend alone 0.764 > `r` 0.690); **E2(c) transfer +0.030 [+0.020, +0.040]**.
-E0 3.00×. Waiting on the advisor: D9 endpoint + keep-R1 (Amendment 2). Counts: **103 Python files
-(69 source + 34 test), 16,366 source LOC, 691 tests, 33 docs**.
+**Last updated:** 2026-09-30 (branch `v2`) — **E1 = B; Amendments 2–3; P5 built; D11 tooling.**
+`DoTA_s1_ncc` survived on Drive → E1 revived (Amendment 2). Two of three phase-4 KIP-off checkpoints on Drive were
+mid-training snapshots (step 510 / 1530) → retrained with phase 4's exact command (Amendment 3, J9′/J10 gates).
+**E1: DoTA at stride 3 beats stride 8 by +0.033 [+0.019, +0.048] macro** on the same checkpoints (3/3 seeds) —
+protocol B adopted for every later DoTA read-out. D11 fired (E2 re-read at s3, notebook ready). P5: v2 input cache
+(CRN + motion scaling baked offline) + zero-init `MotionResidual`, e2e-tested. Counts: **109 Python files
+(73 source + 36 test), 17,520 source LOC, 754 tests, 35 docs**. P5/E1-record/D11 **uncommitted** (22 files).
+
+**Earlier 2026-09-28 — v2 P0–P2 measured.** Splits frozen (`7422975`); Amendment 1 (DoTA pixels gone: K on T2,
+E1 dropped, D9). K = GO; K-pos: `u` adds +0.043 [+0.023, +0.064] beyond CLIP + position. E2: CRN = R1 by the rule,
+`r`'s ranking is `−f`'s shape; E2(c) transfer +0.030 [+0.020, +0.040]. E0 3.00×.
 
 **Earlier 2026-09-27 — KAT-VAD v2 architecture designed and signed off by the advisor**
 (`core/docs/v2/`, four review rounds). Design only: KIP + RAFT removed; frozen VideoMAE V2
@@ -194,6 +199,8 @@ these rows plus `core/docs/RESULTS_*.md` are all that survives.
 | **v2 kill-switch K** (`MOTION_STREAM_K.md` §4; addendum §6.1; 2026-09-28) | — (frozen linear probes, 295 T2-train sources, s8, whole sources) | **GO.** `u` (VideoMAE V2-B) 0.760, `x` (CLIP) 0.615; Δ([x;u]−x) **+0.132 [+0.109, +0.155]** (source-grouped), +0.126 [+0.101, +0.152] (type-grouped); control lower 0.740 | **v2** |
 | **v2 K-pos diagnostic** (addendum §6.2, printed not gated; 2026-09-28) | same | Pad drop: Δ +0.106 [+0.080, +0.130] → NOT_PAD. **Position `p` alone 0.730; `[x;p]` 0.734 (CLIP +0.004 over position)**; `[x;u;p]` 0.777 → Δ **+0.043 [+0.023, +0.064]** / +0.039 [+0.018, +0.061] → BEYOND_POSITION. T2-val windows: best position ruler 0.575 | **v2** |
 | **v2 P2: E0 + E2(a–c)** (`RESULTS_E2_CRN.md`; addendum §7; 2026-09-28) | — (numpy on CLIP s8; probe fit on 1,272 T2-train sources) | E0 3.00×. E2(a) DoTA-dev bins = freeze. **E2(b) → R1** (`r` 0.6902 vs R2 0.6899, R3 0.6711, R4 0.4956 reversal) — but **`−f` alone 0.764** > `r`: choice not identified. **E2(c)** CRN − raw (0.6277): R1 **+0.030 [+0.020, +0.040]**, R2 +0.030, R3 +0.025, R4 +0.034 → veto passed | **v2** |
+| **v2 E1 run 1** (addendum §8; 2026-09-29) | 3 phase-4 KIP-off ckpts from Drive | **Stopped at J9 before any number:** s2024 reproduced phase-4 `max_score` on 702/702 DoTA-dev clips; s2025 differed on 702/702 → Drive ckpts s2025/s2026 are step **510 / 1530** of 2040 (metrics complete). Finished weights lost; phase-4 numbers unaffected (computed on VM-local ckpts). → Amendment 3 | **v2** |
+| **v2 E1 — rate-matched DoTA** (`RESULTS_E1.md`; addendum §8–§9; 2026-09-30) | s2024 (phase 4) + s2025/s2026 retrained (config == phase 4); DoTA-dev 702, native frames, cluster bootstrap 10k over 93 videos | **Adopt B.** Macro A (s8) 0.6294 · **B (s3 whole) 0.6628, Δ +0.0334 [+0.019, +0.048]** · C (s3 W20) 0.6644, Δ +0.0350 [+0.020, +0.050]; tie → B. Per seed Δ_B +0.035/+0.033/+0.042. By share bin <30 % +0.040 · 30–50 % +0.031 · 50–70 % +0.018 · >70 % +0.012. Position ruler 0.566. J10 3×2040, J9′ pass. Protocol change, not a better model | **v2** |
 | **T2 learning curve — phase 6** (`RESULTS_DADA_ORIG_T2.md` §8, 2026-09-26) | T2 subsets by source (25 % ⊂ 50 % ⊂ 100 %), KIP-off, 3 seeds, fixed 2,040 steps; 100 % = phase-4 KIP-off reused (config diff = `num_epochs` only) | **Verdict INCONCLUSIVE → CCD parked → D.** T2 micro 0.5947 / 0.6083 / 0.6182: Δ25 **+0.0137 [+0.0017, +0.0256]**, **Δ50 +0.0099 [−0.0266, +0.0463]** (primary). T2 macro 0.6085 / 0.6180 / 0.6248. **DoTA flat over 4× data:** micro 0.5773 → 0.5856, macro 0.6029 → 0.6113, CIs include 0. **Power defect:** the plan predicted ±0.008 from phase 5's fixed-data contrast; measured ±0.036, so FLAT was unreachable (pending (z)). Build gates G-S1…S6 all pass, no C14 flag | **v1** |
 | **D2City normal-bag EDA** (`D2CITY_EDA.md`, 2026-09-25) | — (frozen-CLIP logistic probes, 5 grouped folds, paired) | **NO-GO.** Mechanics pass (G-L length AUC **0.5009**, R0 sanity **0.6763**, n = 1,860). **X (D2City-only negatives) 0.5864, Δ(X−R0) −0.0899 t95 [−0.1011, −0.0787]** (5/5 folds < −0.06 FAIL bar); **M Δ −0.0123 [−0.0155, −0.0091]** (bar −0.01; 5/5 folds < 0). **Shortcut AUC X 1.000 / M 0.999**; R0 alone already 0.820. S 1.0000 vs S-ref DoTA 0.9999 (both ceiling). V1 band crop: X 0.5767, no help → V0. Third separate-pool failure (C38) | **v1** (no `core/` code; notebook) |
 | **BDD-A normal-bag EDA** (`BDDA_EDA.md`, 2026-09-26) | — (same probes/folds as D2City; R0 reproduces to 3.1e-5) | **NO-GO.** Mechanics pass (G-I 925/926, calm 508; G-L L-T2 length AUC **0.5000**; R0 **0.676227**). **Calm (gate): X 0.5492, Δ(X−R0) −0.1270 t95 [−0.1532, −0.1008]** (5/5 folds < −0.06); M Δ −0.0029 [−0.0062, +0.0004] (G-M pass, no gain). `all`: X 0.5375, Δ −0.1387. **Shortcut X 1.000 / M 0.999**; R0 0.374 (BDD-A starts *above* DADA normals — reverse of D2City). S 1.0000 vs S-ref 0.9999. L-T2 oracle 0.7037 → 0.8813 at mix 1.0. Fourth separate-pool failure (C38) | **v1** (no `core/` code; notebook) |
@@ -261,25 +268,27 @@ attributed it to any part of KIP:
 
 ### KAT-VAD v2 — E0–E2 gates (new 2026-09-27; design in `core/docs/v2/`, advisor sign-off)
 
-**Status 2026-09-28:** P0 ✅, P1 K ✅ GO (+K-pos), P2 ✅ (R1). **Blocked on the advisor:** D9 motion
-endpoint (recommended: T2-val window macro, paired vs A0/A1, position ruler 0.575 printed) and keep-R1
-vs amend E2(b)'s metric (recommended: keep R1) → Amendment 2. **Unblocked:** P5 build (CRN input +
-`MotionResidual`, local CPU); P3 E0b needs phase-4/5/lcurve checkpoints from Drive.
+**Status 2026-09-30:** P0 ✅, P1 K ✅ GO (+K-pos), P2 ✅ at s8 (R1), **P3 E1 ✅ = B**, P5 🟡 built (uncommitted).
+Live plan with a status table: `.project/plans/katvad-v2-e0-e2.md` §0. **Blocked:** P4 on D9 (motion endpoint; the user
+decides — they chose not to route amendments through the advisor).
 
-- [x] Write `.project/plans/katvad-v2-e0-e2.md` (harness, split files, read-out tables).
+- [x] Write `.project/plans/katvad-v2-e0-e2.md` (harness, split files, read-out tables; rewritten 2026-09-29 with §0 status).
 - [x] **Freeze + commit splits and rules first:** T2-val = 15 % of T2-train sources (grouped);
       DoTA-dev / DoTA-eval = 50 / 50 by video. Record the commit hash in every read-out.
 - [x] Harness loads DoTA-dev IDs only (DoTA-eval never printed until the final report).
-- [x] **E0** rate audit — 3.00× (record only; E1 dropped by Amendment 1, D8).
-- [ ] **E0b** pooled `MDE_dev` (phase-4 v1−off, phase-5 v2−off, two learning-curve arms;
-      ≤ 8 df), descriptive only. ~~**E1** stride-3 / sliding re-score of the 3 KIP-off
-      checkpoints on DoTA-dev (decided on the clip bootstrap).~~ E1 dropped (no DoTA pixels).
-- [x] **E2** (a) histograms → (b) CRN choice = R1 (metric position-confounded) → (c) veto passed, +0.030.
+- [x] **E0** rate audit — 3.00×.
+- [x] **E1** (revived by Amendment 2 from `DoTA_s1_ncc`; ckpts per Amendment 3) — **B adopted**, +0.033.
+- [ ] **D11** — E2(b)/(c) re-read on DoTA-dev at s3: `colab/v2/p2_e2_s3.ipynb` (regression gate s8 == s1@8, 0 diffs
+      locally). The s3 verdict is the CRN reference P5 uses.
+- [ ] **E0b** pooled `MDE_dev`, descriptive only. First check each phase-5 / lcurve ckpt passes J10 (pending (aj)).
+- [x] **E2** (a) histograms → (b) CRN choice = R1 at s8 (metric position-confounded) → (c) veto passed, +0.030.
 - [x] **K** (replaces E2(d)'s go/no-go): GO; K-pos BEYOND_POSITION (+0.043).
-- [ ] **E2(d) / P4** encoder choice — needs Amendment 2 (no DoTA endpoint for motion).
-- [ ] **E3** 2 × 2 factorial × 5 seeds (20 runs) — only after E2 fixes reference + encoder.
-- [ ] Code to build: ~~CRN references~~ (done, `core/crn/reference.py`), ~~motion-stream feature cache~~ (done),
-      CRN input + `MotionResidual` fusion, per-arm switches (P5). ~~Stride-3 scorer~~ dropped (D8). Load lessons first.
+- [ ] **E2(d) / P4** encoder choice — needs D9 (no DoTA endpoint for motion; VideoMAE needs pixels at any stride).
+- [x] **P5 core** — `core/data/v2_inputs.py`, `core/tools/build_v2_inputs.py` (`fit`/`apply --stride`),
+      `core/models/motion_residual.py`, config `model.motion_dim` + `v2`, manifest checks in train/evaluate,
+      `TRAINING_V2.md`, 29 tests incl. e2e A3. **Uncommitted.**
+- [ ] P5 diagnostics tool (source-shortcut AUC, position R² on `V^t`, macro by share bin) — for P6.
+- [ ] P6 pilot (seed 2099, 4 arms, T2-val only, A0 regression) → P7 → **E3** 2 × 2 × 5 seeds.
 
 ### D2City as the normal-bag pool — feasibility EDA (2026-09-24) — **CLOSED: NO-GO 2026-09-25**
 
@@ -578,6 +587,7 @@ both show is the worse corpus on every column.
 | Step checkpoints are spaced uniformly in steps, not in loss | `train.checkpoint_every_steps` | A trajectory probe cannot sample the early, high-loss part of training (lesson 16). Cost the A5 probe its low-convergence segment. |
 | ~~12 tests fail on `main`~~ | `core/tests/test_{dada,tad}.py` | **Resolved 2026-09-08.** The gate matrix was parametrized over `kip.gate_type`, a **v3-only** config field, so `core/config.py:207` raised `KeyError` (425 collected → 413 pass). Collapsed to the v1 gate and renamed `TestDadaTrains` / `TestTadTrains`: **418 collected, 418 pass**. `gate_type` was *not* ported — a partial port needs `ecmr.py` + the STE shift + diagnostics or the gate is silently wrong. |
 | **E2(b)'s pre-registered selection metric is position-confounded** | `core/tools/crn_select.py` (`r = d − f`), proposal §4.2 step 3–4 | `−f` alone scores 0.764 on DoTA-dev (> `r` 0.690); the R1–R4 ranking follows the trend's shape. The component is unaffected (the model never sees `f`). Advisor to decide keep-R1 vs amend; pending (ah). |
+| **Drive checkpoints can be mid-training snapshots** | phase-4 notebook `sync_to_drive` / `epochs_done` (reads `metrics.jsonl`, not the ckpt) | s2025/s2026 KIP-off ckpts on Drive were step 510/1530 of 2040 while metrics were complete (2026-09-29). Guarded now by J10 (`rate_matched_eval.check_finished`) and the retrain notebook's step + sha256 check. **Phase-5 and learning-curve ckpts used the same sync code — unverified.** Pending (aj). |
 | MPS training diverges on torch 2.4 | `core/train.py`, documented in `core/docs/TRAINING.md` | Local training must pin `train.device=cpu` |
 | **Score head's kernel spans a short clip** | `core/models/heads.py:21` (`ConvScoreHead`, `kernel_size=9`) | On DADA-2000 (median T = 9) every output timestep sees the whole clip, so the detector is structurally a **clip classifier**: flat curves, `auc_macro` at chance, inflated micro AUC. MSAD (T = 86) is unaffected, DoTA (T = 13) partly. Check `score_head_kernel` against a corpus's median length before training on it (`RESULTS_DADA.md` §5). |
 | **`mlp_ste` trains through NaNs under AMP** | `core/kip/gate_shift.py:99` (`shift_channels_straight_through`) | 33 of 500 steps NaN in `mil`/`mul_mil` on the DADA arm, over 17 of 20 epochs, while `kip_rec`/`kip_align` stay finite; no other arm at the same seed/batch/data. A4's DADA row is unreportable. Not root-caused (2026-09-06). |
@@ -592,6 +602,13 @@ both show is the worse corpus on every column.
 | No `AUC_A` / MCC / mAP@IoU | `core/evaluate.py` | Blocks the Phase-7 full metric table |
 
 ## Evolution of decisions
+
+- **2026-09-29/30** — The user takes the amendment decisions on the v2 line directly (no advisor round-trip):
+  Amendments 2 (E1 revived from `DoTA_s1_ncc`), 3 (retrain lost ckpts; J9′, J10) and the P5 implementation choices
+  K1–K6 are each written into the addendum *before* the numbers they govern, marked "user-authorized, not
+  advisor-reviewed". E1 moved the DoTA protocol to stride 3 (B). P5 bakes CRN + motion scaling into the input cache
+  instead of touching the dataset code. Working rules: never auto-commit; real-data runs ship as Colab notebooks;
+  Drive split `Thesis/` (data, caches, v1 runs) vs `Thesis-V2/` (code, v2 outputs).
 
 - **2026-09-28** — v2 P1/P2 read out. K = GO, but K-pos shows ≈ ⅔ of K's Δ is position; E2 keeps
   CRN (R1) on the only position-clean read (transfer). New standing rule: every frame-level macro

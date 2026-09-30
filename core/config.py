@@ -42,6 +42,9 @@ class ModelConfig:
     adaptive_fuse_alpha0: float = constants.ADAPTIVE_FUSE_ALPHA0
     adaptive_fuse_scale: float = constants.ADAPTIVE_FUSE_SCALE
     multiclass_temp: float = constants.MULTICLASS_TEMP
+    # v2 motion stream (architecture §5): width d_v of the pre-scaled motion columns
+    # appended to each input row. 0 = no motion stream (A0/A1, every v1 checkpoint).
+    motion_dim: int = 0
 
 
 @dataclass
@@ -141,6 +144,19 @@ class TrainConfig:
 
 
 @dataclass
+class V2Config:
+    """Which v2 input the run was fed (architecture §11). Provenance, not architecture.
+
+    Both streams are baked into the input cache by ``core.tools.build_v2_inputs``;
+    these fields name what the cache must contain, and the cache's manifest is
+    checked against them (:func:`core.data.v2_inputs.check_input_manifest`).
+    """
+
+    crn: str = constants.V2_OFF  # none | R1 | R2 | R3 | R4
+    motion: str = constants.V2_OFF  # none | VideoMAE V2 encoder name
+
+
+@dataclass
 class Config:
     """Top-level KAT-VAD configuration."""
 
@@ -150,6 +166,7 @@ class Config:
     dvs: DVSConfig = field(default_factory=DVSConfig)
     data: DataConfig = field(default_factory=DataConfig)
     train: TrainConfig = field(default_factory=TrainConfig)
+    v2: V2Config = field(default_factory=V2Config)
 
     def to_dict(self) -> dict[str, Any]:
         return dataclasses.asdict(self)
@@ -216,3 +233,33 @@ def load_config(path: Path | None = None, overrides: list[str] | None = None) ->
         LOGGER.debug("Config override applied: %s", item)
 
     return cfg
+
+
+def validate_v2(cfg: Config) -> None:
+    """Fail loud on a v2 config that cannot be the arm it names (architecture §11).
+
+    * ``v2.crn`` / ``v2.motion`` must be known values;
+    * a motion stream needs ``model.motion_dim`` > 0 and vice versa;
+    * v2 retires KIP: either v2 stream with ``kip.enabled`` is a mixed model no arm defines.
+    """
+    v2 = cfg.v2
+    if v2.crn not in constants.V2_CRN_CHOICES:
+        raise ValueError(f"v2.crn must be one of {constants.V2_CRN_CHOICES}, got {v2.crn!r}")
+    if v2.motion not in constants.V2_MOTION_CHOICES:
+        raise ValueError(
+            f"v2.motion must be one of {constants.V2_MOTION_CHOICES}, got {v2.motion!r}"
+        )
+    has_motion = v2.motion != constants.V2_OFF
+    if has_motion != (cfg.model.motion_dim > 0):
+        raise ValueError(
+            f"v2.motion={v2.motion!r} needs model.motion_dim > 0 (and only then); "
+            f"got model.motion_dim={cfg.model.motion_dim}"
+        )
+    if has_motion:
+        expected = constants.VIDEOMAE_ARCH[v2.motion][0]
+        if cfg.model.motion_dim != expected:
+            raise ValueError(
+                f"model.motion_dim={cfg.model.motion_dim} but {v2.motion} emits {expected}"
+            )
+    if cfg.kip.enabled and (has_motion or v2.crn != constants.V2_OFF):
+        raise ValueError("v2 inputs (v2.crn / v2.motion) require kip.enabled=false")

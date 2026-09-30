@@ -48,7 +48,9 @@ LOGGER = logging.getLogger(__name__)
 ClassFeatsFn = Callable[[], Tensor]
 
 
-ARCH_SECTIONS = ("model", "kip")
+# "v2" names the input a checkpoint was trained on (CRN reference, motion encoder);
+# adopting it lets the v2 input-manifest check refuse a mismatched feature cache.
+ARCH_SECTIONS = ("model", "kip", "v2")
 
 
 def _section_from_dict(section: Any, data: dict[str, Any], name: str) -> Any:

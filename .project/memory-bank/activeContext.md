@@ -2,10 +2,11 @@
 
 > ## ⚠️ BRANCH IDENTITY — READ BEFORE ANYTHING ELSE
 >
-> **Branch `v2` note (2026-09-27):** this copy was carried from `main` onto branch **`v2`**
+> **Branch `v2` note (2026-09-27, updated 2026-09-30):** this copy was carried from `main` onto branch **`v2`**
 > (the KAT-VAD v2 build line, off `main@cc39882`). The `main`/`v3` table below still holds;
-> on `v2` the code is `main`'s v1 **plus** the v2 P0–P2 tools (splits, VideoMAE extractor, K/K-pos, `core/crn/`, `crn_select`).
-> Tests on `v2`: **691 / 0 fail** (2026-09-28).
+> on `v2` the code is `main`'s v1 **plus** the v2 tools (splits, VideoMAE extractor, K/K-pos, `core/crn/`, `crn_select`,
+> `rate_matched_eval` (E1), `build_v2_inputs` + `core/data/v2_inputs.py` + `MotionResidual` (P5, uncommitted)).
+> Tests on `v2`: **754 / 0 fail** (2026-09-30, incl. uncommitted P5/D11).
 >
 > **This memory bank is the `main` branch's copy, and `main` is KAT-VAD **v1**.**
 > The v3 KIP gate rebuild is **not** in this tree; it lives on branch **`v3`**,
@@ -31,16 +32,21 @@
 > this branch *this file and `progress.md` are the only durable record of the
 > attribution campaign*. Do not delete them; do not re-run those arms here.
 
-**Last Memory Bank Update:** 2026-09-28 (latest — **full update, branch `v2`: P1 K = GO, K-pos, P2 E0/E2 read out**; all six core files reviewed;
-counts re-measured: **103 Python files (69 source + 34 test), 16,366 source LOC, 691 tests, 33 docs**.)
+**Last Memory Bank Update:** 2026-09-30 (latest — **full update, branch `v2`: E1 = B, Amendment 2/3, P5 built, D11 tooling**;
+all six core files + CLAUDE.md reviewed; counts re-measured: **109 Python files (73 source + 36 test), 17,520 source LOC,
+754 tests, 35 docs**.)
 
-> **TL;DR — where v2 stands (2026-09-28).** Splits frozen `7422975`. K = GO; `u` adds **+0.043 [+0.023, +0.064]**
-> beyond CLIP + position (position alone 0.73 on whole DADA sources; 0.575 on T2-val windows). CRN = **R1** by the
-> rule; E2(b)'s metric is position-confounded (`−f` 0.764), E2(c) transfer **+0.030 [+0.020, +0.040]**.
-> **Blocked on the advisor:** D9 motion endpoint + keep-R1 → Amendment 2. **Unblocked:** P5 build; P3 E0b needs
-> Drive checkpoints. **Uncommitted:** the K-pos + P2 work (15 files) — ask before committing.
+> **TL;DR — where v2 stands (2026-09-30).** P0–P2 done (CRN = R1 at s8, E2(c) +0.030). **E1 = B**: DoTA at stride 3
+> (`s1[::3]` from the surviving `DoTA_s1_ncc`) beats s8 by **+0.033 [+0.019, +0.048]** on the same checkpoints — a
+> protocol fix, not a better model. **D11 fired:** run `colab/v2/p2_e2_s3.ipynb` → the stride-3 verdict fixes the CRN
+> reference. **P5 built** (baked v2 input cache + zero-init `W_u`); left: diagnostics tool, A2/A3 bakes (need P4).
+> **Blocked:** P4 on D9 (motion endpoint — the user decides; advisor not consulted by the user's choice).
+> **Uncommitted since `7ce8bf5`:** 22 files (P5 + E1 record + D11) — split into 2 commits, only when the user says.
+> **Rules this session:** never auto-commit; ship real-data runs as Colab notebooks; Drive = `Thesis/` (data, caches,
+> v1 runs, read-only) + `Thesis-V2/` (code `kat-vad/`, v2 outputs).
 
-Before that, 2026-09-27 ( **KAT-VAD v2 architecture designed and signed off by the advisor; not built**. Full update: all six core files reviewed; counts re-measured: **91 Python files (61 source + 30 test), 14,155 source LOC, 598 tests, 30 docs**.) Before that, 2026-09-26 (**step B read out: INCONCLUSIVE, CCD parked, next = D**.) Before that, 2026-09-26 (**step B built: subset tool, 16 tests, phase-6 notebook**.) Before that, 2026-09-26 (**Option A / phase 5 READ OUT: "cost removed;
+Before that, 2026-09-28 (**full update, branch `v2`: P1 K = GO, K-pos, P2 E0/E2 read out**; counts: 103 Python files
+(69 source + 34 test), 16,366 source LOC, 691 tests, 33 docs.) Before that, 2026-09-27 ( **KAT-VAD v2 architecture designed and signed off by the advisor; not built**. Full update: all six core files reviewed; counts re-measured: **91 Python files (61 source + 30 test), 14,155 source LOC, 598 tests, 30 docs**.) Before that, 2026-09-26 (**step B read out: INCONCLUSIVE, CCD parked, next = D**.) Before that, 2026-09-26 (**step B built: subset tool, 16 tests, phase-6 notebook**.) Before that, 2026-09-26 (**Option A / phase 5 READ OUT: "cost removed;
 KIP-v1 neutral on T2"**. Partial update: `activeContext`, `progress`, lessons (C37 outcome,
 pending (x)), plan App. A; docs 26 → 27 (+ `core/docs/RESULTS_DADA_ORIG_T2.md`); code unchanged.)
 Before that, 2026-09-26 (**CCD (`data/CarCrash/`) profiled and PARKED**;
@@ -52,7 +58,32 @@ Track 0b closed; T2 + Option A remain the live track. Partial update: `activeCon
 architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 13,833 source LOC, 582 collected); **docs 24 → 25** (+ `core/docs/D2CITY_EDA.md`).
 
-## 2026-09-29 (latest) — **E1 run 1 stopped at J9: two phase-4 checkpoints are mid-training snapshots → Amendment 3** (branch `v2`)
+## 2026-09-30 (latest) — **E1 READ OUT: adopt B (DoTA s3); D11 tooling built** (branch `v2`, uncommitted)
+
+* E1 (`core/docs/v2/RESULTS_E1.md`): J10 3×2040, J9′ pass. Macro A 0.6294 · **B 0.6628, Δ +0.0334 [+0.019, +0.048]** ·
+  C 0.6644 (+0.0350); tie → **B**. Per seed +0.035/+0.033/+0.042; by share bin <30 % +0.040 → >70 % +0.012 (kernel 3 =
+  2.4 s at s8 vs 0.9 s at s3). Ruler 0.566. Protocol change, not a better model; never beside LaGoVAD 62.60.
+* DoTA protocol for P6/E3 = B (s1[::3] whole clip, native frames); protocol A printed beside.
+* D11 fires. Built `crn_select --dota-s1-dir --dota-stride`, `resized_frame_labels`, `build_v2_inputs apply --stride`;
+  notebook `colab/v2/p2_e2_s3.ipynb` with an s8-vs-s1@8 regression gate (0 diffs locally with a s1 rebuilt from s8).
+* Suite 754 / 0 fail. Everything since `7ce8bf5` is uncommitted (P5 + E1 record + D11).
+
+**Next action:** user runs `p2_e2_s3.ipynb` → stride-3 verdict fixes the CRN reference; user reviews + commits.
+
+## 2026-09-30 — **P5 built (uncommitted): v2 input cache + MotionResidual** (branch `v2`)
+
+* Design (user-approved; addendum §10 K1–K6): CRN + motion scaling baked offline (`core/tools/build_v2_inputs.py`,
+  `core/data/v2_inputs.py`); model adds only `W_u` (`core/models/motion_residual.py`). Config `model.motion_dim` + `v2`
+  section; `validate_v2`; `"v2"` in `ARCH_SECTIONS`; train/evaluate refuse a cache whose manifest ≠ `cfg.v2`.
+* T2 eval reference = the source video (K2), DoTA = the clip. Real local A1 fit: 1272 train src, `c` 0.436, `s` 3.82.
+* Tests 748 / 0 fail (+28, incl. e2e A3 train → evaluate). Gate clean. Retrain notebook §3 now diffs config as YAML
+  with v2-only keys allowed at their off values (0 diffs vs real phase-4 configs).
+* **User rule (2026-09-29): never auto-commit.** All P5 work is uncommitted, waiting for review.
+* Left in P5: diagnostics tool (source-shortcut / position R² on `V^t`); A2/A3 bakes wait for P4 (D9).
+
+**Next action:** user reviews P5 diff → commit on their word; user runs retrain → E1 notebooks.
+
+## 2026-09-29 — **E1 run 1 stopped at J9: two phase-4 checkpoints are mid-training snapshots → Amendment 3** (branch `v2`)
 
 * Drive `DADA2000_orig_phase4/s{2025,2026}/stage2_kip_off/checkpoint_last.pt` = step **510 / 1530** of 2040 (metrics.jsonl
   complete). s2024 = 2040 and passed J9 on 702/702 clips (harness == `core.evaluate`). Finished weights of s2025/s2026 lost;

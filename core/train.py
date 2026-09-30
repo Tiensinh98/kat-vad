@@ -47,6 +47,7 @@ from core.data.definitions import (
     verbalize_class_name,
 )
 from core.data.knn_cache import load_knn_cache
+from core.data.v2_inputs import check_input_manifest
 from core.device import resolve_device
 from core.kip.losses import (
     kinematic_loss,
@@ -295,6 +296,12 @@ class Trainer:
         caption_feats = self.text_encode_fn(captions) if captions else None
 
         outputs = self.model(v_feat, lengths, class_feats, caption_feats)
+
+        # v2 motion-stream evidence (architecture §5): logged per batch in
+        # metrics.jsonl, never added to `total` (both are detached diagnostics).
+        if self.model.motion_residual is not None:
+            losses["motion_share"] = outputs["motion_share"]
+            losses["w_u_norm"] = self.model.motion_residual.weight_norm()
 
         # L_MIL (binary top-k)
         loss_bin = mil_loss(
@@ -719,6 +726,9 @@ def build_trainer(
     data_dir = data_dir if data_dir else constants.DATA_ROOT / dataset_name
     clip_dir = clip_dir if clip_dir else constants.CLIP_CACHE_DIR / dataset_name
     flow_dir = flow_dir if flow_dir else constants.FLOW_CACHE_DIR / dataset_name
+    # v2: the feature cache IS the arm's input (CRN / motion baked in), so it must be
+    # the one cfg.v2 names -- a plain CLIP cache under a v2 config trains A0 silently.
+    check_input_manifest(clip_dir, cfg.v2.crn, cfg.v2.motion)
 
     knn_cache = load_knn_cache(knn_cache_path) if knn_cache_path else None
     require_flow = cfg.kip.enabled

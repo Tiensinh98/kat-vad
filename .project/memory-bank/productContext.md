@@ -1,7 +1,8 @@
 # Product Context — why KAT-VAD exists
 
 **Created:** 2026-07-31 (re-init from `b9978ff`)
-**Last reviewed:** 2026-09-24 (full reconcile — the repair for the negative T2 A/B is
+**Last reviewed:** 2026-09-30 (E1 read out: the rate-matched DoTA protocol; no change to the product
+argument's structure). Previously 2026-09-24 (full reconcile — the repair for the negative T2 A/B is
 authorized and built; the fair test is queued, not run). Previously 2026-09-21 (the
 paired T2 KIP A/B is negative and now diagnosed; see "What has actually been shown"). Earlier: 2026-09-15, the
 corpus survey (every corpus with negative bags is degenerate, every clean one has
@@ -45,9 +46,18 @@ expensive for a deployable detector. KIP resolves that trade:
 The result should be a detector that keeps LaGoVAD's definition-conditioned
 generalization while gaining the motion sensitivity it lacks.
 
-## What has actually been shown (latest reading 2026-09-28, branch `v2`)
+## What has actually been shown (latest reading 2026-09-30, branch `v2`)
 
-**v2's two components now each have one position-clean piece of evidence, and both are modest.**
+**The biggest DoTA gain of the week is not a component — it is reading DoTA at the rate the model was
+trained on.** E1 (`core/docs/v2/RESULTS_E1.md`): the *same* three KIP-off checkpoints score **+0.033 macro
+[+0.019, +0.048]** on DoTA-dev when DoTA is read at stride 3 (0.3 s/step, T2's 0.27 s) instead of stride 8
+(0.8 s/step), consistently over seeds and largest on short accidents (+0.040 when the accident is < 30 % of the
+clip). The score head's 3-step kernel spanned 2.4 s at stride 8. For the product this says the detector's
+temporal resolution must match its training rate at deployment; for the thesis it moves the DoTA protocol to
+stride 3 (B) with the old protocol printed beside it, and it is a protocol result, not a model result.
+
+*(Reading of 2026-09-28, still valid.)* **v2's two components each have one position-clean piece of
+evidence, and both are modest.**
 - **Motion stream (K + K-pos, T2 whole sources, frozen probes):** a frozen VideoMAE V2-B feature
   `u` scores 0.760 macro vs CLIP 0.615 — but a no-pixel relative-position ruler scores 0.730 there,
   and CLIP adds only **+0.004** over position. What `u` adds beyond CLIP *and* position is

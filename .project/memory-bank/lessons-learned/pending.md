@@ -1590,3 +1590,18 @@ and compare sha256 with the local file.
 
 **Gate status.** One occurrence (two seeds), measured. Gate 2 (recurrence) not met — but phase 5 and the learning
 curve used the same sync code, so E0b's checkpoints must be checked the same way before it is built.
+
+## (ak) [MEDIUM] Models - `padding_mask` is a float with 1 = VALID, not a bool with True = padding (2026-09-30)
+
+**Triggers:** padding_mask, mask, masked_fill, key_padding_mask, valid steps, new module in KATVAD.forward
+**Problem:** `MotionResidual` was written assuming the PyTorch `key_padding_mask` convention (bool, True =
+padding); `core.data.collate.padding_mask` returns **float32, 1 = valid, 0 = padding**. `~mask` raised on a
+float tensor — caught by the zero-`W_u` equivalence test before any run. Had it been `mask == 0`-style code
+on a float, it would have silently zeroed the motion term on every *valid* step instead.
+**Bad:** `motion.masked_fill(mask[..., None], 0.0)` with `mask = padding_mask(...)`.
+**Good:** `valid = mask.bool(); motion.masked_fill(~valid[..., None], 0.0)`, and a test that feeds a real
+`padding_mask` output.
+**Candidate rule.** *Read `padding_mask`'s docstring before consuming it; test new masked code with its real output.*
+**Files:** `core/data/collate.py:68`, `core/models/motion_residual.py:forward`, `core/tests/test_v2_model.py`
+
+**Gate status.** One occurrence, caught in test. Gate 2 (recurrence) not met.

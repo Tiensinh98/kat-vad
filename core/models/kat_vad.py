@@ -22,11 +22,13 @@ from typing import TYPE_CHECKING
 from torch import Tensor, nn
 
 from core import constants
+from core.config import validate_v2
 from core.data.collate import padding_mask
 from core.kip.kip_module import KIP
 from core.models.clip_text import SoftPromptCLIPTextModel
 from core.models.fusion import CoAttentionFusion
 from core.models.heads import BinaryHead, MultiClassHead
+from core.models.motion_residual import MotionResidual
 from core.models.temporal_encoder import TemporalEncoder
 
 if TYPE_CHECKING:
@@ -56,8 +58,14 @@ class KATVAD(nn.Module):
         kip_on_raw_features: bool = False,
         clip_text_model: SoftPromptCLIPTextModel | None = None,
         tokenizer: PreTrainedTokenizerBase | None = None,
+        motion_dim: int = 0,
     ) -> None:
         super().__init__()
+        # v2 motion stream (architecture §5): absent unless motion_dim > 0, so every
+        # v1 / A0 / A1 checkpoint builds -- and loads -- exactly as before.
+        self.motion_residual = (
+            MotionResidual(hidden_dim, motion_dim) if motion_dim > 0 else None
+        )
         self.temporal_encoder = TemporalEncoder(
             hidden_size=hidden_dim,
             num_layers=temporal_layers,
@@ -84,6 +92,7 @@ class KATVAD(nn.Module):
     @classmethod
     def from_config(cls, cfg: Config, load_clip: bool = False) -> KATVAD:
         """Build from :class:`core.config.Config`; ``load_clip`` pulls HF weights."""
+        validate_v2(cfg)
         clip_text_model: SoftPromptCLIPTextModel | None = None
         tokenizer: PreTrainedTokenizerBase | None = None
         if load_clip:
@@ -116,6 +125,7 @@ class KATVAD(nn.Module):
             kip_on_raw_features=cfg.kip.enabled and cfg.kip.on_raw_features,
             clip_text_model=clip_text_model,
             tokenizer=tokenizer,
+            motion_dim=cfg.model.motion_dim,
         )
 
     def encode_text(self, texts: list[str], use_soft_prompt: bool = True) -> Tensor:
@@ -173,9 +183,12 @@ class KATVAD(nn.Module):
         ``cls_bin_logits``/``cls_sim_mat`` (+ ``cap_*`` for captions).
         """
         mask = padding_mask(v_feat_l, v_feat.shape[1]).to(v_feat.device)
+        outputs: dict[str, Tensor] = {}
+        if self.motion_residual is not None:
+            # v2 A2/A3: rows are [x ; c*u~/sigma_u] -> h = x + W_u(...)  (architecture §5)
+            v_feat, outputs["motion_share"] = self.motion_residual(v_feat, mask)
         vt = self.temporal_encoder(v_feat, v_feat_l)
 
-        outputs: dict[str, Tensor] = {}
         if self.kip is not None:
             # ablation 6: splice KIP on raw CLIP features instead of v^t
             kip_input = v_feat if self.kip_on_raw_features else vt

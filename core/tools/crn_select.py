@@ -7,7 +7,9 @@ D3 (DoTA intervals resample source videos), §1 (the ``>70`` bin is flagged, not
 silently accepted).
 
 Corpora
-    * **DoTA-dev** -- the frozen 50 % (``core/splits/v2``), s8 labels, one clip = one unit.
+    * **DoTA-dev** -- the frozen 50 % (``core/splits/v2``), one clip = one unit. Either the
+      s8 cache + s8 labels (P2), or ``--dota-s1-dir --dota-stride N``: ``s1[::N]`` with
+      labels rounded from the annotation onto the s1 length (addendum D11, after E1 = B).
     * **T2-val** -- the frozen 219 T2 **source videos**, whole, s8, labels from the
       annotation span (Gate D0's convention). The unit is the source because CRN's
       reference is computed over the source video in training (proposal §4.2).
@@ -49,6 +51,7 @@ import numpy as np
 from core import constants
 from core.crn.reference import deviation, reference
 from core.data.dada_origin import load_counts
+from core.data.dota import parse_metadata, read_split_ids, resized_frame_labels
 from core.data.v2_splits import dota_group, load_split, share_bin
 from core.eda.features import transfer_scores
 from core.metrics import cluster_bootstrap_ci, frame_auc
@@ -120,6 +123,28 @@ def load_dota_dev(labels_dir: Path, clip_dir: Path) -> tuple[Corpus, int]:
     return corpus, len(dev) - len(ids)
 
 
+def load_dota_dev_s1(
+    s1_dir: Path, metadata: Path, split_file: Path, stride: int
+) -> tuple[Corpus, int]:
+    """DoTA-dev from a stride-1 cache at ``stride`` (D11); labels from the annotation (J1)."""
+    dev = load_split(constants.V2_SPLIT_DOTA_DEV)
+    records = {r.video_id: r for r in parse_metadata(metadata, read_split_ids(split_file))}
+    missing = [v for v in dev if not (s1_dir / f"{v}.npy").exists()]
+    if missing:
+        raise FileNotFoundError(f"{len(missing)} DoTA-dev ids have no s1 feature: {missing[:5]}")
+    x: dict[str, np.ndarray] = {}
+    y: dict[str, np.ndarray] = {}
+    for v in sorted(dev):
+        s1 = np.load(s1_dir / f"{v}.npy")
+        x[v] = np.asarray(s1[::stride], dtype=np.float64)
+        y[v] = np.asarray(resized_frame_labels(records[v], len(s1), stride), dtype=np.int64)
+        if len(y[v]) != len(x[v]):
+            raise ValueError(f"{v}: {len(x[v])} rows vs {len(y[v])} labels at stride {stride}")
+    share = {v: records[v].span[1] - records[v].span[0] for v in y}
+    corpus = Corpus(f"DoTA-dev-s{stride}", x, y, share, {v: dota_group(v) for v in y})
+    return corpus, 0
+
+
 def load_t2(
     name: str, ids: list[str], annotation: Path, census: dict[str, int], clip_dir: Path
 ) -> Corpus:
@@ -142,15 +167,15 @@ def t2_sources(meta: dict[str, dict[str, Any]]) -> tuple[list[str], list[str]]:
 # ---------------------------------------------------------------------------
 # E0 + E2(a)
 # ---------------------------------------------------------------------------
-def rate_audit(corpora: dict[str, tuple[Corpus, int]]) -> dict[str, Any]:
-    """E0 (record only, D8): seconds per step and clip length in seconds."""
+def rate_audit(corpora: dict[str, tuple[Corpus, int, int]]) -> dict[str, Any]:
+    """E0 (record only, D8): seconds per step and clip length in seconds, per ``(fps, stride)``."""
     out: dict[str, Any] = {}
-    for name, (corpus, fps) in corpora.items():
+    for name, (corpus, fps, stride) in corpora.items():
         steps = np.asarray([len(corpus.y[v]) for v in corpus.ids], dtype=np.float64)
-        per_step = constants.FRAME_STRIDE / fps
+        per_step = stride / fps
         out[name] = {
             "fps": fps,
-            "stride": constants.FRAME_STRIDE,
+            "stride": stride,
             "seconds_per_step": per_step,
             "steps_median": float(np.median(steps)),
             "clip_seconds_median": float(np.median(steps) * per_step),
@@ -419,8 +444,9 @@ def render_markdown(readout: dict[str, Any]) -> str:
     lines = [
         "# v2 P2 — E0 / E2(a) / E2(b) / E2(c) read-out",
         "",
-        "Rule: proposal §4.2 steps 1-6; addendum D3 (DoTA CI over source videos), D8 (s8 only).",
-        f"DoTA-dev clips without s8 labels: {readout['dota_dev_unlabelled']}.",
+        "Rule: proposal §4.2 steps 1-6; addendum D3 (DoTA CI over source videos), "
+        f"D11 (DoTA-dev at stride {readout.get('dota_stride', constants.FRAME_STRIDE)}).",
+        f"DoTA-dev clips without labels: {readout['dota_dev_unlabelled']}.",
         "",
         "## E0 — rate audit (record only, D8)",
         "",
@@ -514,7 +540,14 @@ def render_markdown(readout: dict[str, Any]) -> str:
 # CLI
 # ---------------------------------------------------------------------------
 def run(args: argparse.Namespace) -> dict[str, Any]:
-    dota, unlabelled = load_dota_dev(args.dota_labels_dir, args.dota_clip_dir)
+    if args.dota_s1_dir is not None:
+        dota, unlabelled = load_dota_dev_s1(
+            args.dota_s1_dir, args.dota_metadata, args.dota_split_file, args.dota_stride
+        )
+        dota_stride = args.dota_stride
+    else:
+        dota, unlabelled = load_dota_dev(args.dota_labels_dir, args.dota_clip_dir)
+        dota_stride = constants.FRAME_STRIDE
     meta = json.loads(args.t2_meta.read_text(encoding="utf-8"))
     val_ids, train_ids = t2_sources(meta)
     census = load_counts(args.census)
@@ -534,9 +567,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     transfer = transfer_probe(kinds, t2train, dota, args.bootstrap, args.seed)
     return {
         "corpora": [t2val.name, dota.name],
+        "dota_stride": dota_stride,
         "dota_dev_unlabelled": unlabelled,
         "e0_rate": rate_audit(
-            {dota.name: (dota, constants.DOTA_FPS), t2val.name: (t2val, constants.DADA_ASSUMED_FPS)}
+            {
+                dota.name: (dota, constants.DOTA_FPS, dota_stride),
+                t2val.name: (t2val, constants.DADA_ASSUMED_FPS, constants.FRAME_STRIDE),
+            }
         ),
         "e2a_share": {c.name: share_histogram(c) for c in (dota, t2val)},
         "coverage": coverage,
@@ -553,8 +590,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n", 1)[0])
-    parser.add_argument("--dota-labels-dir", type=Path, required=True)
-    parser.add_argument("--dota-clip-dir", type=Path, required=True)
+    parser.add_argument("--dota-labels-dir", type=Path, default=None, help="s8 path: labels_s8")
+    parser.add_argument("--dota-clip-dir", type=Path, default=None, help="s8 path: DoTA_s8_ncc")
+    parser.add_argument("--dota-s1-dir", type=Path, default=None, help="D11 path: DoTA_s1_ncc")
+    parser.add_argument("--dota-stride", type=int, default=constants.V2_E1_STRIDE_BC)
+    parser.add_argument("--dota-metadata", type=Path, default=None, help="metadata_val.json")
+    parser.add_argument("--dota-split-file", type=Path, default=None, help="val_split.txt")
     parser.add_argument("--t2-meta", type=Path, required=True)
     parser.add_argument("--annotation", type=Path, required=True)
     parser.add_argument(
@@ -569,7 +610,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
-    args = build_arg_parser().parse_args(argv)
+    parser = build_arg_parser()
+    args = parser.parse_args(argv)
+    s1_path = args.dota_s1_dir is not None
+    if s1_path and (args.dota_metadata is None or args.dota_split_file is None):
+        parser.error("--dota-s1-dir needs --dota-metadata and --dota-split-file")
+    if not s1_path and (args.dota_labels_dir is None or args.dota_clip_dir is None):
+        parser.error("give --dota-labels-dir + --dota-clip-dir (s8) or --dota-s1-dir (D11)")
+    if s1_path and (args.dota_labels_dir is not None or args.dota_clip_dir is not None):
+        parser.error("the s8 flags and --dota-s1-dir are exclusive")
     readout = run(args)
     write_json_atomic(args.out_dir / READOUT_JSON, readout)
     write_text_atomic(args.out_dir / READOUT_MD, render_markdown(readout))

@@ -7,11 +7,15 @@ that resamples clips, and a choice rule that differs from §4.2 steps 4-5.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import numpy as np
 import pytest
 
 from core import constants
 from core.crn.reference import deviation, reference
+from core.data.dota import DotaRecord, resized_frame_labels, sampled_frame_labels
 from core.tools import crn_select as cs
 
 SEED = 5
@@ -162,3 +166,61 @@ class TestEndToEnd:
         assert "minus_f" in result["DoTA-dev"]
         transfer = cs.transfer_probe(["R1"], train, dota, 100, SEED)
         assert transfer["raw"]["mean"] > 0.8 and "delta_vs_raw" in transfer["R1"]
+
+
+class TestDotaStrideLoader:
+    """D11: DoTA-dev from s1[::stride], labels rounded onto the s1 length (addendum J1)."""
+
+    def _write(self, tmp_path: Path, lengths: dict[str, int]) -> tuple[Path, Path, Path]:
+        s1, rng = tmp_path / "s1", np.random.default_rng(SEED)
+        s1.mkdir()
+        meta = {}
+        for v, n in lengths.items():
+            np.save(s1 / f"{v}.npy", rng.normal(size=(n, DIM)).astype(np.float32))
+            meta[v] = {"video_start": 0, "video_end": n, "anomaly_start": n // 3,
+                       "anomaly_end": 2 * n // 3, "anomaly_class": "ego: turning",
+                       "num_frames": n, "subset": "val"}
+        (tmp_path / "meta.json").write_text(json.dumps(meta))
+        (tmp_path / "split.txt").write_text("\n".join(lengths))
+        return s1, tmp_path / "meta.json", tmp_path / "split.txt"
+
+    def test_rows_labels_share_and_groups(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        lengths = {"vidA_000010": 100, "vidA_000200": 61, "vidB_000005": 40}
+        s1, meta, split = self._write(tmp_path, lengths)
+        monkeypatch.setattr(cs, "load_split", lambda name: sorted(lengths))
+        corpus, unlabelled = cs.load_dota_dev_s1(s1, meta, split, 3)
+        assert unlabelled == 0 and corpus.name == "DoTA-dev-s3"
+        for v, n in lengths.items():
+            assert len(corpus.x[v]) == len(corpus.y[v]) == -(-n // 3)
+            np.testing.assert_allclose(corpus.x[v], np.load(s1 / f"{v}.npy")[::3], rtol=1e-6)
+        group = corpus.group
+        assert group["vidA_000010"] == group["vidA_000200"] != group["vidB_000005"]
+        assert corpus.share["vidA_000010"] == pytest.approx((66 - 33) / 100)
+
+    def test_missing_s1_file_raises(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        s1, meta, split = self._write(tmp_path, {"vidA_000010": 50})
+        monkeypatch.setattr(cs, "load_split", lambda name: ["vidA_000010", "vidC_000001"])
+        with pytest.raises(FileNotFoundError, match="no s1 feature"):
+            cs.load_dota_dev_s1(s1, meta, split, 3)
+
+    def test_resized_labels_equal_sampled_at_matching_length(self) -> None:
+        record = DotaRecord("v", "ego: x", 100, (0.3, 0.55))
+        for stride in (1, 3, 8):
+            assert resized_frame_labels(record, 100, stride) == sampled_frame_labels(record, stride)
+        assert len(resized_frame_labels(record, 91, 3)) == 31
+
+    def test_cli_path_flags_are_exclusive(self, tmp_path: Path) -> None:
+        with pytest.raises(SystemExit):
+            cs.main(["--dota-s1-dir", str(tmp_path), "--t2-meta", "m", "--annotation", "a",
+                     "--census", "c", "--dada-clip-dir", "d", "--out-dir", str(tmp_path)])
+        with pytest.raises(SystemExit):
+            cs.main(["--t2-meta", "m", "--annotation", "a", "--census", "c",
+                     "--dada-clip-dir", "d", "--out-dir", str(tmp_path)])
+
+    def test_rate_audit_uses_each_corpus_stride(self) -> None:
+        corpus = cs.Corpus("c", {}, {"a": np.zeros(10)}, {"a": 0.1}, {"a": "a"})
+        out = cs.rate_audit({"dota": (corpus, 10, 3), "t2": (corpus, 30, 8)})
+        assert out["dota"]["seconds_per_step"] == pytest.approx(0.3)
+        assert out["step_ratio"] == pytest.approx(0.3 / (8 / 30))

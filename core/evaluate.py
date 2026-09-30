@@ -40,6 +40,7 @@ from core import constants
 from core.config import load_config
 from core.data.dataset import FeatureEvalDataset
 from core.data.definitions import dataset_abbr, item_verbalizer
+from core.data.v2_inputs import check_input_manifest
 from core.device import resolve_device
 from core.inference import (
     load_model_for_scoring,
@@ -154,6 +155,8 @@ def main(argv: list[str] | None = None) -> None:
     model = load_model_for_scoring(
         cfg, device, args.ckpt, args.baseline_ckpt, args.text_encoder, args.overrides
     )
+    # cfg.v2 now comes from the checkpoint (ARCH_SECTIONS): score it on the input it trained on.
+    check_input_manifest(clip_dir, cfg.v2.crn, cfg.v2.motion)
     text_encode_fn = make_text_encoder(model, args.text_encoder, device, dim=cfg.model.hidden_dim)
     # Seeded **per item**, not per run (lesson C30). Definition sampling is
     # per-window, so one shared RNG makes every clip's conditioning depend on

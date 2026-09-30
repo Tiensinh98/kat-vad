@@ -1,7 +1,7 @@
 # System Patterns — architecture & design decisions
 
 **Created:** 2026-07-31 (re-init from `b9978ff`, verified against the tree)
-**Last reviewed:** 2026-09-24 (the flow target gains a second cache version,
+**Last reviewed:** 2026-09-30 (branch `v2`: v2 section rewritten — P5 builds the arms as a baked input cache + zero-init `MotionResidual`; DoTA protocol B from E1; new build patterns for E1/D11/Colab). Previously 2026-09-24 (the flow target gains a second cache version,
 `flow/v2_zscore`, and `lambda_rec` becomes a property of the cache — see "Two flow
 targets" under Loss composition). Previously 2026-09-15 (later — corpus construction: closing the length
 leak and lowering the clip oracle are separate jobs; earlier the same day, the two
@@ -397,11 +397,11 @@ on `main` there is only one gate type, so the matrix was collapsed rather than
 the class deleted — `test_kip_off_trains` (arm A0), `test_stage1_warmup_runs`
 and the `config.yaml`-recording tests all survive.
 
-## KAT-VAD v2 architecture — designed 2026-09-27; model NOT built, P0–P2 tools built (branch `v2`)
+## KAT-VAD v2 architecture — designed 2026-09-27; **P5 built 2026-09-30 (uncommitted)** (branch `v2`)
 
-Source of truth: `core/docs/v2/KAT_VAD_v2_ARCHITECTURE.md` (shapes) and
-`core/docs/v2/KAT_VAD_PROPOSAL_v2.md` (rules, review tables). The network below is not in code yet;
-what exists is listed under "v2 build patterns".
+Source of truth: `core/docs/v2/KAT_VAD_v2_ARCHITECTURE.md` (shapes), `core/docs/v2/KAT_VAD_PROPOSAL_v2.md`
+(rules, review tables), `core/docs/v2/TRAINING_V2.md` (how the arms are built and run). Implementation
+choices K1–K6: `PREREG_ADDENDUM.md` §10.
 
 ```
 frame @ t ─► CLIP ViT-B/16 (frozen) ─► x_t ─► CRN ─► x̃_t = s·(x_t − μ^ref) ─────────────┐
@@ -420,11 +420,32 @@ h ─► temporal encoder (unchanged) ─► V^t ─► CoAttn(V^t, z) ─► V^
   **no per-token LayerNorm** in front of `W_u`.
 - **Arms are switches on one network:** A0 `X`; A1 `s·(X − μ^x)`; A2 `X + W_u·(c·(U − m_u) ⊘ σ_u)`;
   A3 `s·(X − μ^x) + W_u·(c·(U − μ^u) ⊘ σ_u)`.
-- **Protocol:** ~~DoTA at stride 3 with sliding W = 20 / hop 4~~ — **dropped by Amendment 1 (D8):
-  DoTA has no pixels.** DoTA stays stride 8, whole clip, per-clip min-max, scored only from the
-  `clip/DoTA_s8_ncc` cache. Motion arms (A2/A3) have **no DoTA endpoint**; the advisor picks one (D9 → Amendment 2).
-- **CRN reference:** **R1** (whole-clip mean) by the E2 rule (2026-09-28); see `RESULTS_E2_CRN.md` for why
-  the choice among R1–R4 is not identified.
+- **Protocol (E1, 2026-09-30): B** — DoTA at **stride 3, whole clip** from `clip/DoTA_s1_ncc[::3]`, scores
+  interpolated to native frames, macro over DoTA-dev (protocol A = stride 8 printed beside). Sliding W20 (C)
+  added nothing (+0.0016). Motion arms (A2/A3) still have **no DoTA endpoint** (VideoMAE needs pixels; D9 open).
+- **CRN reference:** **R1** at s8 by the E2 rule (2026-09-28; choice among R1–R4 not identified,
+  `RESULTS_E2_CRN.md`). **D11: re-read at s3 pending** — the s3 verdict is the one P5 trains with.
+
+### How the arms are implemented (P5, addendum §10 K1–K6)
+
+```
+build_v2_inputs fit   (T2: stats on T2-train − T2-val, bake every source)   ─► cache/v2/<arm>/DADA2000_orig/{src}.npy
+build_v2_inputs apply (DoTA: fitted stats, --stride 3 over s1, per clip)    ─► cache/v2/<arm>/DoTA_.../{clip}.npy
+      row = [ x  or  s·(x − μ^ref) ;  c·ũ/σ_u  (A2/A3 only) ]  + v2_input_manifest.json + v2_input_stats.npz
+train/evaluate --clip-dir <baked cache>  ─► KATVAD.forward: MotionResidual splits the row, h = x + W_u(u)
+```
+
+- CRN is **parameter-free**, so it is baked, not computed in the model: windowing (`FeatureSlicer`), DVS
+  splicing, collate and evaluation are untouched, and "CRN per segment before splicing" holds by construction.
+- **Reference unit:** the source video for every T2 item (train *and* eval windows are slices of it); the clip for DoTA (K2).
+- `model.motion_dim` (0 = off) is architecture; section `v2` (`crn`, `motion`) is provenance. Both are
+  checkpoint-adopted (`ARCH_SECTIONS = ("model", "kip", "v2")`), so evaluate knows which input a ckpt needs.
+- **Fail-loud seams:** `validate_v2` (motion ⇔ dim = encoder width; v2 ⇒ `kip.enabled=false`);
+  `check_input_manifest` in `build_trainer` and `evaluate.main` (plain cache under v2, v2 cache under A0,
+  or a crn/motion mismatch all raise); strict `load_state_dict` (A0 state into a motion model raises).
+- `MotionResidual`: `Linear(d_v → 512)` weight + bias zero-init, no LayerNorm, padded steps get no motion
+  term; `ρ_u` and `‖W_u‖` go to every `metrics.jsonl` record, never into `total`.
+- `padding_mask` is float **1 = valid** (pending (ak)).
 
 ### v2 build patterns (2026-09-27/28)
 
@@ -438,6 +459,10 @@ h ─► temporal encoder (unchanged) ─► V^t ─► CoAttn(V^t, z) ─► V^
 | Decision tools | `core/tools/{kill_switch_probe,crn_select}.py` | Apply the pre-registered rule mechanically, write `*_readout.{json,md}`; diagnostics are separate subcommands/columns labelled "printed, not gated" |
 | Intervals | same | Bootstrap over **sources/videos**, never frames or DoTA clips (D3) |
 | Position control | same | Every frame-level macro prints a no-pixel position ruler; a detrended score prints its own trend `−f` (pending (ah)) |
+| Rate-matched DoTA scoring | `core/tools/rate_matched_eval.py` | Arms A/B/C from one s1 cache, native-frame interpolation, seed-averaged, paired Δ with cluster bootstrap; J10 (ckpt step == metrics) and J9′ (s1[::8] path == s8 path) gate before any B/C score |
+| Stride-N DoTA for probes | `crn_select --dota-s1-dir --dota-stride N`; `core.data.dota.resized_frame_labels` | Labels rounded onto the s1 length by the baseline arithmetic; s1@8 reproduces the s8 read-out exactly (0 diffs) |
+| Shared cluster CI | `core/metrics.cluster_bootstrap_ci` | One implementation for E1 and E2 (D3) |
+| Colab runbooks | `colab/v2/*.ipynb` | Drive split `Thesis/` (read) + `Thesis-V2/` (code + outputs); purge cached `core.*` before `import constants`; stream subprocess output; install `transformers==4.56.*` av einops faiss-cpu; preflight asserts the addendum section the run depends on |
 
 
 ## Planned seams — v1/v3 KIP line (not built; unrelated to the KAT-VAD v2 architecture above)

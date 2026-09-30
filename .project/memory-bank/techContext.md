@@ -1,9 +1,10 @@
 # Tech Context — stack, setup, constraints
 
 **Created:** 2026-07-31 (re-init from `b9978ff`, read off `pyproject.toml`)
-**Last reviewed:** 2026-09-28, branch `v2` (counts re-measured: **103 Python files (69 source + 34 test),
-16,366 source LOC, 691 tests, 33 docs**; new: VideoMAE V2 vendored model, `u` extractor, K / K-pos / E2 tools,
-`core/crn/`, frozen splits; no new dependency — sklearn/numpy/torch/timm-free). Before that 2026-09-27 (91 files, 14,155 LOC, 598 tests, 30 docs on `main`).
+**Last reviewed:** 2026-09-30, branch `v2` (counts re-measured: **109 Python files (73 source + 36 test),
+17,520 source LOC, 754 tests, 35 docs**; new: `rate_matched_eval` (E1), `build_v2_inputs` + `core/data/v2_inputs.py`,
+`MotionResidual`, config `model.motion_dim` + `v2` section; no new dependency). Before that 2026-09-28 (103 files,
+16,366 LOC, 691 tests, 33 docs). Before that 2026-09-27 (91 files, 14,155 LOC, 598 tests, 30 docs on `main`).
 Previously 2026-09-24 (full reconcile — counts re-measured; `core/flow/zscore*`
 and the `FLOW_ZSCORE_*` constants added; `colab/` corrected to **tracked**).
 Previously 2026-09-21 (full reconcile — counts re-measured, `grad_probe`
@@ -48,10 +49,10 @@ the same day, the text-branch + `L_neg` constraints.
 | `core/data/` | msad, dota, prevad, **tad**, **dada**, dataset (DVS), synthesis, knn_cache, collate, definitions, video_io, dataset_files |
 | `core/flow/raft_extract.py` | RAFT → 23-d stats → seeded 256-d projection |
 | `core/flow/zscore.py` / `zscore_cache.py` | **new 2026-09-23 (Option A).** Numpy leaf (`MomentAccumulator`, `ZScoreStats`, `standardize`) + CLI `python -m core.flow.zscore_cache --data-dir … --dataset … [--src-root cache/flow/v1] [--dst-root cache/flow/v2_zscore] [--force]`. Rebuilds `e_O` from v1's raw stats; gates G0–G2; writes `zscore_stats.npz` + `zscore_manifest.json` (holds the derived `lambda_rec`). CPU, minutes, no torch |
-| **v2 (branch `v2`)** | `core/models/videomae_v2.py` (vendored VideoMAE V2 distilled, pinned rev + sha256) · `core/tools/extract_video_features.py` (`u` cache) · `core/tools/kill_switch_probe.py` (`pick`/`run`/`diag`) · `core/tools/crn_select.py` (E0 + E2(a–c)) · `core/tools/freeze_splits.py` + `core/data/v2_splits.py` + `core/splits/v2/` · `core/crn/reference.py` (R1–R4). Constants `VIDEOMAE_*`, `V2_*`, `DOTA_FPS`, `DADA_ASSUMED_FPS` |
+| **v2 (branch `v2`)** | `core/models/videomae_v2.py` (vendored VideoMAE V2 distilled, pinned rev + sha256) · `core/tools/extract_video_features.py` (`u` cache) · `core/tools/kill_switch_probe.py` (`pick`/`run`/`diag`) · `core/tools/crn_select.py` (E0 + E2(a–c); `--dota-s1-dir --dota-stride` for D11) · `core/tools/rate_matched_eval.py` (E1; J9′/J10 gates) · `core/tools/build_v2_inputs.py` + `core/data/v2_inputs.py` (baked CRN/motion input cache + manifest) · `core/models/motion_residual.py` (`W_u`) · `core/tools/freeze_splits.py` + `core/data/v2_splits.py` + `core/splits/v2/` · `core/crn/reference.py` (R1–R4). Constants `VIDEOMAE_*`, `V2_*`, `V2_E1_*`, `DOTA_FPS`, `DADA_ASSUMED_FPS`. Runbooks `colab/v2/{p1_kill_switch,p3_retrain_kipoff,p3_e1,p2_e2_s3}.ipynb` |
 | `core/tools/` | download, extract_clip_features, **feature_cache**, **rescore**, visualize, **eda**, **grad_probe** (431 L, new 2026-09-18 — per-term `autograd.grad` against 4 parameter groups; read-only, no optimizer step, raises if its re-summed terms do not reproduce `compute_losses`'s `total`) |
 | `core/eda/` | corpus, labels, protocol, features, report — the pre-flight profiler (`python -m core.tools.eda report\|compare`), runbook `core/docs/EDA.md`. **Run on real data since 2026-09-15**: Gate D0, Gate W, and the D1 flow-target baselines (§4.3.1 — `flow_stats` reports the zero / global-mean / item-mean MSE a constant predictor scores on `e_O`, the per-stat `E[s²]` share, and a projection round-trip check) |
-| `core/docs/` | **33 docs on `v2`** (25 top-level + `gate/` 3 + `v2/` 5: PROPOSAL_v2, v2_ARCHITECTURE, PREREG_ADDENDUM, MOTION_STREAM_K, RESULTS_E2_CRN). Older note — **20 files on `main`**: COLAB, DATA_LAYOUT, DOTA_EVAL, **EDA**, PREVAD_SETUP, **TAD_SETUP**, **DADA_SETUP**, **DADA_ORIGIN_PHASE0** (new 2026-09-15), DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE, TRAINING, proposal, spec, 7 × RESULTS_\*.md, REPORT_KIP_MSAD_DOTA_PREVAD |
+| `core/docs/` | **35 docs on `v2`** (25 top-level + `gate/` 3 + `v2/` 7: PROPOSAL_v2, v2_ARCHITECTURE, PREREG_ADDENDUM, MOTION_STREAM_K, RESULTS_E2_CRN, RESULTS_E1, TRAINING_V2). Older note — **20 files on `main`**: COLAB, DATA_LAYOUT, DOTA_EVAL, **EDA**, PREVAD_SETUP, **TAD_SETUP**, **DADA_SETUP**, **DADA_ORIGIN_PHASE0** (new 2026-09-15), DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE, TRAINING, proposal, spec, 7 × RESULTS_\*.md, REPORT_KIP_MSAD_DOTA_PREVAD |
 | `core/docs/v3/` | **On `main`: only `RESULTS_DADA.md` + `setup/{DADA_V3_SETUP,TAD_V3_SETUP}.md`** (3 files). ARCHITECTURE, spec_v3, audit_addendum_PreVAD, RESULTS_V3_GATE_ATTRIBUTION and `setup/MSAD_DOTA_V3_SETUP.md` are **branch `v3` only**. (On `main`/`v2` the surviving v3 files moved to `core/docs/gate/` in `cc39882`.) `core/docs/v2/` = the KAT-VAD v2 docs (2026-09-27+), not the old gate-line spec v2 |
 
 **Measured on `main`, 2026-09-24 (`ae4fded`):** **89 Python files** (60 source + 29 test),
@@ -74,6 +75,13 @@ different tree, different numbers.)
 `KATVAD_DATA_ROOT` (`./data`), `KATVAD_CACHE_ROOT` (`./cache`),
 `KATVAD_CKPT_ROOT` (`./ckpts`), `KATVAD_OUTPUT_ROOT` (`./outputs`).
 Colab points all four at Drive. Full contract: `core/docs/DATA_LAYOUT.md`.
+
+**v2 Drive layout (since 2026-09-29):** `MyDrive/Thesis/{data,cache,ckpts}` + `Thesis/outputs` (v1 runs,
+read-only) and `MyDrive/Thesis-V2/{kat-vad (REPO), outputs (KATVAD_OUTPUT_ROOT)}`. Colab code is an upload, not a git
+checkout. `core.constants` reads the env at import time: a notebook purges cached `core.*` before importing and
+asserts the resolved roots (template `colab/v2/p3_e1.ipynb` cell 2). v2 notebooks that import `core.train` /
+`core.inference` must `pip install "transformers==4.56.*" av einops faiss-cpu`, and must stream subprocess output
+(Colab shows nothing of a bare `subprocess.run`).
 
 ## Pinned externals
 
@@ -241,7 +249,8 @@ Colab points all four at Drive. Full contract: `core/docs/DATA_LAYOUT.md`.
 # tests  (pyproject sets addopts="-q", so the summary line is suppressed;
 #          count with:  pytest --co -q | awk -F': ' '/^core/{s+=$2} END{print s}')
 source .venv/bin/activate && python -m pytest core/tests -q
-# on `v2` (2026-09-28): 691 collected, 0 fail (+K-pos, +CRN/E2).
+# on `v2` (2026-09-30): 754 collected, 0 fail (+E1 harness, +P5, +D11; P5/D11 uncommitted).
+# History on `v2`: 720 (2026-09-29), 691 (2026-09-28).
 # on `main` (2026-09-27): 598 collected, 0 fail.
 # History: 582 (2026-09-24).
 # History: 565 (2026-09-21), 563 (2026-09-18), 546 (2026-09-17), 514 (2026-09-15).
@@ -258,6 +267,14 @@ python -m core.tools.crn_select --dota-labels-dir data/DoTA/labels_s8 \
   --dota-clip-dir cache/clip/DoTA_s8_ncc --t2-meta outputs/EDA/DADA2000_orig_T2_w20s8/meta.json \
   --annotation data/DADA/dada标注.xlsx --census outputs/EDA/DADA2000_orig_T2/counts/*.json \
   --dada-clip-dir cache/clip/DADA2000_orig --out-dir outputs/v2/REPORTS/v2_E2abc
+# D11 (Colab, colab/v2/p2_e2_s3.ipynb): same, with DoTA-dev from s1 at stride 3
+#   ... --dota-s1-dir cache/clip/DoTA_s1_ncc --dota-stride 3 \
+#       --dota-metadata data/DoTA/metadata_val.json --dota-split-file data/DoTA/val_split.txt
+
+# v2 P5: bake an input cache (A1 local ~5 s; A2/A3 need the full-T2 VideoMAE cache)
+python -m core.tools.build_v2_inputs fit --t2-dir data/DADA2000_orig \
+  --clip-dir cache/clip/DADA2000_orig --crn R1 --motion none --out-dir cache/v2/A1_R1/DADA2000_orig
+# then train with --clip-dir <that dir> --set kip.enabled=false --set v2.crn=R1 (core/docs/v2/TRAINING_V2.md)
 # v2 P1 (Colab; needs the u cache): kill_switch_probe {pick,run,diag} — runbook colab/v2/p1_kill_switch.ipynb
 ```
 
