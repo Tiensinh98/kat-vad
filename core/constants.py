@@ -444,6 +444,11 @@ MMAU_MATCH_NEAR = 0.95  # containment >= this: same video, processed differently
 MMAU_NULL_FLAG_SHARE = 0.01  # > this share of hard nulls at >= NEAR -> threshold unreliable
 MMAU_COVERAGE_BAR = 0.95  # branch P needs exact coverage >= this on all DoTA and on DoTA-dev
 MMAU_ALIGN_MIN_POINTS = 2  # a rate/offset fit needs at least this many matched frames
+# Amendment P0b-1 (2026-10-01; after the feasibility-only group 1-10 read-out, before P0c): a near
+# pair must align forward at no fewer CAP frames than query frames; a look-alike scene does not.
+MMAU_NEAR_MIN_RATE = 0.9
+MMAU_STREAM_BATCH_GB = 8.0  # frames on VM disk before a streamed CAP batch is encoded and deleted
+BYTES_PER_GB = 1e9
 
 # ---------------------------------------------------------------------------
 # Evaluation score pooling (lesson C12)

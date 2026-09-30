@@ -1620,3 +1620,28 @@ corpus and drop the overlap.*
 **Files:** `.project/plans/katvad-mmau-phase0.md`, `core/tools/mmau_match.py`
 
 **Gate status.** One occurrence, caught before any download. Gate 2 (recurrence) not met.
+
+## (am) [MEDIUM] Experiments - A similarity threshold for "same video" needs a second, physical witness (2026-10-01)
+**Triggers:** content match, near-duplicate, containment, kappa threshold, provenance, dashcam look-alike, MM-AU
+**Problem:** On CAP group `1-10` the pre-registered `near` band (κ 0.95–0.99) admitted 9 DoTA↔CAP pairs at κ
+0.951–0.968 whose frames did not align in time (`r` ∈ [−0.31, 0.71]); one CAP clip "matched" three different
+YouTube videos. Dashcam scenes are similar enough in CLIP that containment alone reaches 0.97 without shared frames.
+The null flag (0.07 %) did not fire, because it only looks at the K-th candidate.
+**Bad:** grade `near` from κ alone.
+**Good:** also require a forward temporal alignment (`r ≥ MMAU_NEAR_MIN_RATE`), and look at the κ histogram for the
+valley (here 0.97–0.98) before trusting a threshold picked a priori.
+**Candidate rule.** *Accept a sub-exact content match only with an independent witness (temporal alignment), not a
+lower similarity cut.*
+**Files:** `core/tools/mmau_match.py:grade_pair`, `.project/plans/katvad-mmau-phase0.md` §3 (Amendment P0b-1)
+
+**Gate status.** One occurrence, fixed before the deciding run. Gate 2 (recurrence) not met.
+
+## (an) [LOW] Data - Stream archives in bounded batches; never size the runtime to the extracted archive (2026-10-01)
+**Triggers:** tar.gz, split parts, extract, Colab disk, A100 for disk, CAP-DATA, frames to VM
+**Problem:** P0b extracted a whole CAP group before encoding, so group `11` (96 GB extracted) would have needed an
+A100 runtime only for its disk.
+**Good:** `core.tools.stream_frames_clip` — one gzip stream over the parts, videos batched to ≤ 8 GB, encoded with the
+unchanged `extract_frame_directory` (bit-identical features, tested), then deleted.
+**Files:** `core/tools/stream_frames_clip.py`, `colab/v2/mmau_p0.ipynb` §2
+
+**Gate status.** One occurrence. Gate 2 not met.

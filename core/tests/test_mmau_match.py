@@ -49,6 +49,24 @@ class TestContainment:
         assert m.kappa == pytest.approx(0.97, abs=1e-4)
         assert m.rate == pytest.approx(1.0)
 
+    def test_near_without_forward_alignment_is_rejected(self) -> None:
+        """Amendment P0b-1: near-band kappa but frames run backwards -> none, not a hit."""
+        rng = np.random.default_rng(4)
+        cap = {f"c{i}": _unit(rng, 40) for i in range(6)}
+        query = {"q": _at_cosine(cap["c2"][:20][::-1], 0.97, rng)}
+        (m,) = mmau_match.match_queries(query, cap)
+        assert m.kappa == pytest.approx(0.97, abs=1e-4)
+        assert (m.grade, m.near_rejected, m.hits) == (mmau_match.GRADE_NONE, True, [])
+        assert m.rate is None
+        assert mmau_match.summarize([m])["near_rejected"] == 1
+
+    def test_exact_is_not_subject_to_the_rate_rule(self) -> None:
+        rng = np.random.default_rng(5)
+        cap = {f"c{i}": _unit(rng, 40) for i in range(6)}
+        (m,) = mmau_match.match_queries({"q": cap["c1"][:20][::-1]}, cap)
+        assert (m.grade, m.near_rejected) == (mmau_match.GRADE_EXACT, False)
+        assert m.rate == pytest.approx(-1.0)
+
     def test_unrelated_clip_grades_none_without_alignment(self) -> None:
         rng = np.random.default_rng(2)
         cap = {f"c{i}": _unit(rng, 40) for i in range(6)}

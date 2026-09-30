@@ -10,9 +10,9 @@
 
 | Bước | Trạng thái | Kết quả |
 |---|:-:|---|
-| P0a Mirror CAP-DATA HF → Drive + census | ⬜ | — |
-| P0b CLIP `_ncc` s1 nhóm `1-10` → match (khả thi?) | ⬜ | — |
-| P0c CLIP 4 nhóm còn lại → match toàn bộ (coverage) | ⬜ | — |
+| P0a Mirror CAP-DATA HF → Drive + census | ◐ | Nhóm `1-10`: 1556/1556 folder, 256,182 frame, 2 lệch số frame, 0 rỗng (2026-10-01) |
+| P0b CLIP `_ncc` s1 nhóm `1-10` → match (khả thi?) | ✅ | **Khả thi** (2026-10-01): exact 214/1397 DoTA (dev 104/702), r ≈ 1 hoặc ≈ 3 ở 211/214, null ≥ near 0.07 %; DADA 0. Dải near lọt 9 cặp giả → **Amendment P0b-1** |
+| P0c CLIP 4 nhóm còn lại → match toàn bộ (coverage) | ⬜ | Notebook đã chuyển sang streaming theo lô (`stream_frames_clip`), T4/L4 đủ |
 | P0d Đọc nhánh D9 (§4) → Amendment 4 | ⬜ | — |
 
 ## 1. Vì sao
@@ -59,6 +59,13 @@ Mọi embedding frame được chuẩn hoá L2. Với query `q` (một clip DoTA
 - **Căn thời gian** (cặp exact/near): fit `j = r·i + o` (least squares) trên các frame có max-cos ≥ 0.95 → `r` =
   frame CAP / frame query (tỉ lệ fps), `o` = offset. In phân bố `r`.
 - **Cờ độ tin cậy:** nếu > 1 % null ≥ 0.95 thì ngưỡng không tách được → **không đọc nhánh**, báo user.
+- **Amendment P0b-1** (2026-10-01, user duyệt, không qua thầy; viết **sau** read-out P0b chỉ-khả-thi của nhóm
+  `1-10`, **trước** P0c): cặp **near** còn phải căn thời gian được với `r ≥ 0.9` (`MMAU_NEAR_MIN_RATE`); không
+  căn được hoặc `r < 0.9` → **none** (đếm ở cột `near rej.`), và không tính là hit khi loại clip CAP. Lý do vật lý:
+  cùng một video thì CAP không thể có ít frame hơn query. Bằng chứng P0b: 9 cặp near κ 0.951–0.968 có `r` ∈
+  [−0.31, 0.71], κ − null từ 0.000 đến 0.076, và clip CAP `002432` "khớp" 3 video YouTube khác nhau (cảnh dashcam
+  giống nhau); 22 cặp near thật κ 0.980–0.990 đều có `r` ≈ 1 hoặc ≈ 3. **exact và cờ null không đổi.** Rủi ro chấp
+  nhận: luật được đặt sau khi nhìn 16 % CAP; nó chỉ ảnh hưởng P′ và danh sách loại, không ảnh hưởng nhánh P.
 
 ## 4. Luật rẽ nhánh D9 (cố định trước khi đọc số)
 
@@ -83,15 +90,17 @@ quyết nhánh.
 - Census (sau giải nén): số folder mỗi nhóm == README (1556 / 3083 / 1629 / 2150 / 1350); số jpg mỗi video ==
   `total frames` trong annotation → in số lệch, không dừng.
 
-### P0b — Nhóm `1-10` (L4)
-- `cat part_* | tar -xz` từ Drive xuống `/content/mmau` (stream, không ghép file tar).
-- `python -m core.tools.extract_clip_features --frames-dir … --frames-subdir images --stride 1 --no-center-crop
-  --dataset MMAU_CAP --output-dir Thesis/cache/clip/MMAU_CAP_s1_ncc` → xoá frame.
+### P0b — Nhóm `1-10` (L4) — ✅ 2026-10-01
+- Đã chạy bằng `cat part_* | tar -xz` cả nhóm xuống `/content/mmau` rồi `extract_clip_features --frames-dir …
+  --stride 1 --no-center-crop` → xoá frame. Cách này cần disk ≈ kích thước nhóm (nhóm `11` ≈ 96 GB → phải A100).
+- **Từ P0c:** `python -m core.tools.stream_frames_clip --parts {g}.part_* …` đọc các part thành một luồng gzip,
+  ghi frame từng video xuống `/content`, đủ `MMAU_STREAM_BATCH_GB` (8 GB) video xong thì encode bằng **đúng**
+  `extract_frame_directory` (cùng transform, C2) rồi xoá. Disk đỉnh ≈ 1 lô + 1 video → T4/L4. Test chứng minh
+  feature qua streaming == feature giải nén thường (bằng nhau từng bit).
 - `python -m core.tools.mmau_match` → read-out `Thesis-V2/outputs/REPORTS/mmau_p0/group_1-10/`.
 
 ### P0c — 4 nhóm còn lại
-- Như P0b, từng nhóm (preflight dung lượng disk ≥ 1.1× nhóm; nhóm `11` ≈ 96 GB giải nén → L4 phải đủ, nếu không
-  thì lên A100).
+- Từng nhóm bằng `stream_frames_clip` (preflight disk ≥ 3 × `BATCH_GB`); nhóm `1-10` đã cache thì bỏ qua.
 - `mmau_match` trên toàn bộ CAP → read-out `mmau_p0/all/` → §4.
 
 ### P0d — Record
@@ -104,5 +113,5 @@ quyết nhánh.
 | CAP resample/crop DoTA → κ rơi vào 0.95–0.99 | Nhánh P′ tách riêng; không gộp vào P |
 | Nhiều video dashcam cùng bối cảnh → null cao | Cờ null > 1 % → không đọc nhánh |
 | Một clip CAP chứa nhiều clip DoTA (DoTA = đoạn cắt từ video YouTube) | Containment theo hướng query ⊂ CAP; mỗi DoTA clip gán cho clip CAP tốt nhất, không ép 1-1 |
-| Disk VM không đủ cho nhóm `11` | Preflight dừng trước khi giải nén; A100 |
+| Disk VM không đủ cho nhóm `11` | Streaming theo lô (≤ 8 GB + 1 video); tar không liền mạch theo video → tool raise |
 | JPEG decode chậm (1.55M frame) | Resume theo video (`extract_clip_features` đã resumable); chạy từng nhóm |

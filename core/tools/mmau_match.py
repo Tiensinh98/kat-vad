@@ -13,6 +13,11 @@ content: every query (a DoTA clip, a DADA-2000 source) is looked up in the CAP C
 - **Grade:** ``exact`` (``kappa >= MMAU_MATCH_EXACT``), ``near`` (``>= MMAU_MATCH_NEAR``),
   else ``none``. For exact/near pairs ``j = rate * i + offset`` is fitted on the frames whose
   max-cos clears ``MMAU_MATCH_NEAR`` (``rate`` = CAP frames per query frame).
+  **Amendment P0b-1** (fixed after the feasibility-only group ``1-10`` read-out, before P0c):
+  a ``near`` pair must also align with ``rate >= MMAU_NEAR_MIN_RATE``, else it is ``none``
+  (counted as ``near_rejected``). Group ``1-10`` had 9 near pairs at kappa 0.951-0.968 with
+  ``rate`` <= 0.71 (dashcam look-alikes, one CAP clip "matched" by 3 YouTube videos) and 22 at
+  0.98-0.99 with ``rate`` ~1 or ~3. ``exact`` and the null flag are unchanged.
 - **Branch** (only when the whole CAP cache is present): ``P`` (exact coverage of all DoTA
   and of DoTA-dev both >= ``MMAU_COVERAGE_BAR``), ``P_PRIME`` (exact or near does), ``C``
   otherwise; ``UNRELIABLE`` if more than ``MMAU_NULL_FLAG_SHARE`` of hard nulls reach
@@ -65,7 +70,8 @@ class Match:
     frames: int
     rate: float | None = None
     offset: float | None = None
-    hits: list[str] = field(default_factory=list)  # every candidate at >= NEAR
+    hits: list[str] = field(default_factory=list)  # every candidate graded exact/near
+    near_rejected: bool = False  # kappa in the near band but no forward alignment (P0b-1)
 
 
 def normalize_rows(rows: np.ndarray) -> np.ndarray:
@@ -124,6 +130,17 @@ def grade(kappa: float) -> str:
     return GRADE_NEAR if kappa >= constants.MMAU_MATCH_NEAR else GRADE_NONE
 
 
+def grade_pair(kappa: float, best: np.ndarray, hit: np.ndarray) -> tuple[str, bool]:
+    """Grade of one (query, CAP) pair and whether Amendment P0b-1 demoted it from near."""
+    g = grade(kappa)
+    if g != GRADE_NEAR:
+        return g, False
+    align = fit_alignment(best, hit)
+    if align is None or align[0] < constants.MMAU_NEAR_MIN_RATE:
+        return GRADE_NONE, True
+    return g, False
+
+
 def match_queries(
     queries: dict[str, np.ndarray],
     cap: dict[str, np.ndarray],
@@ -140,7 +157,7 @@ def match_queries(
         ranked = np.argsort(-scores, kind="stable")[:k]
         scored = [(cap_ids[i], *containment(rows, cap[cap_ids[i]])) for i in ranked]
         best_id, kappa, best, hit = max(scored, key=lambda s: s[1])
-        g = grade(kappa)
+        g, rejected = grade_pair(kappa, best, hit)
         align = fit_alignment(best, hit) if g != GRADE_NONE else None
         matches.append(
             Match(
@@ -152,7 +169,10 @@ def match_queries(
                 frames=len(rows),
                 rate=None if align is None else align[0],
                 offset=None if align is None else align[1],
-                hits=sorted(c for c, kap, _, _ in scored if kap >= constants.MMAU_MATCH_NEAR),
+                hits=sorted(
+                    c for c, kap, b, h in scored if grade_pair(kap, b, h)[0] != GRADE_NONE
+                ),
+                near_rejected=rejected,
             )
         )
     return matches
@@ -175,6 +195,7 @@ def summarize(matches: list[Match], ids: set[str] | None = None) -> dict[str, An
         "n": n,
         "missing": 0 if ids is None else len(ids - {m.query for m in rows}),
         "counts": counts,
+        "near_rejected": sum(m.near_rejected for m in rows),
         "exact_coverage": counts[GRADE_EXACT] / n if n else 0.0,
         "near_or_exact_coverage": (counts[GRADE_EXACT] + counts[GRADE_NEAR]) / n if n else 0.0,
         "kappa": _quantiles([m.kappa for m in rows]),
@@ -227,6 +248,7 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, list[dict[s
             "near": constants.MMAU_MATCH_NEAR,
             "null_flag_share": constants.MMAU_NULL_FLAG_SHARE,
             "coverage_bar": constants.MMAU_COVERAGE_BAR,
+            "near_min_rate": constants.MMAU_NEAR_MIN_RATE,
         },
         "cap": {
             "clips": len(cap),
@@ -256,14 +278,15 @@ def render_markdown(readout: dict[str, Any]) -> str:
         "",
         f"Rule: {readout['plan']}. exact κ ≥ {th['exact']}, near κ ≥ {th['near']}, "
         f"top-K {th['top_k']} (hard null = K-th), null flag > {th['null_flag_share']:.0%}, "
-        f"coverage bar {th['coverage_bar']:.0%}.",
+        f"coverage bar {th['coverage_bar']:.0%}, near needs rate ≥ {th['near_min_rate']} "
+        "(Amendment P0b-1).",
         "",
         f"CAP clips cached: **{cap['clips']} / {cap['expected']}**"
         + (" (partial → no branch)" if cap["partial"] else ""),
         "",
-        "| query set | n | exact | near | none | exact cov. | near+exact cov. "
+        "| query set | n | exact | near | near rej. | none | exact cov. | near+exact cov. "
         "| κ q05/q25/q50/q75/q95 | null κ q05…q95 | null ≥ near | rate q05…q95 |",
-        "|---|---|---|---|---|---|---|---|---|---|---|",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     blocks = [("DoTA (all)", readout["dota_all"]), ("DoTA-dev", readout["dota_dev"])]
     if readout["dada"] is not None:
@@ -271,7 +294,8 @@ def render_markdown(readout: dict[str, Any]) -> str:
     for name, b in blocks:
         c = b["counts"]
         lines.append(
-            f"| {name} | {b['n']} | {c['exact']} | {c['near']} | {c['none']} "
+            f"| {name} | {b['n']} | {c['exact']} | {c['near']} | {b['near_rejected']} "
+            f"| {c['none']} "
             f"| {b['exact_coverage']:.3f} | {b['near_or_exact_coverage']:.3f} "
             f"| {_fmt(b['kappa'])} | {_fmt(b['null_kappa'])} | {b['null_at_near_share']:.3f} "
             f"| {_fmt(b['rate'])} |"
