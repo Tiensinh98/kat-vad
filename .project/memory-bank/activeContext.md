@@ -32,7 +32,7 @@
 > this branch *this file and `progress.md` are the only durable record of the
 > attribution campaign*. Do not delete them; do not re-run those arms here.
 
-**Last Memory Bank Update:** 2026-10-03 (partial: activeContext only — DoTA-CAP / Amendment 4). Before that 2026-09-30 ( — **full update, branch `v2`: E1 = B, Amendment 2/3, P5 built, D11 tooling**;
+**Last Memory Bank Update:** 2026-10-03 (partial: activeContext only — DoTA-CAP frozen, L7). Before that 2026-09-30 ( — **full update, branch `v2`: E1 = B, Amendment 2/3, P5 built, D11 tooling**;
 all six core files + CLAUDE.md reviewed; counts re-measured: **109 Python files (73 source + 36 test), 17,520 source LOC,
 754 tests, 35 docs**.)
 
@@ -57,7 +57,21 @@ Track 0b closed; T2 + Option A remain the live track. Partial update: `activeCon
 architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 13,833 source LOC, 582 collected); **docs 24 → 25** (+ `core/docs/D2CITY_EDA.md`).
 
-## 2026-10-03 (latest) — **MM-AU P0 read out (branch C); D9 = DoTA-CAP (Amendment 4); tool + notebook built** (branch `v2`)
+## 2026-10-03 (latest) — **DoTA-CAP extracted and FROZEN (L7)** (branch `v2`)
+
+* Extract read out (`outputs/v2/REPORTS/dota_cap/`): 5 groups = 1,129 clips, **all `ok`** (L4/L5 dropped none); pixel
+  gate on kept: mean cos min 0.9900, per-frame min 0.9503. `dota_cap_ids.txt` sha1 `e1a37bb…` re-computed locally.
+* Built `dota_cap freeze`: `dota_cap_dev` = CAP ∩ dev (**569**), `dota_cap_eval` = CAP minus dev (**560**, sealed — eval
+  ids never read), own manifest `core/splits/v2/DOTA_CAP_MANIFEST.json`; `load_split` merges derived manifests
+  (`frozen_splits`, clash raises); base `SPLITS_MANIFEST.json` byte-identical (`freeze_splits --check` passes —
+  needed `sealed = V2_SEALED_SPLITS & splits`). Doc `core/docs/v2/DOTA_CAP.md`. 8 tests; suite **809 / 0 fail**.
+* L7 says commit **before any motion-arm score** — waiting for the user's word (no auto-commit).
+
+**Next action:** user commits the freeze batch → Claude writes addendum §12 (E2(d) choices on DoTA-CAP-dev) → E2(d)
+harness + `colab/v2/p4_e2d.ipynb` (+ D15 print; check T2-train VideoMAE-S exists first) → P5 gaps (`apply --stride`
+for motion caches, DoTA protocol-B path for a baked cache).
+
+## 2026-10-03 — **MM-AU P0 read out (branch C); D9 = DoTA-CAP (Amendment 4); tool + notebook built** (branch `v2`)
 
 * P0 full CAP: exact **1248/1397** DoTA (0.893; dev 625/702), exact∪near 0.935 → **branch C** by §4 (robust to P0b-1:
   +7 demoted = 0.940). DADA 3 near / 1945 → CAP has ~no T2 sources. CAP clean 8,006. CAP fps mixed (rate ≈1: 842, ≈3: 399).

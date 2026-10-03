@@ -35,6 +35,13 @@ module turns those pairs into a per-frame map and a VideoMAE cache row-aligned w
     The DoTA-CAP id list = clips that passed L1-L5 and have a feature file for every encoder
     (L7); counts on all DoTA, DoTA-dev and the rest (DoTA-eval ids are never read).
 
+``freeze`` (CPU, local, then commit -- L7)
+    Splits the finalized list into ``dota_cap_dev`` (DoTA-CAP ∩ DoTA-dev) and the sealed
+    ``dota_cap_eval`` (DoTA-CAP minus DoTA-dev; DoTA-eval's ids are not read) and writes them with
+    ``DOTA_CAP_MANIFEST.json`` beside the base splits. Refuses an id list whose sha1, ids or
+    coverage disagree with the read-out, and refuses to overwrite without ``--force``;
+    ``--check`` recomputes and raises if the committed files differ.
+
 CLI::
 
     python -m core.tools.dota_cap align --matches .../mmau_p0/all/mmau_p0_matches.json \\
@@ -46,6 +53,8 @@ CLI::
         [--encoders vit_b_k710_dl_from_giant vit_s_k710_dl_from_giant] [--cap-ids-file ids.txt]
     python -m core.tools.dota_cap finalize --alignment ... --reports .../extract_*.json \\
         [--encoders ...] --out-dir outputs/v2/REPORTS/dota_cap
+    python -m core.tools.dota_cap freeze --readout .../dota_cap_readout.json \\
+        --ids-file .../dota_cap_ids.txt [--check | --force]
 """
 
 from __future__ import annotations
@@ -66,12 +75,13 @@ import torch
 from torch import nn
 
 from core import constants
-from core.data.v2_splits import lines_sha1, load_split
+from core.data.v2_splits import dota_group, lines_sha1, load_split, read_manifest
 from core.data.video_io import list_frame_images
 from core.device import resolve_device
 from core.models.videomae_v2 import load_pretrained
 from core.tools import extract_clip_features, extract_video_features
 from core.tools.feature_cache import is_complete, read_ids_file, save_array
+from core.tools.freeze_splits import check_splits, file_sha1, write_splits
 from core.tools.kill_switch_probe import write_json_atomic, write_text_atomic
 from core.tools.mmau_match import GRADE_EXACT, normalize_rows
 from core.tools.stream_frames_clip import stream_video_batches
@@ -548,6 +558,90 @@ def render_final(readout: dict[str, Any]) -> str:
     ])
 
 
+# --------------------------------------------------------------------------- freeze
+
+
+def freeze_dota_cap(
+    readout: dict[str, Any], ids: list[str], dev: set[str]
+) -> tuple[dict[str, list[str]], dict[str, Any]]:
+    """The two DoTA-CAP splits and their manifest block (L7).
+
+    ``ids`` is the finalized id file; it must be the read-out's list, fingerprint and coverage.
+    The eval side is the complement of DoTA-dev, so DoTA-eval's ids are never read.
+    """
+    if len(set(ids)) != len(ids):
+        raise ValueError("the DoTA-CAP id file has duplicate ids")
+    if sorted(ids) != sorted(readout["ids"]) or lines_sha1(ids) != readout["ids_sha1"]:
+        raise ValueError(
+            f"the id file (sha1 {lines_sha1(ids)}) is not the read-out's list "
+            f"(sha1 {readout['ids_sha1']})"
+        )
+    for clip_id in ids:
+        dota_group(clip_id)  # raises on anything that is not a DoTA clip id
+    cap_dev = sorted(set(ids) & dev)
+    cap_eval = sorted(set(ids) - dev)
+    coverage_ = readout["coverage"]
+    if (len(cap_dev), len(cap_eval)) != (
+        coverage_["dev"]["kept"], coverage_["rest_eval"]["kept"]
+    ):
+        raise ValueError(
+            f"dev / eval sides {len(cap_dev)} / {len(cap_eval)} disagree with the read-out's "
+            f"coverage {coverage_['dev']['kept']} / {coverage_['rest_eval']['kept']}"
+        )
+    splits = {
+        constants.V2_SPLIT_DOTA_CAP_DEV: cap_dev,
+        constants.V2_SPLIT_DOTA_CAP_EVAL: cap_eval,
+    }
+    manifest = {
+        "amendment": "core/docs/v2/PREREG_ADDENDUM.md §11 (Amendment 4, 4a-4c), L7",
+        "rule": (
+            f"{constants.V2_SPLIT_DOTA_CAP_DEV} = DoTA-CAP ∩ {constants.V2_SPLIT_DOTA_DEV}; "
+            f"{constants.V2_SPLIT_DOTA_CAP_EVAL} = DoTA-CAP minus {constants.V2_SPLIT_DOTA_DEV} "
+            "(DoTA-eval's ids are not read)"
+        ),
+        "naming": "DoTA-CAP (n/1397); never beside a full-DoTA number or LaGoVAD's 62.60 (D14)",
+        "sealed": sorted(constants.V2_SEALED_SPLITS & splits.keys()),
+        "source": {
+            "ids_sha1": readout["ids_sha1"],
+            "alignment_sha256": readout["alignment_sha256"],
+            "encoders": list(readout["encoders"]),
+            "clip_cos_min_of_kept": readout["clip_cos_min_of_kept"],
+            "reasons": readout["reasons"],
+            "coverage": coverage_,
+        },
+        "splits": {
+            name: {"count": len(split), "sha1": lines_sha1(split)}
+            for name, split in splits.items()
+        },
+    }
+    return splits, manifest
+
+
+def run_freeze(args: argparse.Namespace) -> None:
+    readout: dict[str, Any] = json.loads(args.readout.read_text(encoding="utf-8"))
+    ids = [
+        line.strip()
+        for line in args.ids_file.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    dev = set(load_split(constants.V2_SPLIT_DOTA_DEV, args.split_dir))
+    splits, manifest = freeze_dota_cap(readout, ids, dev)
+    base = read_manifest(args.split_dir)["splits"]
+    manifest["derived_from"] = {
+        constants.V2_SPLIT_DOTA_DEV: base[constants.V2_SPLIT_DOTA_DEV]["sha1"],
+        "readout_sha1": file_sha1(args.readout),
+    }
+    sides = {name: len(split) for name, split in splits.items()}
+    if args.check:
+        check_splits(splits, manifest, args.split_dir, constants.V2_DOTA_CAP_MANIFEST_FILENAME)
+        LOGGER.info("Frozen DoTA-CAP splits %s match the read-out", sides)
+        return
+    write_splits(
+        splits, manifest, args.split_dir, args.force, constants.V2_DOTA_CAP_MANIFEST_FILENAME
+    )
+    LOGGER.info("Froze DoTA-CAP splits %s -> %s", sides, args.split_dir)
+
+
 # --------------------------------------------------------------------------- CLI
 
 
@@ -587,6 +681,16 @@ def build_arg_parser() -> argparse.ArgumentParser:
     _add_encoders(final)
     final.add_argument("--split-dir", type=Path, default=constants.V2_SPLITS_DIR)
     final.add_argument("--out-dir", type=Path, required=True)
+
+    freeze = sub.add_parser("freeze", help="L7: freeze dota_cap_dev / dota_cap_eval")
+    freeze.add_argument("--readout", type=Path, required=True, help="dota_cap_readout.json")
+    freeze.add_argument("--ids-file", type=Path, required=True, help="dota_cap_ids.txt")
+    freeze.add_argument("--split-dir", type=Path, default=constants.V2_SPLITS_DIR)
+    mode = freeze.add_mutually_exclusive_group()
+    mode.add_argument("--check", action="store_true",
+                      help="recompute and verify the committed DoTA-CAP splits; write nothing")
+    mode.add_argument("--force", action="store_true",
+                      help="overwrite (only before any motion-arm score is read)")
     return parser
 
 
@@ -601,6 +705,8 @@ def main(argv: list[str] | None = None) -> None:
         LOGGER.info("alignment -> %s", args.out_dir / ALIGNMENT_JSON)
     elif args.command == "extract":
         run_extract(args)
+    elif args.command == "freeze":
+        run_freeze(args)
     else:
         readout = run_finalize(args)
         write_json_atomic(args.out_dir / FINAL_JSON, readout)

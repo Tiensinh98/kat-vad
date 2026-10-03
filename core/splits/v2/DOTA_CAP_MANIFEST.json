@@ -1,0 +1,54 @@
+{
+  "amendment": "core/docs/v2/PREREG_ADDENDUM.md \u00a711 (Amendment 4, 4a-4c), L7",
+  "derived_from": {
+    "dota_dev": "b0adfcd0739af9b253e09227b6e9f1493843ddc5",
+    "readout_sha1": "9caa7fc9d9308ffc5daa39d6089884efd42efe9f"
+  },
+  "naming": "DoTA-CAP (n/1397); never beside a full-DoTA number or LaGoVAD's 62.60 (D14)",
+  "rule": "dota_cap_dev = DoTA-CAP \u2229 dota_dev; dota_cap_eval = DoTA-CAP minus dota_dev (DoTA-eval's ids are not read)",
+  "sealed": [
+    "dota_cap_eval"
+  ],
+  "source": {
+    "alignment_sha256": "5e8690e031cad12dc872a83225131fe973e293c8ce32e088e2d006316c064513",
+    "clip_cos_min_of_kept": 0.9503263831138611,
+    "coverage": {
+      "all": {
+        "kept": 1129,
+        "of": 1397
+      },
+      "dev": {
+        "kept": 569,
+        "of": 702
+      },
+      "rest_eval": {
+        "kept": 560,
+        "of": 695
+      }
+    },
+    "encoders": [
+      "vit_b_k710_dl_from_giant",
+      "vit_s_k710_dl_from_giant"
+    ],
+    "ids_sha1": "e1a37bbbb2ebf14a5bac62a1c3d7cf3e5bb3d497",
+    "reasons": {
+      "align:cap_shorter": 8,
+      "align:mean_cos": 56,
+      "align:min_cos": 9,
+      "align:out_of_range": 46,
+      "align:p0_near": 58,
+      "align:p0_none": 91,
+      "ok": 1129
+    }
+  },
+  "splits": {
+    "dota_cap_dev": {
+      "count": 569,
+      "sha1": "9425e4fe910bd04543cc6fbd49264b4b19b2389d"
+    },
+    "dota_cap_eval": {
+      "count": 560,
+      "sha1": "497e02df7efa27f7f0d4aecb88ce5056622203db"
+    }
+  }
+}

@@ -1663,3 +1663,16 @@ the Colab cell clipped the line and np.round'ed it, so it promised ~1,142 where 
 **Files:** `core/tools/dota_cap.py:monotone_alignment`, `gate_alignment`; addendum §11 L1–L5
 
 **Gate status.** One occurrence, caught before any feature was extracted. Gate 2 not met.
+
+## (ap) [MEDIUM] Data - Freeze a derived split beside the base one, never inside it (2026-10-03)
+**Triggers:** split, manifest, freeze, sealed, DoTA-CAP, subset, load_split, V2_SEALED_SPLITS
+**Problem:** DoTA-CAP had to be frozen after the base v2 splits. Writing it into `SPLITS_MANIFEST.json` would make
+`freeze_splits --check` (a byte comparison against a fresh freeze) fail forever, and adding the new sealed name to
+`V2_SEALED_SPLITS` alone already changed the base manifest's `sealed` list.
+**Bad:** append new entries to the base manifest; `"sealed": sorted(constants.V2_SEALED_SPLITS)`.
+**Good:** own manifest per derived set, merged by `frozen_splits` (a name in two manifests raises); `sealed` =
+`V2_SEALED_SPLITS & splits.keys()`; the sealed side of a subset = subset minus the dev side, so its ids are never read.
+**Rule:** Freeze a later subset into its own manifest and derive its sealed side as a complement of the open side.
+**Files:** `core/data/v2_splits.py:frozen_splits`, `core/tools/dota_cap.py:freeze_dota_cap`, `core/tools/freeze_splits.py`
+
+**Gate status.** One occurrence, caught before writing. Gate 2 not met.

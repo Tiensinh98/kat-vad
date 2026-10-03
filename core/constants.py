@@ -348,7 +348,14 @@ V2_SPLIT_FILE_SUFFIX = ".txt"
 V2_SPLIT_T2_VAL = "t2_val_sources"
 V2_SPLIT_DOTA_DEV = "dota_dev"
 V2_SPLIT_DOTA_EVAL = "dota_eval"
-V2_SEALED_SPLITS = frozenset({V2_SPLIT_DOTA_EVAL})
+# DoTA-CAP (addendum §11, L7): DoTA restricted to the clips whose pixels CAP-DATA gives back.
+# Frozen by `python -m core.tools.dota_cap freeze` into its own manifest beside the base one;
+# its eval side is DoTA-CAP minus DoTA-dev, so freezing it never reads DoTA-eval's ids.
+V2_SPLIT_DOTA_CAP_DEV = "dota_cap_dev"
+V2_SPLIT_DOTA_CAP_EVAL = "dota_cap_eval"
+V2_DOTA_CAP_MANIFEST_FILENAME = "DOTA_CAP_MANIFEST.json"
+V2_DERIVED_MANIFEST_FILENAMES = (V2_DOTA_CAP_MANIFEST_FILENAME,)
+V2_SEALED_SPLITS = frozenset({V2_SPLIT_DOTA_EVAL, V2_SPLIT_DOTA_CAP_EVAL})
 V2_T2_VAL_FRACTION = 0.15  # of T2-train SOURCE videos, per accident type
 V2_DOTA_DEV_FRACTION = 0.5  # of DoTA val clips, grouped by source YouTube video
 V2_SPLIT_SEED = SEED

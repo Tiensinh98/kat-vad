@@ -169,7 +169,7 @@ def build_splits(
         "seed": seed,
         "proposal": "core/docs/v2/KAT_VAD_PROPOSAL_v2.md §7.2",
         "plan": ".project/plans/katvad-v2-e0-e2.md P0",
-        "sealed": sorted(constants.V2_SEALED_SPLITS),
+        "sealed": sorted(constants.V2_SEALED_SPLITS & splits.keys()),
         "inputs": {
             "t2_meta": {"name": t2_meta.name, "sha1": file_sha1(t2_meta)},
             "dota_metadata": {"name": dota_metadata.name, "sha1": file_sha1(dota_metadata)},
@@ -196,10 +196,17 @@ def _manifest_text(manifest: dict[str, Any]) -> str:
 
 
 def write_splits(
-    splits: dict[str, list[str]], manifest: dict[str, Any], out_dir: Path, force: bool
+    splits: dict[str, list[str]],
+    manifest: dict[str, Any],
+    out_dir: Path,
+    force: bool,
+    manifest_name: str = constants.V2_SPLITS_MANIFEST_FILENAME,
 ) -> None:
-    """Write the id files and the manifest; refuse to overwrite without ``force``."""
-    manifest_path = out_dir / constants.V2_SPLITS_MANIFEST_FILENAME
+    """Write the id files and the manifest; refuse to overwrite without ``force``.
+
+    ``manifest_name`` lets a derived split set (DoTA-CAP) keep its own manifest.
+    """
+    manifest_path = out_dir / manifest_name
     if manifest_path.exists() and not force:
         raise FileExistsError(
             f"{manifest_path} exists: the v2 splits are frozen. Use --check to verify, "
@@ -212,10 +219,13 @@ def write_splits(
 
 
 def check_splits(
-    splits: dict[str, list[str]], manifest: dict[str, Any], out_dir: Path
+    splits: dict[str, list[str]],
+    manifest: dict[str, Any],
+    out_dir: Path,
+    manifest_name: str = constants.V2_SPLITS_MANIFEST_FILENAME,
 ) -> None:
     """Raise unless the committed files equal a fresh recomputation."""
-    manifest_path = out_dir / constants.V2_SPLITS_MANIFEST_FILENAME
+    manifest_path = out_dir / manifest_name
     if manifest_path.read_text(encoding="utf-8") != _manifest_text(manifest):
         raise ValueError(f"{manifest_path} differs from a fresh freeze of the same inputs")
     for name, ids in splits.items():

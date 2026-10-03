@@ -13,7 +13,7 @@ import torch
 from torchvision.io import encode_jpeg
 
 from core import constants
-from core.data.v2_splits import load_split
+from core.data.v2_splits import SealedSplitError, load_split
 from core.models import videomae_v2
 from core.tools import dota_cap, extract_clip_features, mmau_match
 from core.tools import extract_video_features as evf
@@ -324,3 +324,122 @@ class TestClipStep:
         clip = evf.causal_clip_indices(20, step=constants.DOTA_VIDEOMAE_FRAME_STEP)
         assert constants.DOTA_VIDEOMAE_FRAME_STEP == 1
         assert clip == list(range(5, 21))
+
+
+# --------------------------------------------------------------------------- freeze (L7)
+
+FOREIGN_IDS = ("zzzNotDev_000001", "zzzNotDev_000050")
+
+
+def _split_dir(tmp_path: Path) -> Path:
+    """The committed base splits, without DoTA-eval's id file (freeze must not need it)."""
+    split_dir = tmp_path / "splits"
+    split_dir.mkdir()
+    for name in (constants.V2_SPLITS_MANIFEST_FILENAME, "dota_dev.txt"):
+        (split_dir / name).write_bytes((constants.V2_SPLITS_DIR / name).read_bytes())
+    return split_dir
+
+
+def _readout(tmp_path: Path, ids: list[str], n_dev: int) -> tuple[Path, Path]:
+    ids = sorted(ids)
+    readout = {
+        "ids": ids,
+        "ids_sha1": dota_cap.lines_sha1(ids),
+        "alignment_sha256": "0" * 64,
+        "encoders": [constants.VIDEOMAE_ENCODER_B],
+        "clip_cos_min_of_kept": 0.96,
+        "reasons": {"ok": len(ids)},
+        "coverage": {
+            "all": {"kept": len(ids), "of": 10},
+            "dev": {"kept": n_dev, "of": 5},
+            "rest_eval": {"kept": len(ids) - n_dev, "of": 5},
+        },
+    }
+    readout_path = tmp_path / "dota_cap_readout.json"
+    readout_path.write_text(json.dumps(readout), encoding="utf-8")
+    ids_path = tmp_path / "dota_cap_ids.txt"
+    ids_path.write_text("".join(f"{i}\n" for i in ids), encoding="utf-8")
+    return readout_path, ids_path
+
+
+class TestFreeze:
+    @pytest.fixture
+    def frozen(self, tmp_path: Path) -> tuple[Path, list[str], list[str]]:
+        dev = load_split(constants.V2_SPLIT_DOTA_DEV)[:3]
+        readout, ids = _readout(tmp_path, [*dev, *FOREIGN_IDS], len(dev))
+        split_dir = _split_dir(tmp_path)
+        dota_cap.main(["freeze", "--readout", str(readout), "--ids-file", str(ids),
+                       "--split-dir", str(split_dir)])
+        return split_dir, dev, list(FOREIGN_IDS)
+
+    def test_sides_are_dev_intersection_and_its_complement(
+        self, frozen: tuple[Path, list[str], list[str]]
+    ) -> None:
+        split_dir, dev, foreign = frozen
+        assert load_split(constants.V2_SPLIT_DOTA_CAP_DEV, split_dir) == sorted(dev)
+        assert load_split(constants.V2_SPLIT_DOTA_CAP_EVAL, split_dir, final=True) == foreign
+        # the base splits still read, from the base manifest
+        assert len(load_split(constants.V2_SPLIT_DOTA_DEV, split_dir)) == 702
+
+    def test_eval_side_is_sealed(self, frozen: tuple[Path, list[str], list[str]]) -> None:
+        with pytest.raises(SealedSplitError, match="sealed"):
+            load_split(constants.V2_SPLIT_DOTA_CAP_EVAL, frozen[0])
+
+    def test_refuses_to_overwrite_and_check_passes(
+        self, frozen: tuple[Path, list[str], list[str]], tmp_path: Path
+    ) -> None:
+        args = ["freeze", "--readout", str(tmp_path / "dota_cap_readout.json"),
+                "--ids-file", str(tmp_path / "dota_cap_ids.txt"), "--split-dir", str(frozen[0])]
+        with pytest.raises(FileExistsError, match="frozen"):
+            dota_cap.main(args)
+        dota_cap.main([*args, "--check"])
+
+    def test_check_fails_once_the_list_changes(
+        self, frozen: tuple[Path, list[str], list[str]], tmp_path: Path
+    ) -> None:
+        split_dir, dev, _ = frozen
+        other = tmp_path / "other"
+        other.mkdir()
+        readout, ids = _readout(other, [*dev, FOREIGN_IDS[0]], len(dev))
+        with pytest.raises(ValueError, match="differs"):
+            dota_cap.main(["freeze", "--readout", str(readout), "--ids-file", str(ids),
+                           "--split-dir", str(split_dir), "--check"])
+
+    def test_an_id_file_that_is_not_the_readouts_list_is_refused(self, tmp_path: Path) -> None:
+        dev = load_split(constants.V2_SPLIT_DOTA_DEV)[:2]
+        readout, ids = _readout(tmp_path, [*dev, *FOREIGN_IDS], len(dev))
+        ids.write_text(f"{dev[0]}\n{FOREIGN_IDS[0]}\n", encoding="utf-8")
+        with pytest.raises(ValueError, match="not the read-out's list"):
+            dota_cap.main(["freeze", "--readout", str(readout), "--ids-file", str(ids),
+                           "--split-dir", str(_split_dir(tmp_path))])
+
+    def test_coverage_disagreement_is_refused(self, tmp_path: Path) -> None:
+        dev = load_split(constants.V2_SPLIT_DOTA_DEV)[:2]
+        readout, ids = _readout(tmp_path, [*dev, *FOREIGN_IDS], n_dev=3)
+        with pytest.raises(ValueError, match="disagree"):
+            dota_cap.main(["freeze", "--readout", str(readout), "--ids-file", str(ids),
+                           "--split-dir", str(_split_dir(tmp_path))])
+
+    def test_a_derived_manifest_cannot_refreeze_a_base_split(self, tmp_path: Path) -> None:
+        split_dir = _split_dir(tmp_path)
+        clash = {"splits": {constants.V2_SPLIT_DOTA_DEV: {"count": 0, "sha1": "x"}}}
+        (split_dir / constants.V2_DOTA_CAP_MANIFEST_FILENAME).write_text(
+            json.dumps(clash), encoding="utf-8"
+        )
+        with pytest.raises(ValueError, match="re-freezes"):
+            load_split(constants.V2_SPLIT_DOTA_DEV, split_dir)
+
+
+class TestCommittedDotaCap:
+    """The committed DoTA-CAP splits: the 2026-10-03 read-out (ids sha1 e1a37bb…)."""
+
+    def test_committed_splits_match_the_readout(self) -> None:
+        manifest_path = constants.V2_SPLITS_DIR / constants.V2_DOTA_CAP_MANIFEST_FILENAME
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        cap_dev = load_split(constants.V2_SPLIT_DOTA_CAP_DEV)
+        cap_eval = load_split(constants.V2_SPLIT_DOTA_CAP_EVAL, final=True)
+        assert (len(cap_dev), len(cap_eval)) == (569, 560)
+        assert set(cap_dev) <= set(load_split(constants.V2_SPLIT_DOTA_DEV))
+        assert not set(cap_eval) & set(cap_dev)
+        assert dota_cap.lines_sha1([*cap_dev, *cap_eval]) == manifest["source"]["ids_sha1"]
+        assert manifest["source"]["ids_sha1"].startswith("e1a37bb")

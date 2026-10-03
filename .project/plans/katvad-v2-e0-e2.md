@@ -4,7 +4,7 @@
 **Nguồn:** `core/docs/v2/KAT_VAD_PROPOSAL_v2.md` (§4, §7, §10) + `KAT_VAD_v2_ARCHITECTURE.md`.
 **Pre-registration:** `core/docs/v2/PREREG_ADDENDUM.md` — D1–D6 (P0), Amendment 1 D7–D9 (§6), impl. choices I1–I9 (§7),
 Amendment 2 D10–D11 + J1–J9 (§8). Proposal thắng plan ở phần *what*; addendum thắng proposal ở những điểm nó sửa.
-**Last updated:** 2026-09-30.
+**Last updated:** 2026-10-03.
 
 ---
 
@@ -19,7 +19,7 @@ Ký hiệu: ✅ xong · 🟡 đang làm / chờ chạy · ⛔ bị chặn · ⬜
 | **P2** E0 / E2(a–c) | ✅ | **D11 ở s3: CRN = R2** (`r` 0.7092 vs R1 0.7081 — hoà trong nhiễu, luật chọn R2), E2(c) R2 **+0.037 [+0.027, +0.047]**. s8 cũ = R1. `RESULTS_E2_CRN.md` §D11 | `7b20444`, `a20781b` + D11 record |
 | **P3** E1 | ✅ | **Adopt B** (DoTA s3 whole clip): Δ vs A **+0.033 [+0.019, +0.048]**, C +0.035 (tie → B); 3/3 seed dương. `core/docs/v2/RESULTS_E1.md` | `0ab760d` + Amendment 3 (`7ce8bf5`) |
 | **P3** E0b | ⬜ | Chưa có notebook. Ckpt phase-5 + lcurve có thể cũng là snapshot (pending (aj)) → kiểm `global_step` trước | — |
-| **P4** Encoder E2(d) | ⛔ | Chặn bởi **D9** — chờ **MM-AU P0** (`katvad-mmau-phase0.md`): CAP-DATA có thể chứa pixel DoTA | — |
+| **P4** Encoder E2(d) | 🟡 | **D9 = DoTA-CAP** (Amendment 4). VideoMAE B+S trên 1,129 clip xong; **split frozen** `dota_cap_dev` 569 / `dota_cap_eval` 560 (sealed), `core/docs/v2/DOTA_CAP.md`. Còn: addendum §12 (lựa chọn E2(d) trên DoTA-CAP-dev) → harness + notebook E2(d) + D15 | (chưa commit) |
 | **P5** Build v2 | 🟡 | Model + input cache + manifest + tests xong (`a20781b`), reference = R2. Còn: đường chấm DoTA protocol B cho cache v2, diagnostics tool (source-shortcut / position R² trên `V^t`), bake A2/A3 (chờ P4 full-T2 VideoMAE) | `a20781b` |
 | **P6** Pilot | ⬜ | Cần P4 + P5 | — |
 | **P7** Go/no-go | ⬜ | Cần P6 | — |

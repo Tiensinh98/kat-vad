@@ -14,6 +14,11 @@ committed; this module holds what both the writer and every reader need:
 * :func:`load_split` -- the only reader. It checks the file against the
   manifest's sha1 and **refuses a sealed split** (DoTA-eval) unless the caller
   passes ``final=True``, so no harness can print a DoTA-eval number by accident.
+
+Derived split sets (DoTA-CAP, addendum §11 L7) are frozen later than the base
+splits, by their own tool, into their own manifest in the same directory
+(``V2_DERIVED_MANIFEST_FILENAMES``). :func:`frozen_splits` merges them, so the
+base manifest never changes and ``freeze_splits --check`` keeps passing.
 """
 
 from __future__ import annotations
@@ -123,6 +128,25 @@ def read_manifest(split_dir: Path = constants.V2_SPLITS_DIR) -> dict[str, Any]:
     return manifest
 
 
+def frozen_splits(split_dir: Path = constants.V2_SPLITS_DIR) -> dict[str, dict[str, Any]]:
+    """``{name: {count, sha1}}`` over the base manifest and every derived one present.
+
+    A name frozen in two manifests raises: one id file cannot have two fingerprints.
+    """
+    splits: dict[str, dict[str, Any]] = dict(read_manifest(split_dir)["splits"])
+    for filename in constants.V2_DERIVED_MANIFEST_FILENAMES:
+        path = split_dir / filename
+        if not path.exists():
+            continue
+        with path.open("r", encoding="utf-8") as fh:
+            derived: dict[str, dict[str, Any]] = json.load(fh)["splits"]
+        clash = sorted(set(splits) & set(derived))
+        if clash:
+            raise ValueError(f"{path} re-freezes splits {clash} already frozen elsewhere")
+        splits |= derived
+    return splits
+
+
 def load_split(
     name: str,
     split_dir: Path = constants.V2_SPLITS_DIR,
@@ -130,15 +154,14 @@ def load_split(
 ) -> list[str]:
     """Ids of a frozen v2 split, sorted; verified against the manifest's sha1.
 
-    ``final=True`` is required for a sealed split (DoTA-eval). Pass it only from
-    the final-report step, once, after E3 has been decided on DoTA-dev.
+    ``final=True`` is required for a sealed split (DoTA-eval, DoTA-CAP-eval). Pass
+    it only from the final-report step, once, after E3 has been decided on DoTA-dev.
     """
     if name in constants.V2_SEALED_SPLITS and not final:
         raise SealedSplitError(
             f"split {name!r} is sealed until the final report; pass final=True only there"
         )
-    manifest = read_manifest(split_dir)
-    splits: dict[str, dict[str, Any]] = manifest["splits"]
+    splits = frozen_splits(split_dir)
     if name not in splits:
         raise KeyError(f"unknown v2 split {name!r}; frozen splits: {sorted(splits)}")
     ids = [
