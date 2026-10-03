@@ -374,3 +374,42 @@ rate-2.5 CAP clips also exist. The rate-1 failures have ceiling ≈ 0.991 — ge
 
 L2 thresholds, L4–L7 unchanged; L5 (pixel CLIP vs `DoTA_s1_ncc`) still re-checks every rebuilt clip. Each clip
 records `line_mean_cos`; the read-out prints line → band q50 per reason. Not chosen: lowering L2 (a rule tuned on a count).
+
+## 12. E2(d) on DoTA-CAP — implementation choices (2026-10-03, before any motion number)
+
+Written **after** DoTA-CAP was frozen (`b6d937f`, `core/docs/v2/DOTA_CAP.md`) and **before any VideoMAE
+feature of a DoTA clip has been probed, labelled or scored**. The construction run read only CLIP cosines
+(L2/L5), never a label. Already seen before writing: K and K-pos on T2 (§6.1–6.2), E2(b)/(c) at s3 (§8,
+CLIP only), E1 (§8.1). **Authorized by the user on 2026-10-03, N4, N6 and N7 as written; not
+reviewed by the advisor.** Proposal §10.2 E2(d) is applied as written; this section fixes what it leaves
+open and what D13 changes.
+
+| # | Choice | Why |
+|---|---|---|
+| N1 | **Decision set = `dota_cap_dev` (569 clips), protocol B rows**: CLIP `DoTA_s1_ncc[::3]` and VideoMAE `DoTA_CAP_s1_squash[::3]`, whole clip. Labels = J1's native labels at stride 3 (`resized_frame_labels(record, N, 3)`, the D11 loader). Every clip's VideoMAE row count must equal its `DoTA_s1_ncc` row count (L6), else the run raises. Metric = **macro**: mean per-clip step AUC over the two-class clips, no interpolation (as E2(c) at s3) | D13: all motion contrasts on DoTA-CAP, protocol B (E1). A probe has no native-frame output to interpolate; E2(c)'s s3 read is the precedent |
+| N2 | **Representation per arm** (proposal: "the representation each arm feeds the trunk"). A2 = `[x ; u]` vs `x`; A3 = `[x − μ^R2(x) ; u − μ^R2(u)]` vs `x − μ^R2(x)`, `μ^R2` = the per-clip median (R2, §8) of that stream at the probe's stride (DoTA clip / T2 source unit, K2). The scalars `s`, `c`, the centring `m_u` and `σ_u` are **not applied**: the probe standardizes every channel on its train side, which absorbs a per-channel affine map exactly, so they cannot change a probe score | The comparator of each arm is its own CLIP-only input (A0's `x`, A1's `x̃`), so Δ isolates the motion stream |
+| N3 | **In-domain probe** = the `core.eda` logistic frame probe (standardized, class-balanced, `C` = `EDA_PROBE_C`), 5-fold `GroupKFold` on `dota_cap_dev` with **group = source YouTube video** (D3), seed 2024. Out-of-fold scores → per-clip AUC | D3: clips cut from one video are correlated; a clip-grouped CV would leak |
+| N4 | **Transfer probe** = the same probe fitted on **the K sources** (`outputs/v2/REPORTS/v2_K/k_sources.txt`, 300 T2-train sources, no T2-val source, frozen with its sha1 in `k_sources_manifest.json`), whole sources at s8, labels from the annotation span (K convention), scored on `dota_cap_dev` (N1). VideoMAE-B exists there (K); **VideoMAE-S is extracted for the same 300 sources** with the same geometry (16 frames, every 3rd at 30 fps = 1.5 s, causal, squash, s8). CLIP-only comparators fitted on the same 300 sources | Plan P4: "T2-train subsample". Re-using K's frozen draw needs one S extraction, not 2 × 1,272 sources; the train side is identical for every arm and encoder, so the contrast is paired. Full-T2 extraction follows only for the chosen encoder (plan P4 last step) |
+| N5 | **Δ and interval** per arm × encoder × probe: per-clip paired Δ = AUC(with `u`) − AUC(CLIP-only), mean over clips; cluster bootstrap over source videos, 10,000 resamples, seed 2024, 95 % percentile | J6's construction (D3) |
+| N6 | **Eligibility = proposal §10.2 thresholds on the point estimate**: encoder E is eligible for arm a iff in-domain mean Δ ≥ **+0.10** or transfer mean Δ ≥ **+0.03**. E is eligible iff it is eligible for A2 or A3. Intervals are printed, not gated | The proposal writes thresholds, not interval bounds; adding a bound now would be a new rule |
+| N7 | **Pick**: among eligible encoders, the larger **A3 transfer mean Δ**; if B and S differ by < 0.02 there, **S** (cheaper, 384-d). None eligible → the Motion Stream is dropped: A2/A3 leave E3 and v2 = A0/A1 (proposal §10.2) | A3 is the full-v2 arm the thesis claims; one ranking quantity avoids a choice between arms after the numbers |
+| N8 | **Candidates = V2-B and V2-S only.** SimpleTAD's DAPT encoder is not probed: no DAPT-only release has been verified, and a DoTA/DADA-fine-tuned weight is forbidden (proposal §4.1). Recorded as a limitation | Proposal: "only if the released weight is DAPT-only" — unverified, so the condition is not met |
+| N9 | **Printed, never decided on**: (a) `u` alone; (b) position: K-pos's position features `p` (`position_features`: `τ, τ², τ³`, `τ = (t + 0.5)/L`) alone and `[x;p]` vs `[x;u;p]` per arm under both probes (pending (ag)); (c) macro per share bin (I2's bins); (d) T2-side in-domain read on the K sources (source-grouped CV) for S, beside K's B | Position explains most of K (§6.2); a motion Δ is read beside it |
+| N10 | **D15 representativeness (printed)**: (i) CLIP-only in-domain probe macro on `dota_dev` vs `dota_cap_dev` (same folds rule, N3); (ii) A0 = E1's three KIP-off checkpoints at protocol B, macro on `dota_dev` vs `dota_cap_dev`, re-scored by `rate_matched_eval` with per-clip AUCs written (E1's read-out kept only aggregates); (iii) kept vs dropped `dota_dev` clips: length, accident share, DoTA category. A1's half of D15 waits for A1 checkpoints (P6/E3). DoTA-eval is not read | D15 as written; (ii) uses checkpoints that exist |
+| N11 | **D6 shuffle control** runs only for the picked encoder, after the pick: VideoMAE re-extracted on `dota_cap_dev` with the 16 frames of each window permuted (fixed seed 2024, same permutation for every window), in-domain probe re-read, Δ(ordered − shuffled) printed. Needs the CAP stream again, so it is its own notebook | D6 is a diagnostic; it cannot move the pick |
+| N12 | Hard gates before any probe: `dota_cap_dev` via `load_split` (sha1); every id has a CLIP s1 row file and a VideoMAE file per encoder with equal row counts; the VideoMAE manifests name `alignment_sha256` `5e8690e…` and the DoTA geometry (L6); the K-source list matches its manifest sha1; the S cache on the K sources has the same manifest geometry as B's | C2: a cache is bound to the transform and geometry that built it |
+
+## 13. Amendment 5 (2026-10-03) — the pilot runs in two batches (D16)
+
+Written before any v2 model is trained. **Authorized by the user on 2026-10-03; not reviewed by the
+advisor.**
+
+| # | Change | Why |
+|---|---|---|
+| D16 | **P6 runs in two batches, same seed 2099.** Batch 1 = **A0 and A1**, as soon as A1 is baked; batch 2 = **A2 and A3**, after E2(d) picks an encoder and the full-T2 VideoMAE cache exists. §4's read-out is unchanged and applied per arm; batch 1 may be read out alone (T2-val only, DoTA-dev still not printed, D4). D5 is read in batch 1. P7 waits for both batches. If E2(d) drops the Motion Stream, batch 2 never runs and the pilot is batch 1 | A0 and A1 need no motion feature, so they do not depend on E2(d); waiting would only idle the GPU. Nothing is read earlier than D4 allows |
+
+**Record (not an amendment).** Proposal §7.2: "All arms train on T2-train minus T2-val". Every v2 arm,
+pilot and E3 alike, trains on a dataset directory whose `labels_train.json` drops the T2-val sources'
+windows and whose evaluation file holds T2-val's windows only (`python -m core.tools.v2_dataset`). Phase 4
+trained on the full T2-train, T2-val included: a phase-4 checkpoint scored on T2-val is scored
+**in-sample**.
