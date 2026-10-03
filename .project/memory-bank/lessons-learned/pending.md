@@ -1676,3 +1676,16 @@ the Colab cell clipped the line and np.round'ed it, so it promised ~1,142 where 
 **Files:** `core/data/v2_splits.py:frozen_splits`, `core/tools/dota_cap.py:freeze_dota_cap`, `core/tools/freeze_splits.py`
 
 **Gate status.** One occurrence, caught before writing. Gate 2 not met.
+
+## (aq) [HIGH] Data - A held-out decision split is only held out if the training dir drops it (2026-10-03)
+**Triggers:** T2-val, held-out, split, labels_train, in-sample, decision set, v2 dataset, pilot
+**Problem:** v2 froze T2-val (`7422975`) as the in-domain decision set and the proposal says "all arms train on
+T2-train minus T2-val", but `core.train` reads `labels_train.json` whole: every v2 arm would have trained on T2-val's
+windows and the pilot would have read its guardrails in-sample. Phase 4's checkpoints did train on them.
+**Bad:** freeze a split file, then train on the parent dataset dir unchanged.
+**Good:** `core.tools.v2_dataset` writes a derived dir (train minus val; eval file = val windows, labels rebuilt by the
+same arithmetic and self-checked on the parent's test windows); state any in-sample reference before reading it.
+**Rule:** Verify that the training input excludes a frozen evaluation split before any run is read on it.
+**Files:** `core/tools/v2_dataset.py`, addendum §13 record, §14 O6
+
+**Gate status.** One occurrence, caught before any v2 training. Gate 2 not met.

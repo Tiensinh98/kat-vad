@@ -307,3 +307,50 @@ class TestApplyStride:
         manifest = json.loads((out / constants.V2_INPUT_MANIFEST_FILENAME).read_text())
         assert manifest["stride_over_clip_dir"] == 3 and manifest["reference_unit"] == "clip"
         v2_inputs.check_input_manifest(out, "R1", "none")
+
+    def _motion_fit(self, tmp_path: Path, rng: np.random.Generator) -> Path:
+        fit_dir = tmp_path / "fit"
+        fit_dir.mkdir()
+        clips = {"t": rng.normal(size=(30, 8))}
+        motions = {"t": rng.normal(size=(30, D_S))}
+        stats = v2_inputs.fit_stats(clips, motions, "R2", ENCODER_S)
+        v2_inputs.save_stats(fit_dir, stats)
+        (fit_dir / constants.V2_INPUT_MANIFEST_FILENAME).write_text(json.dumps(
+            {"crn": "R2", "motion": ENCODER_S, "fitted_on": "T2", "train_ids_sha1": "x"}
+        ))
+        return fit_dir
+
+    def _caches(self, tmp_path: Path, rng: np.random.Generator, video_stride: int) -> tuple:
+        clip_dir, video_dir = tmp_path / "s1", tmp_path / "video"
+        clip_dir.mkdir()
+        video_dir.mkdir()
+        clip = rng.normal(size=(25, 8)).astype(np.float32)
+        motion = rng.normal(size=(25, D_S)).astype(np.float32)
+        np.save(clip_dir / "c1.npy", clip)
+        np.save(video_dir / "c1.npy", motion)
+        (video_dir / constants.VIDEO_MANIFEST_FILENAME).write_text(
+            json.dumps({"stride": video_stride})
+        )
+        return clip_dir, video_dir, clip, motion
+
+    def test_stride_one_motion_cache_is_subsampled_with_the_clip(self, tmp_path: Path) -> None:
+        rng = np.random.default_rng(12)
+        fit_dir = self._motion_fit(tmp_path, rng)
+        clip_dir, video_dir, clip, motion = self._caches(tmp_path, rng, 1)
+        out = tmp_path / "out"
+        build_v2_inputs.main(["apply", "--stats-dir", str(fit_dir), "--clip-dir", str(clip_dir),
+                              "--video-dir", str(video_dir), "--stride", "3",
+                              "--out-dir", str(out)])
+        stats = v2_inputs.load_stats(fit_dir)
+        expected = v2_inputs.bake_rows(clip[::3], motion[::3], stats)
+        np.testing.assert_allclose(np.load(out / "c1.npy"), expected, rtol=1e-6)
+        v2_inputs.check_input_manifest(out, "R2", ENCODER_S)
+
+    def test_a_motion_cache_at_another_stride_is_refused(self, tmp_path: Path) -> None:
+        rng = np.random.default_rng(13)
+        fit_dir = self._motion_fit(tmp_path, rng)
+        clip_dir, video_dir, _, _ = self._caches(tmp_path, rng, 8)
+        with pytest.raises(SystemExit, match="stride-1 motion cache"):
+            build_v2_inputs.main(["apply", "--stats-dir", str(fit_dir), "--clip-dir",
+                                  str(clip_dir), "--video-dir", str(video_dir), "--stride", "3",
+                                  "--out-dir", str(tmp_path / "out")])

@@ -19,9 +19,9 @@ Ký hiệu: ✅ xong · 🟡 đang làm / chờ chạy · ⛔ bị chặn · ⬜
 | **P2** E0 / E2(a–c) | ✅ | **D11 ở s3: CRN = R2** (`r` 0.7092 vs R1 0.7081 — hoà trong nhiễu, luật chọn R2), E2(c) R2 **+0.037 [+0.027, +0.047]**. s8 cũ = R1. `RESULTS_E2_CRN.md` §D11 | `7b20444`, `a20781b` + D11 record |
 | **P3** E1 | ✅ | **Adopt B** (DoTA s3 whole clip): Δ vs A **+0.033 [+0.019, +0.048]**, C +0.035 (tie → B); 3/3 seed dương. `core/docs/v2/RESULTS_E1.md` | `0ab760d` + Amendment 3 (`7ce8bf5`) |
 | **P3** E0b | ⬜ | Chưa có notebook. Ckpt phase-5 + lcurve có thể cũng là snapshot (pending (aj)) → kiểm `global_step` trước | — |
-| **P4** Encoder E2(d) | 🟡 | **D9 = DoTA-CAP** (Amendment 4). VideoMAE B+S trên 1,129 clip xong; **split frozen** `dota_cap_dev` 569 / `dota_cap_eval` 560 (sealed), `core/docs/v2/DOTA_CAP.md`. Còn: addendum §12 (lựa chọn E2(d) trên DoTA-CAP-dev) → harness + notebook E2(d) + D15 | (chưa commit) |
-| **P5** Build v2 | 🟡 | Model + input cache + manifest + tests xong (`a20781b`), reference = R2. Còn: đường chấm DoTA protocol B cho cache v2, diagnostics tool (source-shortcut / position R² trên `V^t`), bake A2/A3 (chờ P4 full-T2 VideoMAE) | `a20781b` |
-| **P6** Pilot | ⬜ | Cần P4 + P5 | — |
+| **P4** Encoder E2(d) | 🟡 | **D9 = DoTA-CAP**; split frozen (`b6d937f`); **§12 N1–N12 committed (`7b1889a`)**. Harness `core/tools/e2d_probe.py` + `colab/v2/p4_e2d.ipynb` (V2-S on 300 K sources → D15 A0 → probe). **Chờ user chạy notebook** | `b6d937f`, `7b1889a` |
+| **P5** Build v2 | ✅ (trừ bake A2/A3) | Model + input cache (`a20781b`). 2026-10-03: `apply --stride` cho motion cache stride-1; `protocol_b_eval` (chấm DoTA protocol B mọi arm, per-clip AUC); `v2_dataset` (train T2-train − T2-val, eval T2-val); `v2_diagnostics` (O1–O6). Bake A2/A3 chờ E2(d) + full-T2 VideoMAE | `a20781b` + (chưa commit) |
+| **P6** Pilot | 🟡 | **D16: 2 batch.** Batch 1 = A0 + A1 (s2099), §14 O1–O7, `colab/v2/p6_pilot_batch1.ipynb` — **chờ user chạy**. Batch 2 = A2/A3 sau E2(d) | — |
 | **P7** Go/no-go | ⬜ | Cần P6 | — |
 
 **Việc tiếp theo, theo thứ tự:**
@@ -31,7 +31,7 @@ Ký hiệu: ✅ xong · 🟡 đang làm / chờ chạy · ⛔ bị chặn · ⬜
    chỉ chấm s8 và `rate_matched_eval` chỉ đọc CLIP thô); notebook E0b (sau khi user kiểm J10 của ckpt phase-5/lcurve).
 3. A1 (R2) bake + pilot được ngay khi (2) xong.
 
-**Test suite hiện tại:** 758 collected, 0 fail (2026-09-30).
+**Test suite hiện tại:** 848 passed, 0 fail (2026-10-03).
 
 **Drive layout (từ 2026-09-29):** code + outputs v2 ở `Thesis-V2/` (`kat-vad/`, `outputs/`); data, cache, ckpts và
 run v1 (phase 4) ở `Thesis/`, chỉ đọc.

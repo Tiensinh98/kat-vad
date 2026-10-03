@@ -24,7 +24,26 @@ Every v2 arm also needs `kip.enabled=false` (validated; v2 retires KIP). The ref
 E2 re-read at stride 3 under D11 picked it over R1 by a tie-level margin (`RESULTS_E2_CRN.md` §D11);
 the code accepts any of R1–R4, and the manifest records which one a cache was baked with.
 
-## 2. Build the input cache
+## 2. The training dataset dir: T2-train minus T2-val
+
+Proposal §7.2: every v2 arm trains on T2-train **minus T2-val**, and T2-val is the in-domain decision
+set. The T2 dataset dir trains on every T2-train window (T2-val included) and evaluates T2-test, so
+v2 runs use a derived dir:
+
+```bash
+python -m core.tools.v2_dataset --data-dir data/DADA2000_orig --out-dir data/DADA2000_orig_v2
+python -m core.data.knn_cache --data-dir data/DADA2000_orig_v2 --dataset DADA2000_orig \
+  --clip-dir cache/clip/DADA2000_orig --output cache/knn/DADA2000_orig_v2/knn_cache.npz
+```
+
+`labels_train.json` drops T2-val's windows; `frame_labels_test.json` holds **T2-val's windows**,
+labelled by the arithmetic that labelled T2-test (the tool first rebuilds every parent T2-test
+window's labels from `meta.json` and refuses to write on a single mismatch). `core.evaluate` on this
+dir therefore scores T2-val; T2-test stays unread until the final report. The KNN cache is keyed to
+the train split, so it is rebuilt (on raw CLIP, shared by every arm). **A phase-4 checkpoint scored
+on this dir's T2-val is scored in-sample** — it trained on those windows (addendum §14 O6).
+
+## 3. Build the input cache
 
 `fit` fits `s`, `c`, `m_u`, `σ_u` on **T2-train minus T2-val** and bakes every source video the T2
 corpus references (train, T2-val, test). A T2 window is a slice of its baked source, so its CRN
@@ -47,8 +66,8 @@ python -m core.tools.build_v2_inputs fit \
 DoTA only CLIP-only arms (A0/A1) can be scored — it has no pixels. Motion arms are scored on
 **DoTA-CAP** (addendum §11, Amendment 4): the clips whose pixels were recovered from CAP-DATA, VideoMAE
 cache `cache/video/<encoder>/DoTA_CAP_s1_squash/` (stride 1, row-aligned with `DoTA_s1_ncc`) built by
-`core.tools.dota_cap`. `apply --stride 3` does not yet subsample a motion cache (it raises); that path
-is still to build.
+`core.tools.dota_cap`. `apply --stride 3` subsamples a motion cache too, provided it is stride-1 and row-aligned with
+the CLIP one (its `video_manifest.json` says `stride: 1`; anything else raises).
 DoTA is read at protocol B (E1): `--stride 3` over the stride-1 cache, so the clip reference is
 taken over the stride-3 rows the model sees.
 
@@ -58,15 +77,26 @@ python -m core.tools.build_v2_inputs apply \
   --ids-file core/splits/v2/dota_dev.txt --out-dir cache/v2/A1_R2/DoTA_s3_from_s1
 ```
 
-**Open (before P6):** `core.evaluate` scores DoTA at stride 8 against `labels_s8`, and
-`core.tools.rate_matched_eval` reads the raw CLIP cache. Neither yet scores a baked stride-3 DoTA
-cache at native frames, so protocol B for a v2 arm needs that path first.
+**Scoring DoTA at protocol B** (E1's protocol) for any arm: `core.tools.protocol_b_eval`. It loads
+each checkpoint after the J10 gate, checks the input cache against the checkpoint's `v2` (K4) and
+its baked stride, scores whole clips, interpolates to native frames, seed-averages and writes
+per-clip AUCs (`clip_aucs.json`, the input of every paired Δ) with a cluster-bootstrap macro.
+`--split dota_dev` for CLIP-only contrasts and `F`; `--split dota_cap_dev` for every motion
+contrast (D13). A0 reads the plain `DoTA_s1_ncc` (subsampled in the tool); A1–A3 read their
+`apply --stride 3` cache.
+
+```bash
+python -m core.tools.protocol_b_eval --run s2099 runs/A1_s2099/checkpoint_last.pt \
+  --input-dir cache/v2/A1_R2/DoTA_s3_from_s1 --s1-dir cache/clip/DoTA_s1_ncc \
+  --metadata data/DoTA/metadata_val.json --split-file data/DoTA/val_split.txt \
+  --data-dir data/DoTA/labels_s8 --split dota_dev --out-dir outputs/v2/REPORTS/pb_A1
+```
 
 Each output directory holds `{id}.npy` (float32 rows, width 512 or 512 + d_v), `v2_input_stats.npz`
 and `v2_input_manifest.json` (`arm`, `crn`, `motion`, `s`, `c`, `train_ids_sha1`, source dirs).
 **A cache is bound to the split it was fitted on**: rebuilding T2-val means rebuilding the cache.
 
-## 3. Train and evaluate
+## 4. Train and evaluate
 
 Same command as a phase-4 KIP-off arm, plus the v2 flags and the baked `--clip-dir`:
 
@@ -76,8 +106,8 @@ python -m core.train \
   --set data.dataset=DADA2000_orig \
   --set model.score_head_kernel=3 --set loss.mil_topk_pct=5 --set kip.enabled=false \
   --set v2.crn=R2 --set v2.motion=vit_b_k710_dl_from_giant --set model.motion_dim=768 \
-  --data-dir data/DADA2000_orig --clip-dir cache/v2/A3_R2_B/DADA2000_orig \
-  --knn-cache cache/knn/DADA2000_orig/knn_cache.npz --output-dir runs/A3_s2099
+  --data-dir data/DADA2000_orig_v2 --clip-dir cache/v2/A3_R2_B/DADA2000_orig \
+  --knn-cache cache/knn/DADA2000_orig_v2/knn_cache.npz --output-dir runs/A3_s2099
 ```
 
 `core.evaluate` takes the architecture **and** `v2` from the checkpoint; point `--clip-dir` at the
@@ -89,7 +119,7 @@ matching baked cache (T2 or DoTA). Both CLIs raise on a manifest mismatch (K4):
 | v2 on | cache baked for another `crn`/`motion` | `ValueError: … baked for crn=…` |
 | v2 off (A0) | a baked v2 cache | `ValueError: … baked for …` |
 
-## 4. What to read in `metrics.jsonl`
+## 5. What to read in `metrics.jsonl`
 
 For A2/A3 every batch record carries, besides the losses:
 
@@ -101,7 +131,23 @@ For A2/A3 every batch record carries, besides the losses:
 Neither enters `total`. `ρ_u ≈ 0` for a whole run means the stream is unused: record it, do not
 tune lr or `c` (plan P6).
 
-## 5. Checkpoint compatibility
+## 6. Pilot diagnostics (addendum §4, §14 O1–O7)
+
+`core.tools.v2_diagnostics` — one checkpoint per call, one forward pass per item, on the v2 dataset
+dir's T2-val windows and (unlabelled) DoTA-dev at protocol B through the arm's own input:
+
+| Read | What | Decides |
+|---|---|---|
+| O1 guardrails | micro < clip oracle, macro ≥ micro, micro ≥ A0 − 0.01 | P7 |
+| O2 | window-level AUC beside macro (C14 signature) | printed |
+| O3 | `motion_share` / `w_u_norm` first, last, max | printed |
+| O4 | position R² on `V^t` (ridge → `t/T`, folds by source), beside the input's and A0's | printed |
+| O5 | source-shortcut AUC, T2-val vs DoTA-dev, on `V^t` and on `y^bin` | printed |
+| O6 / D5 | A0 vs the phase-4 KIP-off mean, micro and macro within 0.02 (`v2_diagnostics.d5`) | P7 |
+
+Runbooks: `colab/v2/p6_pilot_batch1.ipynb` (A0 + A1, D16) and, after E2(d), batch 2.
+
+## 7. Checkpoint compatibility
 
 - v1 / phase-4 / A0 checkpoints have no `model.motion_dim` or `v2` section; they load as A0.
 - A2/A3 checkpoints carry `motion_residual.proj.*`; loading an A0 state into a motion model raises

@@ -30,6 +30,8 @@ CLI::
 
 ``--stride N`` subsamples each clip's rows ``[::N]`` before baking (DoTA at the E1 protocol
 B = ``s1[::3]``); the CRN reference is then taken over the subsampled clip, as the model sees it.
+A motion arm's ``--video-dir`` must then be a stride-1 cache row-aligned with the CLIP one
+(DoTA-CAP's ``DoTA_CAP_s1_squash``); its rows are subsampled the same way.
 """
 
 from __future__ import annotations
@@ -77,6 +79,24 @@ def load_rows(cache_dir: Path, ids: list[str]) -> dict[str, np.ndarray]:
     if missing:
         raise FileNotFoundError(f"{len(missing)} ids have no feature in {cache_dir}: {missing[:5]}")
     return {v: np.load(cache_dir / f"{v}.npy") for v in ids}
+
+
+def check_video_stride(video_dir: Path, stride: int) -> None:
+    """``--stride`` subsamples the motion rows too, so they must be stride-1 like the CLIP rows.
+
+    A stride-1 VideoMAE cache (DoTA-CAP, ``core.tools.dota_cap``) is row-aligned with
+    ``DoTA_s1_ncc``; a cache built at another stride would be subsampled twice (C2/C13).
+    """
+    if stride == 1:
+        return
+    path = video_dir / constants.VIDEO_MANIFEST_FILENAME
+    if not path.is_file():
+        raise SystemExit(f"{path} missing: cannot verify the motion cache's stride")
+    built = json.loads(path.read_text(encoding="utf-8")).get("stride")
+    if built != 1:
+        raise SystemExit(
+            f"--stride {stride} needs a stride-1 motion cache; {video_dir} was built at {built!r}"
+        )
 
 
 def t2_all_sources(t2_dir: Path) -> list[str]:
@@ -171,9 +191,12 @@ def run_apply(args: argparse.Namespace) -> dict[str, Any]:
     else:
         ids = sorted(p.stem for p in args.clip_dir.glob("*.npy"))
     clips = {v: rows[:: args.stride] for v, rows in load_rows(args.clip_dir, ids).items()}
-    motions = load_rows(args.video_dir, ids) if stats.has_motion else None
-    if motions is not None and args.stride != 1:
-        raise SystemExit("--stride subsamples CLIP rows only; a motion cache has its own stride")
+    motions = None
+    if stats.has_motion:
+        if args.video_dir is None:
+            raise SystemExit("this arm has a motion stream: pass --video-dir")
+        check_video_stride(args.video_dir, args.stride)
+        motions = {v: rows[:: args.stride] for v, rows in load_rows(args.video_dir, ids).items()}
     width = bake(ids, clips, motions, stats, args.out_dir)
     save_stats(args.out_dir, stats)
     manifest = _manifest(

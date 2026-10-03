@@ -413,3 +413,19 @@ pilot and E3 alike, trains on a dataset directory whose `labels_train.json` drop
 windows and whose evaluation file holds T2-val's windows only (`python -m core.tools.v2_dataset`). Phase 4
 trained on the full T2-train, T2-val included: a phase-4 checkpoint scored on T2-val is scored
 **in-sample**.
+
+## 14. P6 pilot implementation choices (2026-10-03, before any v2 model is trained) — O1–O7
+
+Fixes how §4's read-out and D5 are computed (`python -m core.tools.v2_diagnostics`, one checkpoint
+per call) and how batch 1 (D16) trains. No v2 checkpoint exists. **Authorized by the user on
+2026-10-03; not reviewed by the advisor.**
+
+| # | Choice | Why |
+|---|---|---|
+| O1 | **Guardrails on T2-val windows** of the v2 dataset dir (`core.tools.v2_dataset`: train = T2-train minus T2-val, evaluation file = T2-val's windows, labelled by the arithmetic that labelled T2-test, self-checked on the parent's T2-test windows). Micro with `score_norm=auto`, macro over two-class windows, clip oracle = `clip_constant_oracle`. Pass iff micro < oracle **and** macro ≥ micro **and** (A1–A3) micro ≥ A0's micro − 0.01, A0 = batch 1's A0 | Proposal §10.1 guardrails, on the decision set §4 names |
+| O2 | Window-level AUC (max score vs window label) printed beside macro | §4: "clip-level AUC vs macro (the C14 collapse signature)" |
+| O3 | `motion_share` (`ρ_u`) and `w_u_norm`: first / last / max over `metrics.jsonl`. `ρ_u` ≈ 0 is recorded, never fixed by `lr` or `c` (§4) | Architecture §5 |
+| O4 | **Position probe on `V^t`** (`vis_feats`, KIP off): standardized ridge, α = 1, target `t/T` inside each T2-val window, 5 folds grouped by source video, out-of-fold R². Printed beside the same probe on the arm's input rows and beside A0's | Proposal §10.1: "linear, predicting `t/T`, R² reported"; an R² above A0's is the caveat, not a verdict |
+| O5 | **Source-shortcut AUC = corpus separability**, as lesson C38 and `REPORT_T2_OPTICAL_FLOW_FOR_ADVISOR.md` §2.4 used the term: T2-val steps vs DoTA-dev steps. On `V^t`: the `core.eda` logistic probe, 5 folds grouped by source video. On `y^bin`: the score alone, direction-free `max(AUC, 1 − AUC)`. DoTA-dev rows go through the arm's own input at protocol B (plain `DoTA_s1_ncc[::3]` for A0, `apply --stride 3` cache otherwise) and are read **without labels**: no DoTA metric is computed, so D4 holds | The proposal names the measurement but not the two classes; CRN's stated purpose is to remove per-source appearance, and this project measured "source" as corpus every time |
+| O6 | **D5:** A0 (v2 code, v2 dataset dir, seed 2099) vs the mean of the three finished phase-4 KIP-off checkpoints (s2024 phase 4; s2025, s2026 retrained under D12), all scored by O1 on T2-val. Pass iff micro **and** macro are each within 0.02. **Known bias:** the references trained on the parent dir, so T2-val is in-sample for them and they are expected to read higher; a FAIL with A0 below them blocks P7 until explained, and is never fixed by changing A0 | D5 as written (§2); the bias is stated before the number |
+| O7 | **Batch 1 training (D16):** A0 and A1 on the v2 dataset dir, seed 2099, phase 4's stage-2 recipe (`train.num_epochs=20`, `train.amp=true`, `model.score_head_kernel=3`, `loss.mil_topk_pct=5`, `kip.enabled=false`), KNN cache rebuilt on the v2 dir. A1's input: `build_v2_inputs fit --crn R2 --motion none` (statistics on T2-train minus T2-val), then `apply --stride 3` on `dota_dev` for O5 only. The J10 gate holds for every checkpoint read | Proposal §8 hyper-parameters = phase 4's; nothing is tuned |

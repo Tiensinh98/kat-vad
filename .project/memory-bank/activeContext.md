@@ -57,7 +57,22 @@ Track 0b closed; T2 + Option A remain the live track. Partial update: `activeCon
 architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 13,833 source LOC, 582 collected); **docs 24 → 25** (+ `core/docs/D2CITY_EDA.md`).
 
-## 2026-10-03 (latest) — **DoTA-CAP extracted and FROZEN (L7)** (branch `v2`)
+## 2026-10-03 (latest) — **§12 E2(d) + §13 D16 + §14 O1–O7 committed; E2(d) harness, P5 gaps, pilot batch 1 built** (branch `v2`)
+
+* Commits: `b6d937f` (DoTA-CAP freeze), `7b1889a` (§12 N1–N12 + Amendment 5 D16: pilot in 2 batches, A0/A1 first).
+  §14 (O1–O7: guardrails, position R² on `V^t`, source-shortcut = corpus separability T2-val vs DoTA-dev unlabelled,
+  D5 vs phase-4 mean) written, **not yet committed**.
+* **Found + fixed a real gap:** proposal §7.2 says train on T2-train **minus T2-val**, but no code did → `v2_dataset`
+  (eval file = T2-val windows; label arithmetic self-checked on the parent's T2-test windows). Phase-4 ckpts are
+  **in-sample on T2-val** → D5 is biased against A0 (stated in O6 before any number).
+* New tools: `e2d_probe` (N1–N12), `protocol_b_eval` (any arm, per-clip AUC; `load_finished_model` now returns cfg),
+  `v2_dataset`, `v2_diagnostics`; `build_v2_inputs apply --stride` subsamples a stride-1 motion cache. Notebooks
+  `colab/v2/p4_e2d.ipynb`, `colab/v2/p6_pilot_batch1.ipynb`. Docs: `TRAINING_V2.md` §2/§3/§6. Suite **848 / 0** (incl. end-to-end smoke tests of `e2d_probe` and `v2_diagnostics`).
+
+**Next action:** user reviews + commits the batch → uploads code → runs `p4_e2d.ipynb` and `p6_pilot_batch1.ipynb`
+(independent) → pastes `e2d_readout.md`, `batch1_readout.md`, both `diag.md`.
+
+## 2026-10-03 — **DoTA-CAP extracted and FROZEN (L7)** (branch `v2`)
 
 * Extract read out (`outputs/v2/REPORTS/dota_cap/`): 5 groups = 1,129 clips, **all `ok`** (L4/L5 dropped none); pixel
   gate on kept: mean cos min 0.9900, per-frame min 0.9503. `dota_cap_ids.txt` sha1 `e1a37bb…` re-computed locally.

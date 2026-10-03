@@ -42,7 +42,7 @@ import numpy as np
 import torch
 
 from core import constants
-from core.config import load_config
+from core.config import Config, load_config
 from core.data.definitions import dataset_abbr, item_verbalizer
 from core.data.dota import DotaRecord, parse_metadata, read_split_ids, resized_frame_labels
 from core.data.v2_splits import dota_group, load_split, share_bin
@@ -254,8 +254,14 @@ def score_steps(
     return overlap_average(parts, len(feats))
 
 
-def load_finished_model(run: Run, device: torch.device) -> tuple[KATVAD, int, TextEncodeFn]:
-    """Model in eval mode, after the J10 gate on its stored ``global_step``."""
+def load_finished_model(
+    run: Run, device: torch.device
+) -> tuple[KATVAD, int, TextEncodeFn, Config]:
+    """Model in eval mode, after the J10 gate on its stored ``global_step``.
+
+    The returned config carries the checkpoint's ``model`` / ``kip`` / ``v2`` sections, so a
+    caller can check the input cache against the arm the checkpoint was trained as (K4).
+    """
     payload = torch.load(run.ckpt, map_location="cpu", weights_only=False)  # nosec B614 - own ckpt
     step = int(payload.get("global_step", -1)) if isinstance(payload, dict) else -1
     del payload
@@ -263,7 +269,7 @@ def load_finished_model(run: Run, device: torch.device) -> tuple[KATVAD, int, Te
     cfg = load_config(None, DOTA_OVERRIDES)
     model = load_model_for_scoring(cfg, device, run.ckpt, None, TEXT_ENCODER_CLIP, DOTA_OVERRIDES)
     text_encode_fn = make_text_encoder(model, TEXT_ENCODER_CLIP, device, dim=cfg.model.hidden_dim)
-    return model, step, text_encode_fn
+    return model, step, text_encode_fn, cfg
 
 
 def score_run(
@@ -279,7 +285,7 @@ def score_run(
     With ``s8_dir`` (and arm A requested) the J9' gate runs before returning: A's
     step-level curve from ``s1[::8]`` must equal the curve on the s8 cache.
     """
-    model, step, text_encode_fn = load_finished_model(run, device)
+    model, step, text_encode_fn, _cfg = load_finished_model(run, device)
     class_names = load_class_names(data_dir)
     native: dict[str, dict[str, np.ndarray]] = {arm: {} for arm in arms}
     harness_a: dict[str, np.ndarray] = {}
