@@ -43,8 +43,12 @@ python -m core.tools.build_v2_inputs fit \
   --crn R2 --motion vit_b_k710_dl_from_giant --out-dir cache/v2/A3_R2_B/DADA2000_orig
 ```
 
-`apply` bakes another corpus with the **fitted** statistics; each clip is its own reference. Only
-CLIP-only arms (A0/A1) can be scored on DoTA — it has no pixels, so no VideoMAE features (addendum D9).
+`apply` bakes another corpus with the **fitted** statistics; each clip is its own reference. On full
+DoTA only CLIP-only arms (A0/A1) can be scored — it has no pixels. Motion arms are scored on
+**DoTA-CAP** (addendum §11, Amendment 4): the clips whose pixels were recovered from CAP-DATA, VideoMAE
+cache `cache/video/<encoder>/DoTA_CAP_s1_squash/` (stride 1, row-aligned with `DoTA_s1_ncc`) built by
+`core.tools.dota_cap`. `apply --stride 3` does not yet subsample a motion cache (it raises); that path
+is still to build.
 DoTA is read at protocol B (E1): `--stride 3` over the stride-1 cache, so the clip reference is
 taken over the stride-3 rows the model sees.
 

@@ -10,10 +10,11 @@
 
 | Bước | Trạng thái | Kết quả |
 |---|:-:|---|
-| P0a Mirror CAP-DATA HF → Drive + census | ◐ | Nhóm `1-10`: 1556/1556 folder, 256,182 frame, 2 lệch số frame, 0 rỗng (2026-10-01) |
+| P0a Mirror CAP-DATA HF → Drive + census | ◐ | 9768/9768 clip đã cache. `census.json` chỉ có nhóm `1-10`, `43`, `44-62` (lệch frame 2/1/3); nhóm `11`, `12-42` thiếu census (file per-group nằm trên `/content`, mất khi runtime reset). DoTA-CAP kiểm L4 cho đúng các clip nó dùng |
 | P0b CLIP `_ncc` s1 nhóm `1-10` → match (khả thi?) | ✅ | **Khả thi** (2026-10-01): exact 214/1397 DoTA (dev 104/702), r ≈ 1 hoặc ≈ 3 ở 211/214, null ≥ near 0.07 %; DADA 0. Dải near lọt 9 cặp giả → **Amendment P0b-1** |
-| P0c CLIP 4 nhóm còn lại → match toàn bộ (coverage) | ⬜ | Notebook đã chuyển sang streaming theo lô (`stream_frames_clip`), T4/L4 đủ |
-| P0d Đọc nhánh D9 (§4) → Amendment 4 | ⬜ | — |
+| P0c CLIP 4 nhóm còn lại → match toàn bộ (coverage) | ✅ | (2026-10-02) exact **1248/1397** (0.893), dev 625/702 (0.890); exact∪near 0.935 / 0.930; null 0.006; DADA 3 near; CAP sạch 8,006 |
+| P0d Đọc nhánh D9 (§4) → Amendment 4 | ✅ | Nhánh **C** theo luật. User override (2026-10-03): D9 = **DoTA-CAP** (exact, căn từng frame, cổng pixel), addendum §11 D13–D15 + L0–L7 |
+| P1 DoTA-CAP: align → extract VideoMAE B+S → finalize | ⬜ | `core/tools/dota_cap.py`, `colab/v2/dota_cap_videomae.ipynb`. Sau đó: freeze `dota_cap_ids.txt` vào `core/splits/v2/` |
 
 ## 1. Vì sao
 

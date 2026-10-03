@@ -263,3 +263,37 @@ exists. Authorized by the user on 2026-09-29/30; not reviewed by the advisor. Ar
 | K4 | A cache carries `v2_input_manifest.json`; `train` and `evaluate` refuse a cache whose `crn`/`motion` differ from the run's `v2` config (evaluate reads `v2` from the checkpoint), and refuse a v2 cache under a v2-off config | A plain CLIP cache under a v2 config would silently train A0 |
 | K5 | `W_u` weight and bias zero-initialized; padded steps get no motion term; `ρ_u` and `‖W_u‖_F` logged on every batch in `metrics.jsonl` (every 50 steps is a subset) and never enter the loss | Architecture §5 |
 | K6 | v2 inputs require `kip.enabled=false`; `model.motion_dim` must equal the encoder's width (768 B, 384 S) | Architecture §13: KIP is removed in v2 |
+
+## 11. Amendment 4 (2026-10-03) — D9 decided: the motion endpoint is DoTA-CAP (D13–D15, L1–L7)
+
+Written **before any motion-arm score exists**: no v2 model has been trained and no VideoMAE feature
+of any DoTA clip has been computed. **Authorized by the user on 2026-10-03; not reviewed by the
+advisor.** It replaces plan `katvad-mmau-phase0.md` §4's sentence "partial coverage is not used as a
+DoTA subset for the motion arms" — the user overrode it, and the conditions below are what make the
+override defensible.
+
+**Fact (MM-AU Phase 0, full CAP, 2026-10-02; `outputs/v2/REPORTS/mmau_p0/all/`).** Branch **C** by
+§4's rule: exact coverage 0.893 of all DoTA (1,248 / 1,397) and 0.890 of DoTA-dev (625 / 702), below
+the 0.95 bar; exact ∪ near 0.935 / 0.930. Null flag 0.006 (reliable). Counting the 7 pairs demoted by
+Amendment P0b-1 as hits would give 0.940, so the branch does not depend on P0b-1. DADA-2000 is
+essentially absent from CAP (3 near / 1,945). Exact matches align at CAP/DoTA frame rate ≈ 1 (842) or
+≈ 3 (399): CAP stores some DoTA clips at 10 fps and some at 30.
+
+| # | Change | Why |
+|---|---|---|
+| D13 | **D9 = DoTA-CAP.** The motion endpoint is DoTA restricted to the clips whose pixels are recovered from CAP by L1–L7 below. Every contrast that involves a motion arm (A2 − A0, A3 − A0, A3 − A1, A2 − `F`, A3 − `F`, and E2(d)'s DoTA-dev probes) is computed with **all arms on the same DoTA-CAP clips**, decided on **DoTA-CAP-dev** = DoTA-dev ∩ DoTA-CAP and reported once on DoTA-CAP-eval (still sealed). Protocol B (E1) unchanged. The CRN contrast A1 − A0 and the choice of `F` stay on full DoTA-dev as pre-registered. The adoption rules of proposal §10.3 are otherwise unchanged | Pairing inside one clip set keeps the contrast fair: the subset is chosen by whether CAP contains the clip, which does not depend on any model's score |
+| D14 | **Naming and placement.** It is written "DoTA-CAP (n/1397)" everywhere; a DoTA-CAP number is never put beside a full-DoTA number, LaGoVAD's 62.60 or a phase-4 DoTA number | The 149 missing clips are not missing at random |
+| D15 | **Representativeness, printed, never decided on:** A0 and A1 macro on full DoTA-dev vs on DoTA-CAP-dev (same checkpoints, seed-averaged); per-clip length, accident share and DoTA category of kept vs dropped DoTA-dev clips. DoTA-eval's composition is not read | Lets a reader judge how far DoTA-CAP generalizes to DoTA; it cannot change a verdict |
+
+### 11.1 DoTA-CAP construction (L1–L7, fixed now) — `python -m core.tools.dota_cap`, runbook `colab/v2/dota_cap_videomae.ipynb`
+
+| # | Choice |
+|---|---|
+| L0 | Candidates = the P0 `exact` pairs only (κ ≥ 0.99). `near` pairs (58) are excluded: CAP re-processed them, so VideoMAE would see different pixels |
+| L1 | Per-frame map: for each DoTA frame `d` the CAP frame `j_d`, strictly increasing in `d`, maximizing `Σ_d cos(DoTA_s1[d], CAP_s1[j_d])` (dynamic programming on the two s1 `_ncc` CLIP caches; no rate is assumed). A CAP clip shorter than the DoTA clip fails |
+| L2 | Mean aligned cosine ≥ 0.99 **and** every aligned frame ≥ 0.95 |
+| L3 | Time axis: at most 5 % of the CAP steps `Δj` may differ from the clip's median step by more than 1 (a look-alike frame in a static stretch would warp VideoMAE's time axis) |
+| L4 | The streamed CAP folder has exactly as many frames as the CAP CLIP cache has rows (the map indexes the same sorted frame list) |
+| L5 | Pixel gate: CLIP (`no_center_crop`) of the rebuilt frame sequence vs `DoTA_s1_ncc`, same thresholds as L2. A clip that fails gets no feature file |
+| L6 | VideoMAE geometry on the rebuilt sequence: DoTA's native 10 fps, 16 consecutive frames (`DOTA_VIDEOMAE_FRAME_STEP` = 1, the same causal 1.5 s as DADA's every 3rd at 30 fps — architecture §3), ending at the step, clamped at DoTA frame 0 (no CAP frame outside the DoTA clip is used), squash 224², stride 1 (row-aligned with `DoTA_s1_ncc`; any stride is `[::s]`). Encoders V2-B and V2-S. Cache `cache/video/<encoder>/DoTA_CAP_s1_squash/`, manifest with `frame_source` and `alignment_sha256` |
+| L7 | DoTA-CAP = clips passing L1–L6 with a feature file for every encoder. The id list (`dota_cap_ids.txt`, sha1 in its read-out) is frozen into `core/splits/v2/` and committed **before any motion-arm score is read** |

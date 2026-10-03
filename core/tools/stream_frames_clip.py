@@ -141,11 +141,18 @@ def stream_video_batches(
     max_bytes: float,
     on_batch: Callable[[Path], None],
     skip_ids: set[str] | None = None,
+    keep_ids: set[str] | None = None,
 ) -> dict[str, int]:
-    """Stream ``parts`` (one gzipped tar) into bounded batches; return frames per video."""
+    """Stream ``parts`` (one gzipped tar) into bounded batches; return frames per video.
+
+    ``skip_ids`` are counted, not written. With ``keep_ids`` only those videos are written, and
+    the stream stops as soon as every one of them is closed (the census then covers only the
+    videos read so far).
+    """
     if not parts:
         raise ValueError("No tar parts given")
     skip = skip_ids or set()
+    wanted = None if keep_ids is None else set(keep_ids) - skip
     batcher = _Batcher(work_dir, subdir, max_bytes, on_batch)
     census: dict[str, int] = {}
     closed: set[str] = set()
@@ -166,9 +173,12 @@ def stream_video_batches(
                 if current is not None:
                     batcher.close(current, current_bytes)
                     closed.add(current)
+                if wanted is not None and wanted <= closed:
+                    current = None
+                    break
                 current, current_bytes = video_id, 0
             census[video_id] = census.get(video_id, 0) + 1
-            if video_id in skip:
+            if video_id in skip or (wanted is not None and video_id not in wanted):
                 continue
             data = tar.extractfile(member)
             if data is None:

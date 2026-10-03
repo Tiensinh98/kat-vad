@@ -450,6 +450,16 @@ MMAU_NEAR_MIN_RATE = 0.9
 MMAU_STREAM_BATCH_GB = 8.0  # frames on VM disk before a streamed CAP batch is encoded and deleted
 BYTES_PER_GB = 1e9
 
+# --- DoTA-CAP: DoTA pixels recovered from CAP, the motion endpoint (addendum §11, Amendment 4) ---
+DOTA_CAP_DATASET = "DoTA_CAP"
+# L1-L3 alignment gates on CLIP rows (DoTA_s1_ncc vs MMAU_CAP_s1_ncc), fixed before any score
+DOTA_CAP_MEAN_COS = MMAU_MATCH_EXACT  # mean cosine of the aligned frames
+DOTA_CAP_MIN_COS = MMAU_MATCH_NEAR  # every aligned frame
+DOTA_CAP_STEP_TOL = 1  # a CAP step |dj - median dj| > this is irregular
+DOTA_CAP_MAX_IRREGULAR = 0.05  # share of irregular steps a clip may have
+# DoTA is native 10 fps: 16 consecutive frames = the same causal 1.5 s as DADA's every 3rd at 30 fps
+DOTA_VIDEOMAE_FRAME_STEP = VIDEOMAE_CLIP_FRAME_STEP * DOTA_FPS // DADA_ASSUMED_FPS
+
 # ---------------------------------------------------------------------------
 # Evaluation score pooling (lesson C12)
 #

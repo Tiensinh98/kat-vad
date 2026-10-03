@@ -32,7 +32,7 @@
 > this branch *this file and `progress.md` are the only durable record of the
 > attribution campaign*. Do not delete them; do not re-run those arms here.
 
-**Last Memory Bank Update:** 2026-09-30 (latest — **full update, branch `v2`: E1 = B, Amendment 2/3, P5 built, D11 tooling**;
+**Last Memory Bank Update:** 2026-10-03 (partial: activeContext only — DoTA-CAP / Amendment 4). Before that 2026-09-30 ( — **full update, branch `v2`: E1 = B, Amendment 2/3, P5 built, D11 tooling**;
 all six core files + CLAUDE.md reviewed; counts re-measured: **109 Python files (73 source + 36 test), 17,520 source LOC,
 754 tests, 35 docs**.)
 
@@ -56,6 +56,23 @@ Track 0b closed; T2 + Option A remain the live track. Partial update: `activeCon
 `progress`, lessons; the other four core files are untouched because nothing
 architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 13,833 source LOC, 582 collected); **docs 24 → 25** (+ `core/docs/D2CITY_EDA.md`).
+
+## 2026-10-03 (latest) — **MM-AU P0 read out (branch C); D9 = DoTA-CAP (Amendment 4); tool + notebook built** (branch `v2`)
+
+* P0 full CAP: exact **1248/1397** DoTA (0.893; dev 625/702), exact∪near 0.935 → **branch C** by §4 (robust to P0b-1:
+  +7 demoted = 0.940). DADA 3 near / 1945 → CAP has ~no T2 sources. CAP clean 8,006. CAP fps mixed (rate ≈1: 842, ≈3: 399).
+* User overrode §4: use the exact-matched clips as the motion endpoint. **Amendment 4** (addendum §11, user-authorized,
+  not advisor-reviewed): D13 all arms on DoTA-CAP for every motion contrast, decide on DoTA-CAP-dev; CRN/`F` stay on full
+  DoTA-dev; D14 never beside full-DoTA/62.60; D15 representativeness printed. L0–L7 construction.
+* Built `core/tools/dota_cap.py` (`align` DP monotone frame map + L1–L3 on CLIP caches; `extract` streams only needed CAP
+  videos, symlink-rebuilds DoTA frames, CLIP pixel gate, VideoMAE B+S at 10 fps step 1 stride 1; `finalize` id list),
+  `stream_video_batches(keep_ids=)` with early stop, `encode_frame_dir(clip_step=)`, constants `DOTA_CAP_*`,
+  13 tests, `colab/v2/dota_cap_videomae.ipynb`. Pending lesson (ao). Suite **793 / 0 fail**. Uncommitted.
+* Gaps: census missing for groups `11`/`12-42`; `build_v2_inputs apply --stride` refuses a motion cache (needed for
+  DoTA protocol B on motion arms).
+
+**Next action:** user uploads code → runs `dota_cap_videomae.ipynb` → pastes align + final read-outs + brings
+`dota_cap_ids.txt` → Claude freezes it into `core/splits/v2/` before any motion score.
 
 ## 2026-09-30 (latest) — **MM-AU / CAP-DATA Phase 0 built: can CAP give DoTA its pixels back?** (branch `v2`)
 

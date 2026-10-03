@@ -1645,3 +1645,16 @@ unchanged `extract_frame_directory` (bit-identical features, tested), then delet
 **Files:** `core/tools/stream_frames_clip.py`, `colab/v2/mmau_p0.ipynb` §2
 
 **Gate status.** One occurrence. Gate 2 not met.
+
+## (ao) [MEDIUM] Data - A content match is not a frame map: align per frame, monotone, and gate the time axis (2026-10-03)
+**Triggers:** frame alignment, rate, offset, polyfit, argmax, re-hosted video, CAP, DoTA-CAP, VideoMAE input
+**Problem:** P0's `fit_alignment` (least squares on each query frame's argmax CAP frame) returned rate −4, 0, 2 or 14 on
+some `exact` (κ ≥ 0.99) DoTA clips: in static stretches the argmax lands on any look-alike frame. κ was right (the
+clip is in CAP); the line fit was not a usable frame map, and a motion encoder fed those frames would see a warped clock.
+**Bad:** `j = round(rate * d + offset)` from a global fit on argmax hits.
+**Good:** strictly increasing `j_d` maximizing `Σ cos` (DP), then gate mean/min cosine **and** step regularity
+(|Δj − median| > 1 on ≤ 5 % of steps), then re-check at pixel level (CLIP of the rebuilt frames vs the original cache).
+**Rule:** Derive a frame map with a monotone alignment and gate its step regularity before feeding a temporal model.
+**Files:** `core/tools/dota_cap.py:monotone_alignment`, `gate_alignment`; addendum §11 L1–L5
+
+**Gate status.** One occurrence, caught before any feature was extracted. Gate 2 not met.

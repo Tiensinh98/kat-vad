@@ -1,0 +1,498 @@
+"""DoTA-CAP: recover DoTA pixels from CAP-DATA and extract VideoMAE features on them.
+
+Addendum §11 (Amendment 4, D13-D15; L1-L7 fixed before any motion score). MM-AU Phase 0 found
+1,248 / 1,397 DoTA clips inside CAP-DATA at containment ``kappa >= 0.99`` (``exact``). This
+module turns those pairs into a per-frame map and a VideoMAE cache row-aligned with
+``DoTA_s1_ncc``. Three subcommands:
+
+``align`` (CPU, CLIP caches only, no pixels, no labels)
+    For every ``exact`` pair: the strictly increasing CAP frame ``j_d`` for each DoTA frame
+    ``d`` that maximizes the summed cosine (dynamic programming over the two s1 CLIP caches;
+    independent of fps -- CAP stores some DoTA clips at 10 fps, some at 30). A clip is kept iff
+    (L1) CAP has at least as many frames, (L2) mean aligned cosine >= ``DOTA_CAP_MEAN_COS`` and
+    every frame >= ``DOTA_CAP_MIN_COS``, (L3) at most ``DOTA_CAP_MAX_IRREGULAR`` of its CAP steps
+    differ from the clip's median step by more than ``DOTA_CAP_STEP_TOL`` (a look-alike frame in
+    a static stretch would otherwise warp VideoMAE's time axis).
+
+``extract`` (GPU, one CAP group's tar parts)
+    Streams only the kept CAP videos (:func:`stream_video_batches` with ``keep_ids``), builds a
+    symlink folder ``{d:06d}.jpg -> CAP frame j_d`` per DoTA clip, and gates it at pixel level:
+    (L4) the streamed CAP folder has exactly the CAP cache's row count, (L5) CLIP of the
+    rebuilt frames (``no_center_crop``) against ``DoTA_s1_ncc`` passes L2's thresholds. Only then
+    is VideoMAE run: DoTA's native 10 fps, 16 frames every ``DOTA_VIDEOMAE_FRAME_STEP`` frame,
+    causal, clamped at DoTA frame 0, stride 1 (L6). Several encoders share one pass over the tar.
+
+``finalize`` (CPU)
+    The DoTA-CAP id list = clips that passed L1-L5 and have a feature file for every encoder
+    (L7); counts on all DoTA, DoTA-dev and the rest (DoTA-eval ids are never read).
+
+CLI::
+
+    python -m core.tools.dota_cap align --matches .../mmau_p0/all/mmau_p0_matches.json \\
+        --dota-clip-dir cache/clip/DoTA_s1_ncc --cap-clip-dir cache/clip/MMAU_CAP_s1_ncc \\
+        --out-dir outputs/v2/REPORTS/dota_cap
+    python -m core.tools.dota_cap extract --alignment .../dota_cap_alignment.json \\
+        --parts data/MMAU/raw/CAP-DATA_chunks/11/11.part_* --work-dir /content/dcap/work \\
+        --dota-clip-dir cache/clip/DoTA_s1_ncc --report .../extract_11.json \\
+        [--encoders vit_b_k710_dl_from_giant vit_s_k710_dl_from_giant] [--cap-ids-file ids.txt]
+    python -m core.tools.dota_cap finalize --alignment ... --reports .../extract_*.json \\
+        [--encoders ...] --out-dir outputs/v2/REPORTS/dota_cap
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import logging
+import shutil
+from collections import Counter
+from collections.abc import Callable
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import torch
+from torch import nn
+
+from core import constants
+from core.data.v2_splits import lines_sha1, load_split
+from core.data.video_io import list_frame_images
+from core.device import resolve_device
+from core.models.videomae_v2 import load_pretrained
+from core.tools import extract_clip_features, extract_video_features
+from core.tools.feature_cache import is_complete, read_ids_file, save_array
+from core.tools.kill_switch_probe import write_json_atomic, write_text_atomic
+from core.tools.mmau_match import GRADE_EXACT, normalize_rows
+from core.tools.stream_frames_clip import stream_video_batches
+
+LOGGER = logging.getLogger(__name__)
+
+ALIGNMENT_JSON = "dota_cap_alignment.json"
+ALIGN_MD = "dota_cap_align.md"
+IDS_TXT = "dota_cap_ids.txt"
+FINAL_JSON = "dota_cap_readout.json"
+FINAL_MD = "dota_cap_readout.md"
+FARM_DIR = "farm"
+OK = "ok"
+FRAME_SOURCE = "CAP-DATA frames aligned to DoTA_s1_ncc (core.tools.dota_cap align)"
+
+
+@dataclass(frozen=True)
+class Alignment:
+    """One DoTA clip's CAP frame map and the L1-L3 verdict."""
+
+    dota_id: str
+    cap_id: str
+    dota_frames: int
+    cap_frames: int
+    reason: str  # OK, or the first gate that failed
+    frame_map: list[int]
+    mean_cos: float | None = None
+    min_cos: float | None = None
+    median_step: float | None = None
+    irregular_share: float | None = None
+
+
+def monotone_alignment(sims: np.ndarray) -> np.ndarray | None:
+    """Strictly increasing ``j_d`` maximizing ``sum_d sims[d, j_d]``; None if CAP is shorter."""
+    n_query, n_cap = sims.shape
+    if n_cap < n_query:
+        return None
+    index = np.arange(n_cap)
+    score = sims[0].astype(np.float64)
+    back = np.zeros((n_query, n_cap), dtype=np.int64)
+    for d in range(1, n_query):
+        running = np.maximum.accumulate(score)
+        arg = np.maximum.accumulate(np.where(score >= running, index, 0))
+        prev = np.full(n_cap, -np.inf)
+        prev[1:] = running[:-1]  # best path ending strictly before j
+        back[d, 1:] = arg[:-1]
+        score = sims[d] + prev
+    path = np.empty(n_query, dtype=np.int64)
+    path[-1] = int(np.argmax(score))
+    for d in range(n_query - 1, 0, -1):
+        path[d - 1] = back[d, path[d]]
+    return path
+
+
+def gate_alignment(dota_id: str, cap_id: str, query: np.ndarray, cap: np.ndarray) -> Alignment:
+    """L1-L3 on unit CLIP rows of one (DoTA clip, CAP clip) pair."""
+    sims = query @ cap.T
+    path = monotone_alignment(sims)
+    if path is None:
+        return Alignment(dota_id, cap_id, len(query), len(cap), "cap_shorter", [])
+    cos = sims[np.arange(len(query)), path]
+    steps = np.diff(path)
+    median = float(np.median(steps)) if len(steps) else 1.0
+    irregular = (
+        float(np.mean(np.abs(steps - median) > constants.DOTA_CAP_STEP_TOL)) if len(steps) else 0.0
+    )
+    if float(cos.mean()) < constants.DOTA_CAP_MEAN_COS:
+        reason = "mean_cos"
+    elif float(cos.min()) < constants.DOTA_CAP_MIN_COS:
+        reason = "min_cos"
+    elif irregular > constants.DOTA_CAP_MAX_IRREGULAR:
+        reason = "irregular_steps"
+    else:
+        reason = OK
+    return Alignment(
+        dota_id, cap_id, len(query), len(cap), reason, [int(j) for j in path],
+        float(cos.mean()), float(cos.min()), median, irregular,
+    )
+
+
+def file_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def frame_cosines(rebuilt: np.ndarray, reference: np.ndarray) -> np.ndarray:
+    """Per-frame cosine of two equally long CLIP row arrays."""
+    if rebuilt.shape != reference.shape:
+        raise ValueError(f"row mismatch: rebuilt {rebuilt.shape} vs reference {reference.shape}")
+    cos: np.ndarray = np.sum(normalize_rows(rebuilt) * normalize_rows(reference), axis=1)
+    return cos
+
+
+def passes_frame_gate(cos: np.ndarray) -> bool:
+    return bool(
+        cos.mean() >= constants.DOTA_CAP_MEAN_COS and cos.min() >= constants.DOTA_CAP_MIN_COS
+    )
+
+
+# --------------------------------------------------------------------------- align
+
+
+def run_align(args: argparse.Namespace) -> dict[str, Any]:
+    matches = json.loads(args.matches.read_text(encoding="utf-8"))["dota"]
+    rows: list[Alignment] = []
+    for m in sorted(matches, key=lambda r: r["query"]):
+        if m["grade"] != GRADE_EXACT:
+            rows.append(Alignment(m["query"], m["cap_id"], m["frames"], 0, f"p0_{m['grade']}", []))
+            continue
+        query = normalize_rows(np.load(args.dota_clip_dir / f"{m['query']}.npy"))
+        cap = normalize_rows(np.load(args.cap_clip_dir / f"{m['cap_id']}.npy"))
+        rows.append(gate_alignment(m["query"], m["cap_id"], query, cap))
+    return {
+        "matches": str(args.matches),
+        "matches_sha256": file_sha256(args.matches),
+        "thresholds": {
+            "mean_cos": constants.DOTA_CAP_MEAN_COS,
+            "min_cos": constants.DOTA_CAP_MIN_COS,
+            "step_tol": constants.DOTA_CAP_STEP_TOL,
+            "max_irregular": constants.DOTA_CAP_MAX_IRREGULAR,
+        },
+        "clips": {r.dota_id: asdict(r) for r in rows},
+    }
+
+
+def coverage(passed: set[str], all_ids: set[str], dev: set[str]) -> dict[str, dict[str, int]]:
+    """Kept / total on all DoTA, DoTA-dev and the rest (eval ids are the complement)."""
+    rest = all_ids - dev
+    return {
+        name: {"kept": len(passed & ids), "of": len(ids)}
+        for name, ids in (("all", all_ids), ("dev", dev), ("rest_eval", rest))
+    }
+
+
+def _cov_lines(cov: dict[str, dict[str, int]]) -> list[str]:
+    return [
+        "| set | kept | of | share |",
+        "|---|---|---|---|",
+        *(
+            f"| {k} | {v['kept']} | {v['of']} | {v['kept'] / v['of']:.3f} |"
+            for k, v in cov.items()
+            if v["of"]
+        ),
+    ]
+
+
+def render_align(alignment: dict[str, Any], dev: set[str]) -> str:
+    clips = alignment["clips"]
+    reasons = Counter(c["reason"] for c in clips.values())
+    passed = {k for k, c in clips.items() if c["reason"] == OK}
+    steps = Counter(c["median_step"] for c in clips.values() if c["reason"] == OK)
+    th = alignment["thresholds"]
+    return "\n".join([
+        "# DoTA-CAP — alignment (L1-L3, CLIP caches only)",
+        "",
+        f"Rule: addendum §11. mean cos ≥ {th['mean_cos']}, every frame ≥ {th['min_cos']}, "
+        f"irregular steps (|Δj - median| > {th['step_tol']}) ≤ {th['max_irregular']:.0%}.",
+        f"Matches: `{alignment['matches']}` (sha256 `{alignment['matches_sha256'][:12]}`)",
+        "",
+        "Reasons: " + ", ".join(f"{k} {v}" for k, v in sorted(reasons.items())),
+        "Median CAP step of kept clips: "
+        + ", ".join(f"{k:g} → {v}" for k, v in sorted(steps.items())),
+        "",
+        *_cov_lines(coverage(passed, set(clips), dev)),
+        "",
+    ])
+
+
+# --------------------------------------------------------------------------- extract
+
+
+def rebuild_folder(farm: Path, cap_paths: list[Path], frame_map: list[int]) -> Path:
+    """``farm/{d:06d}{suffix}`` -> ``cap_paths[j_d]``: DoTA's frame sequence, without copying."""
+    shutil.rmtree(farm, ignore_errors=True)
+    farm.mkdir(parents=True)
+    for d, j in enumerate(frame_map):
+        source = cap_paths[j]
+        (farm / f"{d:06d}{source.suffix}").symlink_to(source.resolve())
+    return farm
+
+
+@dataclass
+class Extractor:
+    """Per-batch callback of :func:`run_extract`: L4-L6 for every DoTA clip in the batch."""
+
+    by_cap: dict[str, list[dict[str, Any]]]
+    clip_encoder: extract_clip_features.ImageEncoder
+    encoders: dict[str, nn.Module]
+    out_dirs: dict[str, Path]
+    dota_clip_dir: Path
+    farm: Path
+    device: torch.device
+    subdir: str
+    batch_size: int
+    report: dict[str, dict[str, Any]]
+    save_report: Callable[[], None]
+
+    def __call__(self, ready_dir: Path) -> None:
+        for folder in sorted(p for p in ready_dir.iterdir() if p.is_dir()):
+            cap_paths = list_frame_images(folder, self.subdir)
+            for clip in self.by_cap.get(folder.name, []):
+                self.report[clip["dota_id"]] = self.one_clip(clip, cap_paths)
+        self.save_report()
+
+    def one_clip(self, clip: dict[str, Any], cap_paths: list[Path]) -> dict[str, Any]:
+        entry: dict[str, Any] = {"cap_id": clip["cap_id"], "cap_frames_streamed": len(cap_paths)}
+        if len(cap_paths) != clip["cap_frames"]:
+            return {**entry, "reason": "cap_frames_mismatch"}
+        farm = rebuild_folder(self.farm / clip["dota_id"], cap_paths, clip["frame_map"])
+        try:
+            rebuilt = extract_clip_features.encode_frame_dir(
+                farm, self.clip_encoder, self.device, stride=1, batch_size=self.batch_size,
+                center_crop=False,
+            )
+            cos = frame_cosines(rebuilt, np.load(self.dota_clip_dir / f"{clip['dota_id']}.npy"))
+            entry |= {"clip_mean_cos": float(cos.mean()), "clip_min_cos": float(cos.min())}
+            if not passes_frame_gate(cos):
+                return {**entry, "reason": "pixel_clip_cos"}
+            for name, encoder in self.encoders.items():
+                features = extract_video_features.encode_frame_dir(
+                    farm, encoder, self.device, stride=1, batch_size=self.batch_size,
+                    clip_step=constants.DOTA_VIDEOMAE_FRAME_STEP,
+                )
+                save_array(self.out_dirs[name] / f"{clip['dota_id']}.npy", features)
+        finally:
+            shutil.rmtree(farm, ignore_errors=True)
+        LOGGER.info("%s <- CAP %s: %d frames, CLIP cos mean %.4f min %.4f",
+                    clip["dota_id"], clip["cap_id"], len(clip["frame_map"]),
+                    entry["clip_mean_cos"], entry["clip_min_cos"])
+        return {**entry, "reason": OK}
+
+
+def video_out_dir(encoder: str) -> Path:
+    return constants.VIDEO_CACHE_DIR / encoder / f"{constants.DOTA_CAP_DATASET}_s1_squash"
+
+
+def video_manifest(encoder: str, alignment_sha256: str) -> dict[str, Any]:
+    """The P1 manifest with DoTA's geometry and the frame source (lesson C2)."""
+    return extract_video_features.build_manifest(
+        encoder, 1, constants.VIDEOMAE_WEIGHTS_SHA256[encoder]
+    ) | {
+        "clip_frame_step": constants.DOTA_VIDEOMAE_FRAME_STEP,
+        "assumed_fps": constants.DOTA_FPS,
+        "frame_source": FRAME_SOURCE,
+        "alignment_sha256": alignment_sha256,
+    }
+
+
+def todo_clips(
+    alignment: dict[str, Any], out_dirs: dict[str, Path], report: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Aligned clips not yet decided: no report entry, or an ok entry missing a feature file."""
+    todo = []
+    for dota_id, clip in sorted(alignment["clips"].items()):
+        if clip["reason"] != OK:
+            continue
+        done = report.get(dota_id)
+        if done is not None and (
+            done["reason"] != OK
+            or all(is_complete(d / f"{dota_id}.npy") for d in out_dirs.values())
+        ):
+            continue
+        todo.append(clip)
+    return todo
+
+
+def run_extract(args: argparse.Namespace) -> None:
+    alignment = json.loads(args.alignment.read_text(encoding="utf-8"))
+    alignment_sha = file_sha256(args.alignment)
+    out_dirs = {name: video_out_dir(name) for name in args.encoders}
+    for name, out in out_dirs.items():
+        extract_video_features.check_or_write_manifest(
+            out, video_manifest(name, alignment_sha), force=False
+        )
+    report: dict[str, dict[str, Any]] = (
+        json.loads(args.report.read_text(encoding="utf-8")) if args.report.exists() else {}
+    )
+    todo = todo_clips(alignment, out_dirs, report)
+    if args.cap_ids_file is not None:
+        in_group = read_ids_file(args.cap_ids_file)
+        todo = [c for c in todo if c["cap_id"] in in_group]
+    if not todo:
+        LOGGER.info("Nothing to extract for %s", args.parts[0].parent)
+        return
+    by_cap: dict[str, list[dict[str, Any]]] = {}
+    for clip in todo:
+        by_cap.setdefault(clip["cap_id"], []).append(clip)
+    device = resolve_device(args.device)
+    extractor = Extractor(
+        by_cap=by_cap,
+        clip_encoder=extract_clip_features.load_pretrained_encoder(device),
+        encoders={n: load_pretrained(n, device, None) for n in args.encoders},
+        out_dirs=out_dirs,
+        dota_clip_dir=args.dota_clip_dir,
+        farm=args.work_dir / FARM_DIR,
+        device=device,
+        subdir=args.frames_subdir,
+        batch_size=args.batch_size,
+        report=report,
+        save_report=lambda: write_json_atomic(args.report, report),
+    )
+    LOGGER.info("Extracting %d DoTA clips from %d CAP videos", len(todo), len(by_cap))
+    stream_video_batches(
+        sorted(args.parts), args.work_dir / "stream", args.frames_subdir,
+        args.max_batch_gb * constants.BYTES_PER_GB, extractor, keep_ids=set(by_cap),
+    )
+    unseen = sorted(c["dota_id"] for c in todo if c["dota_id"] not in report)
+    if unseen and args.cap_ids_file is not None:
+        raise ValueError(f"{len(unseen)} DoTA clips' CAP videos were not in the tar: {unseen[:5]}")
+    shutil.rmtree(args.work_dir, ignore_errors=True)
+
+
+# --------------------------------------------------------------------------- finalize
+
+
+def run_finalize(args: argparse.Namespace) -> dict[str, Any]:
+    alignment = json.loads(args.alignment.read_text(encoding="utf-8"))
+    report: dict[str, dict[str, Any]] = {}
+    for path in args.reports:
+        report |= json.loads(path.read_text(encoding="utf-8"))
+    clips = alignment["clips"]
+    reasons: Counter[str] = Counter()
+    passed: set[str] = set()
+    for dota_id, clip in clips.items():
+        if clip["reason"] != OK:
+            reasons[f"align:{clip['reason']}"] += 1
+            continue
+        entry = report.get(dota_id)
+        if entry is None:
+            reasons["extract:not_run"] += 1
+        elif entry["reason"] != OK:
+            reasons[f"extract:{entry['reason']}"] += 1
+        elif not all(
+            is_complete(video_out_dir(n) / f"{dota_id}.npy") for n in args.encoders
+        ):
+            reasons["extract:feature_missing"] += 1
+        else:
+            passed.add(dota_id)
+            reasons[OK] += 1
+    dev = set(load_split(constants.V2_SPLIT_DOTA_DEV, args.split_dir))
+    ids = sorted(passed)
+    return {
+        "alignment_sha256": file_sha256(args.alignment),
+        "encoders": list(args.encoders),
+        "reasons": dict(sorted(reasons.items())),
+        "coverage": coverage(passed, set(clips), dev),
+        "ids_sha1": lines_sha1(ids),
+        "ids": ids,
+        "clip_cos_min_of_kept": min(
+            (report[i]["clip_min_cos"] for i in ids), default=None
+        ),
+    }
+
+
+def render_final(readout: dict[str, Any]) -> str:
+    return "\n".join([
+        "# DoTA-CAP — final subset (L1-L7)",
+        "",
+        f"Encoders: {', '.join(readout['encoders'])} · ids sha1 `{readout['ids_sha1']}` · "
+        f"alignment sha256 `{readout['alignment_sha256'][:12]}`",
+        f"Lowest per-frame CLIP cosine among kept clips: {readout['clip_cos_min_of_kept']}",
+        "",
+        "Reasons: " + ", ".join(f"{k} {v}" for k, v in readout["reasons"].items()),
+        "",
+        *_cov_lines(readout["coverage"]),
+        "",
+        "Name it **DoTA-CAP (n/1397)**; never beside a full-DoTA number or LaGoVAD's 62.60.",
+        "",
+    ])
+
+
+# --------------------------------------------------------------------------- CLI
+
+
+def _add_encoders(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--encoders", nargs="+", default=[constants.VIDEOMAE_ENCODER_B],
+                        choices=sorted(constants.VIDEOMAE_ARCH))
+
+
+def build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n", 1)[0])
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    align = sub.add_parser("align", help="L1-L3 on the CLIP caches")
+    align.add_argument("--matches", type=Path, required=True, help="mmau_p0_matches.json")
+    align.add_argument("--dota-clip-dir", type=Path, required=True, help="DoTA_s1_ncc")
+    align.add_argument("--cap-clip-dir", type=Path, required=True, help="MMAU_CAP_s1_ncc")
+    align.add_argument("--split-dir", type=Path, default=constants.V2_SPLITS_DIR)
+    align.add_argument("--out-dir", type=Path, required=True)
+
+    extract = sub.add_parser("extract", help="L4-L6 on one CAP group's tar parts")
+    extract.add_argument("--alignment", type=Path, required=True)
+    extract.add_argument("--parts", type=Path, nargs="+", required=True)
+    extract.add_argument("--work-dir", type=Path, required=True, help="VM disk, not Drive")
+    extract.add_argument("--dota-clip-dir", type=Path, required=True, help="DoTA_s1_ncc")
+    extract.add_argument("--report", type=Path, required=True, help="per-group JSON, resumable")
+    extract.add_argument("--cap-ids-file", type=Path, default=None,
+                         help="CAP ids in this group: restricts the work, stops the stream early")
+    _add_encoders(extract)
+    extract.add_argument("--frames-subdir", default="images")
+    extract.add_argument("--batch-size", type=int, default=16)
+    extract.add_argument("--max-batch-gb", type=float, default=constants.MMAU_STREAM_BATCH_GB)
+    extract.add_argument("--device", default="auto")
+
+    final = sub.add_parser("finalize", help="L7: the DoTA-CAP id list and coverage")
+    final.add_argument("--alignment", type=Path, required=True)
+    final.add_argument("--reports", type=Path, nargs="+", required=True)
+    _add_encoders(final)
+    final.add_argument("--split-dir", type=Path, default=constants.V2_SPLITS_DIR)
+    final.add_argument("--out-dir", type=Path, required=True)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> None:
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    args = build_arg_parser().parse_args(argv)
+    if args.command == "align":
+        alignment = run_align(args)
+        dev = set(load_split(constants.V2_SPLIT_DOTA_DEV, args.split_dir))
+        write_json_atomic(args.out_dir / ALIGNMENT_JSON, alignment)
+        write_text_atomic(args.out_dir / ALIGN_MD, render_align(alignment, dev))
+        LOGGER.info("alignment -> %s", args.out_dir / ALIGNMENT_JSON)
+    elif args.command == "extract":
+        run_extract(args)
+    else:
+        readout = run_finalize(args)
+        write_json_atomic(args.out_dir / FINAL_JSON, readout)
+        write_text_atomic(args.out_dir / IDS_TXT, "".join(f"{i}\n" for i in readout["ids"]))
+        write_text_atomic(args.out_dir / FINAL_MD, render_final(readout))
+        LOGGER.info("DoTA-CAP: %d clips -> %s", len(readout["ids"]), args.out_dir / IDS_TXT)
+
+
+if __name__ == "__main__":
+    main()

@@ -109,12 +109,19 @@ def encode_frame_dir(
     stride: int = constants.FRAME_STRIDE,
     batch_size: int = 16,
     subdir: str | None = None,
+    clip_step: int = constants.VIDEOMAE_CLIP_FRAME_STEP,
 ) -> np.ndarray:
-    """``(L, D)`` float32 motion features, ``L = ceil(frames / stride)``."""
+    """``(L, D)`` float32 motion features, ``L = ceil(frames / stride)``.
+
+    ``clip_step`` = raw frames between the clip's 16 frames: 3 at DADA's 30 fps, 1 at DoTA's
+    native 10 fps (``DOTA_VIDEOMAE_FRAME_STEP``); both give the same causal 1.5 s.
+    """
     paths = list_frame_images(folder, subdir)
     if not paths:
         raise ValueError(f"No frame images under {folder}")
-    clips = [causal_clip_indices(end) for end in step_end_frames(len(paths), stride)]
+    clips = [
+        causal_clip_indices(end, step=clip_step) for end in step_end_frames(len(paths), stride)
+    ]
     frames = decode_frames(paths, sorted({i for clip in clips for i in clip}))
     chunks: list[Tensor] = []
     for start in range(0, len(clips), batch_size):
