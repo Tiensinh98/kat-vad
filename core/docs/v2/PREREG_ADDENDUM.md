@@ -297,3 +297,80 @@ essentially absent from CAP (3 near / 1,945). Exact matches align at CAP/DoTA fr
 | L5 | Pixel gate: CLIP (`no_center_crop`) of the rebuilt frame sequence vs `DoTA_s1_ncc`, same thresholds as L2. A clip that fails gets no feature file |
 | L6 | VideoMAE geometry on the rebuilt sequence: DoTA's native 10 fps, 16 consecutive frames (`DOTA_VIDEOMAE_FRAME_STEP` = 1, the same causal 1.5 s as DADA's every 3rd at 30 fps — architecture §3), ending at the step, clamped at DoTA frame 0 (no CAP frame outside the DoTA clip is used), squash 224², stride 1 (row-aligned with `DoTA_s1_ncc`; any stride is `[::s]`). Encoders V2-B and V2-S. Cache `cache/video/<encoder>/DoTA_CAP_s1_squash/`, manifest with `frame_source` and `alignment_sha256` |
 | L7 | DoTA-CAP = clips passing L1–L6 with a feature file for every encoder. The id list (`dota_cap_ids.txt`, sha1 in its read-out) is frozen into `core/splits/v2/` and committed **before any motion-arm score is read** |
+
+### 11.2 Amendment 4a (2026-10-03) — L1 uses a fitted line, not the DP path (L1′)
+
+Written after the `align` read-out (counts of kept clips only) and **before any VideoMAE feature or
+motion score exists**. **Authorized by the user on 2026-10-03; not reviewed by the advisor.** The
+change was made after seeing how many clips survived; it is justified by the mechanism below, which
+was measured, not by the count.
+
+**Fact (Colab, 2026-10-03, `outputs/v2/REPORTS/dota_cap/`).** Under L1–L3 as first written: kept 895 /
+1,248 exact (DoTA-dev 439 / 702); `irregular_steps` dropped 323, `mean_cos` 15, `min_cos` 7,
+`cap_shorter` 8. Kept median CAP step 1 → 817, 3 → 77: almost every CAP-at-30-fps clip (399 at P0)
+failed L3. Diagnostics (printed, not gated):
+
+| | n | Theil–Sen rate q05/q50/q95 | aligned mean cos q50 | adjacent-CAP duplicate share q50 |
+|---|---|---|---|---|
+| kept | 895 | 1.0 / 1.0 / 3.0 | 0.9942 | 0.0 |
+| `irregular_steps` | 323 | **3.0 / 3.0 / 3.0** | 0.9937 | 0.16 |
+
+The failed clips are uniform 30 fps streams (rate exactly 3) whose content matches as well as the kept
+ones. CAP did not duplicate frames (the duplicate-collapse hypothesis rescued 1 clip). The DP path
+picks a CAP frame 1–2 frames (33–67 ms) off the true one because CLIP cannot tell two adjacent 30 fps
+frames apart: the defect was in L1's construction, and L3 correctly refused to hand VideoMAE a
+jittered clock.
+
+| # | Change |
+|---|---|
+| L1′ | The frame map is `j_d = ⌊rate · d + offset + ½⌋`, with `(rate, offset)` the Theil–Sen fit (median pairwise slope; intercept `median(j) − rate · median(d)`) on the L1 DP path. The line must stay inside the CAP clip (`out_of_range`) and be strictly increasing (`not_increasing`). L2 and L3 are then evaluated on this map, unchanged. A CAP stream that is not a uniform resample of DoTA fails L2. Rounding is half-up: numpy's half-to-even rounding alternates the steps 4, 2, 4, 2 on an odd integer rate with a .5 offset (caught by a test) |
+
+Expected (Colab diagnostic with numpy rounding, so indicative only): about 886 of the 895 + 256 of the
+323 pass L2. The tool's own read-out is the record.
+
+### 11.3 Amendment 4b (2026-10-03) — the line may move by less than one DoTA frame
+
+Written after the L1′ `align` read-out (counts only) and **before any VideoMAE feature or motion
+score exists**. **Authorized by the user on 2026-10-03; not reviewed by the advisor.**
+
+**Fact.** Under L1′: kept 852 (DoTA-dev 409 / 702); `out_of_range` **347**, `mean_cos` 32, `min_cos` 9,
+`cap_shorter` 8; kept median step 1 → 817, 3 → 34. L1′ moved the 30 fps clips from `irregular_steps`
+to `out_of_range`, and it also lost 43 of the 77 rate-3 clips that L1 had kept. The Colab diagnostic
+that predicted ~1,142 clipped the line to the CAP clip; the tool did not. A CAP clip that ends on DoTA's
+last frame leaves no room for a fitted offset above 0 (the DP's jitter pulls the median offset toward
++1), so the rounded line ends one or two CAP frames past the clip.
+
+| # | Change |
+|---|---|
+| L1″ | Keep L1′'s rate. The line may move by an integer `k` CAP frames with `|k| < rate` (strictly less than one DoTA frame interval, so a DoTA frame can never take its neighbour's content; at rate 1 only `k = 0`). Among the shifts that stay inside the CAP clip, the one with the highest mean cosine is used; none inside → `out_of_range`. L2/L3 are unchanged. Each clip records `overshoot` (CAP frames the unshifted line leaves the clip by) and `phase_shift`; the read-out prints both histograms |
+
+Not chosen: clamping the line to the clip, which makes two DoTA frames share one CAP frame (`not_increasing`).
+
+### 11.4 Amendment 4c (2026-10-03) — each DoTA frame may sit within a band of the line
+
+Written after the L1″ `align` read-out and a printed diagnostic, **before any VideoMAE feature or motion
+score exists**. **Authorized by the user on 2026-10-03; not reviewed by the advisor.**
+
+**Fact.** Under L1″: kept 906 (dev 441); `out_of_range` 46 (overshoot 1 → 26, 2 → 12, ≥ 3 → 8), `mean_cos`
+**274**, `min_cos` 14. Diagnostic on the cached CLIP rows (q50; `ceiling` = each DoTA frame's best CAP frame
+anywhere, `near3` = best within ±3 of the line, `drift` = Theil–Sen slope of that best offset × clip length):
+
+| group | n | line | DP path | ceiling | near3 | drift | q1 / mid / q4 (line) |
+|---|---|---|---|---|---|---|---|
+| `mean_cos`, rate 3 | 261 | 0.9863 | 0.9934 | 0.9935 | 0.9934 | 0 | 0.986 / 0.985 / 0.990 |
+| `ok`, rate 3 | 88 | 0.9920 | 0.9948 | 0.9949 | 0.9948 | 0 | 0.991 / 0.992 / 0.993 |
+| `mean_cos`, rate 1 | 12 | 0.9897 | 0.9897 | 0.9907 | 0.9904 | 0 | — |
+
+Rate-3 content is present (ceiling ≥ 0.99) within ±3 frames of the line, with no drift and no edge effect:
+the true map is the line plus a bounded residual that a straight line cannot follow. Mechanism (consistent,
+not proven): the adjacent-duplicate share of these CAP streams is 0.16 ≈ 1/6, i.e. a 25 fps source resampled
+to 30 fps, while DoTA took 10 fps from that source, so two nearest-frame resamplings leave a periodic ±1 residual;
+rate-2.5 CAP clips also exist. The rate-1 failures have ceiling ≈ 0.991 — genuinely different content; they stay out.
+
+| # | Change |
+|---|---|
+| L1‴ | After L1″'s shift, each DoTA frame takes the CAP frame with the highest cosine within `band = ⌈rate/2⌉ − 1` frames of the line (strictly under half a DoTA interval: 1 at rate 3 or 2.5, 0 at rate ≤ 2), strictly increasing (DP restricted to the band). The shift is chosen by the banded path's mean cosine. The line still sets the clock, so no drift is possible; the band only absorbs the residual |
+| L3′ | Steps are compared with the fitted rate, not their median: irregular iff `|Δj − rate| > DOTA_CAP_STEP_TOL + 2·band`. At band 0 this is L3 (line steps equal the rate). A median of alternating 4, 2 steps is 4 or 2, which made L3 reject the residual L1‴ is meant to keep |
+
+L2 thresholds, L4–L7 unchanged; L5 (pixel CLIP vs `DoTA_s1_ncc`) still re-checks every rebuilt clip. Each clip
+records `line_mean_cos`; the read-out prints line → band q50 per reason. Not chosen: lowering L2 (a rule tuned on a count).

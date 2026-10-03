@@ -70,10 +70,83 @@ class TestGate:
         query[50] = _unit(rng, 1)[0]  # mean stays >= 0.99, one frame does not exist in CAP
         assert dota_cap.gate_alignment("q", "c", query, cap).reason == "min_cos"
 
-    def test_warped_time_axis_fails(self) -> None:
+    def test_non_uniform_clip_fails_once_the_map_is_linear(self) -> None:
         cap = _unit(np.random.default_rng(6), 200)
         positions = np.concatenate([np.arange(0, 60, 3), np.arange(61, 70), np.arange(72, 150, 3)])
-        assert dota_cap.gate_alignment("q", "c", cap[positions], cap).reason == "irregular_steps"
+        a = dota_cap.gate_alignment("q", "c", cap[positions], cap)
+        assert a.reason != dota_cap.OK
+
+    def test_jittery_dp_path_is_replaced_by_the_line(self) -> None:
+        """30 fps CAP frames CLIP cannot tell apart: the DP may jitter, the line does not."""
+        rng = np.random.default_rng(8)
+        base = _unit(rng, 40)
+        cap = mmau_match.normalize_rows(
+            np.repeat(base, 3, axis=0) + 1e-3 * rng.normal(size=(120, DIM))
+        )
+        a = dota_cap.gate_alignment("q", "c", base, cap)
+        assert a.reason == dota_cap.OK
+        assert a.rate == pytest.approx(3.0, abs=0.05)
+        # every DoTA frame lands on one of its own three CAP copies (the band is +-1 at rate 3)
+        np.testing.assert_array_equal(np.asarray(a.frame_map) // 3, np.arange(40))
+
+    def test_half_up_rounding_keeps_the_line_at_rate_three(self) -> None:
+        path = np.arange(40) * 3 + np.arange(40) % 2
+        assert dota_cap.theil_sen(path.astype(np.float64)) == pytest.approx((3.0, 0.5))
+        line, _ = dota_cap.linear_map(path)
+        assert set(np.diff(line)) == {3}  # np.round's half-to-even would give 4, 2, 4, 2
+
+    def test_theil_sen_matches_scipy(self) -> None:
+        scipy_stats = pytest.importorskip("scipy.stats")
+        path = np.array([0, 3, 7, 9, 12, 16, 18, 21, 30, 27], dtype=np.float64)
+        rate, offset = dota_cap.theil_sen(path)
+        ref = scipy_stats.theilslopes(path, np.arange(len(path)))
+        assert (rate, offset) == pytest.approx((ref.slope, ref.intercept))
+
+    def test_line_one_frame_past_the_end_is_shifted_back(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A 30 fps CAP that ends on the DoTA clip's last frame; a fit offset of +1 overshoots."""
+        rng = np.random.default_rng(10)
+        base = _unit(rng, 40)
+        cap = _unit(rng, 118)
+        cap[::3] = base  # DoTA frame d is CAP frame 3d; the clip ends there
+        monkeypatch.setattr(dota_cap, "theil_sen", lambda path: (3.0, 1.0))
+        a = dota_cap.gate_alignment("q", "c", base, cap)
+        assert a.reason == dota_cap.OK
+        assert (a.overshoot, a.phase_shift) == (1, -1)
+        np.testing.assert_array_equal(a.frame_map, np.arange(40) * 3)
+
+    def test_resampled_source_residual_is_absorbed_by_the_band(self) -> None:
+        """25 fps source -> CAP 30 fps and DoTA 10 fps: DoTA frame d is CAP 3d + {0, +1}."""
+        rng = np.random.default_rng(11)
+        cap = _unit(rng, 130)
+        truth = np.arange(40) * 3 + (np.arange(40) % 2)  # periodic residual, no drift
+        a = dota_cap.gate_alignment("q", "c", cap[truth], cap)
+        assert a.reason == dota_cap.OK
+        np.testing.assert_array_equal(a.frame_map, truth)
+        assert a.line_mean_cos is not None and a.mean_cos is not None
+        assert a.line_mean_cos < a.mean_cos
+
+    def test_band_is_under_half_a_dota_frame(self) -> None:
+        assert [dota_cap.band_width(r) for r in (1.0, 2.0, 2.5, 3.0)] == [0, 0, 1, 1]
+        line = np.arange(5) * 3
+        sims = np.zeros((5, 15))
+        sims[np.arange(5), line + 1] = 0.5
+        sims[np.arange(5), line + 2] = 1.0  # better, but two off the line: outside a band of 1
+        np.testing.assert_array_equal(dota_cap.banded_path(sims, line, 1), line + 1)
+
+    def test_rate_one_line_is_never_shifted(self) -> None:
+        line = np.arange(10)
+        assert [k for k, _ in dota_cap.phase_candidates(line, 1.0, 10)] == [0]
+        assert dota_cap.phase_candidates(line + 1, 1.0, 10) == []
+        assert [k for k, _ in dota_cap.phase_candidates(line * 3 + 1, 3.0, 29)] == [0, -1]
+
+    def test_line_leaving_the_cap_clip_fails(self) -> None:
+        cap = _unit(np.random.default_rng(9), 30)
+        query = np.concatenate([cap[:20], cap[29:30]])  # last frame far off the line
+        assert dota_cap.monotone_alignment(query @ cap.T) is not None
+        a = dota_cap.gate_alignment("q", "c", query, cap)
+        assert a.reason != dota_cap.OK
 
 
 def _write_caches(root: Path, clips: dict[str, np.ndarray]) -> Path:
@@ -169,6 +242,7 @@ class TestExtract:
         )
         np.save(dota_dir / "good_000001.npy", good)
         np.save(dota_dir / "bad_000001.npy", -good[:4])  # pixels exist but are not DoTA's
+        np.save(dota_dir / "short_000001.npy", good[:2])
         alignment = {"clips": {
             "good_000001": {"dota_id": "good_000001", "cap_id": "000010", "cap_frames": 30,
                             "frame_map": frame_map, "reason": "ok"},
@@ -193,6 +267,11 @@ class TestExtract:
             "--dota-clip-dir", str(dota_dir), "--report", str(report), "--batch-size", "4",
             "--device", "cpu",
         ]
+        empty = tmp_path / "empty"
+        empty.mkdir()
+        with pytest.raises(FileNotFoundError, match="3 DoTA CLIP rows missing"):
+            dota_cap.main([*args, "--dota-clip-dir", str(empty)])  # argparse: last one wins
+        assert not report.exists()
         dota_cap.main(args)
 
         got = json.loads(report.read_text())

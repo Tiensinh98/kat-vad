@@ -71,7 +71,21 @@ architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 * Gaps: census missing for groups `11`/`12-42`; `build_v2_inputs apply --stride` refuses a motion cache (needed for
   DoTA protocol B on motion arms).
 
-**Next action:** user uploads code → runs `dota_cap_videomae.ipynb` → pastes align + final read-outs + brings
+* **Align v1 read out (2026-10-03):** 895/1248 kept (dev 439); 323 `irregular_steps` were uniform 30 fps CAP streams
+  (Theil–Sen rate 3.0, cos as good as kept) — DP jitters 1–2 frames because CLIP cannot separate 33 ms. Duplicate-frame
+  hypothesis falsified. **Amendment 4a** (addendum §11.2): map = half-up rounded Theil–Sen line; diagnostic predicts
+  ≈886 + 256 pass. Caught np.round half-to-even (4,2,4,2 steps) in a test.
+* **Align L1′ read out:** 852 kept (dev 409); **347 `out_of_range`** — the diagnostic had clipped the line, the tool
+  did not; rate-3 lines overshoot the CAP clip end by 1–2 frames. **Amendment 4b** (§11.3): shift the line by
+  `|k| < rate` CAP frames (sub-DoTA-frame phase), best in-range mean cos; `overshoot`/`phase_shift` printed. Suite 798/0.
+* **Align L1″ read out:** 906 kept, 274 `mean_cos` (261 rate 3: line 0.986 vs ceiling 0.9935, drift 0, no edge
+  effect). **Amendment 4c** (§11.4): banded DP `±(⌈rate/2⌉−1)` around the line + L3 vs rate. Suite 801/0. Uncommitted.
+* **Align L1‴ read out (final):** **1,129 kept / 1,397 (0.808); dev 569 / 702 (0.811)**; rate 3 kept 310; band lifts
+  rate-3 kept q50 0.9882 → 0.9937; 44 rate-3 `mean_cos` stay out (band 0.9878). Next: extract (GPU) → finalize.
+* Extract run 1 crashed: GPU runtime had no `/content/dcap/stage` (CPU-runtime disk). Fix: notebook reads
+  `DoTA_s1_ncc` from Drive; `run_extract` pre-checks every DoTA row before loading models / streaming.
+
+**Next action:** user re-uploads code → re-runs align (step 1) → step 2 extract → finalize → pastes read-outs + brings
 `dota_cap_ids.txt` → Claude freezes it into `core/splits/v2/` before any motion score.
 
 ## 2026-09-30 (latest) — **MM-AU / CAP-DATA Phase 0 built: can CAP give DoTA its pixels back?** (branch `v2`)

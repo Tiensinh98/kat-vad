@@ -6,13 +6,22 @@ module turns those pairs into a per-frame map and a VideoMAE cache row-aligned w
 ``DoTA_s1_ncc``. Three subcommands:
 
 ``align`` (CPU, CLIP caches only, no pixels, no labels)
-    For every ``exact`` pair: the strictly increasing CAP frame ``j_d`` for each DoTA frame
-    ``d`` that maximizes the summed cosine (dynamic programming over the two s1 CLIP caches;
-    independent of fps -- CAP stores some DoTA clips at 10 fps, some at 30). A clip is kept iff
-    (L1) CAP has at least as many frames, (L2) mean aligned cosine >= ``DOTA_CAP_MEAN_COS`` and
-    every frame >= ``DOTA_CAP_MIN_COS``, (L3) at most ``DOTA_CAP_MAX_IRREGULAR`` of its CAP steps
-    differ from the clip's median step by more than ``DOTA_CAP_STEP_TOL`` (a look-alike frame in
-    a static stretch would otherwise warp VideoMAE's time axis).
+    For every ``exact`` pair: the strictly increasing CAP frame for each DoTA frame ``d`` that
+    maximizes the summed cosine (dynamic programming over the two s1 CLIP caches; independent of
+    fps -- CAP stores some DoTA clips at 10 fps, some at 30). **Amendment 4a (L1'):** CLIP cannot
+    tell two 30 fps frames 33 ms apart, so the DP path jitters by 1-2 frames around the true one;
+    the map used is ``j_d = round(rate * d + offset)`` from a Theil-Sen fit on that path, which
+    is uniform in time by construction. **Amendment 4b:** the line's end can fall a CAP frame or
+    two past the clip, so it may move by ``|k| < rate`` CAP frames (less than one DoTA frame);
+    the in-range shift with the best mean cosine is used. **Amendment 4c:** within that clock each
+    DoTA frame takes the best CAP frame at most ``band_width(rate)`` frames off the line (1 at
+    rate 3, 0 at rate 1) -- a resampled source leaves a bounded rounding residual. A clip is kept
+    iff (L1) CAP has at least as many frames and the line stays inside the CAP clip, strictly
+    increasing, (L2) mean cosine of the mapped frames >= ``DOTA_CAP_MEAN_COS`` and every frame >=
+    ``DOTA_CAP_MIN_COS``
+    (a CAP stream that is not a uniform resample of DoTA fails here), (L3) at most
+    ``DOTA_CAP_MAX_IRREGULAR`` of its steps differ from the median step by more than
+    ``DOTA_CAP_STEP_TOL``.
 
 ``extract`` (GPU, one CAP group's tar parts)
     Streams only the kept CAP videos (:func:`stream_video_batches` with ``keep_ids``), builds a
@@ -93,6 +102,11 @@ class Alignment:
     min_cos: float | None = None
     median_step: float | None = None
     irregular_share: float | None = None
+    rate: float | None = None  # Theil-Sen CAP frames per DoTA frame
+    dp_jitter_share: float | None = None  # DP frames > 2 CAP frames off the line (printed only)
+    phase_shift: int | None = None  # Amendment 4b: CAP frames the line was moved (|k| < rate)
+    overshoot: int | None = None  # CAP frames the unshifted line leaves the clip by (0 = inside)
+    line_mean_cos: float | None = None  # straight line's mean cosine, before 4c's band (printed)
 
 
 def monotone_alignment(sims: np.ndarray) -> np.ndarray | None:
@@ -117,18 +131,90 @@ def monotone_alignment(sims: np.ndarray) -> np.ndarray | None:
     return path
 
 
+def theil_sen(path: np.ndarray) -> tuple[float, float]:
+    """``(rate, offset)`` of ``j ~ rate * d + offset``: median pairwise slope, then
+    ``median(j) - rate * median(d)`` (scipy ``theilslopes``' default intercept)."""
+    d = np.arange(len(path), dtype=np.float64)
+    if len(path) < 2:
+        return 1.0, float(path[0])
+    i, k = np.triu_indices(len(path), 1)
+    rate = float(np.median((path[k] - path[i]) / (d[k] - d[i])))
+    return rate, float(np.median(path) - rate * np.median(d))
+
+
+def linear_map(path: np.ndarray) -> tuple[np.ndarray, float]:
+    """Amendment 4a: ``j_d = round(rate * d + offset)`` from a Theil-Sen fit on the DP path."""
+    rate, offset = theil_sen(path.astype(np.float64))
+    # half up, not np.round's half-to-even: with an odd integer rate and a .5 offset (an even-length
+    # clip's median d) half-to-even alternates the steps 4, 2, 4, 2 instead of 3, 3, 3
+    line = rate * np.arange(len(path)) + offset
+    return np.floor(line + 0.5).astype(np.int64), rate
+
+
+def phase_candidates(line: np.ndarray, rate: float, n_cap: int) -> list[tuple[int, np.ndarray]]:
+    """Amendment 4b: the line moved by ``k`` CAP frames, ``|k| < rate``, kept iff inside the clip.
+
+    A shift shorter than one DoTA frame interval re-picks the sub-frame phase only; it cannot hand
+    a DoTA frame its neighbour's content. At rate 1 that leaves ``k = 0`` alone.
+    """
+    reach = max(0, int(np.ceil(rate)) - 1)
+    out = []
+    for k in sorted(range(-reach, reach + 1), key=abs):
+        frames = line + k
+        if frames.min() >= 0 and frames.max() < n_cap:
+            out.append((k, frames))
+    return out
+
+
+def band_width(rate: float) -> int:
+    """Amendment 4c: CAP frames a DoTA frame may sit off the line -- under half a DoTA interval."""
+    return max(0, int(np.ceil(rate / 2)) - 1)
+
+
+def banded_path(sims: np.ndarray, line: np.ndarray, band: int) -> np.ndarray:
+    """Strictly increasing max-``sum cos`` path with ``|j_d - line_d| <= band`` (Amendment 4c).
+
+    The line fixes the clock (no drift); the band absorbs the bounded rounding residual of two
+    nearest-frame resamplings of one source. ``line`` itself is always feasible (steps >= 1).
+    """
+    cols = np.arange(sims.shape[1])
+    inside = np.abs(cols[None, :] - line[:, None]) <= band
+    path = monotone_alignment(np.where(inside, sims, -np.inf))
+    if path is None:  # unreachable: the caller only passes in-range lines
+        raise ValueError("banded alignment needs a CAP clip at least as long as the query")
+    return path
+
+
 def gate_alignment(dota_id: str, cap_id: str, query: np.ndarray, cap: np.ndarray) -> Alignment:
-    """L1-L3 on unit CLIP rows of one (DoTA clip, CAP clip) pair."""
+    """L1-L3 on unit CLIP rows of one (DoTA clip, CAP clip) pair (L1' = Amendments 4a-4c)."""
     sims = query @ cap.T
     path = monotone_alignment(sims)
     if path is None:
         return Alignment(dota_id, cap_id, len(query), len(cap), "cap_shorter", [])
-    cos = sims[np.arange(len(query)), path]
-    steps = np.diff(path)
+    line, rate = linear_map(path)
+    jitter = float(np.mean(np.abs(line - path) > constants.DOTA_CAP_STEP_TOL + 1))
+    overshoot = int(max(0, -line.min(), line.max() - (len(cap) - 1)))
+    rows = np.arange(len(query))
+    candidates = phase_candidates(line, rate, len(cap))
+    if not candidates:
+        return Alignment(dota_id, cap_id, len(query), len(cap), "out_of_range", [],
+                         rate=rate, dp_jitter_share=jitter, overshoot=overshoot)
+    band = band_width(rate)
+    banded = [(k, line_k, banded_path(sims, line_k, band)) for k, line_k in candidates]
+    # the phase is the one free parameter CLIP leaves at 30 fps: take the best-matching one
+    shift, straight, frames = max(banded, key=lambda c: float(sims[rows, c[2]].mean()))
+    line_cos = float(sims[rows, straight].mean())
+    steps = np.diff(frames)
+    if np.any(steps <= 0):
+        return Alignment(dota_id, cap_id, len(query), len(cap), "not_increasing", [],
+                         rate=rate, dp_jitter_share=jitter, phase_shift=shift,
+                         overshoot=overshoot, line_mean_cos=line_cos)
+    cos = sims[rows, frames]
     median = float(np.median(steps)) if len(steps) else 1.0
-    irregular = (
-        float(np.mean(np.abs(steps - median) > constants.DOTA_CAP_STEP_TOL)) if len(steps) else 0.0
-    )
+    # L3 under 4c: steps vs the fitted rate, widened by the band's two ends (a guard -- the band
+    # already bounds the clock; at band 0 it is L3 as first written)
+    tol = constants.DOTA_CAP_STEP_TOL + 2 * band
+    irregular = float(np.mean(np.abs(steps - rate) > tol)) if len(steps) else 0.0
     if float(cos.mean()) < constants.DOTA_CAP_MEAN_COS:
         reason = "mean_cos"
     elif float(cos.min()) < constants.DOTA_CAP_MIN_COS:
@@ -138,8 +224,9 @@ def gate_alignment(dota_id: str, cap_id: str, query: np.ndarray, cap: np.ndarray
     else:
         reason = OK
     return Alignment(
-        dota_id, cap_id, len(query), len(cap), reason, [int(j) for j in path],
-        float(cos.mean()), float(cos.min()), median, irregular,
+        dota_id, cap_id, len(query), len(cap), reason, [int(j) for j in frames],
+        float(cos.mean()), float(cos.min()), median, irregular, rate, jitter, shift, overshoot,
+        line_cos,
     )
 
 
@@ -208,6 +295,23 @@ def _cov_lines(cov: dict[str, dict[str, int]]) -> list[str]:
     ]
 
 
+def _hist(clips: dict[str, Any], reason: str, key: str) -> str:
+    counts = Counter(c.get(key) for c in clips.values() if c["reason"] == reason)
+    return ", ".join(f"{k} → {v}" for k, v in sorted(counts.items(), key=lambda kv: str(kv[0])))
+
+
+def _band_line(clips: dict[str, Any]) -> str:
+    out = []
+    for reason in (OK, "mean_cos", "min_cos"):
+        rows = [c for c in clips.values()
+                if c["reason"] == reason and (c.get("rate") or 0) > 1 and c.get("line_mean_cos")]
+        if rows:
+            line = np.median([c["line_mean_cos"] for c in rows])
+            band = np.median([c["mean_cos"] for c in rows])
+            out.append(f"{reason} n={len(rows)} {line:.4f} → {band:.4f}")
+    return "; ".join(out)
+
+
 def render_align(alignment: dict[str, Any], dev: set[str]) -> str:
     clips = alignment["clips"]
     reasons = Counter(c["reason"] for c in clips.values())
@@ -217,13 +321,17 @@ def render_align(alignment: dict[str, Any], dev: set[str]) -> str:
     return "\n".join([
         "# DoTA-CAP — alignment (L1-L3, CLIP caches only)",
         "",
-        f"Rule: addendum §11. mean cos ≥ {th['mean_cos']}, every frame ≥ {th['min_cos']}, "
-        f"irregular steps (|Δj - median| > {th['step_tol']}) ≤ {th['max_irregular']:.0%}.",
+        f"Rule: addendum §11-§11.4. mean cos ≥ {th['mean_cos']}, every frame ≥ {th['min_cos']}, "
+        f"irregular steps (|Δj - rate| > {th['step_tol']} + 2·band) ≤ {th['max_irregular']:.0%}.",
         f"Matches: `{alignment['matches']}` (sha256 `{alignment['matches_sha256'][:12]}`)",
         "",
         "Reasons: " + ", ".join(f"{k} {v}" for k, v in sorted(reasons.items())),
-        "Median CAP step of kept clips: "
+        "Median CAP step of kept clips (Amendments 4a-4c): "
         + ", ".join(f"{k:g} → {v}" for k, v in sorted(steps.items())),
+        "Phase shift of kept clips (Amendment 4b, CAP frames): " + _hist(clips, OK, "phase_shift"),
+        "Rate > 1, mean cos straight line → band, q50 (Amendment 4c): " + _band_line(clips),
+        "Overshoot of `out_of_range` clips (CAP frames): "
+        + _hist(clips, "out_of_range", "overshoot"),
         "",
         *_cov_lines(coverage(passed, set(clips), dev)),
         "",
@@ -346,6 +454,13 @@ def run_extract(args: argparse.Namespace) -> None:
     if not todo:
         LOGGER.info("Nothing to extract for %s", args.parts[0].parent)
         return
+    missing = [
+        c["dota_id"] for c in todo if not (args.dota_clip_dir / f"{c['dota_id']}.npy").exists()
+    ]
+    if missing:  # fail before loading models or reading a tar part
+        raise FileNotFoundError(
+            f"{len(missing)} DoTA CLIP rows missing under {args.dota_clip_dir}: {missing[:5]}"
+        )
     by_cap: dict[str, list[dict[str, Any]]] = {}
     for clip in todo:
         by_cap.setdefault(clip["cap_id"], []).append(clip)

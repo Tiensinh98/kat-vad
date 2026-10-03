@@ -1652,8 +1652,13 @@ unchanged `extract_frame_directory` (bit-identical features, tested), then delet
 some `exact` (κ ≥ 0.99) DoTA clips: in static stretches the argmax lands on any look-alike frame. κ was right (the
 clip is in CAP); the line fit was not a usable frame map, and a motion encoder fed those frames would see a warped clock.
 **Bad:** `j = round(rate * d + offset)` from a global fit on argmax hits.
-**Good:** strictly increasing `j_d` maximizing `Σ cos` (DP), then gate mean/min cosine **and** step regularity
-(|Δj − median| > 1 on ≤ 5 % of steps), then re-check at pixel level (CLIP of the rebuilt frames vs the original cache).
+**Good:** strictly increasing DP path maximizing `Σ cos` → **Theil–Sen line through it, rounded half-up** (Amendment 4a:
+the DP itself jitters 1–2 frames on 30 fps streams because CLIP cannot tell 33 ms apart — 323 clips failed L3 with rate
+exactly 3.0) → gate mean/min cosine and step regularity → re-check at pixel level. `np.round` is half-to-even: an odd
+integer rate with a .5 offset gives steps 4, 2, 4, 2.
+A fitted line can also end 1–2 frames past the clip (Amendment 4b: 347 clips) — let it shift by less than one
+query-frame interval, never clamp. And a diagnostic that predicts the pass count must run the tool's own function:
+the Colab cell clipped the line and np.round'ed it, so it promised ~1,142 where the tool kept 852.
 **Rule:** Derive a frame map with a monotone alignment and gate its step regularity before feeding a temporal model.
 **Files:** `core/tools/dota_cap.py:monotone_alignment`, `gate_alignment`; addendum §11 L1–L5
 

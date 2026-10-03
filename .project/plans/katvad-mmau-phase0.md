@@ -14,7 +14,7 @@
 | P0b CLIP `_ncc` s1 nhóm `1-10` → match (khả thi?) | ✅ | **Khả thi** (2026-10-01): exact 214/1397 DoTA (dev 104/702), r ≈ 1 hoặc ≈ 3 ở 211/214, null ≥ near 0.07 %; DADA 0. Dải near lọt 9 cặp giả → **Amendment P0b-1** |
 | P0c CLIP 4 nhóm còn lại → match toàn bộ (coverage) | ✅ | (2026-10-02) exact **1248/1397** (0.893), dev 625/702 (0.890); exact∪near 0.935 / 0.930; null 0.006; DADA 3 near; CAP sạch 8,006 |
 | P0d Đọc nhánh D9 (§4) → Amendment 4 | ✅ | Nhánh **C** theo luật. User override (2026-10-03): D9 = **DoTA-CAP** (exact, căn từng frame, cổng pixel), addendum §11 D13–D15 + L0–L7 |
-| P1 DoTA-CAP: align → extract VideoMAE B+S → finalize | ⬜ | `core/tools/dota_cap.py`, `colab/v2/dota_cap_videomae.ipynb`. Sau đó: freeze `dota_cap_ids.txt` vào `core/splits/v2/` |
+| P1 DoTA-CAP: align → extract VideoMAE B+S → finalize | ◐ | align v1 (2026-10-03): 895 kept, 323 `irregular_steps` = DP jitter on 30 fps CAP (rate 3.0) → **Amendment 4a** (L1′ Theil–Sen line) → 852 kept, 347 `out_of_range` → **Amendment 4b** (phase shift `|k| < rate`) → 906 kept, 274 `mean_cos` → **Amendment 4c** (band ±1 around the line). Re-run align, then extract | `core/tools/dota_cap.py`, `colab/v2/dota_cap_videomae.ipynb`. Sau đó: freeze `dota_cap_ids.txt` vào `core/splits/v2/` |
 
 ## 1. Vì sao
 
