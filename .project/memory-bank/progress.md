@@ -1,5 +1,13 @@
 # Progress
 
+**2026-10-04 (latest, branch `v2`) — P6 batch 1 read out (A0 + A1, seed 2099, T2-val only).** Guardrails PASS for
+both (micro 0.6586 / 0.6683 < oracle 0.6986; macro 0.6737 / 0.6705; window AUC ≈ macro → no C14 collapse). **CRN
+drops the trunk's T2↔DoTA corpus separability 0.9999 → 0.551** (mechanics, not a DoTA claim). **D5 FAIL** on T2-val
+(micro Δ −0.1089, macro −0.0073): all three phase-4 references are in-sample there (O1 FAIL, window AUC 0.96–0.97).
+**Amendment 7** (addendum §16, H1–H4) re-reads D5 on T2-test with a code-identity gate (s2024 must reproduce its
+phase-4 0.6230 / 0.6334); runbook `colab/v2/p6_d5_t2test.ipynb`. P7 blocked by D5 until H3 reads. Record:
+`core/docs/v2/RESULTS_P6_PILOT.md` (docs +1).
+
 **Last updated:** 2026-09-30 (branch `v2`) — **D11 read out: CRN reference = R2; E1 = B; Amendments 2–3; P5 built.**
 **D11 (latest):** E2(b)/(c) re-read on DoTA-dev at s3 → the rule picks **R2** (`r` 0.7092 vs R1 0.7081, a tie in noise);
 E2(c) R2 +0.037 [+0.027, +0.047]; s8 == s1@8 gate passed. P5 docs/tests moved to R2. D11 tooling + P5 committed by the user as `a20781b`; the R2 record follows it.

@@ -21,13 +21,10 @@ Ký hiệu: ✅ xong · 🟡 đang làm / chờ chạy · ⛔ bị chặn · ⬜
 | **P3** E0b | ⬜ | Chưa có notebook. Ckpt phase-5 + lcurve có thể cũng là snapshot (pending (aj)) → kiểm `global_step` trước | — |
 | **P4** Encoder E2(d) | 🟡 | **E2(d) = V2-S** (tie rule N7: A3 transfer B 0.1508 vs S 0.1325). Motion giữ. **Position cubic `p` = 0.852** > `u`, `[x;u]`; vượt position chỉ transfer +0.02…+0.04. `core/docs/v2/RESULTS_E2D.md`. **Amendment 6 (§15, G1–G7)** viết trước D6/batch 2/E3. Còn: full-T2 V2-S + D6 → `colab/v2/p4_s_full_t2_d6.ipynb` (**chờ user chạy**) | `b6d937f`, `7b1889a`, `7ea0882` + (chưa commit) |
 | **P5** Build v2 | ✅ (trừ bake A2/A3) | Model + input cache (`a20781b`), `protocol_b_eval` / `v2_dataset` / `v2_diagnostics` (`7ea0882`; `protocol_b_eval` tái tạo E1 B 0.6628 đúng 4 chữ số). 2026-10-04: `v2_diagnostics --dota-split`, `e2d_shuffle`, `dota_cap extract --shuffle-seed`. Bake A2/A3 nằm trong notebook batch 2 | `a20781b`, `7ea0882` + (chưa commit) |
-| **P6** Pilot | 🟡 | **D16: 2 batch.** Batch 1 = A0 + A1 (s2099) — **user đang chạy** (2026-10-04). Batch 2 = A2/A3 trên V2-S, `colab/v2/p6_pilot_batch2.ipynb` (bake + train + diag, O5 trên `dota_cap_dev`, G4–G5) — cần batch 1 + full-T2 V2-S | — |
+| **P6** Pilot | 🟡 | **Batch 1 xong (A0+A1, s2099, 2026-10-04):** guardrails PASS cả hai, không collapse; CRN làm shortcut `V^t` T2↔DoTA **0.9999 → 0.551**. **D5 FAIL** (micro Δ −0.109, macro −0.007) — ref phase-4 in-sample trên T2-val (window AUC 0.96–0.97). **Amendment 7 (§16, H1–H4)** → `colab/v2/p6_d5_t2test.ipynb` (chờ user). Batch 2 = A2/A3 trên V2-S, `p6_pilot_batch2.ipynb` — cần full-T2 V2-S. `core/docs/v2/RESULTS_P6_PILOT.md` | — |
 | **P7** Go/no-go | ⬜ | Cần P6 | — |
 
-**Việc tiếp theo (2026-10-04):** (1) user commit batch Amendment 6 + tools → upload code; (2) chạy
-`p4_s_full_t2_d6.ipynb` (step 2 full-T2 V2-S; step 3–4 D6) song song chờ batch 1; (3) batch 1 xong + step 2 xong →
-`p6_pilot_batch2.ipynb`; (4) paste `batch1_readout.md`, `shuffle_readout.md`, `batch2_readout.md` → P7 checklist + E3
-harness (có G6 position reads).
+**Việc tiếp theo (2026-10-04, sau batch 1):** (1) user commit + upload code (Amendment 6–7, tools, notebooks); (2) chạy **`p6_d5_t2test.ipynb`** (eval-only, rẻ) và **`p4_s_full_t2_d6.ipynb`** song song; (3) step 2 của P4-finish xong → `p6_pilot_batch2.ipynb`; (4) paste `d5_t2test.md`, `shuffle_readout.md`, `batch2_readout.md` → P7 checklist + E3 harness (G6 position reads). P7 bị D5 chặn cho tới khi H3 đọc ra "explained".
 
 **Việc tiếp theo cũ (2026-10-03, giữ làm lịch sử):**
 1. **D9 chờ MM-AU Phase 0** (`.project/plans/katvad-mmau-phase0.md`, notebook `colab/v2/mmau_p0.ipynb`): nếu CAP-DATA
@@ -226,7 +223,7 @@ model chỉ thêm `W_u`. Không sửa `dataset.py` / `synthesis.py` / `collate.p
 - [ ] Đọc **chỉ**: T2-val (macro, micro, clip oracle), guardrails (micro < oracle, macro ≥ micro, micro ≥ A0 − 0.01),
   `ρ_u` theo thời gian, `‖W_u‖` tăng từ 0, loss curves, clip-level AUC vs macro (C14), position R², source-shortcut.
 - [ ] **DoTA-dev không in trong pilot** (lesson 14).
-- [ ] **A0 regression (D5):** A0-pilot vs ckpt KIP-off phase-4 trên T2-val; chênh > ~0.02 → dừng, debug.
+- [x] **A0 regression (D5):** đọc 2026-10-04 → **FAIL** trên T2-val (micro −0.109, in-sample bias như O6 báo trước). Giải thích theo Amendment 7 (H1 code identity s2024 == phase-4 T2-test; H2 D5 trên T2-test) — `p6_d5_t2test.ipynb`.
 - [ ] `ρ_u` ≈ 0 suốt run → ghi nhận motion không được dùng; **không** sửa lr/`c`.
 
 ### P7 — Go/no-go cho E3 ⬜
@@ -265,5 +262,7 @@ model chỉ thêm `W_u`. Không sửa `dataset.py` / `synthesis.py` / `collate.p
 | P2 D11 (s3) | **R2**, veto qua. Cổng s8 == s1@8 qua. `r` R1 0.7081 · R2 0.7092 · R3 0.6997 · R4 0.7049 (eligible ở s3). E2(c) R2 +0.0368 [+0.027, +0.047] (R1 +0.033). R1 ≈ R2 (hoà). `−f` 0.793. `outputs/v2/REPORTS/v2_E2_s3/`, `RESULTS_E2_CRN.md` §D11 | Colab (code upload) | 2026-09-30 |
 | P3 E0b | | | |
 | P4 E2(d) | **V2-S** (N7 tie: A3 transfer B 0.1508, S 0.1325). Mọi arm eligible. Position cubic `p` **0.852** in-domain / 0.847 transfer > `u` (0.76–0.82) > `[x;u]`; `t/N` cũ chỉ 0.566. Vượt position: in-domain ≈ 0 (−0.006…+0.006), transfer B +0.029/+0.037, S +0.018/+0.026. T2 side B +0.137, S +0.107. D15: A0 dev 0.6628 / CAP 0.6591 / dropped 0.6787 (`protocol_b_eval` == E1 B). `core/docs/v2/RESULTS_E2D.md` | §12 `7b1889a`; Colab (code upload) | 2026-10-04 |
-| P6 pilot | | | |
+| P6 batch 1 | A0 / A1 (s2099, step 1740): micro 0.6586 / 0.6683, macro 0.6737 / 0.6705, oracle 0.6986, window AUC 0.686 / 0.683, guardrails PASS/PASS. Shortcut `V^t` 0.9999 → **0.551** (CRN), `y^bin` 0.54 / 0.52. Pos R² `V^t` −0.20 / −0.03. **D5 FAIL**: ref mean 0.7675 / 0.6810 (O1 FAIL ×3, window AUC 0.96–0.97, in-sample) → Amendment 7. `core/docs/v2/RESULTS_P6_PILOT.md` | Colab (code upload) | 2026-10-04 |
+| P6 D5 (H1–H3) | | | |
+| P6 batch 2 | | | |
 | P7 | | | |
