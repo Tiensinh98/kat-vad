@@ -4,7 +4,7 @@
 **Nguồn:** `core/docs/v2/KAT_VAD_PROPOSAL_v2.md` (§4, §7, §10) + `KAT_VAD_v2_ARCHITECTURE.md`.
 **Pre-registration:** `core/docs/v2/PREREG_ADDENDUM.md` — D1–D6 (P0), Amendment 1 D7–D9 (§6), impl. choices I1–I9 (§7),
 Amendment 2 D10–D11 + J1–J9 (§8). Proposal thắng plan ở phần *what*; addendum thắng proposal ở những điểm nó sửa.
-**Last updated:** 2026-10-03.
+**Last updated:** 2026-10-04.
 
 ---
 
@@ -19,19 +19,24 @@ Ký hiệu: ✅ xong · 🟡 đang làm / chờ chạy · ⛔ bị chặn · ⬜
 | **P2** E0 / E2(a–c) | ✅ | **D11 ở s3: CRN = R2** (`r` 0.7092 vs R1 0.7081 — hoà trong nhiễu, luật chọn R2), E2(c) R2 **+0.037 [+0.027, +0.047]**. s8 cũ = R1. `RESULTS_E2_CRN.md` §D11 | `7b20444`, `a20781b` + D11 record |
 | **P3** E1 | ✅ | **Adopt B** (DoTA s3 whole clip): Δ vs A **+0.033 [+0.019, +0.048]**, C +0.035 (tie → B); 3/3 seed dương. `core/docs/v2/RESULTS_E1.md` | `0ab760d` + Amendment 3 (`7ce8bf5`) |
 | **P3** E0b | ⬜ | Chưa có notebook. Ckpt phase-5 + lcurve có thể cũng là snapshot (pending (aj)) → kiểm `global_step` trước | — |
-| **P4** Encoder E2(d) | 🟡 | **D9 = DoTA-CAP**; split frozen (`b6d937f`); **§12 N1–N12 committed (`7b1889a`)**. Harness `core/tools/e2d_probe.py` + `colab/v2/p4_e2d.ipynb` (V2-S on 300 K sources → D15 A0 → probe). **Chờ user chạy notebook** | `b6d937f`, `7b1889a` |
-| **P5** Build v2 | ✅ (trừ bake A2/A3) | Model + input cache (`a20781b`). 2026-10-03: `apply --stride` cho motion cache stride-1; `protocol_b_eval` (chấm DoTA protocol B mọi arm, per-clip AUC); `v2_dataset` (train T2-train − T2-val, eval T2-val); `v2_diagnostics` (O1–O6). Bake A2/A3 chờ E2(d) + full-T2 VideoMAE | `a20781b` + (chưa commit) |
-| **P6** Pilot | 🟡 | **D16: 2 batch.** Batch 1 = A0 + A1 (s2099), §14 O1–O7, `colab/v2/p6_pilot_batch1.ipynb` — **chờ user chạy**. Batch 2 = A2/A3 sau E2(d) | — |
+| **P4** Encoder E2(d) | 🟡 | **E2(d) = V2-S** (tie rule N7: A3 transfer B 0.1508 vs S 0.1325). Motion giữ. **Position cubic `p` = 0.852** > `u`, `[x;u]`; vượt position chỉ transfer +0.02…+0.04. `core/docs/v2/RESULTS_E2D.md`. **Amendment 6 (§15, G1–G7)** viết trước D6/batch 2/E3. Còn: full-T2 V2-S + D6 → `colab/v2/p4_s_full_t2_d6.ipynb` (**chờ user chạy**) | `b6d937f`, `7b1889a`, `7ea0882` + (chưa commit) |
+| **P5** Build v2 | ✅ (trừ bake A2/A3) | Model + input cache (`a20781b`), `protocol_b_eval` / `v2_dataset` / `v2_diagnostics` (`7ea0882`; `protocol_b_eval` tái tạo E1 B 0.6628 đúng 4 chữ số). 2026-10-04: `v2_diagnostics --dota-split`, `e2d_shuffle`, `dota_cap extract --shuffle-seed`. Bake A2/A3 nằm trong notebook batch 2 | `a20781b`, `7ea0882` + (chưa commit) |
+| **P6** Pilot | 🟡 | **D16: 2 batch.** Batch 1 = A0 + A1 (s2099) — **user đang chạy** (2026-10-04). Batch 2 = A2/A3 trên V2-S, `colab/v2/p6_pilot_batch2.ipynb` (bake + train + diag, O5 trên `dota_cap_dev`, G4–G5) — cần batch 1 + full-T2 V2-S | — |
 | **P7** Go/no-go | ⬜ | Cần P6 | — |
 
-**Việc tiếp theo, theo thứ tự:**
+**Việc tiếp theo (2026-10-04):** (1) user commit batch Amendment 6 + tools → upload code; (2) chạy
+`p4_s_full_t2_d6.ipynb` (step 2 full-T2 V2-S; step 3–4 D6) song song chờ batch 1; (3) batch 1 xong + step 2 xong →
+`p6_pilot_batch2.ipynb`; (4) paste `batch1_readout.md`, `shuffle_readout.md`, `batch2_readout.md` → P7 checklist + E3
+harness (có G6 position reads).
+
+**Việc tiếp theo cũ (2026-10-03, giữ làm lịch sử):**
 1. **D9 chờ MM-AU Phase 0** (`.project/plans/katvad-mmau-phase0.md`, notebook `colab/v2/mmau_p0.ipynb`): nếu CAP-DATA
    chứa pixel DoTA (nhánh P) → D9 = DoTA như proposal; không thì T2-val + MMAU-clean (nhánh C). User chạy P0b (nhóm `1-10`) trước.
 2. **Claude:** P5 diagnostics tool; đường chấm DoTA protocol B cho arm v2 (A1 trên cache bake, hiện `core.evaluate`
    chỉ chấm s8 và `rate_matched_eval` chỉ đọc CLIP thô); notebook E0b (sau khi user kiểm J10 của ckpt phase-5/lcurve).
 3. A1 (R2) bake + pilot được ngay khi (2) xong.
 
-**Test suite hiện tại:** 848 passed, 0 fail (2026-10-03).
+**Test suite hiện tại:** 857 passed, 0 fail (2026-10-04).
 
 **Drive layout (từ 2026-09-29):** code + outputs v2 ở `Thesis-V2/` (`kat-vad/`, `outputs/`); data, cache, ckpts và
 run v1 (phase 4) ở `Thesis/`, chỉ đọc.
@@ -179,8 +184,9 @@ Sau khi D9 chốt:
 - [ ] Probe đúng representation mỗi arm: A2 `c·(u − m_u)⊘σ_u`; A3 `c·ũ⊘σ_u` với reference R1. Rule eligibility thay
   cho rule DoTA-dev của proposal = rule theo endpoint D9.
 - [ ] Lặp E2(b) trên `[x ; u]` với encoder đã chọn (in `−f` bên cạnh, pending (ah)).
-- [ ] **D6 shuffle control** (xáo 16 frame trong clip) → chỉ report.
-- [ ] Extract full T2 (train + val + test) cho encoder đã chọn.
+- [x] E2(d) đọc xong 2026-10-04: **V2-S** (`RESULTS_E2D.md`). Amendment 6 (§15) chốt G1–G7.
+- [ ] **D6 shuffle control** (xáo 16 frame trong clip) → chỉ report. Tool `e2d_shuffle` + `dota_cap extract --shuffle-seed`; notebook `p4_s_full_t2_d6.ipynb` step 3–4.
+- [ ] Extract full T2 (train + val + test) cho encoder đã chọn — `p4_s_full_t2_d6.ipynb` step 2.
 
 **Deliverables:** `outputs/REPORTS/v2_E2d/` + read-out: encoder, eligibility, shuffle Δ; full T2 cache.
 
@@ -258,6 +264,6 @@ model chỉ thêm `W_u`. Không sửa `dataset.py` / `synthesis.py` / `collate.p
 | P3 E1 | **Adopt B.** Ckpt: s2024 phase 4 + s2025/s2026 train lại (J10 2040 ×3, J9′ pass). Macro A 0.6294 · **B 0.6628 (Δ +0.0334 [+0.019, +0.048])** · C 0.6644 (Δ +0.0350 [+0.020, +0.050]); tie → B. Seed Δ +0.035/+0.033/+0.042. Ruler 0.566. `core/docs/v2/RESULTS_E1.md` | harness `0ab760d`, Amendment 3 `7ce8bf5`; Colab (code upload) | 2026-09-30 |
 | P2 D11 (s3) | **R2**, veto qua. Cổng s8 == s1@8 qua. `r` R1 0.7081 · R2 0.7092 · R3 0.6997 · R4 0.7049 (eligible ở s3). E2(c) R2 +0.0368 [+0.027, +0.047] (R1 +0.033). R1 ≈ R2 (hoà). `−f` 0.793. `outputs/v2/REPORTS/v2_E2_s3/`, `RESULTS_E2_CRN.md` §D11 | Colab (code upload) | 2026-09-30 |
 | P3 E0b | | | |
-| P4 E2(d) | | | |
+| P4 E2(d) | **V2-S** (N7 tie: A3 transfer B 0.1508, S 0.1325). Mọi arm eligible. Position cubic `p` **0.852** in-domain / 0.847 transfer > `u` (0.76–0.82) > `[x;u]`; `t/N` cũ chỉ 0.566. Vượt position: in-domain ≈ 0 (−0.006…+0.006), transfer B +0.029/+0.037, S +0.018/+0.026. T2 side B +0.137, S +0.107. D15: A0 dev 0.6628 / CAP 0.6591 / dropped 0.6787 (`protocol_b_eval` == E1 B). `core/docs/v2/RESULTS_E2D.md` | §12 `7b1889a`; Colab (code upload) | 2026-10-04 |
 | P6 pilot | | | |
 | P7 | | | |

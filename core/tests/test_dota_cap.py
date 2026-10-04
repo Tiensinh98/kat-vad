@@ -15,7 +15,7 @@ from torchvision.io import encode_jpeg
 from core import constants
 from core.data.v2_splits import SealedSplitError, load_split
 from core.models import videomae_v2
-from core.tools import dota_cap, extract_clip_features, mmau_match
+from core.tools import dota_cap, e2d_probe, extract_clip_features, mmau_match
 from core.tools import extract_video_features as evf
 from core.tools.stream_frames_clip import stream_video_batches
 
@@ -304,6 +304,66 @@ class TestExtract:
         assert readout["coverage"]["all"] == {"kept": 1, "of": 4}
         assert readout["coverage"]["dev"]["of"] == len(dev)
         assert readout["reasons"]["align:mean_cos"] == 1
+
+
+class TestShuffleExtract:
+    """D6 / N11: ``--shuffle-seed`` writes its own cache, restricted to ``--dota-ids-file``."""
+
+    def test_shuffle_cache_is_separate_and_permuted(
+        self, tmp_path: Path, tiny_clip: extract_clip_features.ImageEncoder,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        cap_frames = {"000010": _frames(1, 20), "000011": _frames(2, 20)}
+        dota_dir = tmp_path / "dota_s1"
+        dota_dir.mkdir()
+        clips = {}
+        for dota_id, cap_id in (("keep_000001", "000010"), ("skip_000001", "000011")):
+            ref = _encode_folder(cap_frames[cap_id], tmp_path / "ref" / dota_id)
+            np.save(dota_dir / f"{dota_id}.npy", extract_clip_features.encode_frame_dir(
+                ref, tiny_clip, CPU, stride=1, subdir=SUBDIR, center_crop=False))
+            clips[dota_id] = {"dota_id": dota_id, "cap_id": cap_id, "cap_frames": 20,
+                              "frame_map": list(range(20)), "reason": "ok"}
+        align_path = tmp_path / "align.json"
+        align_path.write_text(json.dumps({"clips": clips}))
+        ids_file = tmp_path / "ids.txt"
+        ids_file.write_text("keep_000001\n")
+        torch.manual_seed(1)
+        tiny = videomae_v2.VideoMAEv2Encoder(*TINY_VIDEOMAE).eval()
+        monkeypatch.setattr(constants, "VIDEO_CACHE_DIR", tmp_path / "video")
+        monkeypatch.setattr(extract_clip_features, "load_pretrained_encoder", lambda d: tiny_clip)
+        monkeypatch.setattr(dota_cap, "load_pretrained", lambda n, d, w: tiny)
+        seed = constants.V2_D6_SHUFFLE_SEED
+        dota_cap.main([
+            "extract", "--alignment", str(align_path), "--work-dir", str(tmp_path / "work"),
+            "--parts", *map(str, _write_tar(tmp_path / "parts" / "11.part_aa", cap_frames)),
+            "--dota-clip-dir", str(dota_dir), "--report", str(tmp_path / "rep.json"),
+            "--dota-ids-file", str(ids_file), "--shuffle-seed", str(seed),
+            "--batch-size", "4", "--device", "cpu",
+        ])
+        enc = constants.VIDEOMAE_ENCODER_B
+        shuf = dota_cap.video_out_dir(enc, seed)
+        assert shuf != dota_cap.video_out_dir(enc)
+        assert not dota_cap.video_out_dir(enc).exists()
+        assert sorted(p.name for p in shuf.glob("*.npy")) == ["keep_000001.npy"]
+        order = evf.shuffled_frame_order(seed)
+        expected = evf.encode_frame_dir(tmp_path / "ref" / "keep_000001", tiny, CPU, stride=1,
+                                        subdir=SUBDIR, clip_step=1, frame_order=order)
+        np.testing.assert_array_equal(np.load(shuf / "keep_000001.npy"), expected)
+        manifest = json.loads((shuf / constants.VIDEO_MANIFEST_FILENAME).read_text())
+        assert manifest["frame_order"] == order and manifest["shuffle_seed"] == seed
+
+    def test_ordered_and_shuffled_manifests_cannot_be_confused(self, tmp_path: Path) -> None:
+        enc = constants.VIDEOMAE_ENCODER_S
+        ordered = dota_cap.video_manifest(enc, "a" * 64)
+        shuffled = dota_cap.video_manifest(enc, "a" * 64, constants.V2_D6_SHUFFLE_SEED)
+        legacy = {k: v for k, v in ordered.items() if k not in ("frame_order", "shuffle_seed")}
+        (tmp_path / constants.VIDEO_MANIFEST_FILENAME).write_text(json.dumps(legacy))
+        e2d_probe.check_manifest(tmp_path, ordered)  # caches built before D6 stay readable
+        with pytest.raises(ValueError, match="frame_order"):
+            e2d_probe.check_manifest(tmp_path, shuffled)
+        (tmp_path / constants.VIDEO_MANIFEST_FILENAME).write_text(json.dumps(shuffled))
+        with pytest.raises(ValueError, match="frame_order"):
+            e2d_probe.check_manifest(tmp_path, ordered)
 
 
 class TestStreamKeepIds:

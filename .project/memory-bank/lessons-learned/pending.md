@@ -1689,3 +1689,18 @@ same arithmetic and self-checked on the parent's test windows); state any in-sam
 **Files:** `core/tools/v2_dataset.py`, addendum §13 record, §14 O6
 
 **Gate status.** One occurrence, caught before any v2 training. Gate 2 not met.
+
+## (ar) [HIGH] Experiments - A monotone position ruler understates position: print a flexible one (2026-10-04)
+**Triggers:** position ruler, t/N, t/T, cubic, position_features, DoTA, mid-clip, beyond position, E2(d), protocol B
+**Problem:** E1 and `protocol_b_eval` printed `t/N` (AUC of the step index) as "what position alone scores" on DoTA:
+**0.566**. On the same DoTA-CAP-dev clips E2(d)'s cubic probe `p` (`τ, τ², τ³`) read **0.852** in-domain and
+**0.847** fitted on T2 sources — above `u` and `[x;u]`. DoTA accidents sit mid-clip; a monotone ruler cannot rank a
+hump, so it understated position by ~0.29 and made a +0.15 probe Δ look like motion (≈ +0.00 in-domain beyond `p`).
+**Bad:** `ruler = auc(arange(N) / N, labels)` printed as "the position number".
+**Good:** a logistic probe on `position_features(len)` (cubic), fitted on the *training* corpus's frames and scored on
+the target; `[x;u;p]` vs `[x;p]` beside every Δ; keep `t/N` only labelled "monotone".
+**Rule:** Print a non-monotone (cubic) position probe beside every frame-level macro and Δ before attributing it to content.
+**Files:** `core/tools/e2d_probe.py:arm_sets` (`p`, `with_p`), `core/tools/protocol_b_eval.py` (`t/N`), addendum §15 G6–G7, `core/docs/v2/RESULTS_E2D.md`
+
+**Gate status.** Third position-confound occurrence after (ag) K-pos and (ah) `−f`; candidate to merge (ag)+(ah)+(ar)
+into one promoted lesson at the next review (Gate 2 recurrence now plausibly met).

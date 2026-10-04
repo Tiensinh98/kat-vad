@@ -475,6 +475,9 @@ V2_E2D_TRANSFER_MIN = 0.03  # ... or the transfer mean Δ reaches this
 V2_E2D_TIE_MARGIN = 0.02  # N7: A3 transfer Δ closer than this -> the cheaper encoder
 V2_E2D_BOOTSTRAP = V2_E1_BOOTSTRAP  # N5
 V2_E2D_CI = V2_E1_CI
+# N11 / D6: one fixed permutation of a window's 16 frames, the same for every window
+V2_D6_SHUFFLE_SEED = SEED
+V2_D6_SHUFFLE_TAG = "shuf"  # cache dir suffix: <dataset>_s1_squash_shuf<seed>
 
 # --- P6 pilot diagnostics (addendum §4, §14 O1-O7; proposal §10.1) ---
 V2_GUARD_A0_MARGIN = 0.01  # O1: T2-val micro may fall at most this far below A0's

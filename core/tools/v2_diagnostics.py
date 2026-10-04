@@ -15,6 +15,9 @@ and ``y^bin``. From them, for the arm the checkpoint was trained as:
   separability lesson C38 measured on inputs. DoTA-dev is read **without labels**: no DoTA score
   or metric is computed, so D4 ("DoTA-dev is not printed") holds.
 
+``--dota-split dota_cap_dev`` (Amendment 6, batch 2) reads O5 on the DoTA-CAP part only: a
+motion arm has DoTA rows only there, and every arm of the batch is re-read on the same clips.
+
 DoTA-dev rows follow protocol B through the arm's own input (``protocol_b_eval.input_rows``):
 the plain ``DoTA_s1_ncc`` for A0, a baked ``apply --stride 3`` cache otherwise. The run's
 ``metrics.jsonl`` must end at the checkpoint's step (J10).
@@ -238,7 +241,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         labels[wid] = item["frame_label"].numpy().astype(np.int64)
         groups[wid] = dataset.slicer.source_of(wid)
 
-    dota_ids = load_split(constants.V2_SPLIT_DOTA_DEV, args.split_dir)
+    dota_ids = load_split(args.dota_split, args.split_dir)
     dota_names = load_class_names(args.dota_data_dir)
     dota_abbr = dataset_abbr(constants.DOTA_DATASET)
     vt_dota: dict[str, np.ndarray] = {}
@@ -270,6 +273,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "motion_dim": cfg.model.motion_dim,
         },
         "t2_val_windows": len(window_ids),
+        "dota_split": args.dota_split,
         "dota_dev_clips_unlabelled": len(dota_ids),
         "guardrails": guard,
         "motion_share": motion_share(Path(ckpt).parent / METRICS_FILENAME),
@@ -325,8 +329,8 @@ def render_markdown(r: dict[str, Any]) -> str:
         f"# v2 pilot diagnostics — {r['run']}",
         "",
         f"Arm crn={r['arm']['crn']} motion={r['arm']['motion']} · step {r['global_step']} · "
-        f"T2-val windows {r['t2_val_windows']} · DoTA-dev clips read unlabelled "
-        f"{r['dota_dev_clips_unlabelled']} (no DoTA metric computed, D4).",
+        f"T2-val windows {r['t2_val_windows']} · `{r.get('dota_split', 'dota_dev')}` clips read "
+        f"unlabelled {r['dota_dev_clips_unlabelled']} (no DoTA metric computed, D4).",
         "",
         "| T2-val | value |",
         "|---|---|",
@@ -348,7 +352,8 @@ def render_markdown(r: dict[str, Any]) -> str:
         )
         + ")",
         "",
-        f"Source-shortcut AUC (T2-val vs DoTA-dev): V^t {r['source_shortcut_auc']['v_t']:.4f}, "
+        f"Source-shortcut AUC (T2-val vs {r.get('dota_split', 'dota_dev')}): "
+        f"V^t {r['source_shortcut_auc']['v_t']:.4f}, "
         f"y^bin {r['source_shortcut_auc']['y_bin']:.4f}",
     ]
     if r["motion_share"]:
@@ -395,6 +400,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--a0-diag", type=Path, default=None, help="A0's diag.json (O1, O4)"
     )
     parser.add_argument("--split-dir", type=Path, default=constants.V2_SPLITS_DIR)
+    parser.add_argument(
+        "--dota-split",
+        default=constants.V2_SPLIT_DOTA_DEV,
+        choices=(constants.V2_SPLIT_DOTA_DEV, constants.V2_SPLIT_DOTA_CAP_DEV),
+        help="O5's DoTA side: dota_dev (batch 1) or dota_cap_dev (batch 2, Amendment 6)",
+    )
     parser.add_argument("--stride", type=int, default=constants.V2_E1_STRIDE_BC)
     parser.add_argument("--folds", type=int, default=constants.V2_DIAG_FOLDS)
     parser.add_argument("--seed", type=int, default=constants.SEED)

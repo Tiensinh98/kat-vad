@@ -376,6 +376,7 @@ class Extractor:
     batch_size: int
     report: dict[str, dict[str, Any]]
     save_report: Callable[[], None]
+    frame_order: list[int] | None = None  # D6: permute every window's 16 frames
 
     def __call__(self, ready_dir: Path) -> None:
         for folder in sorted(p for p in ready_dir.iterdir() if p.is_dir()):
@@ -401,7 +402,7 @@ class Extractor:
             for name, encoder in self.encoders.items():
                 features = extract_video_features.encode_frame_dir(
                     farm, encoder, self.device, stride=1, batch_size=self.batch_size,
-                    clip_step=constants.DOTA_VIDEOMAE_FRAME_STEP,
+                    clip_step=constants.DOTA_VIDEOMAE_FRAME_STEP, frame_order=self.frame_order,
                 )
                 save_array(self.out_dirs[name] / f"{clip['dota_id']}.npy", features)
         finally:
@@ -412,20 +413,38 @@ class Extractor:
         return {**entry, "reason": OK}
 
 
-def video_out_dir(encoder: str) -> Path:
-    return constants.VIDEO_CACHE_DIR / encoder / f"{constants.DOTA_CAP_DATASET}_s1_squash"
+def video_out_dir(encoder: str, shuffle_seed: int | None = None) -> Path:
+    """The ordered cache, or the D6 shuffle-control cache of ``shuffle_seed``."""
+    name = f"{constants.DOTA_CAP_DATASET}_s1_squash"
+    if shuffle_seed is not None:
+        name += f"_{constants.V2_D6_SHUFFLE_TAG}{shuffle_seed}"
+    return constants.VIDEO_CACHE_DIR / encoder / name
 
 
-def video_manifest(encoder: str, alignment_sha256: str) -> dict[str, Any]:
-    """The P1 manifest with DoTA's geometry and the frame source (lesson C2)."""
-    return extract_video_features.build_manifest(
+def video_manifest(
+    encoder: str, alignment_sha256: str, shuffle_seed: int | None = None
+) -> dict[str, Any]:
+    """The P1 manifest with DoTA's geometry and the frame source (lesson C2).
+
+    A shuffle-control cache also records its seed and the permutation, so it can never be
+    read as the ordered cache.
+    """
+    manifest = extract_video_features.build_manifest(
         encoder, 1, constants.VIDEOMAE_WEIGHTS_SHA256[encoder]
     ) | {
         "clip_frame_step": constants.DOTA_VIDEOMAE_FRAME_STEP,
         "assumed_fps": constants.DOTA_FPS,
         "frame_source": FRAME_SOURCE,
         "alignment_sha256": alignment_sha256,
+        "frame_order": None,
+        "shuffle_seed": None,
     }
+    if shuffle_seed is not None:
+        manifest |= {
+            "frame_order": extract_video_features.shuffled_frame_order(shuffle_seed),
+            "shuffle_seed": shuffle_seed,
+        }
+    return manifest
 
 
 def todo_clips(
@@ -449,11 +468,11 @@ def todo_clips(
 def run_extract(args: argparse.Namespace) -> None:
     alignment = json.loads(args.alignment.read_text(encoding="utf-8"))
     alignment_sha = file_sha256(args.alignment)
-    out_dirs = {name: video_out_dir(name) for name in args.encoders}
+    seed = args.shuffle_seed
+    out_dirs = {name: video_out_dir(name, seed) for name in args.encoders}
+    manifests = {name: video_manifest(name, alignment_sha, seed) for name in args.encoders}
     for name, out in out_dirs.items():
-        extract_video_features.check_or_write_manifest(
-            out, video_manifest(name, alignment_sha), force=False
-        )
+        extract_video_features.check_or_write_manifest(out, manifests[name], force=False)
     report: dict[str, dict[str, Any]] = (
         json.loads(args.report.read_text(encoding="utf-8")) if args.report.exists() else {}
     )
@@ -461,6 +480,9 @@ def run_extract(args: argparse.Namespace) -> None:
     if args.cap_ids_file is not None:
         in_group = read_ids_file(args.cap_ids_file)
         todo = [c for c in todo if c["cap_id"] in in_group]
+    if args.dota_ids_file is not None:
+        wanted = read_ids_file(args.dota_ids_file)
+        todo = [c for c in todo if c["dota_id"] in wanted]
     if not todo:
         LOGGER.info("Nothing to extract for %s", args.parts[0].parent)
         return
@@ -487,6 +509,7 @@ def run_extract(args: argparse.Namespace) -> None:
         batch_size=args.batch_size,
         report=report,
         save_report=lambda: write_json_atomic(args.report, report),
+        frame_order=None if seed is None else manifests[args.encoders[0]]["frame_order"],
     )
     LOGGER.info("Extracting %d DoTA clips from %d CAP videos", len(todo), len(by_cap))
     stream_video_batches(
@@ -669,6 +692,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
     extract.add_argument("--report", type=Path, required=True, help="per-group JSON, resumable")
     extract.add_argument("--cap-ids-file", type=Path, default=None,
                          help="CAP ids in this group: restricts the work, stops the stream early")
+    extract.add_argument("--dota-ids-file", type=Path, default=None,
+                         help="restrict to these DoTA ids (D6: dota_cap_dev only)")
+    extract.add_argument("--shuffle-seed", type=int, default=None,
+                         help="D6 shuffle control: permute every window's frames with this seed; "
+                              "writes the *_shuf<seed> cache, never the ordered one")
     _add_encoders(extract)
     extract.add_argument("--frames-subdir", default="images")
     extract.add_argument("--batch-size", type=int, default=16)

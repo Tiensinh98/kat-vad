@@ -32,11 +32,20 @@
 > this branch *this file and `progress.md` are the only durable record of the
 > attribution campaign*. Do not delete them; do not re-run those arms here.
 
-**Last Memory Bank Update:** 2026-10-03 (partial: activeContext only — DoTA-CAP frozen, L7). Before that 2026-09-30 ( — **full update, branch `v2`: E1 = B, Amendment 2/3, P5 built, D11 tooling**;
+**Last Memory Bank Update:** 2026-10-04 (partial: activeContext, progress, pending (ar) — E2(d) read out, Amendment 6). Before that 2026-10-03 (partial: activeContext only — DoTA-CAP frozen, L7). Before that 2026-09-30 ( — **full update, branch `v2`: E1 = B, Amendment 2/3, P5 built, D11 tooling**;
 all six core files + CLAUDE.md reviewed; counts re-measured: **109 Python files (73 source + 36 test), 17,520 source LOC,
 754 tests, 35 docs**.)
 
-> **TL;DR — where v2 stands (2026-09-30).** P0–P3 done. **E1 = B**: DoTA at stride 3 beats s8 by **+0.033
+> **TL;DR — where v2 stands (2026-10-04).** P0–P3 done (E1 = B, CRN = R2). **E2(d) = V2-S** (N7 tie rule);
+> motion kept, but on DoTA-CAP-dev **cubic position alone = 0.852** beats `u` and `[x;u]` — beyond position `u` adds
+> ≈ 0 in-domain, +0.02…+0.04 in transfer (`RESULTS_E2D.md`). **Amendment 6 (§15, G1–G7)** fixes D6, the A2/A3 bake,
+> batch-2 O5 on `dota_cap_dev` and E3's position prints. Built (uncommitted): `e2d_shuffle`, `dota_cap extract
+> --shuffle-seed`, `v2_diagnostics --dota-split`, notebooks `p4_s_full_t2_d6.ipynb` + `p6_pilot_batch2.ipynb`.
+> **User is running pilot batch 1.** Next: commit → run P4-finish notebook → batch 2 → P7.
+> **Rules this session:** never auto-commit; ship real-data runs as Colab notebooks; Drive = `Thesis/` (data, caches,
+> v1 runs, read-only) + `Thesis-V2/` (code `kat-vad/`, v2 outputs).
+
+> *Previous TL;DR (2026-09-30):*  P0–P3 done. **E1 = B**: DoTA at stride 3 beats s8 by **+0.033
 > [+0.019, +0.048]** (protocol fix, not a better model). **D11 read out: CRN reference = R2** (median) — `r` 0.7092 vs
 > R1 0.7081 is a tie; the rule's pick stands, E2(c) agrees (+0.037). **P5 core committed** (baked v2 input cache +
 > zero-init `W_u`, docs/tests on R2). Left before P6: diagnostics tool + a DoTA protocol-B scoring path for a baked
@@ -57,7 +66,30 @@ Track 0b closed; T2 + Option A remain the live track. Partial update: `activeCon
 architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 13,833 source LOC, 582 collected); **docs 24 → 25** (+ `core/docs/D2CITY_EDA.md`).
 
-## 2026-10-03 (latest) — **§12 E2(d) + §13 D16 + §14 O1–O7 committed; E2(d) harness, P5 gaps, pilot batch 1 built** (branch `v2`)
+## 2026-10-04 (latest) — **E2(d) read out: V2-S; Amendment 6; D6 + batch-2 tooling** (branch `v2`)
+
+* E2(d) (`outputs/v2/REPORTS/v2_E2d/`): every arm × encoder eligible (Δ +0.13…+0.19); **pick = V2-S** (A3 transfer B
+  0.1508 vs S 0.1325, < 0.02 → cheaper). **Position caveat:** cubic `p` 0.852 in-domain / 0.847 transfer > `u`
+  (0.76–0.82) > `[x;u]`; `[x;u;p]` − `[x;p]` ≈ 0 in-domain, transfer B +0.029/+0.037, S +0.018/+0.026. B ahead of S
+  once position is controlled and on the T2 side — **recorded, not acted on** (lesson 14). E1's `t/N` ruler (0.566)
+  understated position by ~0.29 → pending lesson **(ar)**. D15: CAP ≈ dev. `protocol_b_eval` reproduces E1 B
+  (0.6628, per-seed to 4 dp). Record: `core/docs/v2/RESULTS_E2D.md`.
+* **Amendment 6** (addendum §15, user-authorized, not advisor-reviewed): G1 pick + limitation; G2 full-T2 V2-S (same
+  cache dir, rows == CLIP); G3 D6 build + the sentence it licenses (ordered − shuffled on `with_p` CI ∋ 0 ⇒ not
+  "motion"); G4 A2/A3 bake on A1's split; G5 batch-2 O5 on `dota_cap_dev` for all four arms; G6 E3 prints `p_T2` (cubic
+  fitted on T2 windows), `p_CAP` 0.852 and score–position Spearman Δ; G7 `t/N` demoted to "monotone".
+* Code (uncommitted): `extract_video_features.shuffled_frame_order` + `encode_frame_dir(frame_order=)`;
+  `dota_cap extract --shuffle-seed --dota-ids-file` (own `_shuf2024` cache + manifest; ordered/shuffled can't be
+  confused, legacy manifests still read); `core/tools/e2d_shuffle.py`; `v2_diagnostics --dota-split`. Constants
+  `V2_D6_SHUFFLE_SEED/TAG`. Tests +9 (shuffle order, extract, manifests, `e2d_shuffle` smoke, diag split param); suite **857 / 0 fail**.
+  Notebooks `colab/v2/p4_s_full_t2_d6.ipynb` (GPU: full-T2 V2-S, D6 extract, D6 read) and
+  `colab/v2/p6_pilot_batch2.ipynb` (bake A2/A3, train, diag with A0/A1 re-read into `diag_cap/`).
+
+**Next action:** user reviews + commits → uploads code → runs `p4_s_full_t2_d6.ipynb` (step 2 can overlap batch 1)
+→ after batch 1 + step 2: `p6_pilot_batch2.ipynb` → pastes `batch1_readout.md`, `shuffle_readout.md`,
+`batch2_readout.md` + `diag.md`s.
+
+## 2026-10-03 — **§12 E2(d) + §13 D16 + §14 O1–O7 committed; E2(d) harness, P5 gaps, pilot batch 1 built** (branch `v2`)
 
 * Commits: `b6d937f` (DoTA-CAP freeze), `7b1889a` (§12 N1–N12 + Amendment 5 D16: pilot in 2 batches, A0/A1 first).
   §14 (O1–O7: guardrails, position R² on `V^t`, source-shortcut = corpus separability T2-val vs DoTA-dev unlabelled,

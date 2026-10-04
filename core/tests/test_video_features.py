@@ -154,6 +154,46 @@ class TestEncodeFrameDir:
         assert not np.array_equal(a[len(before):], b[len(before):])
 
 
+class TestShuffleControl:
+    """D6 / N11: the shuffle cache keeps each window's frames and loses only their order."""
+
+    def test_order_is_a_fixed_non_identity_permutation(self) -> None:
+        order = evf.shuffled_frame_order(constants.V2_D6_SHUFFLE_SEED)
+        assert sorted(order) == list(range(constants.VIDEOMAE_CLIP_FRAMES))
+        assert order != sorted(order)
+        assert order == evf.shuffled_frame_order(constants.V2_D6_SHUFFLE_SEED)
+
+    def test_shuffled_clip_moves_the_newest_frame(self, tmp_path: Path) -> None:
+        _write_frames(tmp_path / "v", N_FRAMES)
+        order = evf.shuffled_frame_order(constants.V2_D6_SHUFFLE_SEED)
+        cpu = torch.device("cpu")
+        out = evf.encode_frame_dir(tmp_path / "v", LastFrameProbe(), cpu, STRIDE,
+                                   frame_order=order)
+        frames = evf.decode_frames(sorted((tmp_path / "v").iterdir()), list(range(N_FRAMES)))
+        for step, end in enumerate(evf.step_end_frames(N_FRAMES, STRIDE)):
+            clip = evf.causal_clip_indices(end)
+            assert out[step, 0] == pytest.approx(frames[clip[order[-1]]][0].mean().item(), abs=1e-5)
+            assert out[step, 1] == pytest.approx(frames[clip[order[0]]][0].mean().item(), abs=1e-5)
+
+    def test_order_invariant_encoder_sees_the_same_frames(self, tmp_path: Path) -> None:
+        class MeanProbe(nn.Module):
+            def forward(self, x: Tensor) -> Tensor:
+                return x.mean(dim=(1, 2, 3, 4)).unsqueeze(1)
+
+        _write_frames(tmp_path / "v", N_FRAMES)
+        cpu = torch.device("cpu")
+        plain = evf.encode_frame_dir(tmp_path / "v", MeanProbe(), cpu, STRIDE)
+        shuffled = evf.encode_frame_dir(tmp_path / "v", MeanProbe(), cpu, STRIDE,
+                                        frame_order=evf.shuffled_frame_order(7))
+        np.testing.assert_allclose(plain, shuffled, rtol=1e-5)
+
+    def test_a_non_permutation_is_refused(self, tmp_path: Path) -> None:
+        _write_frames(tmp_path / "v", 10)
+        with pytest.raises(ValueError, match="permutation"):
+            evf.encode_frame_dir(tmp_path / "v", LastFrameProbe(), torch.device("cpu"), STRIDE,
+                                 frame_order=[0] * constants.VIDEOMAE_CLIP_FRAMES)
+
+
 class TestExtractDirectory:
     def test_resume_and_ids_filter(self, tmp_path: Path) -> None:
         for vid in ("t01_v001", "t01_v002"):

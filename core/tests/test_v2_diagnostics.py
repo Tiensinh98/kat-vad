@@ -123,7 +123,10 @@ class TestForward:
 class TestRunSmoke:
     """CLI wiring end to end: v2 dataset dir, plain A0 inputs, unlabelled DoTA-dev, read-out."""
 
-    def test_run_writes_diag(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    @pytest.mark.parametrize("split", ["dota_dev", "dota_cap_dev"])
+    def test_run_writes_diag(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, split: str
+    ) -> None:
         data_dir, _ = _build(tmp_path)
         v2_dir = tmp_path / "v2"
         v2_dataset.make_v2_dataset(data_dir, v2_dir, tmp_path / "splits")
@@ -138,9 +141,13 @@ class TestRunSmoke:
         split_dir, s1 = tmp_path / "dsplits", tmp_path / "s1"
         split_dir.mkdir()
         s1.mkdir()
+        cap = dev[::2]  # Amendment 6: batch 2 reads O5 on the DoTA-CAP part only
         (split_dir / "dota_dev.txt").write_text("".join(f"{v}\n" for v in dev))
+        (split_dir / "dota_cap_dev.txt").write_text("".join(f"{v}\n" for v in cap))
         (split_dir / constants.V2_SPLITS_MANIFEST_FILENAME).write_text(json.dumps(
             {"splits": {"dota_dev": {"count": len(dev), "sha1": lines_sha1(dev)}}}))
+        (split_dir / constants.V2_DOTA_CAP_MANIFEST_FILENAME).write_text(json.dumps(
+            {"splits": {"dota_cap_dev": {"count": len(cap), "sha1": lines_sha1(cap)}}}))
         for v in dev:
             np.save(s1 / f"{v}.npy", rng.normal(2.0, 1.0, (31, SMALL)).astype(np.float32))
         labels_dir = tmp_path / "dota_labels"
@@ -163,10 +170,11 @@ class TestRunSmoke:
             "--run", "A0_s2099", str(run_dir / "checkpoint_last.pt"), "--data-dir", str(v2_dir),
             "--t2-input-dir", str(clip), "--dota-input-dir", str(s1), "--dota-s1-dir", str(s1),
             "--dota-data-dir", str(labels_dir), "--split-dir", str(split_dir), "--folds", "3",
-            "--device", "cpu", "--out-dir", str(out),
+            "--dota-split", split, "--device", "cpu", "--out-dir", str(out),
         ])
         readout = json.loads((out / diag.DIAG_JSON).read_text())
-        assert readout["dota_dev_clips_unlabelled"] == len(dev)
+        assert readout["dota_split"] == split
+        assert readout["dota_dev_clips_unlabelled"] == len(dev if split == "dota_dev" else cap)
         assert readout["t2_val_windows"] > 0 and readout["motion_share"] is None
         assert readout["source_shortcut_auc"]["v_t"] > 0.9  # the DoTA rows were shifted by +2
         assert "Guardrails" in (out / diag.DIAG_MD).read_text()

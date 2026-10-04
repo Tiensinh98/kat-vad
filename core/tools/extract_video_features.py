@@ -74,6 +74,21 @@ def causal_clip_indices(
     return [max(0, end_frame - step * (frames - 1 - k)) for k in range(frames)]
 
 
+def shuffled_frame_order(
+    seed: int, frames: int = constants.VIDEOMAE_CLIP_FRAMES
+) -> list[int]:
+    """D6 / N11: one fixed permutation of a clip's frame slots, never the identity.
+
+    Applied to every window alike, so the clip keeps its 16 frames (the same appearance
+    content) and loses only their temporal order.
+    """
+    rng = np.random.default_rng(seed)
+    while True:
+        order = [int(i) for i in rng.permutation(frames)]
+        if order != list(range(frames)):
+            return order
+
+
 def step_end_frames(total_frames: int, stride: int) -> list[int]:
     """Raw frame of each CLIP step: ``range(0, total, stride)`` (``num_sampled_frames``)."""
     return list(range(0, total_frames, stride))
@@ -110,11 +125,13 @@ def encode_frame_dir(
     batch_size: int = 16,
     subdir: str | None = None,
     clip_step: int = constants.VIDEOMAE_CLIP_FRAME_STEP,
+    frame_order: list[int] | None = None,
 ) -> np.ndarray:
     """``(L, D)`` float32 motion features, ``L = ceil(frames / stride)``.
 
     ``clip_step`` = raw frames between the clip's 16 frames: 3 at DADA's 30 fps, 1 at DoTA's
     native 10 fps (``DOTA_VIDEOMAE_FRAME_STEP``); both give the same causal 1.5 s.
+    ``frame_order`` (D6 shuffle control) permutes every clip's frame slots before encoding.
     """
     paths = list_frame_images(folder, subdir)
     if not paths:
@@ -122,6 +139,10 @@ def encode_frame_dir(
     clips = [
         causal_clip_indices(end, step=clip_step) for end in step_end_frames(len(paths), stride)
     ]
+    if frame_order is not None:
+        if sorted(frame_order) != list(range(constants.VIDEOMAE_CLIP_FRAMES)):
+            raise ValueError(f"frame_order {frame_order} is not a permutation of the clip slots")
+        clips = [[clip[k] for k in frame_order] for clip in clips]
     frames = decode_frames(paths, sorted({i for clip in clips for i in clip}))
     chunks: list[Tensor] = []
     for start in range(0, len(clips), batch_size):

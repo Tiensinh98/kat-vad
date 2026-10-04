@@ -20,6 +20,8 @@ Nothing in the trunk, heads, losses, windowing or DVS. Two things are added:
 | A2 | a baked A2 cache | `none` | encoder | 768 (B) / 384 (S) |
 | A3 | a baked A3 cache | `R2` | encoder | 768 / 384 |
 
+**Encoder = V2-S (`vit_s_k710_dl_from_giant`, 384-d)** — E2(d)'s pick (`RESULTS_E2D.md`, addendum §15 G1).
+
 Every v2 arm also needs `kip.enabled=false` (validated; v2 retires KIP). The reference is **R2** (median):
 E2 re-read at stride 3 under D11 picked it over R1 by a tie-level margin (`RESULTS_E2_CRN.md` §D11);
 the code accepts any of R1–R4, and the manifest records which one a cache was baked with.
@@ -55,11 +57,11 @@ python -m core.tools.build_v2_inputs fit \
   --t2-dir data/DADA2000_orig --clip-dir cache/clip/DADA2000_orig \
   --crn R2 --motion none --out-dir cache/v2/A1_R2/DADA2000_orig
 
-# A3 (needs the full-T2 VideoMAE cache from P4)
+# A3 (needs the full-T2 V2-S cache: colab/v2/p4_s_full_t2_d6.ipynb step 2); A2 = the same with --crn none
 python -m core.tools.build_v2_inputs fit \
-  --t2-dir data/DADA2000_orig --clip-dir cache/clip/DADA2000_orig \
-  --video-dir cache/video/vit_b_k710_dl_from_giant/DADA2000_orig_s8_squash \
-  --crn R2 --motion vit_b_k710_dl_from_giant --out-dir cache/v2/A3_R2_B/DADA2000_orig
+  --t2-dir data/DADA2000_orig_v2 --clip-dir cache/clip/DADA2000_orig \
+  --video-dir cache/video/vit_s_k710_dl_from_giant/DADA2000_orig_s8_squash \
+  --crn R2 --motion vit_s_k710_dl_from_giant --out-dir cache/v2/A3_R2_S/DADA2000_orig
 ```
 
 `apply` bakes another corpus with the **fitted** statistics; each clip is its own reference. On full
@@ -105,8 +107,8 @@ python -m core.train \
   --set train.stage=2 --set train.seed=2099 --set train.num_epochs=20 --set train.amp=true \
   --set data.dataset=DADA2000_orig \
   --set model.score_head_kernel=3 --set loss.mil_topk_pct=5 --set kip.enabled=false \
-  --set v2.crn=R2 --set v2.motion=vit_b_k710_dl_from_giant --set model.motion_dim=768 \
-  --data-dir data/DADA2000_orig_v2 --clip-dir cache/v2/A3_R2_B/DADA2000_orig \
+  --set v2.crn=R2 --set v2.motion=vit_s_k710_dl_from_giant --set model.motion_dim=384 \
+  --data-dir data/DADA2000_orig_v2 --clip-dir cache/v2/A3_R2_S/DADA2000_orig \
   --knn-cache cache/knn/DADA2000_orig_v2/knn_cache.npz --output-dir runs/A3_s2099
 ```
 
@@ -145,7 +147,19 @@ dir's T2-val windows and (unlabelled) DoTA-dev at protocol B through the arm's o
 | O5 | source-shortcut AUC, T2-val vs DoTA-dev, on `V^t` and on `y^bin` | printed |
 | O6 / D5 | A0 vs the phase-4 KIP-off mean, micro and macro within 0.02 (`v2_diagnostics.d5`) | P7 |
 
-Runbooks: `colab/v2/p6_pilot_batch1.ipynb` (A0 + A1, D16) and, after E2(d), batch 2.
+`--dota-split dota_cap_dev` moves O5's DoTA side to DoTA-CAP-dev (addendum §15 G5): batch 2 reads all four arms
+there, because a motion arm has DoTA rows only on DoTA-CAP; A0/A1 are re-read into `diag_cap/` and their T2-val
+columns must reproduce batch 1.
+
+Runbooks: `colab/v2/p6_pilot_batch1.ipynb` (A0 + A1, D16) and `colab/v2/p6_pilot_batch2.ipynb` (A2 + A3 on V2-S,
+bakes them first; needs batch 1 and the full-T2 V2-S cache).
+
+## 6b. D6 shuffle control (addendum §2 D6, §12 N11, §15 G3)
+
+`dota_cap extract --shuffle-seed 2024 --dota-ids-file <dota_cap_dev> --encoders vit_s_k710_dl_from_giant` writes
+`DoTA_CAP_s1_squash_shuf2024`: the same pixel-gated DoTA-CAP clips, every window's 16 frames permuted by one fixed
+permutation (`extract_video_features.shuffled_frame_order`). `python -m core.tools.e2d_shuffle` re-reads the
+in-domain probe on ordered vs shuffled `u`. Printed only; runbook `colab/v2/p4_s_full_t2_d6.ipynb`.
 
 ## 7. Checkpoint compatibility
 
