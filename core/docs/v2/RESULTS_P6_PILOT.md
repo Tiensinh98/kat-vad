@@ -44,16 +44,27 @@ windows (§13 record) and every one exceeds the clip oracle with window AUC ≈ 
 it inflates exactly the clip-classification columns (micro, window AUC), not the within-window ranking (macro).
 That is an argument, not a measurement: Amendment 7 (§16) re-reads D5 on **T2-test**, unseen by all four
 checkpoints, with a code-identity gate (H1: s2024 must reproduce its phase-4 T2-test 0.6230 / 0.6334).
-Runbook `colab/v2/p6_d5_t2test.ipynb`. **P7 stays blocked by D5 until H1–H3 are read.**
+Runbook `colab/v2/p6_d5_t2test.ipynb`. Read below: explained.
 
-### D5 explanation (Amendment 7) — *pending*
+### D5 explanation (Amendment 7) — **EXPLAINED** (2026-10-04)
 
-| checkpoint | T2-test micro | macro | phase-4 printed | T2-val − T2-test micro |
-|---|---|---|---|---|
-| A0 v2 (s2099) | | | — | |
-| s2024 (H1) | | | 0.6230 / 0.6334 | |
-| s2025 | | | 0.6164 / 0.6352 (lost ckpt) | |
-| s2026 | | | 0.6152 / 0.6057 (lost ckpt) | |
+`colab/v2/p6_d5_t2test.ipynb`, `core.evaluate` on the parent dir's 1,106 T2-test windows (unseen by all four).
+
+| checkpoint | T2-test micro | macro | phase-4 printed | T2-val micro | T2-val − T2-test |
+|---|---|---|---|---|---|
+| A0 v2 (s2099) | 0.6320 | 0.6389 | — | 0.6586 | +0.027 |
+| s2024 | 0.6230 | 0.6334 | 0.6230 / 0.6334 | 0.7714 | **+0.148** |
+| s2025 (retrained) | 0.6182 | 0.6347 | 0.6164 / 0.6352 (lost ckpt) | 0.7743 | **+0.156** |
+| s2026 (retrained) | 0.6153 | 0.6078 | 0.6152 / 0.6057 (lost ckpt) | 0.7567 | **+0.141** |
+
+* **H1 PASS** — s2024 re-scored by the v2 tree reproduces phase 4 to Δ micro 9e-9, Δ macro 0: the v2 changes left
+  v1's forward and scoring path bit-identical for a KIP-off checkpoint.
+* **H2 PASS** — A0 vs ref mean 0.6188 / 0.6253: Δ micro **+0.0132**, Δ macro **+0.0136**, both within 0.02.
+* **H3: D5 = FAIL on T2-val, EXPLAINED — in-sample bias of the references. D5 no longer blocks P7.**
+* H4 (printed): the in-sample inflation is +0.14…+0.16 micro for the references vs +0.027 for A0 (A0's own
+  T2-val − T2-test gap is ordinary set-to-set difference). A0 reads *above* the references on T2-test with 15 %
+  fewer training windows — one seed, inside the margin, **not a result**. The retrained s2025/s2026 land within
+  0.002 of the lost snapshots' printed numbers.
 
 ## Batch 2 — A2 and A3 (V2-S) — *not run*
 

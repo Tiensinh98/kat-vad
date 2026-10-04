@@ -5,7 +5,7 @@ both (micro 0.6586 / 0.6683 < oracle 0.6986; macro 0.6737 / 0.6705; window AUC �
 drops the trunk's T2↔DoTA corpus separability 0.9999 → 0.551** (mechanics, not a DoTA claim). **D5 FAIL** on T2-val
 (micro Δ −0.1089, macro −0.0073): all three phase-4 references are in-sample there (O1 FAIL, window AUC 0.96–0.97).
 **Amendment 7** (addendum §16, H1–H4) re-reads D5 on T2-test with a code-identity gate (s2024 must reproduce its
-phase-4 0.6230 / 0.6334); runbook `colab/v2/p6_d5_t2test.ipynb`. P7 blocked by D5 until H3 reads. Record:
+phase-4 0.6230 / 0.6334); runbook `colab/v2/p6_d5_t2test.ipynb`. **Read out: H1 PASS (Δ 9e-9), H2 PASS (A0 − ref +0.013 / +0.014 on T2-test) → D5 EXPLAINED**, P7 no longer blocked by D5. Record:
 `core/docs/v2/RESULTS_P6_PILOT.md` (docs +1).
 
 **Last updated:** 2026-09-30 (branch `v2`) — **D11 read out: CRN reference = R2; E1 = B; Amendments 2–3; P5 built.**

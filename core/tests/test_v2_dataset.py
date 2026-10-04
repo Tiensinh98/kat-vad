@@ -92,6 +92,15 @@ class TestV2Dataset:
         assert (out / v2_dataset.MANIFEST_FILENAME).exists()
         assert not (out / constants.SUBSET_MANIFEST_FILENAME).exists()
 
+    def test_the_unseeded_split_logs_cleanly(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """The v2 dir has no seed (the split is frozen); the shared subset log must format it."""
+        data_dir, _ = _build(tmp_path)
+        with caplog.at_level("INFO", logger="core.tools.subset_train"):
+            v2_dataset.make_v2_dataset(data_dir, tmp_path / "v2", tmp_path / "splits")
+        assert "seed None" in caplog.text
+
     def test_val_frame_labels_match_the_window_labels(self, tmp_path: Path) -> None:
         data_dir, _ = _build(tmp_path)
         out = tmp_path / "v2"

@@ -40,8 +40,8 @@ all six core files + CLAUDE.md reviewed; counts re-measured: **109 Python files 
 > **P6 batch 1 (A0+A1, s2099):** guardrails PASS, no collapse; CRN takes `V^t`'s T2↔DoTA separability 0.9999 → 0.551.
 > **D5 FAIL on T2-val** (micro −0.109, macro −0.007) — references in-sample (window AUC 0.96–0.97). **Amendment 7
 > (§16, H1–H4)**: re-read on T2-test, H1 = s2024 reproduces phase-4 0.6230/0.6334. `RESULTS_P6_PILOT.md`.
-> **Next (user):** commit + upload → run `p6_d5_t2test.ipynb` (eval-only) **and** `p4_s_full_t2_d6.ipynb` in parallel →
-> `p6_pilot_batch2.ipynb` → P7. P7 blocked by D5 until H3 = "explained".
+> **D5 EXPLAINED on T2-test** (H1: v2 == phase 4 to 9e-9; H2: A0 − ref +0.013 / +0.014) → no longer blocks P7.
+> **Next (user):** `p4_s_full_t2_d6.ipynb` → `p6_pilot_batch2.ipynb` → P7.
 
 > *Previous TL;DR (2026-10-04, before batch 1):*
  P0–P3 done (E1 = B, CRN = R2). **E2(d) = V2-S** (N7 tie rule);
@@ -84,7 +84,8 @@ architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 * **Amendment 7** (addendum §16, user-authorized, not advisor-reviewed): H1 s2024 re-scored on T2-test by v2
   `core.evaluate` == phase-4 0.6230/0.6334 (tol 1e-3); H2 A0 vs ref mean on T2-test within 0.02; H3 verdict map; H4
   prints (A1–A3 never scored on T2-test). Notebook `colab/v2/p6_d5_t2test.ipynb` (eval-only, no code change).
-* Record: `core/docs/v2/RESULTS_P6_PILOT.md`. Nothing committed.
+* Committed `1a2a2c5`. **Read out:** H1 PASS (s2024 v2 == phase 4, Δ 9e-9 / 0), H2 PASS (T2-test A0 0.6320 / 0.6389 vs
+  ref 0.6188 / 0.6253, Δ +0.013 / +0.014) → **D5 EXPLAINED**, P7 unblocked by D5. In-sample gap ref +0.14…+0.16 vs A0 +0.027.
 
 ## 2026-10-04 — **E2(d) read out: V2-S; Amendment 6; D6 + batch-2 tooling** (branch `v2`)
 

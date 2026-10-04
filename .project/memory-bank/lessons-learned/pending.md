@@ -1704,3 +1704,14 @@ the target; `[x;u;p]` vs `[x;p]` beside every Δ; keep `t/N` only labelled "mono
 
 **Gate status.** Third position-confound occurrence after (ag) K-pos and (ah) `−f`; candidate to merge (ag)+(ah)+(ar)
 into one promoted lesson at the next review (Gate 2 recurrence now plausibly met).
+
+## (as) [LOW] Logging - A shared log line must format every value its callers may pass, including None (2026-10-04)
+**Triggers:** LOGGER.info, %d, None, seed, logging error, subset_train, v2_dataset
+**Problem:** `subset_train.write_subset` logged `seed %d`; `v2_dataset` reuses it with `seed: None` (the T2-val split
+is frozen, not drawn), so Colab printed a `--- Logging error --- TypeError` traceback in pilot batch 1. Output was correct.
+**Bad:** `LOGGER.info("seed %d", manifest["seed"])` in a helper with a second caller.
+**Good:** `%s` for any value that may be absent; a caplog test per caller (pytest's handler re-raises format errors).
+**Rule:** Use `%s` for optional values in shared log lines and cover each caller with a caplog test.
+**Files:** `core/tools/subset_train.py:write_subset`, `core/tests/test_v2_dataset.py::test_the_unseeded_split_logs_cleanly`
+
+**Gate status.** One occurrence, cosmetic. Gate 2 not met.

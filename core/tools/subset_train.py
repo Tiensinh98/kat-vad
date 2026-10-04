@@ -267,7 +267,7 @@ def write_subset(
     target = out_dir / constants.SUBSET_MANIFEST_FILENAME
     _write_json_atomic(target, manifest)
     LOGGER.info(
-        "Subset %.2f seed %d: %d/%d sources, %d/%d items (%d abnormal) -> %s",
+        "Subset %.2f seed %s: %d/%d sources, %d/%d items (%d abnormal) -> %s",
         manifest["fraction"], manifest["seed"], manifest["sources_kept"],
         manifest["sources_total"], manifest["items_kept"], manifest["items_total"],
         manifest["abnormal_kept"], out_dir,
