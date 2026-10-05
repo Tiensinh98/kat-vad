@@ -465,3 +465,39 @@ windows seen in training — while macro agrees within 0.0073.
 | H2 | **Out-of-sample D5.** A0 (s2099) vs the mean of the same three references, all scored as H1 on **T2-test** — unseen by every one of them. Pass iff micro **and** macro each within `V2_D5_MARGIN` (0.02) | D5 as written, on a set where O6's known bias does not exist |
 | H3 | **Verdict.** H1 ∧ H2 → D5 reads "**FAIL on T2-val, explained: in-sample bias of the references**" and no longer blocks P7. ¬H1 → the v2 tree changed v1's forward or scoring path: stop, debug, P7 blocked. H1 ∧ ¬H2 → A0's training differs (v2 dataset dir, KNN cache): stop, debug, P7 blocked. No outcome changes A0, its recipe or the T2-val read-out | Fixed before the number (lesson 14) |
 | H4 | **Printed, never gated:** s2025/s2026 T2-test beside their lost phase-4 numbers (0.6164/0.6352, 0.6152/0.6057; retrained under D12, not bit-identical); each checkpoint's T2-val − T2-test micro gap (the in-sample inflation, references vs A0). **T2-test use:** this is a code/training identity check, not an arm comparison — A1–A3 are **not** scored on T2-test here, and no v2 decision reads T2-test | T2-test was read throughout v1; using it to check the baseline leaks nothing into a v2 choice |
+
+## 17. Amendment 8 (2026-10-05) — the O1 guardrail fails an improving arm; collapse is redefined (Q1–Q7)
+
+Written **after** batch 2's T2-val read-out (`outputs/v2/v2_pilot/batch2_readout.md`, `RESULTS_P6_PILOT.md`) and
+**before** any T2-test number of A1–A3 and before any E3 number exists. **Authorized by the user on 2026-10-05; not
+reviewed by the advisor. This amendment is post-hoc for the pilot** — it was written because two arms failed, and the
+thesis must say so wherever Q5's verdict is cited. It is **pre-registered for E3** (Q6).
+
+**What was read.** A2 (V2-S, no CRN) and A3 (V2-S + CRN R2), seed 2099, T2-val:
+
+| arm | micro | macro | clip oracle | window AUC | O1 |
+|---|---|---|---|---|---|
+| A0 | 0.6586 | 0.6737 | 0.6986 | 0.6863 | PASS |
+| A2 | 0.7120 | 0.6882 | 0.6986 | 0.7767 | **FAIL** (micro > oracle, macro < micro) |
+| A3 | 0.7161 | 0.7052 | 0.6986 | 0.7637 | **FAIL** (micro > oracle, macro < micro) |
+
+**Why O1 is defective.** O1's first two legs were written to catch C14 — a model that ranks windows (clip
+classification) while going flat inside them. They test the *level* of micro, not that failure:
+
+* "micro < clip oracle" is failed by **any** sufficiently good frame scorer — a perfect one scores micro = 1.0
+  > every oracle. It cannot tell "learned the oracle" from "learned more than the oracle".
+* "macro ≥ micro" fails whenever window-level separation improves faster than within-window ranking, even when the
+  within-window ranking improves too.
+* C14's measured signature is **two-sided**: TAD `m0` raised clip-level AUC 0.7687 → **0.9975** (+0.229) *while*
+  macro **fell** 0.7578 → 0.6174 (`TAD_SETUP.md` §15.1). A2/A3 raise window AUC (+0.090 / +0.077 over A0) **and**
+  raise macro (+0.015 / +0.032). The second half of the signature is absent.
+
+| # | Choice | Why |
+|---|---|---|
+| Q1 | **The record stands.** A2 and A3 **FAIL O1 on T2-val, as registered.** Every table that cites the pilot prints this verdict beside Q5's. No recipe, `c`, `lr`, `σ_u` or checkpoint changes | Lesson 14: a rule is never re-read to make a number pass |
+| Q2 | **O1′ (collapse rule), for an arm X ≠ A0, read against A0 of the same seed on the same set:** X is **collapsed** iff window AUC(X) > window AUC(A0) **and** macro(X) < macro(A0) − `V2_GUARD_A0_MARGIN` (0.01, reused). X **passes O1′** iff it is not collapsed **and** micro(X) ≥ micro(A0) − 0.01 (O1's third leg, unchanged). A0 itself has no reference and stays under O1 as registered | Encodes C14's two-sided signature; the margin is O1's own 0.01, not a new number |
+| Q3 | **Retro-check of O1′ on recorded numbers (printed, done before Q4):** TAD `m0` vs `gate_t0` → clip AUC +0.229, macro −0.140 → **collapsed** (caught). T2 phase-4 references on T2-val (in-sample, §16): s2026 window +0.275, macro 0.6524 < 0.6637 → collapsed; s2024 / s2025 macro ≥ A0 → not collapsed. **Known limit:** O1′ does not detect memorization of seen windows (s2024/s2025 pass it). That job belongs to the dataset dir (§13 record, pending (aq)), which holds T2-val out of every v2 arm; O1′ must never be read on a set the arm trained on | Shows O1′ still fires on the one in-domain collapse this project measured, and states what it cannot see |
+| Q4 | **Out-of-sample confirmation on T2-test.** A0–A3 (s2099) scored by `core.evaluate` on the parent dir's 1,106 T2-test windows (unseen by all four; A1–A3 through their own baked v2 input cache; **hard gate:** every T2-test source has a row file in that cache, else the notebook stops and the cache is re-applied, never refit) with O2's window AUC beside micro, macro and the T2-test clip oracle. **Gate:** A2 and A3 each pass O1′ against A0 **on T2-test**. Printed, never gated: O1 as registered on T2-test; Δ(X − A0) on every column ("one seed, not a result"). **T2-test use:** a guardrail check only. §16 H4's "no v2 decision reads T2-test" is amended to "no adoption reads T2-test"; E3's adoption rules (proposal §10.3) read DoTA-dev only and are untouched | Same move as Amendment 7: a set where nothing was chosen. T2-val already shaped Q2, so it cannot confirm it |
+| Q5 | **Verdict per arm.** O1′ passes on T2-val **and** on T2-test → "O1 FAIL as registered; **not collapsed** under O1′ (post-hoc, Amendment 8), confirmed on T2-test" — the arm is a pilot survivor and P7 is not blocked by it. O1′ fails on either set → the arm is **collapsed**, it does not enter E3; if A2 and A3 both fail, the Motion Stream is dropped and E3 = {A0, A1}. No outcome changes an arm's recipe | Fixed before Q4's number |
+| Q6 | **E3 guardrail = O1′**, replacing proposal §10.1's "T2 micro < the clip oracle, and macro ≥ micro" for A1–A3; "the guardrails hold" in §10.3's adoption rules means O1′ on T2-val, per seed, against A0 of that seed. A0 seeds stay under O1. O1's two retired legs, the clip oracle and window AUC are **printed** for every arm and seed | Pre-registered: no E3 number exists |
+| Q7 | **Printed, never gated (pilot and E3):** per-epoch mean training loss per arm. In the pilot the CRN arms fit T2-train far harder than the raw ones (last-epoch mean `total` A0 0.742, A2 0.451, **A1 0.153, A3 0.136**; `mil` A1 0.027, A3 0.019). A1 passed O1 regardless, so this does not explain A2/A3's FAIL; it is a capacity/overfit caveat for reading CRN arms' T2 numbers, not a defect | Seen while reading batch 2; recorded so it cannot become a post-hoc reason later |

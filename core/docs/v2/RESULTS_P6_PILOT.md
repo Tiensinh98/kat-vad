@@ -66,7 +66,33 @@ Runbook `colab/v2/p6_d5_t2test.ipynb`. Read below: explained.
   fewer training windows — one seed, inside the margin, **not a result**. The retrained s2025/s2026 land within
   0.002 of the lost snapshots' printed numbers.
 
-## Batch 2 — A2 and A3 (V2-S) — *not run*
+## Batch 2 — A2 and A3 (V2-S), seed 2099 (2026-10-05)
 
-`colab/v2/p6_pilot_batch2.ipynb`, after the full-T2 V2-S cache (`p4_s_full_t2_d6.ipynb` step 2). O5 on
-`dota_cap_dev` for all four arms (G5).
+`colab/v2/p6_pilot_batch2.ipynb`. Encoder `vit_s_k710_dl_from_giant` (G1), `model.motion_dim=384`, O7's recipe,
+**step 1740** both. Config A3 == A2 except `v2.crn=R2` (G4). O5 on `dota_cap_dev` (569 clips, unlabelled, G5) for all
+four arms; A0/A1 re-read there reproduce batch 1's T2-val columns exactly.
+
+| arm | micro | macro | clip oracle | window AUC (O2) | O1 guardrails | pos R² `V^t` (input) | shortcut `V^t` (CAP) | shortcut `y^bin` (CAP) | `ρ_u` last / max | `‖W_u‖` last |
+|---|---|---|---|---|---|---|---|---|---|---|
+| A0 | 0.6586 | 0.6737 | 0.6986 | 0.6863 | PASS | −0.201 | 0.9997 | 0.5426 | — | — |
+| A1 (CRN) | 0.6683 | 0.6705 | 0.6986 | 0.6828 | PASS | −0.030 | 0.5573 | 0.5270 | — | — |
+| A2 (V2-S) | 0.7120 | 0.6882 | 0.6986 | 0.7767 | **FAIL** | −0.045 (−0.119) | 0.9998 | 0.5343 | 0.1325 / 0.1525 | 1.271 |
+| A3 (CRN + V2-S) | 0.7161 | 0.7052 | 0.6986 | 0.7637 | **FAIL** | +0.010 (+0.049) | 0.5830 | 0.5372 | 0.1075 / 0.1223 | 1.102 |
+
+Read-outs:
+
+* **A2 and A3 FAIL O1, as registered** — both on the same two legs (micro > clip oracle by +0.013 / +0.018; macro <
+  micro). The A0-margin leg passes. This verdict is kept (Amendment 8 Q1).
+* **The failure is not the C14 signature.** C14 = window AUC up **and** macro down (TAD `m0`: +0.229 / −0.140). Here
+  window AUC rises +0.090 / +0.077 over A0 **and** macro rises +0.015 / +0.032. O1's "micro < oracle" leg is failed
+  by any good enough frame scorer (a perfect one has micro 1.0). **Amendment 8 (§17)** — post-hoc for the pilot —
+  defines collapse as the two-sided signature (O1′), and requires it to be confirmed on T2-test (Q4) before P7.
+* **The Motion Stream is used.** `ρ_u` 0 → 0.11–0.13, `‖W_u‖` 0 → 1.1–1.3 from a zero init; not the `ρ_u` ≈ 0 case.
+* CRN keeps its effect with motion on: shortcut `V^t` A2 0.9998 → A3 0.5830 (as A0 → A1).
+* **Printed (Q7), not a reason for anything:** CRN arms fit T2-train much harder — last-epoch mean `total` A0 0.742 /
+  A2 0.451 vs A1 0.153 / A3 0.136. A1 passed O1 regardless.
+* Δ(A2 − A0) and Δ(A3 − A0) are one seed on T2-val with no interval: **not a result**. Nothing here reads DoTA (D4).
+
+### Amendment 8 confirmation on T2-test (Q4) — *not run*
+
+Gate: A2 and A3 each pass O1′ against A0 on the parent dir's 1,106 T2-test windows. Verdict rule Q5.

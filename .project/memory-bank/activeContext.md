@@ -32,11 +32,18 @@
 > this branch *this file and `progress.md` are the only durable record of the
 > attribution campaign*. Do not delete them; do not re-run those arms here.
 
-**Last Memory Bank Update:** 2026-10-04, later (partial: activeContext, progress — P6 batch 1 read out, Amendment 7). Earlier 2026-10-04 (partial: activeContext, progress, pending (ar) — E2(d) read out, Amendment 6). Before that 2026-10-03 (partial: activeContext only — DoTA-CAP frozen, L7). Before that 2026-09-30 ( — **full update, branch `v2`: E1 = B, Amendment 2/3, P5 built, D11 tooling**;
+**Last Memory Bank Update:** 2026-10-05 (partial: activeContext, pending (at) — batch 2 read out, Amendment 8). Before that 2026-10-04, later (partial: activeContext, progress — P6 batch 1 read out, Amendment 7). Earlier 2026-10-04 (partial: activeContext, progress, pending (ar) — E2(d) read out, Amendment 6). Before that 2026-10-03 (partial: activeContext only — DoTA-CAP frozen, L7). Before that 2026-09-30 ( — **full update, branch `v2`: E1 = B, Amendment 2/3, P5 built, D11 tooling**;
 all six core files + CLAUDE.md reviewed; counts re-measured: **109 Python files (73 source + 36 test), 17,520 source LOC,
 754 tests, 35 docs**.)
 
-> **TL;DR — where v2 stands (2026-10-04, after batch 1).** P0–P4 read (E1 = B, CRN = R2, encoder V2-S).
+> **TL;DR — where v2 stands (2026-10-05, after batch 2).** A2/A3 (V2-S, s2099) **FAIL O1 on T2-val** — micro >
+> clip oracle (0.712 / 0.716 vs 0.699), macro < micro — but window AUC **and** macro both rise vs A0 (+0.09/+0.08,
+> +0.015/+0.032): not C14. **Amendment 8 (§17, Q1–Q7, post-hoc for the pilot, pre-registered for E3):** collapse =
+> window AUC up **and** macro < A0 − 0.01 (O1′); confirm on T2-test (Q4) before P7. `ρ_u` ≈ 0.11–0.13 (stream used).
+> Uncommitted: addendum §17, `RESULTS_P6_PILOT.md` batch 2. **Next (Claude):** O1′ in `v2_diagnostics` + tests,
+> notebook `p6_t2test_o1prime.ipynb`; **(user)** run it → Q5 verdict → P7.
+
+> *Previous TL;DR (2026-10-04, after batch 1).* P0–P4 read (E1 = B, CRN = R2, encoder V2-S).
 > **P6 batch 1 (A0+A1, s2099):** guardrails PASS, no collapse; CRN takes `V^t`'s T2↔DoTA separability 0.9999 → 0.551.
 > **D5 FAIL on T2-val** (micro −0.109, macro −0.007) — references in-sample (window AUC 0.96–0.97). **Amendment 7
 > (§16, H1–H4)**: re-read on T2-test, H1 = s2024 reproduces phase-4 0.6230/0.6334. `RESULTS_P6_PILOT.md`.

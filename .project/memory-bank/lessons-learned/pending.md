@@ -1715,3 +1715,15 @@ is frozen, not drawn), so Colab printed a `--- Logging error --- TypeError` trac
 **Files:** `core/tools/subset_train.py:write_subset`, `core/tests/test_v2_dataset.py::test_the_unseeded_split_logs_cleanly`
 
 **Gate status.** One occurrence, cosmetic. Gate 2 not met.
+
+## (at) [MEDIUM] Experiments - A guardrail must test the failure's signature, not a level a better model also crosses (2026-10-05)
+**Triggers:** guardrail, clip oracle, micro < oracle, macro ≥ micro, collapse, C14, window AUC, pilot, O1, O1′
+**Problem:** v2 O1 declared "collapse" when T2 micro > clip oracle and macro < micro. A2/A3 (motion arms) tripped it
+while raising window AUC **and** macro over A0; a perfect scorer (micro 1.0) would trip it too. C14's real signature
+is two-sided (TAD `m0`: clip AUC +0.229, macro −0.140). Fixing it took a post-hoc amendment (§17).
+**Bad:** `collapsed = micro >= clip_oracle or macro < micro`
+**Good:** `collapsed = win_auc > win_auc_a0 and macro < macro_a0 - margin` (relative to a same-seed reference)
+**Rule:** Define a collapse guardrail by the measured failure signature relative to a reference arm, and check before pre-registering that a perfect model passes it.
+**Files:** `core/tools/v2_diagnostics.py:guardrails`, `core/docs/v2/PREREG_ADDENDUM.md` §14 O1, §17 Q2
+
+**Gate status.** One occurrence. Gate 2 not met.
