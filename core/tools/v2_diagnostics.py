@@ -7,6 +7,9 @@ and ``y^bin``. From them, for the arm the checkpoint was trained as:
   micro (``score_norm=auto``) < the constant-per-clip oracle; macro >= micro; micro >= A0's micro
   - ``V2_GUARD_A0_MARGIN`` when ``--a0-diag`` is given.
 * **O2 collapse signature (C14):** window-level AUC of the max score vs macro.
+* **O1' (Amendment 8, §17 Q2)** when ``--a0-diag`` is given: the arm is *collapsed* iff its
+  window-level AUC is above A0's **and** its macro is below A0's - ``V2_GUARD_A0_MARGIN``;
+  it passes iff not collapsed and O1's A0-margin leg holds. Printed beside O1, which stays.
 * **O3 motion share:** ``motion_share`` (``rho_u``) and ``w_u_norm`` from ``metrics.jsonl``.
 * **O4 position probe on V^t:** standardized ridge predicting ``t/T`` within each T2-val
   window, out-of-fold R² (folds grouped by source video). Printed beside the input's own R².
@@ -56,6 +59,7 @@ from core.eda.protocol import clip_constant_oracle
 from core.inference import make_class_feats_fn
 from core.metrics import frame_auc, pooled_metrics
 from core.models.kat_vad import KATVAD
+from core.models.text_encoding import TextEncodeFn
 from core.tools.kill_switch_probe import write_json_atomic, write_text_atomic
 from core.tools.protocol_b_eval import check_baked_stride, input_rows
 from core.tools.rate_matched_eval import Run, load_finished_model
@@ -119,6 +123,26 @@ def guardrails(
         "clip_oracle_micro": oracle,
         "window_level_auc": window_auc,
         "a0_micro": a0_micro,
+        "checks": checks,
+        "pass": all(checks.values()),
+    }
+
+
+def o1_prime(arm: dict[str, Any], a0: dict[str, Any]) -> dict[str, Any]:
+    """Amendment 8 Q2 on two ``guardrails`` read-outs of the same set (arm, A0 of the same seed)."""
+    margin = constants.V2_GUARD_A0_MARGIN
+    window_up = arm["window_level_auc"] > a0["window_level_auc"]
+    macro_down = arm["macro"] < a0["macro"] - margin
+    collapsed = bool(window_up and macro_down)
+    checks = {
+        "not_collapsed": not collapsed,
+        "micro_within_a0_margin": arm["micro"] >= a0["micro"] - margin,
+    }
+    return {
+        "window_auc_delta": arm["window_level_auc"] - a0["window_level_auc"],
+        "macro_delta": arm["macro"] - a0["macro"],
+        "micro_delta": arm["micro"] - a0["micro"],
+        "collapsed": collapsed,
         "checks": checks,
         "pass": all(checks.values()),
     }
@@ -211,6 +235,40 @@ def motion_share(metrics_path: Path) -> dict[str, Any] | None:
 # ---------------------------------------------------------------------------
 # run
 # ---------------------------------------------------------------------------
+def score_t2_windows(
+    model: KATVAD,
+    text_encode_fn: TextEncodeFn,
+    data_dir: Path,
+    input_dir: Path,
+    t2_dataset: str,
+) -> tuple[FeatureEvalDataset, dict[str, dict[str, Any]]]:
+    """Every evaluation window of ``data_dir`` through the arm's input cache, scored whole.
+
+    Returns the dataset and, per window id, ``vt`` (``V^t``), ``x`` (input rows), ``y``
+    (``y^bin``), ``label`` (frame labels) and ``group`` (source video).
+    """
+    dataset = FeatureEvalDataset(data_dir, input_dir)
+    names = load_class_names(data_dir)
+    abbr = dataset_abbr(t2_dataset)
+    out: dict[str, dict[str, Any]] = {}
+    for i in range(len(dataset)):
+        item = dataset[i]
+        wid = item["video_id"]
+        rows = item["v_feat"].numpy()
+        class_feats = make_class_feats_fn(
+            text_encode_fn, names, item_verbalizer(abbr, wid)
+        )()
+        vt, y = forward_item(model, rows, class_feats)
+        out[wid] = {
+            "vt": vt,
+            "x": rows,
+            "y": y,
+            "label": item["frame_label"].numpy().astype(np.int64),
+            "group": dataset.slicer.source_of(wid),
+        }
+    return dataset, out
+
+
 def run(args: argparse.Namespace) -> dict[str, Any]:
     device = resolve_device(args.device)
     name, ckpt = args.run
@@ -221,25 +279,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     check_input_manifest(args.dota_input_dir, cfg.v2.crn, cfg.v2.motion)
     baked = check_baked_stride(args.dota_input_dir, args.stride)
 
-    dataset = FeatureEvalDataset(args.data_dir, args.t2_input_dir)
-    t2_names = load_class_names(args.data_dir)
-    t2_abbr = dataset_abbr(args.t2_dataset)
-    vt_t2: dict[str, np.ndarray] = {}
-    x_t2: dict[str, np.ndarray] = {}
-    y_t2: dict[str, np.ndarray] = {}
-    labels: dict[str, np.ndarray] = {}
-    groups: dict[str, str] = {}
-    for i in range(len(dataset)):
-        item = dataset[i]
-        wid = item["video_id"]
-        rows = item["v_feat"].numpy()
-        class_feats = make_class_feats_fn(
-            text_encode_fn, t2_names, item_verbalizer(t2_abbr, wid)
-        )()
-        vt_t2[wid], y_t2[wid] = forward_item(model, rows, class_feats)
-        x_t2[wid] = rows
-        labels[wid] = item["frame_label"].numpy().astype(np.int64)
-        groups[wid] = dataset.slicer.source_of(wid)
+    _, windows = score_t2_windows(
+        model, text_encode_fn, args.data_dir, args.t2_input_dir, args.t2_dataset
+    )
+    vt_t2 = {w: r["vt"] for w, r in windows.items()}
+    x_t2 = {w: r["x"] for w, r in windows.items()}
+    y_t2 = {w: r["y"] for w, r in windows.items()}
+    labels = {w: r["label"] for w, r in windows.items()}
+    groups: dict[str, str] = {w: r["group"] for w, r in windows.items()}
 
     dota_ids = load_split(args.dota_split, args.split_dir)
     dota_names = load_class_names(args.dota_data_dir)
@@ -262,6 +309,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         [labels[w] for w in window_ids],
         None if a0 is None else a0["guardrails"]["micro"],
     )
+    if a0 is not None:
+        guard["o1_prime"] = o1_prime(guard, a0["guardrails"])
     readout: dict[str, Any] = {
         "addendum": "core/docs/v2/PREREG_ADDENDUM.md §4, §14 (O1-O7)",
         "run": name,
@@ -343,6 +392,10 @@ def render_markdown(r: dict[str, Any]) -> str:
         "Guardrails: "
         + ", ".join(f"{k} {_yes(v)}" for k, v in g["checks"].items())
         + f" → **{'PASS' if g['pass'] else 'FAIL'}**",
+    ]
+    if "o1_prime" in g:
+        lines += ["", render_o1_prime(g["o1_prime"])]
+    lines += [
         "",
         f"Position R² on V^t {r['position_r2']['v_t']:.4f} (input {r['position_r2']['input']:.4f}"
         + (
@@ -363,6 +416,16 @@ def render_markdown(r: dict[str, Any]) -> str:
                 f"| {key} | {v['first']:.4g} | {v['last']:.4g} | {v['max']:.4g} |"
             )
     return "\n".join(lines) + "\n"
+
+
+def render_o1_prime(p: dict[str, Any]) -> str:
+    """One line for O1' (Amendment 8 Q2), deltas against A0 of the same seed and set."""
+    return (
+        f"O1' (Amendment 8): Δ window AUC {p['window_auc_delta']:+.4f}, "
+        f"Δ macro {p['macro_delta']:+.4f}, Δ micro {p['micro_delta']:+.4f}; "
+        + ", ".join(f"{k} {_yes(v)}" for k, v in p["checks"].items())
+        + f" → **{'PASS' if p['pass'] else 'FAIL'}**"
+    )
 
 
 def build_arg_parser() -> argparse.ArgumentParser:

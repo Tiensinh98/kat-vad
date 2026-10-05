@@ -57,6 +57,44 @@ class TestGuardrails:
         ]
 
 
+def _g(micro: float, macro: float, window: float, passed: bool = False) -> dict:
+    return {"micro": micro, "macro": macro, "window_level_auc": window, "pass": passed}
+
+
+class TestO1Prime:
+    """Amendment 8 Q2: collapse = window AUC up AND macro below A0 - margin."""
+
+    A0 = _g(0.6586, 0.6737, 0.6863, True)
+
+    def test_an_improving_arm_is_not_collapsed(self) -> None:
+        out = diag.o1_prime(_g(0.7161, 0.7052, 0.7637), self.A0)  # pilot A3 on T2-val
+        assert not out["collapsed"] and out["pass"]
+        assert out["window_auc_delta"] == pytest.approx(0.0774)
+
+    def test_the_c14_signature_is_collapsed(self) -> None:
+        out = diag.o1_prime(_g(0.70, 0.62, 0.95), self.A0)  # window up, macro -0.054
+        assert out["collapsed"] and not out["pass"]
+
+    def test_a_macro_drop_without_a_window_gain_is_not_collapse(self) -> None:
+        out = diag.o1_prime(_g(0.66, 0.60, 0.60), self.A0)
+        assert not out["collapsed"]
+
+    def test_the_macro_margin_is_o1s_margin(self) -> None:
+        inside = self.A0["macro"] - constants.V2_GUARD_A0_MARGIN + 1e-6
+        outside = self.A0["macro"] - constants.V2_GUARD_A0_MARGIN - 1e-6
+        assert not diag.o1_prime(_g(0.70, inside, 0.9), self.A0)["collapsed"]
+        assert diag.o1_prime(_g(0.70, outside, 0.9), self.A0)["collapsed"]
+
+    def test_the_micro_leg_still_applies(self) -> None:
+        out = diag.o1_prime(_g(0.64, 0.70, 0.70), self.A0)
+        assert not out["collapsed"] and not out["pass"]
+        assert not out["checks"]["micro_within_a0_margin"]
+
+    def test_render_names_every_check(self) -> None:
+        line = diag.render_o1_prime(diag.o1_prime(_g(0.7161, 0.7052, 0.7637), self.A0))
+        assert "not_collapsed PASS" in line and "**PASS**" in line
+
+
 class TestProbes:
     def test_position_r2_high_when_encoded_and_low_when_not(self) -> None:
         rng = np.random.default_rng(3)
@@ -178,3 +216,17 @@ class TestRunSmoke:
         assert readout["t2_val_windows"] > 0 and readout["motion_share"] is None
         assert readout["source_shortcut_auc"]["v_t"] > 0.9  # the DoTA rows were shifted by +2
         assert "Guardrails" in (out / diag.DIAG_MD).read_text()
+        assert "o1_prime" not in readout["guardrails"]  # no --a0-diag: A0 has no reference
+
+        a1_out = tmp_path / "out_a1"
+        diag.main([
+            "--run", "A1_s2099", str(run_dir / "checkpoint_last.pt"), "--data-dir", str(v2_dir),
+            "--t2-input-dir", str(clip), "--dota-input-dir", str(s1), "--dota-s1-dir", str(s1),
+            "--dota-data-dir", str(labels_dir), "--split-dir", str(split_dir), "--folds", "3",
+            "--dota-split", split, "--device", "cpu", "--out-dir", str(a1_out),
+            "--a0-diag", str(out / diag.DIAG_JSON),
+        ])
+        prime = json.loads((a1_out / diag.DIAG_JSON).read_text())["guardrails"]["o1_prime"]
+        assert prime["window_auc_delta"] == pytest.approx(0.0)  # same model, same windows
+        assert prime["pass"]
+        assert "O1' (Amendment 8)" in (a1_out / diag.DIAG_MD).read_text()

@@ -40,8 +40,9 @@ all six core files + CLAUDE.md reviewed; counts re-measured: **109 Python files 
 > clip oracle (0.712 / 0.716 vs 0.699), macro < micro — but window AUC **and** macro both rise vs A0 (+0.09/+0.08,
 > +0.015/+0.032): not C14. **Amendment 8 (§17, Q1–Q7, post-hoc for the pilot, pre-registered for E3):** collapse =
 > window AUC up **and** macro < A0 − 0.01 (O1′); confirm on T2-test (Q4) before P7. `ρ_u` ≈ 0.11–0.13 (stream used).
-> Uncommitted: addendum §17, `RESULTS_P6_PILOT.md` batch 2. **Next (Claude):** O1′ in `v2_diagnostics` + tests,
-> notebook `p6_t2test_o1prime.ipynb`; **(user)** run it → Q5 verdict → P7.
+> Built (uncommitted): addendum §17, `RESULTS_P6_PILOT.md` batch 2, `v2_diagnostics.o1_prime` + `score_t2_windows`,
+> `core/tools/v2_guard_test.py`, notebook `colab/v2/p6_t2test_o1prime.ipynb`; tests **870 / 0 fail**.
+> **Next (user):** run `p6_t2test_o1prime.ipynb` and D6 (`p4_s_full_t2_d6.ipynb` steps 1, 3, 4) → Q5 verdict → P7.
 
 > *Previous TL;DR (2026-10-04, after batch 1).* P0–P4 read (E1 = B, CRN = R2, encoder V2-S).
 > **P6 batch 1 (A0+A1, s2099):** guardrails PASS, no collapse; CRN takes `V^t`'s T2↔DoTA separability 0.9999 → 0.551.

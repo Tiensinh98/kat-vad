@@ -96,3 +96,8 @@ Read-outs:
 ### Amendment 8 confirmation on T2-test (Q4) — *not run*
 
 Gate: A2 and A3 each pass O1′ against A0 on the parent dir's 1,106 T2-test windows. Verdict rule Q5.
+
+Runbook `colab/v2/p6_t2test_o1prime.ipynb` → `python -m core.tools.v2_guard_test` (A0–A3 in one call; same forward and
+reads as `v2_diagnostics`; Q4 source-coverage hard gate). Tool check before the verdict is read: A0 through this path
+must reproduce Amendment 7's A0 T2-test 0.6320 / 0.6389 (`core.evaluate`) to 1e-3. `v2_diagnostics` now prints O1′
+beside O1 whenever `--a0-diag` is given.
