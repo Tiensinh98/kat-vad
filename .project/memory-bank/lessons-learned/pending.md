@@ -1742,3 +1742,28 @@ static control (one frame ×16) is what separates motion energy from appearance.
 **Files:** `core/tools/e2d_shuffle.py`, `core/docs/v2/PREREG_ADDENDUM.md` §15 G3, `core/docs/v2/RESULTS_E2D.md` §D6
 
 **Gate status.** One occurrence. Gate 2 not met. Related to (ag)/(ah)/(ar): same family (what a motion number may be called).
+
+## (av) [HIGH] Experiments - A position prior fitted on the training corpus can beat the trained model: control for it, not just print it (2026-10-06)
+**Triggers:** position prior, p_T2, beyond position, DoTA-CAP, protocol B, macro AUC, E3, G6, Spearman, fusion
+**Problem:** E3's adopted arm A3 scores DoTA-CAP-dev macro 0.758; a cubic probe on relative frame position fitted on
+T2 training windows (no pixels) scores **0.822**. G6 printed it and flagged "co-moves with position", but a flag does
+not say how much of the +0.086 is content. A within-clip fusion `z(y) + 2·z(p_T2)` did: A3 − A0 → +0.023, A2 − A0 → 0.
+**Bad:** "A3 improves DoTA by +0.086" with the position number in a footnote, or a Spearman flag as the only control.
+**Good:** report `arm + w·p` vs `p` alone and the Δ under that control, with `w` fixed before the set is opened (§19 P4).
+**Rule:** Pre-register a position-controlled Δ (score fused with the training-corpus position prior) beside every frame-level macro gain on a benchmark whose labels sit at a typical position.
+**Files:** `core/tools/position_prior.py`, `core/tools/e3_readout.py` (G6), `core/docs/v2/RESULTS_E3.md` §5, addendum §19 P4
+
+**Gate status.** Fourth position-confound occurrence after (ag), (ah), (ar) — same family; Gate 2 recurrence met.
+Merge (ag)+(ah)+(ar)+(av) into one promoted lesson at the next review.
+
+## (aw) [MEDIUM] Process - A disabled sign-off guard turns "pre-registered" into "frozen in git, signed after" (2026-10-06)
+**Triggers:** pre-registration, sign-off, amendment, Not in force, notebook guard, assert disabled, provenance
+**Problem:** `e3_factorial.ipynb` refused to run while §18 said "Not in force"; the guard was disabled by hand to run E3
+early and §18 was signed after `e3_readout.md` existed. The text was committed (`59ee17e`) before any number, so the
+rules were not tuned — but the claim weakens to "frozen in git before, signed after", and must be said wherever E3 is cited.
+**Bad:** removing the guard in Colab and later signing as if before.
+**Good:** sign (one line + commit) before the run; if a run must start first, record the provenance sentence in the amendment at once.
+**Rule:** Sign an amendment before the run its notebook guards; when a guard was bypassed, write the provenance sentence into the amendment.
+**Files:** `colab/v2/e3_factorial.ipynb` (§18 guard), `core/docs/v2/PREREG_ADDENDUM.md` §18
+
+**Gate status.** One occurrence. Gate 2 not met.

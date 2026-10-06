@@ -507,9 +507,12 @@ classification) while going flat inside them. They test the *level* of micro, no
 ## 18. Amendment 9 (2026-10-05) — how E3 is computed (M1–M10)
 
 Written **after** the pilot's last read-out (Q4 on T2-test, D6) and **before any E3 checkpoint exists**: no seed of
-2024–2028 has been trained for any v2 arm, and no v2 arm has been scored on DoTA-dev with a label. **Drafted
-2026-10-05 for the user's sign-off; not reviewed by the advisor. Not in force until the user authorizes it, which
-must happen before the first E3 run.** It fixes the computation of proposal §10.1 / §10.3 and §17 Q6;
+2024–2028 has been trained for any v2 arm, and no v2 arm has been scored on DoTA-dev with a label. **Authorized by
+the user on 2026-10-06; not reviewed by the advisor.** **Provenance, stated plainly (cite it wherever E3 is cited):**
+the text of M1–M10 was drafted 2026-10-05 and committed in `59ee17e` (2026-10-06 08:04 +0700) and has not been edited
+since; the user reports running the 20 E3 runs from that upload with the notebook's unsigned-§18 guard disabled by
+hand, and signed only after `e3_readout.md` existed. The rules were therefore **frozen in git before any E3 number
+but signed after it**; no rule here was changed after the read-out. It fixes the computation of proposal §10.1 / §10.3 and §17 Q6;
 it changes no adoption rule. Harness: `python -m core.tools.position_prior` (G6 a) + `python -m core.tools.e3_readout`;
 runbook `colab/v2/e3_factorial.ipynb`.
 
@@ -532,3 +535,29 @@ appearance encoder", not "motion").
 | M8 | **Wording the tool prints.** A significant motion contrast (A3 − A1 if A3 is adopted, A2 − A0 if A2 is) licenses "**the video stream (V2-S) improves DoTA-CAP (n/1397)**" — never "motion" (G3 / D6). An A3 − A0 gain alone licenses only "v2 as a whole improves DoTA-CAP". A1 − A0 is a full-DoTA-dev number and is never printed beside a DoTA-CAP one in the same table (D14) | The pre-registered claims of §10.3 under D6's verdict |
 | M9 | **Sealed sets.** E3 reads T2-val, DoTA-dev and DoTA-CAP-dev only. DoTA-eval, DoTA-CAP-eval and T2-test stay unread until the Final step (§10.2), which is its own notebook after the adoption is recorded | §10.2 |
 | M10 | **Reading order.** The notebook trains all 20 runs, then diagnoses (M2), then scores (M3), then calls `e3_readout` once. No contrast is printed before every run of every arm is finished and verified | Avoids a partial read steering the rest |
+
+---
+
+## 19. Amendment 10 (2026-10-06) — the Final step, and how position is controlled there (P1–P8)
+
+Written **after** E3's read-out (`RESULTS_E3.md`; adoption recorded: **A3**, `F` = A0) and **before** any E3
+checkpoint has been scored on a sealed set (DoTA-eval, DoTA-CAP-eval) or on T2-test. **Authorized by the user on
+2026-10-06, before the Final notebook exists and before any sealed set is read by an E3 checkpoint; not reviewed by
+the advisor** (the advisor brief `ADVISOR_BRIEF_E3.md` is sent with it; an objection becomes Amendment 11, not an edit here).
+
+**Why it exists.** E3's G6 read printed `p_T2` — a cubic position probe fitted on T2 training windows, no pixels —
+at **0.8220** on DoTA-CAP-dev, above every arm (A3 0.7576). A post-hoc read on dev (`RESULTS_E3.md` §5) adds each
+arm's within-clip z-scored score to `w · z(p_T2)`: A3 − A0 shrinks **0.081 → 0.045 (w = 1) → 0.023 (w = 2)** and
+stays > 0, while A2 − A0 falls to **+0.007 [−0.005, +0.019]**. That read was chosen after seeing dev, so on dev it is
+post-hoc. This amendment fixes its Final version before the eval set exists for any E3 checkpoint.
+
+| # | Choice | Why |
+|---|---|---|
+| P1 | **Adoption is closed.** A3 (`F` = A0), recorded in `RESULTS_E3.md`. Nothing read at Final re-opens it; a Final number that disagrees with dev is reported as selection optimism (§10.2), never as a reason to adopt another arm | §10.2: Final reports, it does not decide |
+| P2 | **What is opened, once.** The 20 E3 checkpoints of M1 (`checkpoint_last.pt`, J10 = step 1740), no retraining, no seed added: **DoTA-CAP-eval** (560 clips) for A0–A3 under protocol B through the same bakes as M3; **DoTA-eval** (700 clips) for A0 and A1 only (A2/A3 have no V2-S features outside CAP, D13); **T2-test** (1,106 windows, `core.evaluate`, as §17 Q4) for A0–A3, every seed. `load_split(..., final=True)` is called by the Final notebook only | §10.2 "open T2-test and DoTA-eval once"; D13/D14 for which arm can be read where |
+| P3 | **Printed per arm and set.** Seed-mean macro with its t95; the five §10.3 contrasts paired by seed (t95, descriptive); the clip-level paired cluster bootstrap Δ; macro per share bin; **optimism = dev − eval** per arm; `p_T2` and the monotone `t/N` on the same clips; DoTA micro and AP (DoTA-CAP-labelled, never beside 62.60, D14). T2-test: micro, macro, clip oracle, window AUC, O1′ per seed vs A0 of that seed. MCC/AUCMCC and efficiency are **not measured** in v2 and are listed as such | §10.1's reported set, minus what no harness computes — said, not hidden |
+| P4 | **The position-controlled read.** Per arm X and clip c: `f_w(X)_c = z_c(ȳ_X) + w · z_c(p_T2)`, `ȳ_X` = seed-averaged `y^bin` at native frames (M3's `clip_scores.npz`), `z_c` = standardize within the clip (a constant series → 0), `p_T2` = G6 (a)'s probe, refit by `core.tools.position_prior` exactly as for E3 (same T2 training windows, same cubic features, seed `constants.SEED`; no DoTA label enters the fit), scored on the eval clips. Macro over two-class clips. **w ∈ {1, 2}, w = 2 primary.** Δ by clip-level paired cluster bootstrap (clusters = source video, B = 10,000, seed 2024). Reads: `f_2(A3) − f_2(A0)`, `f_2(A3) − f_2(A1)`, `f_2(A2) − f_2(A0)`, and `f_2(X) − p_T2` per arm. Computed on DoTA-CAP-eval and re-printed on DoTA-CAP-dev beside it | w = 2 is where, on dev, A0 + position ≈ position alone (0.819 vs 0.822): the weakest arm carries nothing beyond position, so any arm's surplus there is content. **Chosen on dev — stated, and the reason eval is the test** |
+| P5 | **Sentence rule (printed, never moves P1).** (a) `f_2(A3) − f_2(A0)` lower bound > 0 on DoTA-CAP-eval → "**A3's gain over A0 survives the T2 position prior**"; else "A3's gain is not separable from the T2 position prior at w = 2". (b) The same for `f_2(A3) − f_2(A1)` with "the video stream's gain on top of CRN". (c) `f_2(A3) − p_T2` lower bound > 0 → "A3 carries signal beyond position"; else "A3 adds nothing measurable to position". Every DoTA-CAP macro in the thesis carries `p_T2` beside it | Fixes the sentence before the number (lesson 14), as G3 did for D6 |
+| P6 | **Why `p_T2`, not `p_CAP`.** `p_T2` is fitted on T2 training windows only — the prior a T2-trained model could have absorbed. `p_CAP` is fitted on DoTA-CAP labels; fitting it on CAP-eval would be in-sample. `p_CAP` = 0.852 (dev) stays a printed ceiling only | G6 (a)/(b) |
+| P7 | **Harness gate before anything sealed is read.** The Final tool recomputes P4 on DoTA-CAP-dev from E3's `clip_scores.npz` and must reproduce `RESULTS_E3.md` §5's **means** to 1e-4 (the means are deterministic; the scratch intervals used B = 5,000 and another seed, so only means are gated). Fail → stop, no sealed set is opened | The dev numbers came from a scratch script; the Final number must come from the tool that is tested |
+| P8 | **What E3 still may not say.** Unchanged: never "motion" (G3 / D6); "v2 as a whole" for A3 − A0; "the video stream (V2-S)" for A3 − A1; A2/A3 carry "O1 FAIL as registered; not collapsed under O1′" (§17 Q5); §18's provenance sentence | Carried forward so the Final write-up cannot drop them |

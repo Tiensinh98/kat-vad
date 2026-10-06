@@ -32,11 +32,22 @@
 > this branch *this file and `progress.md` are the only durable record of the
 > attribution campaign*. Do not delete them; do not re-run those arms here.
 
-**Last Memory Bank Update:** 2026-10-05, later (partial: activeContext, plan §0/App. A, pending (au) — D6 + T2-test O1′ read out). Earlier 2026-10-05 (partial: activeContext, pending (at) — batch 2 read out, Amendment 8). Before that 2026-10-04, later (partial: activeContext, progress — P6 batch 1 read out, Amendment 7). Earlier 2026-10-04 (partial: activeContext, progress, pending (ar) — E2(d) read out, Amendment 6). Before that 2026-10-03 (partial: activeContext only — DoTA-CAP frozen, L7). Before that 2026-09-30 ( — **full update, branch `v2`: E1 = B, Amendment 2/3, P5 built, D11 tooling**;
+**Last Memory Bank Update:** 2026-10-06 (partial: activeContext, progress, plan §0/P7/App. A, pending (av), addendum §18 signed + §19 drafted — E3 read out). Before that 2026-10-05, later (partial: activeContext, plan §0/App. A, pending (au) — D6 + T2-test O1′ read out). Earlier 2026-10-05 (partial: activeContext, pending (at) — batch 2 read out, Amendment 8). Before that 2026-10-04, later (partial: activeContext, progress — P6 batch 1 read out, Amendment 7). Earlier 2026-10-04 (partial: activeContext, progress, pending (ar) — E2(d) read out, Amendment 6). Before that 2026-10-03 (partial: activeContext only — DoTA-CAP frozen, L7). Before that 2026-09-30 ( — **full update, branch `v2`: E1 = B, Amendment 2/3, P5 built, D11 tooling**;
 all six core files + CLAUDE.md reviewed; counts re-measured: **109 Python files (73 source + 36 test), 17,520 source LOC,
 754 tests, 35 docs**.)
 
-> **TL;DR — where v2 stands (2026-10-05, after D6 + T2-test O1′).** P0–P6 read. **Q4: A1/A2/A3 pass O1′ on
+> **TL;DR — where v2 stands (2026-10-06, after E3).** **E3 → adopt A3 (CRN + V2-S), `F` = A0**: A3 − A0 on
+> DoTA-CAP-dev macro **+0.0855 [+0.057, +0.114]** (5/5 seeds), A3 − A1 **+0.098 [+0.086, +0.109]**; CRN alone −0.015
+> (ns, free rule FAIL — E2(c)'s +0.037 did not transfer). O1′ 5/5 for A1–A3. **Caveat that reframes the thesis:** the
+> no-pixel cubic T2 position prior `p_T2` scores **0.822 > A3 0.758**; post-hoc on dev A3's gain survives position control
+> at **+0.023…+0.045**, A2's does not. Never "motion" (D6). `core/docs/v2/RESULTS_E3.md`. §18 signed 2026-10-06 **after**
+> the read-out (notebook guard disabled by hand; text frozen in `59ee17e`) — provenance sentence in §18.
+> **Amendment 10 (§19, P1–P8) signed 2026-10-06**: Final opens DoTA-CAP-eval / DoTA-eval (A0/A1) / T2-test once,
+> with the pre-registered beyond-position read `f_2`. Advisor brief `core/docs/v2/ADVISOR_BRIEF_E3.md`.
+> **Next:** user briefs the advisor → Claude builds the Final harness + `colab/v2/final.ipynb` → user runs once.
+> Committed on the user's word (2026-10-06).
+
+> *Previous TL;DR (2026-10-05, after D6 + T2-test O1′).* P0–P6 read. **Q4: A1/A2/A3 pass O1′ on
 > T2-test** (A2 macro +0.075, A3 +0.051, window AUC +0.10/+0.12 vs A0) → survivors, Motion Stream kept, E3 = {A0–A3};
 > A2/A3 still "O1 FAIL as registered" (Q5 sentence). **D6: ordered − shuffled on `[x;u;p]` ±0.0004 (CI ∋ 0)** → per
 > G3 the stream is "a second (video) appearance encoder", never "motion"; it still adds +0.12…+0.14 over CLIP.

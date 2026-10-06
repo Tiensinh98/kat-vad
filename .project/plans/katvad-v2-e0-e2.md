@@ -22,9 +22,13 @@ Ký hiệu: ✅ xong · 🟡 đang làm / chờ chạy · ⛔ bị chặn · ⬜
 | **P4** Encoder E2(d) | ✅ | **E2(d) = V2-S** (tie rule N7: A3 transfer B 0.1508 vs S 0.1325). Motion giữ. **Position cubic `p` = 0.852** > `u`, `[x;u]`; vượt position chỉ transfer +0.02…+0.04. **D6 (2026-10-05): ordered − shuffled trên `[x;u;p]` −0.0004 / −0.0003, CI ∋ 0 → theo G3 không được gọi là "motion", mà là "second (video) appearance encoder"**; shuffled `[x;u]` − `x` vẫn +0.14 / +0.12. `core/docs/v2/RESULTS_E2D.md` §D6 | `b6d937f`, `7b1889a`, `7ea0882`, `ef24a7a` |
 | **P5** Build v2 | ✅ (trừ bake A2/A3) | Model + input cache (`a20781b`), `protocol_b_eval` / `v2_dataset` / `v2_diagnostics` (`7ea0882`; `protocol_b_eval` tái tạo E1 B 0.6628 đúng 4 chữ số). 2026-10-04: `v2_diagnostics --dota-split`, `e2d_shuffle`, `dota_cap extract --shuffle-seed`. Bake A2/A3 nằm trong notebook batch 2 | `a20781b`, `7ea0882` + (chưa commit) |
 | **P6** Pilot | ✅ | Batch 1 (A0+A1): guardrails PASS, CRN shortcut `V^t` 0.9999 → 0.551; D5 EXPLAINED (Amendment 7). Batch 2 (A2+A3, V2-S): **O1 FAIL như đăng ký**, không phải C14 → **Amendment 8 (§17, O1′)**. **T2-test (Q4, 2026-10-05): A1/A2/A3 đều PASS O1′** (A2 Δ window +0.101, macro +0.075; A3 +0.117 / +0.051) → survivors, **Motion Stream giữ**, E3 = {A0–A3}. `core/docs/v2/RESULTS_P6_PILOT.md` | `1a2a2c5`, `573d3d9`, `0aee92a` |
-| **P7** Go/no-go | 🟡 | **GO** (checklist §18). Amendment 9 (M1–M10) **nháp chờ ký**; harness `position_prior` + `e3_readout` + `colab/v2/e3_factorial.ipynb` built (chưa commit) | — |
+| **P7** Go/no-go | ✅ | **GO** (checklist §18). Amendment 9 (M1–M10) commit `59ee17e`, **user ký 2026-10-06 — SAU read-out** (guard notebook bị tắt tay khi chạy; text không đổi từ `59ee17e`) | `59ee17e` |
+| **E3** factorial | ✅ | **Adopt A3** (`F` = A0): A3 − A0 **+0.0855 [+0.057, +0.114]** 5/5 seed, A3 − A1 +0.098 [+0.086, +0.109]; A1 − A0 −0.015 (không phát hiện được, free rule FAIL). O1′ 5/5 mọi arm. **`p_T2` (position, không pixel) 0.822 > A3 0.758**; hậu kiểm dev: A3 − A0 sau kiểm soát position còn +0.023…+0.045, A2 − A0 → 0. `core/docs/v2/RESULTS_E3.md` | — |
+| **Final** | 🟡 | **Amendment 10 (§19, P1–P8) user ký 2026-10-06**: mở DoTA-CAP-eval / DoTA-eval (A0/A1) / T2-test một lần + đọc beyond-position `f_2`. Chưa có harness / notebook | — |
 
-**Việc tiếp theo (2026-10-05, sau D6 + T2-test O1′):** P7 checklist → Amendment 9 (cách E3 được tính, viết trước mọi số E3) → `core.tools.e3_readout` + G6 position reads → runbook `colab/v2/e3_factorial.ipynb` → user chạy 20 run. **User báo thầy D6** (claim "kinematics-aware" → "video appearance + CRN") trước khi đốt GPU.
+**Việc tiếp theo (2026-10-06, sau E3):** (1) ~~user ký §19~~ ký 2026-10-06; (2) báo thầy bằng `core/docs/v2/ADVISOR_BRIEF_E3.md` (D6 + `p_T2` > model) — **trước** Final; (3) Claude build harness Final (`position_prior --final`, fusion P4, gate P7 tái tạo §5 của `RESULTS_E3.md`) + notebook `colab/v2/final.ipynb`; (4) user chạy Final một lần.
+
+**Việc tiếp theo cũ (2026-10-05, sau D6 + T2-test O1′):** P7 checklist → Amendment 9 (cách E3 được tính, viết trước mọi số E3) → `core.tools.e3_readout` + G6 position reads → runbook `colab/v2/e3_factorial.ipynb` → user chạy 20 run. **User báo thầy D6** (claim "kinematics-aware" → "video appearance + CRN") trước khi đốt GPU.
 
 **Việc tiếp theo cũ (2026-10-04, sau batch 1):** (1) user commit + upload code (Amendment 6–7, tools, notebooks); (2) ~~`p6_d5_t2test.ipynb`~~ xong: D5 EXPLAINED; chạy **`p4_s_full_t2_d6.ipynb`**; (3) step 2 của P4-finish xong → `p6_pilot_batch2.ipynb`; (4) paste `d5_t2test.md`, `shuffle_readout.md`, `batch2_readout.md` → P7 checklist + E3 harness (G6 position reads).
 
@@ -228,17 +232,18 @@ model chỉ thêm `W_u`. Không sửa `dataset.py` / `synthesis.py` / `collate.p
 - [x] **A0 regression (D5):** đọc 2026-10-04 → **FAIL** trên T2-val (micro −0.109, in-sample bias như O6 báo trước). Giải thích theo Amendment 7 (H1 code identity s2024 == phase-4 T2-test; H2 D5 trên T2-test) — `p6_d5_t2test.ipynb`.
 - [ ] `ρ_u` ≈ 0 suốt run → ghi nhận motion không được dùng; **không** sửa lr/`c`.
 
-### P7 — Go/no-go cho E3 ⬜
+### P7 — Go/no-go cho E3 ✅
 
 - [x] Checklist GO (2026-10-05, addendum §18 đầu mục): mọi điều kiện §5 đạt; caveat: A2/A3 qua guardrail **chỉ nhờ O1′**
   (post-hoc), và D6 cấm chữ "motion". Suite 896 / 0 fail; gate sạch (bandit B614 cũ trong `core/tests/`).
-- [x] **Amendment 9 (§18, M1–M10) — BẢN NHÁP, chờ user ký** (notebook từ chối chạy khi còn câu "Not in force").
+- [x] **Amendment 9 (§18, M1–M10)** — commit `59ee17e`; user ký 2026-10-06 **sau** read-out (guard notebook tắt tay; text M1–M10 không đổi). Câu provenance nằm trong §18.
 - [x] Harness: `core.tools.position_prior` (G6 a), `core.tools.e3_readout` (M4–M8), `protocol_b_eval` ghi
   `clip_scores.npz`; tests `test_e3_readout.py`, `test_position_prior.py` (+26).
 - [x] Runbook E3 `colab/v2/e3_factorial.ipynb` (4 arm × seeds 2024–2028, resumable, chia nhiều session).
   **Cost:** pilot không ghi wall time → notebook đo từng run và in ETA; ước lượng thô = 20 × thời gian 1 run pilot.
-- [ ] User ký Amendment 9 → commit → upload → chạy E3 → paste `v2_e3/REPORTS/e3_readout.md`.
-- [ ] Cập nhật memory bank; bảng quyết định P1–P6 (gửi thầy nếu user muốn).
+- [x] E3 chạy xong (20 run, step 1740) → `outputs/v2/v2_s3/REPORTS/e3_readout.md` → **adopt A3** (`RESULTS_E3.md`).
+- [x] Cập nhật memory bank (2026-10-06); brief cho thầy `core/docs/v2/ADVISOR_BRIEF_E3.md`.
+- [ ] Final (§19): user ký → harness + notebook → chạy một lần.
 - [ ] NO-GO → report bounded null / thành phần bị drop (proposal §10.3).
 
 ## 7. Risks & Mitigations
@@ -274,4 +279,5 @@ model chỉ thêm `W_u`. Không sửa `dataset.py` / `synthesis.py` / `collate.p
 | P6 batch 2 | A2 / A3 (V2-S, s2099, step 1740) T2-val: micro 0.7120 / 0.7161, macro 0.6882 / 0.7052 > oracle 0.6986 → **O1 FAIL** (giữ nguyên, Q1); window AUC +0.090 / +0.077, macro +0.015 / +0.032 vs A0 → không phải C14 → Amendment 8. `ρ_u` 0.13 / 0.11, `‖W_u‖` 1.27 / 1.10. Shortcut `V^t` A2 0.9998 → A3 0.583 | `573d3d9` + Colab | 2026-10-05 |
 | P4 D6 shuffle | **Không phải thứ tự thời gian.** `[x;u;p]` ordered − shuffled A2 −0.0004 [−0.0074, +0.0065], A3 −0.0003 [−0.0066, +0.0062]; `u` +0.006/+0.007 (CI ∋ 0); shuffled `[x;u]` − `x` +0.142 / +0.119. 569/569 qua pixel gate. G3 → "second (video) appearance encoder". `outputs/v2/REPORTS/v2_E2d_shuffle/` | Colab (code upload) | 2026-10-05 |
 | P6 Q4 T2-test | **A1/A2/A3 PASS O1′** (T2-test + T2-val). T2-test micro/macro/window: A0 0.6320/0.6389/0.664 · A1 0.6558/0.6350/0.712 · A2 0.7192/**0.7136**/0.765 · A3 0.7090/0.6897/0.780; oracle 0.7037. O1 in ra: A1–A3 FAIL. A0 tool check == Amendment 7. CRN in-domain âm (A3 − A2 −0.024, 1 seed). `outputs/v2/v2_pilot/o1prime_t2test/` | Colab (code upload) | 2026-10-05 |
-| P7 | | | |
+| P7 | GO (§18 checklist). §18 ký 2026-10-06 sau read-out | `59ee17e` | 2026-10-06 |
+| E3 | **Adopt A3**, `F` = A0. Δ macro (t95, n=5): A1 − A0 (DoTA-dev) −0.0151 [−0.037, +0.007] · A2 − A0 +0.0924 [+0.051, +0.134] · **A3 − A0 +0.0855 [+0.057, +0.114]** · A3 − A1 +0.0978 [+0.086, +0.109] (CAP-dev); interaction +0.005; MDE_E3 0.028. Macro CAP-dev A0 0.677 / A1 0.658 / A2 0.754 / A3 0.758; **`p_T2` 0.822**. O1′ 5/5 (O1 đăng ký: A2/A3 FAIL 5/5, A0 FAIL s2026). Shortcut `V^t` CRN 0.57–0.59 vs 0.9998. Hậu kiểm `f_2`: A3 − A0 +0.023 [+0.013, +0.032], A2 − A0 +0.007 (∋ 0). `core/docs/v2/RESULTS_E3.md` | Colab (code upload `59ee17e`) | 2026-10-06 |
