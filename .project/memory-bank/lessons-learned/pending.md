@@ -1767,3 +1767,16 @@ rules were not tuned — but the claim weakens to "frozen in git before, signed 
 **Files:** `colab/v2/e3_factorial.ipynb` (§18 guard), `core/docs/v2/PREREG_ADDENDUM.md` §18
 
 **Gate status.** One occurrence. Gate 2 not met.
+
+## (ax) [MEDIUM] Process - Check every input of a one-shot step before writing its "opened" marker (2026-10-06)
+**Triggers:** sealed split, final, OPENED, preflight, frozen split, metadata vs cache, missing features, coverage
+**Problem:** `dota_eval` was frozen from `metadata_val.json` (1,402 ids) while the CLIP caches hold 1,397 (5 lost in v1,
+already recorded in REPORT_KIP_MSAD_DOTA_PREVAD.md). The Final preflight checked the V2-S cache but not the CLIP one,
+wrote `OPENED.json`, then crashed staging a missing clip — the sets were "opened" before the run could score them.
+**Bad:** freeze a split from metadata ids; check one cache; write the marker; stage.
+**Good:** at freeze, record coverage per cache; in a one-shot notebook, assert every input file of every step exists
+(and any exclusion is a fixed, disk-checked list) **before** the marker.
+**Rule:** Assert the existence of every input a one-shot step will read before recording that the step has begun.
+**Files:** `colab/v2/final.ipynb` (step 2), `core/tools/protocol_b_eval.py:featureless_ids`, addendum §20
+
+**Gate status.** One occurrence. Gate 2 not met. Related to C2 (a cache is bound to what built it) — here, to what it covers.

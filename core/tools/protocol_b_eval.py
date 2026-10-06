@@ -14,7 +14,8 @@ checkpoint was trained on**:
   every clip must have exactly ``len(s1[::stride])`` rows.
 
 The clip set is a frozen v2 split: ``dota_dev`` (CLIP-only arms, CRN and ``F``) or
-``dota_cap_dev`` (every motion contrast, D13). Sealed splits are refused by ``load_split``.
+``dota_cap_dev`` (every motion contrast, D13). The sealed ``dota_eval`` / ``dota_cap_eval`` are
+read only with ``--final`` (the Final step, addendum §19 P2); without it they are refused.
 Writes ``clip_aucs.json`` (seed-averaged per-clip AUC -- the input of paired Δs and of D15)
 and ``clip_scores.npz`` (seed-averaged native scores + labels, E3's position reads, Amendment 9
 M3/M6) beside a read-out. Name a ``dota_cap_dev`` number **DoTA-CAP (n/1397)** (D14).
@@ -65,6 +66,57 @@ _SCORE_KEY, _LABEL_KEY = "score/", "label/"
 READOUT_JSON = "protocol_b_readout.json"
 READOUT_MD = "protocol_b_readout.md"
 OPEN_SPLITS = (constants.V2_SPLIT_DOTA_DEV, constants.V2_SPLIT_DOTA_CAP_DEV)
+FINAL_SPLITS = (constants.V2_SPLIT_DOTA_EVAL, constants.V2_SPLIT_DOTA_CAP_EVAL)
+CAP_SPLITS = (constants.V2_SPLIT_DOTA_CAP_DEV, constants.V2_SPLIT_DOTA_CAP_EVAL)
+
+
+def check_split(split: str, final: bool, tool: str) -> None:
+    """An open split always; a sealed one only under ``--final`` (addendum §19 P2)."""
+    if split in OPEN_SPLITS:
+        return
+    if split not in FINAL_SPLITS:
+        raise ValueError(f"{tool} reads {OPEN_SPLITS + FINAL_SPLITS} only, not {split!r}")
+    if not final:
+        raise ValueError(f"{split!r} is sealed: {tool} reads it only with --final (§19)")
+
+
+def featureless_ids(
+    ids: list[str], exclude: tuple[str, ...], s1_dir: Path, final: bool
+) -> list[str]:
+    """Amendment 11 R2: drop ``exclude`` from ``ids`` -- only clips with no CLIP features.
+
+    The exclusion is a fixed list (``V2_FINAL_DOTA_EVAL_NO_FEATURES``), allowed only under
+    ``--final``. A listed clip that is not in the split, or that *has* a stride-1 CLIP file,
+    is refused, and so is any other featureless clip: nothing with features can be dropped,
+    so no clip is chosen by its score.
+    """
+    if not exclude:
+        return ids
+    if not final:
+        raise ValueError("--exclude-featureless is a Final-step option (§20 R2)")
+    stray = sorted(set(exclude) - set(ids))
+    if stray:
+        raise ValueError(f"excluded clips not in the split: {stray}")
+    present = sorted(v for v in exclude if (s1_dir / f"{v}.npy").exists())
+    if present:
+        raise ValueError(f"refusing to exclude clips that have CLIP features: {present}")
+    missing = sorted(v for v in ids if v not in exclude and not (s1_dir / f"{v}.npy").exists())
+    if missing:
+        raise ValueError(f"clips without CLIP features outside the fixed list: {missing}")
+    LOGGER.info("excluding %d featureless clips (§20 R2): %s", len(exclude), sorted(exclude))
+    return [v for v in ids if v not in exclude]
+
+
+def excluded_for(split: str, flag: bool) -> tuple[str, ...]:
+    """The fixed list when ``--exclude-featureless`` is set and the split is DoTA-eval."""
+    if flag and split == constants.V2_SPLIT_DOTA_EVAL:
+        return constants.V2_FINAL_DOTA_EVAL_NO_FEATURES
+    return ()
+
+
+def set_name(split: str) -> str:
+    """D14: a DoTA-CAP number is always named so, never plain "DoTA"."""
+    return "DoTA-CAP (n/1397)" if split in CAP_SPLITS else "DoTA"
 
 
 def input_rows(
@@ -160,11 +212,12 @@ def score_checkpoint(
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
-    if args.split not in OPEN_SPLITS:
-        raise ValueError(f"protocol_b_eval scores {OPEN_SPLITS} only, not {args.split!r}")
+    check_split(args.split, args.final, "protocol_b_eval")
     runs = [Run(name, Path(ckpt)) for name, ckpt in args.run]
     device = resolve_device(args.device)
-    ids = load_split(args.split, args.split_dir)
+    split_ids = load_split(args.split, args.split_dir, final=args.final)
+    excluded = excluded_for(args.split, args.exclude_featureless)
+    ids = featureless_ids(split_ids, excluded, args.s1_dir, args.final)
     parsed = parse_metadata(args.metadata, read_split_ids(args.split_file))
     records = {r.video_id: r for r in parsed}
     native_frames = {
@@ -196,6 +249,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "protocol": f"B: s1[::{args.stride}], whole clip, native frames (addendum §8.1 J1-J5)",
         "split": args.split,
         "clips": len(ids),
+        "split_clips": len(split_ids),
+        "excluded_featureless": sorted(excluded),
         "two_class": len(aucs),
         "input_dir": str(args.input_dir),
         "arm": next(iter(arms.values())),
@@ -223,9 +278,8 @@ def _fmt(c: dict[str, float] | None) -> str:
 
 
 def render_markdown(readout: dict[str, Any]) -> str:
-    name = "DoTA-CAP (n/1397)" if readout["split"] == constants.V2_SPLIT_DOTA_CAP_DEV else "DoTA"
     lines = [
-        f"# Protocol B on `{readout['split']}` — {name}",
+        f"# Protocol B on `{readout['split']}` — {set_name(readout['split'])}",
         "",
         f"{readout['protocol']}. Arm: crn={readout['arm']['crn']} "
         f"motion={readout['arm']['motion']}. Clips {readout['clips']} "
@@ -258,7 +312,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--metadata", type=Path, required=True, help="metadata_val.json")
     parser.add_argument("--split-file", type=Path, required=True, help="val_split.txt")
     parser.add_argument("--data-dir", type=Path, required=True, help="DoTA labels dir (defs.json)")
-    parser.add_argument("--split", choices=OPEN_SPLITS, default=constants.V2_SPLIT_DOTA_DEV)
+    parser.add_argument(
+        "--split", choices=OPEN_SPLITS + FINAL_SPLITS, default=constants.V2_SPLIT_DOTA_DEV
+    )
+    parser.add_argument("--final", action="store_true",
+                        help="the Final step only (§19): allow a sealed split")
+    parser.add_argument(
+        "--exclude-featureless", action="store_true",
+        help="with --final on dota_eval: drop the 5 clips with no CLIP features (§20 R2)",
+    )
     parser.add_argument("--split-dir", type=Path, default=constants.V2_SPLITS_DIR)
     parser.add_argument("--stride", type=int, default=constants.V2_E1_STRIDE_BC)
     parser.add_argument("--out-dir", type=Path, required=True)

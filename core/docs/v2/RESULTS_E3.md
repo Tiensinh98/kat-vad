@@ -119,5 +119,5 @@ Readings:
 
 ## 7. Next
 
-§19 (Amendment 10, signed 2026-10-06) → Final harness (`position_prior` on sealed splits, P4 fusion, P7 dev regression) and
-notebook → advisor briefed on D6 and `p_T2` (`ADVISOR_BRIEF_E3.md`) → Final run, once.
+§19 (Amendment 10, signed 2026-10-06) → Final harness built (`core.tools.final_readout`, `--final` on
+`protocol_b_eval` / `position_prior`, `colab/v2/final.ipynb`; its P7 gate reproduces §5 22/22) → advisor briefed on D6 and `p_T2` (`ADVISOR_BRIEF_E3.md`) → Final run, once.

@@ -186,6 +186,28 @@ REPORTS/e3_readout.{json,md}
    order A3 → A2 → A1 → A0, `MDE_E3`, and the printed breakdowns (clip-level Δ, share bins, diagnostics, `p_T2`,
    G6 Spearman). It refuses a missing run and a protocol-B read-out whose step differs from the diagnosed checkpoint.
 
+## 6d. Final — the sealed sets, opened once (addendum §19 Amendment 10)
+
+No training: the 20 E3 checkpoints are scored on the sets E3 never read. Runbook `colab/v2/final.ipynb`, outputs in
+`v2_final/` (same `REPORTS/pb/` and `REPORTS/position_prior/` layout as E3, plus `t2_test/s<seed>/` and `OPENED.json`).
+
+1. **P7 gate, before anything sealed:** `python -m core.tools.final_readout --e3-dir <v2_e3> --gate-only` recomputes
+   the position-controlled read on DoTA-CAP-dev and must reproduce `RESULTS_E3.md` §5's means
+   (`V2_FINAL_DEV_*` in `core/constants.py`) to `V2_FINAL_DEV_TOL` = 1e-4. It writes `REPORTS/final_gate.json`.
+2. **Bake the eval side** with `build_v2_inputs apply --stats-dir <E3's T2 fit dir>` (never `fit`): A1 on
+   `dota_eval` (which contains `dota_cap_eval`), A2/A3 on `dota_cap_eval`.
+3. **Score:** `protocol_b_eval --final` (A0–A3 on `dota_cap_eval`, A0/A1 on `dota_eval`) and
+   `position_prior --final` on both. Without `--final` both tools refuse a sealed split; `load_split(..., final=True)`
+   is reached only through that flag. **`--exclude-featureless`** (Amendment 11, §20) drops the five `dota_eval`
+   clips that have no CLIP features (`V2_FINAL_DOTA_EVAL_NO_FEATURES`) → DoTA-eval is read on **695 / 700**; the tools
+   refuse to drop any clip that has features or any other featureless clip.
+4. **T2-test:** `v2_guard_test` once per seed with that seed's four checkpoints and its E3 `diag.json` as
+   `--val-diag`. Its Q5 wording is the pilot's; the Final's T2-test table is `final_readout`'s.
+5. **Read out:** `python -m core.tools.final_readout --e3-dir <v2_e3> --final-dir <v2_final>` — re-runs the gate,
+   refuses an E3 decision other than A3 / `F` = A0 (P1) and any eval or T2-test read of another step than E3's;
+   prints macro, optimism (dev − eval), contrasts (descriptive), share bins, DoTA micro/AP under per-clip min-max,
+   `p_T2` / `t/N`, the P4 table `f_w = z(ȳ) + w·z(p_T2)` for w ∈ {1, 2} and the P5 sentences at w = 2.
+
 ## 7. Checkpoint compatibility
 
 - v1 / phase-4 / A0 checkpoints have no `model.motion_dim` or `v2` section; they load as A0.

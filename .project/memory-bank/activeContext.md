@@ -44,7 +44,13 @@ all six core files + CLAUDE.md reviewed; counts re-measured: **109 Python files 
 > the read-out (notebook guard disabled by hand; text frozen in `59ee17e`) — provenance sentence in §18.
 > **Amendment 10 (§19, P1–P8) signed 2026-10-06**: Final opens DoTA-CAP-eval / DoTA-eval (A0/A1) / T2-test once,
 > with the pre-registered beyond-position read `f_2`. Advisor brief `core/docs/v2/ADVISOR_BRIEF_E3.md`.
-> **Next:** user briefs the advisor → Claude builds the Final harness + `colab/v2/final.ipynb` → user runs once.
+> **Final harness BUILT (uncommitted):** `core/tools/final_readout.py` (P7 gate reproduces §5 on real dev, 22/22),
+> `--final` on `protocol_b_eval` / `position_prior`, `colab/v2/final.ipynb`, `test_final_readout.py` (+21).
+> **2026-10-06, Final attempt 1 stopped in preflight:** 5 `dota_eval` clips have no CLIP features (v1 FUSE loss;
+> frozen split = 1,402 metadata ids, caches = 1,397). `OPENED.json` was written, **no sealed score/label read**.
+> **Amendment 11 (§20, R1–R4) signed 2026-10-06**: DoTA-eval on 695/700 via fixed list + `--exclude-featureless`;
+> notebook now checks every input before the marker. Tests 923 / 0 fail.
+> **Next:** re-upload → re-run `final.ipynb` (resumes) → paste `final_readout.md`.
 > Committed on the user's word (2026-10-06).
 
 > *Previous TL;DR (2026-10-05, after D6 + T2-test O1′).* P0–P6 read. **Q4: A1/A2/A3 pass O1′ on

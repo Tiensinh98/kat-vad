@@ -493,6 +493,35 @@ V2_E3_FREE_ARM = "A1"  # CRN: adoptable on a non-negative result (§10.3, M5)
 V2_E3_BASE_ARM = "A0"
 V2_E3_P_CAP = 0.852  # G6 (b): E2(d)'s in-domain cubic position probe on dota_cap_dev
 
+# --- Final step (addendum §19 Amendment 10, P1-P8) ---
+V2_FINAL_ADOPTED = "A3"  # P1: E3's adoption (RESULTS_E3.md), closed before any sealed read
+V2_FINAL_F_ARM = "A0"  # P1: E3's best adoptable free arm
+V2_FINAL_FUSION_WEIGHTS = (1.0, 2.0)  # P4: f_w = z(y) + w * z(p_T2), within clip
+V2_FINAL_FUSION_PRIMARY = 2.0  # P4/P5: the weight the sentences are read at
+# Amendment 11 (§20) R1: dota_eval clips with no CLIP features anywhere (lost to a FUSE unzip in
+# v1, REPORT_KIP_MSAD_DOTA_PREVAD.md coverage note; DoTA pixels are gone). The only droppable clips.
+V2_FINAL_DOTA_EVAL_NO_FEATURES = (
+    "TNZv-NBcV5U_002389",
+    "TNZv-NBcV5U_002660",
+    "W6YrlYyWguc_005597",
+    "W6YrlYyWguc_005927",
+    "nADqn-DZ-Dc_000075",
+)
+V2_FINAL_DEV_TOL = 1e-4  # P7: the tool must reproduce RESULTS_E3.md §5's dev means this closely
+# P7: RESULTS_E3.md §5 (DoTA-CAP-dev, seed-averaged), per weight (raw = no prior, then w = 1, 2)
+V2_FINAL_DEV_P_T2 = 0.8220
+V2_FINAL_DEV_ARM_MACRO = {
+    "A0": (0.6768, 0.7915, 0.8194),
+    "A1": (0.6577, 0.7977, 0.8245),
+    "A2": (0.7536, 0.8168, 0.8264),
+    "A3": (0.7576, 0.8365, 0.8424),
+}
+V2_FINAL_DEV_DELTA = {
+    ("A3", "A0"): (0.0808, 0.0451, 0.0230),
+    ("A2", "A0"): (0.0768, 0.0253, 0.0069),
+    ("A3", "A1"): (0.0999, 0.0388, 0.0179),
+}
+
 # ---------------------------------------------------------------------------
 # Evaluation score pooling (lesson C12)
 #

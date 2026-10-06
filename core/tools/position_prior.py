@@ -11,8 +11,9 @@ at each DoTA clip's **native** frames. Relative position makes a 20-step T2 wind
 Writes ``position_prior.npz`` (native ``p_T2`` scores + labels per clip, the
 ``protocol_b_eval.write_clip_scores`` layout, read by ``e3_readout``) and a read-out with the
 macro AUC over two-class clips (cluster bootstrap by source video, D3) beside the monotone
-``t/N`` ruler (G7). Printed, never decided on. Name a ``dota_cap_dev`` number
-**DoTA-CAP (n/1397)** (D14).
+``t/N`` ruler (G7). Printed, never decided on. Name a DoTA-CAP number **DoTA-CAP (n/1397)**
+(D14). The sealed ``dota_eval`` / ``dota_cap_eval`` are read only with ``--final`` (§19 P2);
+the fit itself never sees a DoTA label, so the Final ``p_T2`` is the same prior as E3's.
 
 CLI::
 
@@ -38,7 +39,16 @@ from core.data.v2_splits import dota_group, load_split
 from core.eda.features import transfer_scores
 from core.metrics import cluster_bootstrap_ci
 from core.tools.kill_switch_probe import position_features, write_json_atomic, write_text_atomic
-from core.tools.protocol_b_eval import OPEN_SPLITS, clip_aucs, write_clip_scores
+from core.tools.protocol_b_eval import (
+    FINAL_SPLITS,
+    OPEN_SPLITS,
+    check_split,
+    clip_aucs,
+    excluded_for,
+    featureless_ids,
+    set_name,
+    write_clip_scores,
+)
 from core.tools.rate_matched_eval import native_labels
 from core.tools.v2_dataset import window_frame_labels
 
@@ -84,10 +94,11 @@ def prior_scores(
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
-    if args.split not in OPEN_SPLITS:
-        raise ValueError(f"position_prior reads {OPEN_SPLITS} only, not {args.split!r}")
+    check_split(args.split, args.final, "position_prior")
     matrix, target, windows = training_frames(args.data_dir)
-    ids = load_split(args.split, args.split_dir)
+    split_ids = load_split(args.split, args.split_dir, final=args.final)
+    excluded = excluded_for(args.split, args.exclude_featureless)
+    ids = featureless_ids(split_ids, excluded, args.s1_dir, args.final)
     parsed = parse_metadata(args.metadata, read_split_ids(args.split_file))
     records = {r.video_id: r for r in parsed}
     native_frames = {v: len(np.load(args.s1_dir / f"{v}.npy", mmap_mode="r")) for v in ids}
@@ -109,6 +120,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "train_abnormal_share": float(target.mean()),
         "split": args.split,
         "clips": len(ids),
+        "split_clips": len(split_ids),
+        "excluded_featureless": sorted(excluded),
         "p_t2_macro": ci(clip_aucs(scores, labels)),
         "monotone_ruler_macro": ci(clip_aucs(ruler, labels)),
     }
@@ -125,9 +138,8 @@ def _fmt(c: dict[str, float] | None) -> str:
 
 
 def render_markdown(r: dict[str, Any]) -> str:
-    name = "DoTA-CAP (n/1397)" if r["split"] == constants.V2_SPLIT_DOTA_CAP_DEV else "DoTA"
     return "\n".join([
-        f"# T2 position prior `p_T2` on `{r['split']}` — {name}",
+        f"# T2 position prior `p_T2` on `{r['split']}` — {set_name(r['split'])}",
         "",
         f"Cubic position probe fitted on {r['train_windows']} T2 training windows "
         f"({r['train_frames']} frames, abnormal share {r['train_abnormal_share']:.3f}); "
@@ -146,7 +158,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         help="cache/clip/DoTA_s1_ncc: native frame count per clip")
     parser.add_argument("--metadata", type=Path, required=True, help="metadata_val.json")
     parser.add_argument("--split-file", type=Path, required=True, help="val_split.txt")
-    parser.add_argument("--split", choices=OPEN_SPLITS, default=constants.V2_SPLIT_DOTA_CAP_DEV)
+    parser.add_argument(
+        "--split", choices=OPEN_SPLITS + FINAL_SPLITS, default=constants.V2_SPLIT_DOTA_CAP_DEV
+    )
+    parser.add_argument("--final", action="store_true",
+                        help="the Final step only (§19): allow a sealed split")
+    parser.add_argument(
+        "--exclude-featureless", action="store_true",
+        help="with --final on dota_eval: drop the 5 clips with no CLIP features (§20 R2)",
+    )
     parser.add_argument("--split-dir", type=Path, default=constants.V2_SPLITS_DIR)
     parser.add_argument("--seed", type=int, default=constants.SEED)
     parser.add_argument("--out-dir", type=Path, required=True)

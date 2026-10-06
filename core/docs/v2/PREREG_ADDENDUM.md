@@ -561,3 +561,18 @@ post-hoc. This amendment fixes its Final version before the eval set exists for 
 | P6 | **Why `p_T2`, not `p_CAP`.** `p_T2` is fitted on T2 training windows only — the prior a T2-trained model could have absorbed. `p_CAP` is fitted on DoTA-CAP labels; fitting it on CAP-eval would be in-sample. `p_CAP` = 0.852 (dev) stays a printed ceiling only | G6 (a)/(b) |
 | P7 | **Harness gate before anything sealed is read.** The Final tool recomputes P4 on DoTA-CAP-dev from E3's `clip_scores.npz` and must reproduce `RESULTS_E3.md` §5's **means** to 1e-4 (the means are deterministic; the scratch intervals used B = 5,000 and another seed, so only means are gated). Fail → stop, no sealed set is opened | The dev numbers came from a scratch script; the Final number must come from the tool that is tested |
 | P8 | **What E3 still may not say.** Unchanged: never "motion" (G3 / D6); "v2 as a whole" for A3 − A0; "the video stream (V2-S)" for A3 − A1; A2/A3 carry "O1 FAIL as registered; not collapsed under O1′" (§17 Q5); §18's provenance sentence | Carried forward so the Final write-up cannot drop them |
+
+---
+
+## 20. Amendment 11 (2026-10-06) — five DoTA-eval clips have no features (R1–R4)
+
+Written **after** the first Final attempt stopped in its preflight and **before** any score, label, position prior or
+metric on a sealed set was computed. **Authorized by the user on 2026-10-06, before the Final notebook is re-run and before any
+sealed-set number exists; not reviewed by the advisor.**
+
+| # | Choice | Why |
+|---|---|---|
+| R1 | **The fact.** `dota_eval` was frozen (`7422975`) from `metadata_val.json`'s 1,402 clips; the CLIP caches hold 1,397. The five missing clips — `TNZv-NBcV5U_002389`, `TNZv-NBcV5U_002660`, `W6YrlYyWguc_005597`, `W6YrlYyWguc_005927`, `nADqn-DZ-Dc_000075` — were lost in v1 to a FUSE unzip that wrote empty folders (`REPORT_KIP_MSAD_DOTA_PREVAD.md`, coverage note: every v1 DoTA number is on 1,397). DoTA pixels are gone, so they cannot be re-extracted. All five fall in `dota_eval`; `dota_dev`, `dota_cap_dev` and `dota_cap_eval` have **0** missing, so E3 is untouched | Measured on the local `DoTA_s8_ncc` and on Drive's `DoTA_s1_ncc` (the failed staging) |
+| R2 | **DoTA-eval is read on 695 / 700 clips.** The five ids are fixed in `constants.V2_FINAL_DOTA_EVAL_NO_FEATURES`. `protocol_b_eval` / `position_prior` drop them only with `--final --exclude-featureless` on `dota_eval`, and **refuse** a listed clip that has a CLIP file, a listed clip not in the split, and any other featureless clip. The notebook asserts the featureless set equals the list before anything is opened. The read-out prints "695 / 700" and the ids | A fixed list, checked against the disk, cannot become a choice made after a score exists |
+| R3 | **What the failed attempt read.** It wrote `v2_final/OPENED.json` (the marker of §19 P2) and loaded the eval id lists, then failed staging the first featureless clip. No checkpoint was run on a sealed set, no label or `p_T2` was computed there, and — by the notebook's order, the error being in step 2 of 7 — nothing was written under `v2_final/REPORTS/` (the user's traceback, 2026-10-06). The marker stays (it dates the opening); the re-run resumes from it | The record of when the sets were opened is kept, not reset |
+| R4 | **Nothing else changes.** DoTA-CAP-eval stays 560 / 560, T2-test 1,106 windows; P1–P8 stand. A DoTA-eval number is "DoTA-eval (695 / 700)" and is never put beside a full-DoTA or 62.60 number (already D14 for CAP; now also for DoTA-eval) | Same rule, one more set |
