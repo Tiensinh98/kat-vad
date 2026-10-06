@@ -140,7 +140,8 @@ dir's T2-val windows and (unlabelled) DoTA-dev at protocol B through the arm's o
 
 | Read | What | Decides |
 |---|---|---|
-| O1 guardrails | micro < clip oracle, macro ≥ micro, micro ≥ A0 − 0.01 | P7 |
+| O1 guardrails | micro < clip oracle, macro ≥ micro, micro ≥ A0 − 0.01 | P7 (A0); printed for A1–A3 |
+| O1′ (§17, `--a0-diag`) | collapsed ⇔ window AUC > A0's **and** macro < A0's − 0.01; pass ⇔ not collapsed and micro ≥ A0 − 0.01 | P7 (A1–A3), E3 per seed |
 | O2 | window-level AUC beside macro (C14 signature) | printed |
 | O3 | `motion_share` / `w_u_norm` first, last, max | printed |
 | O4 | position R² on `V^t` (ridge → `t/T`, folds by source), beside the input's and A0's | printed |
@@ -160,6 +161,30 @@ bakes them first; needs batch 1 and the full-T2 V2-S cache).
 `DoTA_CAP_s1_squash_shuf2024`: the same pixel-gated DoTA-CAP clips, every window's 16 frames permuted by one fixed
 permutation (`extract_video_features.shuffled_frame_order`). `python -m core.tools.e2d_shuffle` re-reads the
 in-domain probe on ordered vs shuffled `u`. Printed only; runbook `colab/v2/p4_s_full_t2_d6.ipynb`.
+
+## 6c. E3 — the factorial and its read-out (proposal §10, addendum §18 Amendment 9)
+
+Runbook `colab/v2/e3_factorial.ipynb` (refuses to start while §18 is still a draft). Layout under
+`Thesis-V2/outputs/v2_e3/`:
+
+```
+<arm>/s<seed>/{checkpoint_last.pt, metrics.jsonl, config.yaml, diag/diag.json}   # 4 arms x seeds 2024-2028
+REPORTS/pb/<arm>/<split>/{protocol_b_readout.json, clip_aucs.json, clip_scores.npz}
+REPORTS/position_prior/<split>/{position_prior.npz, position_prior.json}
+REPORTS/e3_readout.{json,md}
+```
+
+1. **Train** (M1): O7's recipe; the config of every run differs from its s2099 pilot twin only in `train.seed`.
+2. **Diagnose** (M2): `v2_diagnostics --a0-diag <A0 of the same seed> --dota-split dota_cap_dev`.
+3. **Score** (M3): `protocol_b_eval` with all five checkpoints of an arm (`--run s<seed> <ckpt>` ×5) — A0/A1 on
+   `dota_dev` and `dota_cap_dev`, A2/A3 on `dota_cap_dev`. It now also writes `clip_scores.npz` (seed-averaged native
+   scores + labels; `write_clip_scores` / `read_clip_scores`).
+4. **Position prior** (G6 a): `python -m core.tools.position_prior` fits the cubic position probe on the v2 dir's
+   training windows and scores it at each DoTA clip's native frames.
+5. **Decide**: `python -m core.tools.e3_readout --e3-dir <v2_e3>` — paired t95 per contrast (A1 − A0 on DoTA-dev;
+   A2 − A0, A3 − A0, A3 − A1, A2 − A1 on DoTA-CAP-dev), O1′ on every seed, the free rule for A1 (`F`), §10.3's
+   order A3 → A2 → A1 → A0, `MDE_E3`, and the printed breakdowns (clip-level Δ, share bins, diagnostics, `p_T2`,
+   G6 Spearman). It refuses a missing run and a protocol-B read-out whose step differs from the diagnosed checkpoint.
 
 ## 7. Checkpoint compatibility
 

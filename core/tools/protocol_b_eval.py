@@ -16,7 +16,8 @@ checkpoint was trained on**:
 The clip set is a frozen v2 split: ``dota_dev`` (CLIP-only arms, CRN and ``F``) or
 ``dota_cap_dev`` (every motion contrast, D13). Sealed splits are refused by ``load_split``.
 Writes ``clip_aucs.json`` (seed-averaged per-clip AUC -- the input of paired Δs and of D15)
-beside a read-out. Name a ``dota_cap_dev`` number **DoTA-CAP (n/1397)** (D14).
+and ``clip_scores.npz`` (seed-averaged native scores + labels, E3's position reads, Amendment 9
+M3/M6) beside a read-out. Name a ``dota_cap_dev`` number **DoTA-CAP (n/1397)** (D14).
 
 CLI::
 
@@ -59,6 +60,8 @@ from core.train import load_class_names
 LOGGER = logging.getLogger(__name__)
 
 CLIP_AUCS_JSON = "clip_aucs.json"
+CLIP_SCORES_NPZ = "clip_scores.npz"
+_SCORE_KEY, _LABEL_KEY = "score/", "label/"
 READOUT_JSON = "protocol_b_readout.json"
 READOUT_MD = "protocol_b_readout.md"
 OPEN_SPLITS = (constants.V2_SPLIT_DOTA_DEV, constants.V2_SPLIT_DOTA_CAP_DEV)
@@ -95,6 +98,31 @@ def check_baked_stride(input_dir: Path, stride: int) -> bool:
             "(bake it with build_v2_inputs apply --stride)"
         )
     return True
+
+
+def write_clip_scores(
+    path: Path, scores: dict[str, np.ndarray], labels: dict[str, np.ndarray]
+) -> None:
+    """Seed-averaged native scores and labels of every clip, one ``.npz`` (atomic)."""
+    if set(scores) != set(labels):
+        raise ValueError("scores and labels must cover the same clips")
+    arrays: dict[str, np.ndarray] = {
+        f"{_SCORE_KEY}{v}": np.asarray(scores[v], dtype=np.float64) for v in scores
+    }
+    arrays.update({f"{_LABEL_KEY}{v}": np.asarray(labels[v], dtype=np.int64) for v in labels})
+    tmp = path.with_name(path.name + ".tmp.npz")
+    np.savez_compressed(tmp, **arrays)
+    tmp.replace(path)
+
+
+def read_clip_scores(path: Path) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
+    """Inverse of :func:`write_clip_scores`: ``(scores, labels)`` keyed by clip id."""
+    with np.load(path) as data:
+        scores = {k[len(_SCORE_KEY):]: data[k] for k in data.files if k.startswith(_SCORE_KEY)}
+        labels = {k[len(_LABEL_KEY):]: data[k] for k in data.files if k.startswith(_LABEL_KEY)}
+    if set(scores) != set(labels):
+        raise ValueError(f"{path}: scores and labels cover different clips")
+    return scores, labels
 
 
 def clip_aucs(scores: dict[str, np.ndarray], labels: dict[str, np.ndarray]) -> dict[str, float]:
@@ -183,6 +211,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     }
     args.out_dir.mkdir(parents=True, exist_ok=True)
     write_json_atomic(args.out_dir / CLIP_AUCS_JSON, aucs)
+    write_clip_scores(args.out_dir / CLIP_SCORES_NPZ, averaged, labels)
     write_json_atomic(args.out_dir / READOUT_JSON, readout)
     write_text_atomic(args.out_dir / READOUT_MD, render_markdown(readout))
     LOGGER.info("protocol B macro on %s: %s -> %s", args.split, readout["macro"], args.out_dir)

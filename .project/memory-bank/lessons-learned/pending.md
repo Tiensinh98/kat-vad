@@ -1726,4 +1726,19 @@ is two-sided (TAD `m0`: clip AUC +0.229, macro −0.140). Fixing it took a post-
 **Rule:** Define a collapse guardrail by the measured failure signature relative to a reference arm, and check before pre-registering that a perfect model passes it.
 **Files:** `core/tools/v2_diagnostics.py:guardrails`, `core/docs/v2/PREREG_ADDENDUM.md` §14 O1, §17 Q2
 
-**Gate status.** One occurrence. Gate 2 not met.
+**Gate status.** One occurrence. Gate 2 not met. **Outcome 2026-10-05:** confirmed out of sample — on T2-test A2/A3
+again fail O1 and pass O1′ with a *larger* macro gain (+0.075 / +0.051) than on T2-val; the old rule would have
+dropped the pilot's best arm.
+
+## (au) [MEDIUM] Experiments - A frame-shuffle control rules out order, not motion energy: name what it licenses (2026-10-05)
+**Triggers:** shuffle, temporal shuffle, permutation, D6, motion claim, VideoMAE, appearance encoder, ordered vs shuffled
+**Problem:** D6 permuted the 16 frames of every VideoMAE window and the probe did not move (`[x;u;p]` Δ ±0.0004,
+shuffled `[x;u]` still +0.14 over CLIP). A permutation keeps the frame *set*, so order-free change (how much the
+window varies, blur, an object entering) survives it; "not motion" and "not ordered dynamics" are different claims.
+**Bad:** "shuffle Δ ≈ 0 ⇒ the stream carries no motion" — or the reverse, "shuffle Δ ≈ 0 is fine, it still sees change".
+**Good:** pre-register the exact sentence each outcome licenses (G3), and state the control's scope beside it; a
+static control (one frame ×16) is what separates motion energy from appearance.
+**Rule:** Pre-register the claim a shuffle control licenses and print its scope (order only) beside the result.
+**Files:** `core/tools/e2d_shuffle.py`, `core/docs/v2/PREREG_ADDENDUM.md` §15 G3, `core/docs/v2/RESULTS_E2D.md` §D6
+
+**Gate status.** One occurrence. Gate 2 not met. Related to (ag)/(ah)/(ar): same family (what a motion number may be called).

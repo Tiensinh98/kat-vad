@@ -59,11 +59,49 @@ stream is **not dropped**; A2/A3 stay in E3.
    macro 0.6628 [0.6436, 0.6823] and per-seed 0.6291 / 0.6705 / 0.6457 — E1's arm B to four decimals. A motion
    arm scored by this path is on E1's ruler.
 
+## D6 — temporal-shuffle control (2026-10-05): **the gain is not temporal order**
+
+Tool `python -m core.tools.e2d_shuffle`, runbook `colab/v2/p4_s_full_t2_d6.ipynb` (steps 1, 3, 4), rules
+`PREREG_ADDENDUM.md` §15 G3 (written before this number). V2-S re-extracted on `dota_cap_dev` with the 16 frame
+slots of **every** window permuted by one fixed order (seed 2024: `[11, 13, 5, 7, 14, 15, 10, 2, 3, 12, 0, 1, 4,
+9, 6, 8]`); the L4–L5 pixel gate re-ran and all **569/569** clips passed. Own cache `DoTA_CAP_s1_squash_shuf2024`.
+In-domain probe N3, same folds, cluster bootstrap B = 10,000. Raw: `outputs/v2/REPORTS/v2_E2d_shuffle/`.
+**DoTA-CAP (569/1397).**
+
+| Arm | Set | ordered | shuffled | **ordered − shuffled** |
+|---|---|---|---|---|
+| A2 | `u` | 0.7922 | 0.7865 | +0.0057 [−0.0057, +0.0173] |
+| A2 | `[x;u]` | 0.7814 | 0.7751 | +0.0063 [−0.0014, +0.0140] |
+| A2 | `[x;u;p]` | 0.8365 | 0.8369 | **−0.0004 [−0.0074, +0.0065]** |
+| A3 | `u` | 0.8075 | 0.8006 | +0.0069 [−0.0030, +0.0174] |
+| A3 | `[x;u]` | 0.7920 | 0.7851 | +0.0069 [−0.0007, +0.0148] |
+| A3 | `[x;u;p]` | 0.8403 | 0.8405 | **−0.0003 [−0.0066, +0.0062]** |
+
+Shuffled `[x;u]` − CLIP-only `x`: A2 **+0.142** [+0.126, +0.159], A3 **+0.119** [+0.103, +0.134].
+
+**G3 reading (fixed before the number): the `[x;u;p]` interval contains 0, so the thesis may not call the stream's
+DoTA-CAP gain "motion". It is "a second (video) appearance encoder".** G1 (V2-S) does not move.
+
+What it says, plainly:
+
+* VideoMAE's +0.12…+0.14 over CLIP **survives shuffling almost whole**. Whatever the stream adds, it adds from
+  *which* 16 frames it sees, not from their order.
+* Without position, order is worth at most ~0.006 (every interval contains 0); once position is in the probe, it
+  is worth nothing measurable (±0.0004).
+* **Scope of the control (stated, not a loophole):** a permutation keeps the *set* of frames, so order-free
+  temporal statistics — how much the 1.5 s window changes, blur, an object entering — survive it. D6 rules out
+  ordered dynamics (direction, trajectory, velocity sign), not "the window contains change". It is still the
+  sentence G3 licenses; separating motion *energy* from appearance would need a different control (e.g. one frame
+  repeated ×16), not run and not pre-registered.
+* Consistent with K-pos and E2(d) §2: on these clips, motion-shaped evidence is largely position, and the rest
+  reads as appearance.
+
 ## What follows (Amendment 6, `PREREG_ADDENDUM.md` §15, written before any of these numbers)
 
 * **G2** full-T2 V2-S extraction → **G4** bake A2/A3 → pilot batch 2 (`colab/v2/p4_s_full_t2_d6.ipynb`,
   `colab/v2/p6_pilot_batch2.ipynb`).
 * **G3 / D6** temporal-shuffle control for S on `dota_cap_dev` (`core.tools.e2d_shuffle`): if ordered − shuffled
-  on `[x;u;p]` has a CI containing 0, the thesis may not call the stream's DoTA-CAP gain "motion".
+  on `[x;u;p]` has a CI containing 0, the thesis may not call the stream's DoTA-CAP gain "motion". **Read
+  2026-10-05: it does (above).**
 * **G6 / G7** every E3 DoTA-CAP macro is printed beside a cubic position probe fitted on T2 windows and with the
   per-arm score–position correlation; `t/N` is kept only as a labelled monotone ruler.

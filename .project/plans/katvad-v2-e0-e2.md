@@ -19,12 +19,14 @@ Ký hiệu: ✅ xong · 🟡 đang làm / chờ chạy · ⛔ bị chặn · ⬜
 | **P2** E0 / E2(a–c) | ✅ | **D11 ở s3: CRN = R2** (`r` 0.7092 vs R1 0.7081 — hoà trong nhiễu, luật chọn R2), E2(c) R2 **+0.037 [+0.027, +0.047]**. s8 cũ = R1. `RESULTS_E2_CRN.md` §D11 | `7b20444`, `a20781b` + D11 record |
 | **P3** E1 | ✅ | **Adopt B** (DoTA s3 whole clip): Δ vs A **+0.033 [+0.019, +0.048]**, C +0.035 (tie → B); 3/3 seed dương. `core/docs/v2/RESULTS_E1.md` | `0ab760d` + Amendment 3 (`7ce8bf5`) |
 | **P3** E0b | ⬜ | Chưa có notebook. Ckpt phase-5 + lcurve có thể cũng là snapshot (pending (aj)) → kiểm `global_step` trước | — |
-| **P4** Encoder E2(d) | 🟡 | **E2(d) = V2-S** (tie rule N7: A3 transfer B 0.1508 vs S 0.1325). Motion giữ. **Position cubic `p` = 0.852** > `u`, `[x;u]`; vượt position chỉ transfer +0.02…+0.04. `core/docs/v2/RESULTS_E2D.md`. **Amendment 6 (§15, G1–G7)** viết trước D6/batch 2/E3. Còn: full-T2 V2-S + D6 → `colab/v2/p4_s_full_t2_d6.ipynb` (**chờ user chạy**) | `b6d937f`, `7b1889a`, `7ea0882` + (chưa commit) |
+| **P4** Encoder E2(d) | ✅ | **E2(d) = V2-S** (tie rule N7: A3 transfer B 0.1508 vs S 0.1325). Motion giữ. **Position cubic `p` = 0.852** > `u`, `[x;u]`; vượt position chỉ transfer +0.02…+0.04. **D6 (2026-10-05): ordered − shuffled trên `[x;u;p]` −0.0004 / −0.0003, CI ∋ 0 → theo G3 không được gọi là "motion", mà là "second (video) appearance encoder"**; shuffled `[x;u]` − `x` vẫn +0.14 / +0.12. `core/docs/v2/RESULTS_E2D.md` §D6 | `b6d937f`, `7b1889a`, `7ea0882`, `ef24a7a` |
 | **P5** Build v2 | ✅ (trừ bake A2/A3) | Model + input cache (`a20781b`), `protocol_b_eval` / `v2_dataset` / `v2_diagnostics` (`7ea0882`; `protocol_b_eval` tái tạo E1 B 0.6628 đúng 4 chữ số). 2026-10-04: `v2_diagnostics --dota-split`, `e2d_shuffle`, `dota_cap extract --shuffle-seed`. Bake A2/A3 nằm trong notebook batch 2 | `a20781b`, `7ea0882` + (chưa commit) |
-| **P6** Pilot | 🟡 | **Batch 1 xong (A0+A1, s2099, 2026-10-04):** guardrails PASS cả hai, không collapse; CRN làm shortcut `V^t` T2↔DoTA **0.9999 → 0.551**. **D5 FAIL** (micro Δ −0.109, macro −0.007) — ref phase-4 in-sample trên T2-val (window AUC 0.96–0.97). **Amendment 7 (§16)**: trên T2-test **H1 ✓ H2 ✓ → D5 EXPLAINED**, không còn chặn P7. Batch 2 = A2/A3 trên V2-S, `p6_pilot_batch2.ipynb` — cần full-T2 V2-S. `core/docs/v2/RESULTS_P6_PILOT.md` | — |
-| **P7** Go/no-go | ⬜ | Cần P6 | — |
+| **P6** Pilot | ✅ | Batch 1 (A0+A1): guardrails PASS, CRN shortcut `V^t` 0.9999 → 0.551; D5 EXPLAINED (Amendment 7). Batch 2 (A2+A3, V2-S): **O1 FAIL như đăng ký**, không phải C14 → **Amendment 8 (§17, O1′)**. **T2-test (Q4, 2026-10-05): A1/A2/A3 đều PASS O1′** (A2 Δ window +0.101, macro +0.075; A3 +0.117 / +0.051) → survivors, **Motion Stream giữ**, E3 = {A0–A3}. `core/docs/v2/RESULTS_P6_PILOT.md` | `1a2a2c5`, `573d3d9`, `0aee92a` |
+| **P7** Go/no-go | 🟡 | **GO** (checklist §18). Amendment 9 (M1–M10) **nháp chờ ký**; harness `position_prior` + `e3_readout` + `colab/v2/e3_factorial.ipynb` built (chưa commit) | — |
 
-**Việc tiếp theo (2026-10-04, sau batch 1):** (1) user commit + upload code (Amendment 6–7, tools, notebooks); (2) ~~`p6_d5_t2test.ipynb`~~ xong: D5 EXPLAINED; chạy **`p4_s_full_t2_d6.ipynb`**; (3) step 2 của P4-finish xong → `p6_pilot_batch2.ipynb`; (4) paste `d5_t2test.md`, `shuffle_readout.md`, `batch2_readout.md` → P7 checklist + E3 harness (G6 position reads).
+**Việc tiếp theo (2026-10-05, sau D6 + T2-test O1′):** P7 checklist → Amendment 9 (cách E3 được tính, viết trước mọi số E3) → `core.tools.e3_readout` + G6 position reads → runbook `colab/v2/e3_factorial.ipynb` → user chạy 20 run. **User báo thầy D6** (claim "kinematics-aware" → "video appearance + CRN") trước khi đốt GPU.
+
+**Việc tiếp theo cũ (2026-10-04, sau batch 1):** (1) user commit + upload code (Amendment 6–7, tools, notebooks); (2) ~~`p6_d5_t2test.ipynb`~~ xong: D5 EXPLAINED; chạy **`p4_s_full_t2_d6.ipynb`**; (3) step 2 của P4-finish xong → `p6_pilot_batch2.ipynb`; (4) paste `d5_t2test.md`, `shuffle_readout.md`, `batch2_readout.md` → P7 checklist + E3 harness (G6 position reads).
 
 **Việc tiếp theo cũ (2026-10-03, giữ làm lịch sử):**
 1. **D9 chờ MM-AU Phase 0** (`.project/plans/katvad-mmau-phase0.md`, notebook `colab/v2/mmau_p0.ipynb`): nếu CAP-DATA
@@ -228,9 +230,14 @@ model chỉ thêm `W_u`. Không sửa `dataset.py` / `synthesis.py` / `collate.p
 
 ### P7 — Go/no-go cho E3 ⬜
 
-- [ ] Checklist GO: splits committed; protocol chốt (E1); reference chốt (hoặc CRN dropped); encoder eligible theo D9
-  (hoặc motion dropped); A0 regression pass; guardrails pass; không collapse; suite + quality gate xanh.
-- [ ] Runbook E3 `colab/v2/e3_factorial.ipynb` (seeds 2024–2028 × arm còn sống), cost estimate từ pilot.
+- [x] Checklist GO (2026-10-05, addendum §18 đầu mục): mọi điều kiện §5 đạt; caveat: A2/A3 qua guardrail **chỉ nhờ O1′**
+  (post-hoc), và D6 cấm chữ "motion". Suite 896 / 0 fail; gate sạch (bandit B614 cũ trong `core/tests/`).
+- [x] **Amendment 9 (§18, M1–M10) — BẢN NHÁP, chờ user ký** (notebook từ chối chạy khi còn câu "Not in force").
+- [x] Harness: `core.tools.position_prior` (G6 a), `core.tools.e3_readout` (M4–M8), `protocol_b_eval` ghi
+  `clip_scores.npz`; tests `test_e3_readout.py`, `test_position_prior.py` (+26).
+- [x] Runbook E3 `colab/v2/e3_factorial.ipynb` (4 arm × seeds 2024–2028, resumable, chia nhiều session).
+  **Cost:** pilot không ghi wall time → notebook đo từng run và in ETA; ước lượng thô = 20 × thời gian 1 run pilot.
+- [ ] User ký Amendment 9 → commit → upload → chạy E3 → paste `v2_e3/REPORTS/e3_readout.md`.
 - [ ] Cập nhật memory bank; bảng quyết định P1–P6 (gửi thầy nếu user muốn).
 - [ ] NO-GO → report bounded null / thành phần bị drop (proposal §10.3).
 
@@ -264,5 +271,7 @@ model chỉ thêm `W_u`. Không sửa `dataset.py` / `synthesis.py` / `collate.p
 | P4 E2(d) | **V2-S** (N7 tie: A3 transfer B 0.1508, S 0.1325). Mọi arm eligible. Position cubic `p` **0.852** in-domain / 0.847 transfer > `u` (0.76–0.82) > `[x;u]`; `t/N` cũ chỉ 0.566. Vượt position: in-domain ≈ 0 (−0.006…+0.006), transfer B +0.029/+0.037, S +0.018/+0.026. T2 side B +0.137, S +0.107. D15: A0 dev 0.6628 / CAP 0.6591 / dropped 0.6787 (`protocol_b_eval` == E1 B). `core/docs/v2/RESULTS_E2D.md` | §12 `7b1889a`; Colab (code upload) | 2026-10-04 |
 | P6 batch 1 | A0 / A1 (s2099, step 1740): micro 0.6586 / 0.6683, macro 0.6737 / 0.6705, oracle 0.6986, window AUC 0.686 / 0.683, guardrails PASS/PASS. Shortcut `V^t` 0.9999 → **0.551** (CRN), `y^bin` 0.54 / 0.52. Pos R² `V^t` −0.20 / −0.03. **D5 FAIL**: ref mean 0.7675 / 0.6810 (O1 FAIL ×3, window AUC 0.96–0.97, in-sample) → Amendment 7. `core/docs/v2/RESULTS_P6_PILOT.md` | Colab (code upload) | 2026-10-04 |
 | P6 D5 (H1–H3) | **EXPLAINED.** H1 s2024 v2 == phase 4 (Δ 9e-9 / 0). H2 T2-test A0 0.6320 / 0.6389 vs ref 0.6188 / 0.6253, Δ +0.013 / +0.014 ≤ 0.02. In-sample gap ref +0.14…+0.16 vs A0 +0.027. D5 không còn chặn P7 | `1a2a2c5` + Colab | 2026-10-04 |
-| P6 batch 2 | | | |
+| P6 batch 2 | A2 / A3 (V2-S, s2099, step 1740) T2-val: micro 0.7120 / 0.7161, macro 0.6882 / 0.7052 > oracle 0.6986 → **O1 FAIL** (giữ nguyên, Q1); window AUC +0.090 / +0.077, macro +0.015 / +0.032 vs A0 → không phải C14 → Amendment 8. `ρ_u` 0.13 / 0.11, `‖W_u‖` 1.27 / 1.10. Shortcut `V^t` A2 0.9998 → A3 0.583 | `573d3d9` + Colab | 2026-10-05 |
+| P4 D6 shuffle | **Không phải thứ tự thời gian.** `[x;u;p]` ordered − shuffled A2 −0.0004 [−0.0074, +0.0065], A3 −0.0003 [−0.0066, +0.0062]; `u` +0.006/+0.007 (CI ∋ 0); shuffled `[x;u]` − `x` +0.142 / +0.119. 569/569 qua pixel gate. G3 → "second (video) appearance encoder". `outputs/v2/REPORTS/v2_E2d_shuffle/` | Colab (code upload) | 2026-10-05 |
+| P6 Q4 T2-test | **A1/A2/A3 PASS O1′** (T2-test + T2-val). T2-test micro/macro/window: A0 0.6320/0.6389/0.664 · A1 0.6558/0.6350/0.712 · A2 0.7192/**0.7136**/0.765 · A3 0.7090/0.6897/0.780; oracle 0.7037. O1 in ra: A1–A3 FAIL. A0 tool check == Amendment 7. CRN in-domain âm (A3 − A2 −0.024, 1 seed). `outputs/v2/v2_pilot/o1prime_t2test/` | Colab (code upload) | 2026-10-05 |
 | P7 | | | |

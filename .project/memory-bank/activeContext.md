@@ -32,11 +32,21 @@
 > this branch *this file and `progress.md` are the only durable record of the
 > attribution campaign*. Do not delete them; do not re-run those arms here.
 
-**Last Memory Bank Update:** 2026-10-05 (partial: activeContext, pending (at) — batch 2 read out, Amendment 8). Before that 2026-10-04, later (partial: activeContext, progress — P6 batch 1 read out, Amendment 7). Earlier 2026-10-04 (partial: activeContext, progress, pending (ar) — E2(d) read out, Amendment 6). Before that 2026-10-03 (partial: activeContext only — DoTA-CAP frozen, L7). Before that 2026-09-30 ( — **full update, branch `v2`: E1 = B, Amendment 2/3, P5 built, D11 tooling**;
+**Last Memory Bank Update:** 2026-10-05, later (partial: activeContext, plan §0/App. A, pending (au) — D6 + T2-test O1′ read out). Earlier 2026-10-05 (partial: activeContext, pending (at) — batch 2 read out, Amendment 8). Before that 2026-10-04, later (partial: activeContext, progress — P6 batch 1 read out, Amendment 7). Earlier 2026-10-04 (partial: activeContext, progress, pending (ar) — E2(d) read out, Amendment 6). Before that 2026-10-03 (partial: activeContext only — DoTA-CAP frozen, L7). Before that 2026-09-30 ( — **full update, branch `v2`: E1 = B, Amendment 2/3, P5 built, D11 tooling**;
 all six core files + CLAUDE.md reviewed; counts re-measured: **109 Python files (73 source + 36 test), 17,520 source LOC,
 754 tests, 35 docs**.)
 
-> **TL;DR — where v2 stands (2026-10-05, after batch 2).** A2/A3 (V2-S, s2099) **FAIL O1 on T2-val** — micro >
+> **TL;DR — where v2 stands (2026-10-05, after D6 + T2-test O1′).** P0–P6 read. **Q4: A1/A2/A3 pass O1′ on
+> T2-test** (A2 macro +0.075, A3 +0.051, window AUC +0.10/+0.12 vs A0) → survivors, Motion Stream kept, E3 = {A0–A3};
+> A2/A3 still "O1 FAIL as registered" (Q5 sentence). **D6: ordered − shuffled on `[x;u;p]` ±0.0004 (CI ∋ 0)** → per
+> G3 the stream is "a second (video) appearance encoder", never "motion"; it still adds +0.12…+0.14 over CLIP.
+> Batch 2 + Amendment 8 committed (`573d3d9`, `0aee92a`). **Built (uncommitted):** P7 = GO (addendum §18 head);
+> **Amendment 9 (§18, M1–M10) DRAFT awaiting the user's sign-off**; `core.tools.position_prior`, `core.tools.e3_readout`,
+> `protocol_b_eval` → `clip_scores.npz`; `colab/v2/e3_factorial.ipynb` (refuses an unsigned §18). Suite **896 / 0 fail**.
+> **Next (user):** review + sign §18 → commit → upload → run E3 (20 runs, multi-session) → paste `e3_readout.md`.
+> Tell the advisor about D6 before the 20 runs.
+
+> *Previous TL;DR (2026-10-05, after batch 2).* A2/A3 (V2-S, s2099) **FAIL O1 on T2-val** — micro >
 > clip oracle (0.712 / 0.716 vs 0.699), macro < micro — but window AUC **and** macro both rise vs A0 (+0.09/+0.08,
 > +0.015/+0.032): not C14. **Amendment 8 (§17, Q1–Q7, post-hoc for the pilot, pre-registered for E3):** collapse =
 > window AUC up **and** macro < A0 − 0.01 (O1′); confirm on T2-test (Q4) before P7. `ρ_u` ≈ 0.11–0.13 (stream used).

@@ -93,11 +93,37 @@ Read-outs:
   A2 0.451 vs A1 0.153 / A3 0.136. A1 passed O1 regardless.
 * Δ(A2 − A0) and Δ(A3 − A0) are one seed on T2-val with no interval: **not a result**. Nothing here reads DoTA (D4).
 
-### Amendment 8 confirmation on T2-test (Q4) — *not run*
+### Amendment 8 confirmation on T2-test (Q4) — **A2 and A3 survive** (2026-10-05)
 
-Gate: A2 and A3 each pass O1′ against A0 on the parent dir's 1,106 T2-test windows. Verdict rule Q5.
+`colab/v2/p6_t2test_o1prime.ipynb` → `python -m core.tools.v2_guard_test`, A0–A3 (s2099, step 1740 each) on the parent
+dir's 1,106 T2-test windows, unseen by all four; A1–A3 through their own baked input caches (Q4 coverage gate held).
+**Tool check:** A0 through this path reads 0.6320 / 0.6389 = Amendment 7's `core.evaluate` numbers (Δ < 1e-4).
+Raw: `outputs/v2/v2_pilot/o1prime_t2test/`.
 
-Runbook `colab/v2/p6_t2test_o1prime.ipynb` → `python -m core.tools.v2_guard_test` (A0–A3 in one call; same forward and
-reads as `v2_diagnostics`; Q4 source-coverage hard gate). Tool check before the verdict is read: A0 through this path
-must reproduce Amendment 7's A0 T2-test 0.6320 / 0.6389 (`core.evaluate`) to 1e-3. `v2_diagnostics` now prints O1′
-beside O1 whenever `--a0-diag` is given.
+| arm | T2-test micro | macro | clip oracle | window AUC | O1 (printed) | Δ window AUC | Δ macro | Δ micro | O1′ |
+|---|---|---|---|---|---|---|---|---|---|
+| A0 | 0.6320 | 0.6389 | 0.7037 | 0.6637 | PASS | — | — | — | reference |
+| A1 (CRN) | 0.6558 | 0.6350 | 0.7037 | 0.7117 | FAIL (macro < micro) | +0.0480 | −0.0039 | +0.0238 | PASS |
+| A2 (V2-S) | 0.7192 | 0.7136 | 0.7037 | 0.7650 | FAIL | +0.1014 | **+0.0747** | +0.0872 | PASS |
+| A3 (CRN + V2-S) | 0.7090 | 0.6897 | 0.7037 | 0.7804 | FAIL | +0.1167 | **+0.0508** | +0.0770 | PASS |
+
+O1′ on T2-val (same tool, batch numbers): A1 PASS (Δ window −0.0035, macro −0.0031), A2 PASS (+0.0905 / +0.0145),
+A3 PASS (+0.0775 / +0.0315).
+
+**Q5 verdicts.**
+
+* **A1** — survivor by O1 on T2-val, as registered. Its T2-test O1 FAIL (macro < micro by 0.021) is printed only.
+* **A2, A3** — "**O1 FAIL as registered; not collapsed under O1′ (post-hoc, Amendment 8), confirmed on T2-test.**"
+  Pilot survivors; P7 is not blocked by them. This sentence travels with every citation of the pilot.
+* **Motion Stream: kept.** E3 = {A0, A1, A2, A3}.
+
+Read-outs (one seed, **not a result**; T2-test is a guardrail set here, never an adoption set — §17 Q4):
+
+* **The C14 signature is absent on unseen windows too.** Window AUC rises +0.10 / +0.12 over A0 and macro rises
+  with it (+0.075 / +0.051). On T2-val the macro gain was +0.015 / +0.032: it grew, not shrank, on the set where
+  nothing was chosen, so O1′'s pass is not an artefact of T2-val having shaped Q2.
+* **CRN reads below its no-CRN twin in-domain:** A3 − A2 macro −0.024, A1 − A0 −0.004 on T2-test. Same direction
+  as Q7's training-loss caveat (CRN arms fit T2-train harder). CRN's stated job is transfer (DoTA), which this read
+  does not see; E3 decides on DoTA-dev / DoTA-CAP-dev with 5 seeds.
+* A1's T2-test O1 FAIL is the "macro ≥ micro" leg alone with micro *below* the oracle — exactly the leg Amendment 8
+  argued is not a collapse test. Printed, never decided on (§17 Q4).

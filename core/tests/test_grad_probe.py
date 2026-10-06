@@ -226,7 +226,7 @@ class TestCli:
 
         def _with_text_tower(**kwargs: object):
             trainer = real_build(**kwargs)  # type: ignore[arg-type]
-            trainer.model.clip_text_model = torch.nn.Linear(2, 2)
+            trainer.model.clip_text_model = torch.nn.Linear(2, 2)  # type: ignore[assignment]  # pyright: ignore[reportAttributeAccessIssue]
             return trainer
 
         monkeypatch.setattr(grad_probe, "build_trainer", _with_text_tower)

@@ -485,6 +485,14 @@ V2_D5_MARGIN = 0.02  # O6 / D5: A0 on v2 code within this of the reference on T2
 V2_DIAG_RIDGE_ALPHA = 1.0  # O4: position probe on V^t (standardized ridge)
 V2_DIAG_FOLDS = 5  # O4/O5: grouped CV folds (the core.eda probe default)
 
+# --- E3 factorial (proposal §10.1-§10.3; addendum §18 Amendment 9, M1-M10) ---
+V2_E3_ARMS = ("A0", "A1", "A2", "A3")
+V2_E3_SEEDS = (2024, 2025, 2026, 2027, 2028)  # §10.1: n = 5, paired by seed (M1)
+V2_E3_T95 = 2.776  # §10.1: t(0.975, df = 4), the decision interval (M4)
+V2_E3_FREE_ARM = "A1"  # CRN: adoptable on a non-negative result (§10.3, M5)
+V2_E3_BASE_ARM = "A0"
+V2_E3_P_CAP = 0.852  # G6 (b): E2(d)'s in-domain cubic position probe on dota_cap_dev
+
 # ---------------------------------------------------------------------------
 # Evaluation score pooling (lesson C12)
 #
