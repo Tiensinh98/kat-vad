@@ -32,11 +32,26 @@
 > this branch *this file and `progress.md` are the only durable record of the
 > attribution campaign*. Do not delete them; do not re-run those arms here.
 
-**Last Memory Bank Update:** 2026-10-06 (partial: activeContext, progress, plan §0/P7/App. A, pending (av), addendum §18 signed + §19 drafted — E3 read out). Before that 2026-10-05, later (partial: activeContext, plan §0/App. A, pending (au) — D6 + T2-test O1′ read out). Earlier 2026-10-05 (partial: activeContext, pending (at) — batch 2 read out, Amendment 8). Before that 2026-10-04, later (partial: activeContext, progress — P6 batch 1 read out, Amendment 7). Earlier 2026-10-04 (partial: activeContext, progress, pending (ar) — E2(d) read out, Amendment 6). Before that 2026-10-03 (partial: activeContext only — DoTA-CAP frozen, L7). Before that 2026-09-30 ( — **full update, branch `v2`: E1 = B, Amendment 2/3, P5 built, D11 tooling**;
+**Last Memory Bank Update:** 2026-10-07 (partial: activeContext, progress, plan §0/P7/App. A — Final read out). Before that 2026-10-06 (partial: activeContext, progress, plan §0/P7/App. A, pending (av), addendum §18 signed + §19 drafted — E3 read out). Before that 2026-10-05, later (partial: activeContext, plan §0/App. A, pending (au) — D6 + T2-test O1′ read out). Earlier 2026-10-05 (partial: activeContext, pending (at) — batch 2 read out, Amendment 8). Before that 2026-10-04, later (partial: activeContext, progress — P6 batch 1 read out, Amendment 7). Earlier 2026-10-04 (partial: activeContext, progress, pending (ar) — E2(d) read out, Amendment 6). Before that 2026-10-03 (partial: activeContext only — DoTA-CAP frozen, L7). Before that 2026-09-30 ( — **full update, branch `v2`: E1 = B, Amendment 2/3, P5 built, D11 tooling**;
 all six core files + CLAUDE.md reviewed; counts re-measured: **109 Python files (73 source + 36 test), 17,520 source LOC,
 754 tests, 35 docs**.)
 
-> **TL;DR — where v2 stands (2026-10-06, after E3).** **E3 → adopt A3 (CRN + V2-S), `F` = A0**: A3 − A0 on
+> **TL;DR — where v2 stands (2026-10-07, after Final).** **Final READ OUT (§19, opened once 2026-10-06T14:21Z,
+> `outputs/v2/v2_final/`, P7 gate PASS 22/22). Nothing re-decides (P1): A3 stays adopted.**
+> DoTA-CAP-eval (n/1397, 560 clips) macro A0 **0.6979** · A1 0.6835 · A2 0.7651 · **A3 0.7785**; seed-paired
+> A3 − A0 **+0.0900 [+0.065, +0.115]**, A3 − A1 **+0.0982 [+0.090, +0.107]**; DoTA-eval (695/700, §20) A1 − A0
+> **−0.0072 [−0.034, +0.019]**. **Optimism dev − eval is NEGATIVE for every arm (−0.012…−0.026)**: no selection
+> optimism, eval scores slightly above dev. **Position:** `p_T2` 0.8256 on CAP-eval, still **> A3 0.7785**;
+> P5 sentences all fired positive: `f_2` A3 − A0 **+0.0211 [+0.009, +0.034]**, A3 − A1 **+0.0170 [+0.008, +0.027]**,
+> A3 + 2p − `p_T2` **+0.0227 [+0.014, +0.031]**; A2 − A0 at w=2 +0.0039 (∋ 0) — same pattern as dev.
+> T2-test (1,106 windows): macro A0 0.6307 · A1 0.6377 · A2 **0.7080** · A3 0.6950 (oracle 0.7037); O1′ 5/5 A1–A3.
+> P8 still binds (never "motion"; O1 FAIL as registered for A2/A3). **Whole-v2 summary + Final record + dev error
+> analysis (exploratory) + improvement directions H1–H6: `core/docs/v2/REPORT_V2_RESULTS.md` (2026-10-07).** Dev §6:
+> per-clip AUC(A3) vs AUC(`p_T2`) r = 0.135, A3 flat across accident position while `p_T2` ranges 0.43–0.98; score
+> fades ~2 s after onset (peak in span 61 %); non-ego 0.697 vs ego 0.804. **Next:** user picks H1 (position-shift
+> stress test, ~free) / H2(a) (causal max-hold, free) / H4 (V2-B) → pre-register before running.
+
+> *Previous TL;DR (2026-10-06, after E3).* **E3 → adopt A3 (CRN + V2-S), `F` = A0**: A3 − A0 on
 > DoTA-CAP-dev macro **+0.0855 [+0.057, +0.114]** (5/5 seeds), A3 − A1 **+0.098 [+0.086, +0.109]**; CRN alone −0.015
 > (ns, free rule FAIL — E2(c)'s +0.037 did not transfer). O1′ 5/5 for A1–A3. **Caveat that reframes the thesis:** the
 > no-pixel cubic T2 position prior `p_T2` scores **0.822 > A3 0.758**; post-hoc on dev A3's gain survives position control
@@ -109,7 +124,28 @@ Track 0b closed; T2 + Option A remain the live track. Partial update: `activeCon
 architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 13,833 source LOC, 582 collected); **docs 24 → 25** (+ `core/docs/D2CITY_EDA.md`).
 
-## 2026-10-04 (latest) — **P6 batch 1 read out; D5 FAIL as O6 predicted; Amendment 7** (branch `v2`)
+## 2026-10-07 (latest) — **Final read out: A3 holds on sealed sets; gain survives position at w=2** (branch `v2`)
+
+- Run 2026-10-06 (2nd attempt, after Amendment 11), `OPENED.json` 14:21Z, sets `dota_eval`, `dota_cap_eval`,
+  `t2_test`; code `472adb0` uploaded (Colab `commit: UNKNOWN`). Raw: `outputs/v2/v2_final/REPORTS/final_readout.{md,json}`.
+- **Read-out (descriptive; P1 closed adoption):** see TL;DR. Share bins A3 CAP-eval 0.777 / 0.773 / 0.787 / 0.865
+  vs A0 0.701 / 0.681 / 0.722 / 0.751 (`>70` bin tiny, CI ~0.18 wide). Micro (min-max) / AP: A0 0.651 / 0.447,
+  A3 0.730 / 0.524 — DoTA-CAP-labelled, never beside 62.60 (D14). DoTA-eval `p_T2` 0.8239, `t/N` 0.575.
+- **Reading.** (1) Eval ≥ dev for every arm, so the "selection optimism" risk of reusing DoTA-dev (E1/E2/E3) did not
+  materialize; the dev numbers are not inflated. (2) The thesis claim is "v2 as a whole / the video stream adds
+  ≈ +0.02 macro **beyond a T2 position prior**", not "+0.09": the raw gain is mostly co-moving with position (G6),
+  and no arm beats `p_T2` alone on raw macro. (3) A2's gain does not survive position at w=2 on either set; A3's does —
+  CRN + stream together is what carries content beyond position. (4) CRN alone still does not transfer (A1 − A0 ∋ 0).
+- Pooled dev ∪ eval was asked about (user, 2026-10-07): not pre-registered; arithmetic ≈ the 50/50 mean
+  (A3 ≈ 0.768, A0 ≈ 0.687, `p_T2` ≈ 0.824). Print only if declared descriptive, never as the headline.
+- **Loss audit (2026-10-07, from pilot config + metrics):** L_dvs ON (logged every step; A3's `dvs_sup_mil` ends at
+  0.006), **L_neg OFF** (`captions_from_definitions=false`, no `cap_contrastive` key). DVS = LaGoVAD default because
+  `data.is_egocentric=false` on T2/phase 4/v2. `DADA_SETUP.md` said `true`; that rule was for the archive only and was
+  silently dropped for T2. Kept as is (A0 ≡ phase 4); never measured. Noted in `REPORT_V2_RESULTS.md` §1 and
+  `DADA_SETUP.md` §scope note. An ablation (A0/A3 with `true`) is possible but is lower priority than H1/H2/H4.
+- Earlier this session Claude wrongly said Final had not run (read only activeContext, not `outputs/`). Fixed here.
+
+## 2026-10-04 — **P6 batch 1 read out; D5 FAIL as O6 predicted; Amendment 7** (branch `v2`)
 
 * `outputs/v2/v2_pilot/`: A0 / A1 step 1740 (J10 ok), configs as O7. T2-val micro 0.6586 / 0.6683, macro 0.6737 /
   0.6705, oracle 0.6986, window AUC 0.686 / 0.683 → guardrails PASS ×2. Shortcut `V^t` 0.9999 → **0.5507** with CRN;

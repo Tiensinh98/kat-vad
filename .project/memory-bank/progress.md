@@ -283,7 +283,9 @@ attributed it to any part of KIP:
 
 ### KAT-VAD v2 — E0–E2 gates (new 2026-09-27; design in `core/docs/v2/`, advisor sign-off)
 
-**Status 2026-09-30:** P0 ✅, P1 K ✅ GO (+K-pos), **P2 ✅ (D11 at s3: R2)**, **P3 E1 ✅ = B**, P5 🟡 core committed.
+**Status 2026-10-07:** P0–P7, E3 and **Final ✅** (A3 adopted; Final on sealed sets: A3 − A0 DoTA-CAP-eval +0.090 [+0.065, +0.115], optimism < 0 for every arm, gain beyond the T2 position prior `f_2` +0.021 [+0.009, +0.034]; `p_T2` 0.826 > A3 0.779). Left: `RESULTS_FINAL.md`, advisor, write-up. The checklist below is history from 2026-09-30.
+
+*Status 2026-09-30:* P0 ✅, P1 K ✅ GO (+K-pos), **P2 ✅ (D11 at s3: R2)**, **P3 E1 ✅ = B**, P5 🟡 core committed.
 Live plan with a status table: `.project/plans/katvad-v2-e0-e2.md` §0. **Blocked:** P4 on D9 (motion endpoint; the user
 decides — they chose not to route amendments through the advisor).
 

@@ -597,6 +597,14 @@ descriptor appended). Keep `data.is_egocentric=true` in every DADA-2000
 training config for the same reason (selects `theta_ego`/`delta_m_ego` in
 DVS) — this is the opposite default from TAD, which is fixed-camera.
 
+> **Scope note (2026-10-07).** This rule covers the DADA-2000 **archive** runbook only. The DADA-2000
+> **original** / T2 line (phase 4, Option A, learning curve, and every v2 arm on branch `v2`) was trained with
+> **`data.is_egocentric=false`** and **`motion_aware_knn_key=false`**, i.e. LaGoVAD's default DVS (θ 0.7, δ_m 5).
+> The flag was dropped when the corpus moved to the original release, and nobody recorded it then. It is kept that way
+> on purpose: A0 ≡ phase-4 KIP-off depends on it, and re-picking it after the results would be tuning (lesson 14).
+> Its effect has never been measured. Switching it on for T2 requires a pre-registered ablation
+> (`core/docs/v2/REPORT_V2_RESULTS.md` §1).
+
 ---
 
 ## 10. Sizing a DADA-2000 run
