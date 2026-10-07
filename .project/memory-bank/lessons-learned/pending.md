@@ -1780,3 +1780,45 @@ wrote `OPENED.json`, then crashed staging a missing clip — the sets were "open
 **Files:** `colab/v2/final.ipynb` (step 2), `core/tools/protocol_b_eval.py:featureless_ids`, addendum §20
 
 **Gate status.** One occurrence. Gate 2 not met. Related to C2 (a cache is bound to what built it) — here, to what it covers.
+
+## (ay) [MEDIUM] Experiments - Cropping a clip to move the event also shortens its context: control length separately (2026-10-07)
+**Triggers:** position shift, temporal crop, stress test, CRN reference, per-clip median, context length, p_T2, H1
+**Problem:** H1 (`core/docs/v2/REPORT_V2_RESULTS.md` §8) proposed re-cutting DoTA-CAP clips so the accident centre spreads
+over [0.1, 0.9]. A crop changes two things at once: relative position **and** how much normal context the model sees.
+CRN-R2 subtracts a per-clip median (fewer normal frames → median drifts toward the anomaly → smaller deviation), and the
+bidirectional trunk loses context. A drop in A3 would then be unattributable: position or starvation.
+**Bad:** crop one side to push the event early; compare with the uncropped clip; slice the cached scores and call it the
+model's behaviour; refit `p_T2` on the shifted set.
+**Good:** crop both ends to a length L' drawn from one fixed distribution; add a **control** of the same L' with the event
+at its original position; read position cost = control − shifted and context cost = full − control. Re-bake CRN on each
+crop and re-run inference (no training). Keep `p_T2` frozen at its T2 fit (refitting is in-sample). Optional fourth
+arm: slice the full-context score curve only (pure evaluation shift, not deployable).
+**Rule:** Pair every position-shift crop with a same-length unshifted crop, and recompute any per-clip normalization on the crop.
+**Files:** `core/docs/v2/REPORT_V2_RESULTS.md` §8 H1, `core/tools/build_v2_inputs.py` (CRN bake), `core/tools/position_prior.py`
+
+**Gate status.** Design review only, not yet run. **DEFERRED by the user (2026-10-07): do H1 only after v2 is closed.**
+
+## (az) [MEDIUM] Experiments - Region-aware pooling of the video stream: motivation weaker than written; gate on parameter-free token pooling first (2026-10-07)
+**Triggers:** region-aware pooling, attention pooler, spatial tokens, non-ego, ego, VideoMAE tokens, mean-pool dilution, per-token CRN, H3
+**Proposal (external, 2026-10-07):** cache V2-S time-pooled spatial tokens (14×14×384, ≈150 KB/step fp16) and replace
+mean-pooling with a few-query attention pooler, fed through the same zero-init `W_u`. It targets the non-ego gap.
+**Measured for it (dev, exploratory):** the ego − non-ego gap is real. It survives control for centre, centre², share and
+length (A3 +0.107 → **+0.104**), while `p_T2`'s gap vanishes (+0.038 → −0.004).
+**Measured against it:**
+- Mean-pooled V2-S is what helps non-ego most. Dev macro ego/non-ego: A0 0.737/0.599 · A1 0.713/0.586 ·
+  **A2 0.789/0.708** · A3 0.804/0.697. A0→A2 is +0.109 on non-ego vs +0.052 on ego.
+- CRN slightly hurts non-ego (A2→A3 −0.011; adjusted gap A2 +0.060 vs A3 +0.104). A competing hypothesis: global
+  per-clip CRN favours whole-frame (ego) changes over local (non-ego) ones.
+- SimpleTAD (CVPR 2025) Tab. 7: end-to-end fine-tuned VideoMAE-S still has ego 90.2 / non-ego 78.3. The object-cue
+  methods are **worse** on non-ego (PromptTAD 70.4, ISCRTAD 66.9). The paper credits object cues only for rare or
+  ambiguous categories (UK). The cited "Xen" expert ensemble is unverified.
+**Open technical issues:** CRN is baked offline per T2 source / DoTA clip, so a learned pooler output cannot be pre-baked.
+The options are per-token CRN offline, online CRN with a source reference (heavy I/O), or no CRN (A2-style). The gate must
+probe parameter-free token pooling (mean / max / top-k / 2×2 grid, ± per-token CRN), because a frozen probe cannot test a
+learned pooler. Cost of a full build: ≈12 GB T2 + 6 GB CAP s3 token caches (re-extraction, CAP pixels needed), copied
+to Colab local disk. Name clash: do not call it "V3b" (branch `v3` exists). DoTA-CAP-eval is already opened.
+**Plan if resumed:** step 1 = extract tokens for the 295 K sources + 569 CAP-dev clips only, then run a K/E2(d)-style
+probe per ego/non-ego with `p` printed. Pre-registered bar: non-ego beyond-position transfer ≥ +0.02 over mean-pooled `u`,
+with ego not worse. Step 2 (full build) only if it passes. If per-token CRN alone closes the gap, the contribution is
+"region-wise CRN" (parameter-free).
+**Gate status.** Idea + design review only. **DEFERRED by the user (2026-10-07) until v2 is closed.** Related: (ay), H3 in `REPORT_V2_RESULTS.md` §8.

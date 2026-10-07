@@ -48,8 +48,8 @@ all six core files + CLAUDE.md reviewed; counts re-measured: **109 Python files 
 > P8 still binds (never "motion"; O1 FAIL as registered for A2/A3). **Whole-v2 summary + Final record + dev error
 > analysis (exploratory) + improvement directions H1–H6: `core/docs/v2/REPORT_V2_RESULTS.md` (2026-10-07).** Dev §6:
 > per-clip AUC(A3) vs AUC(`p_T2`) r = 0.135, A3 flat across accident position while `p_T2` ranges 0.43–0.98; score
-> fades ~2 s after onset (peak in span 61 %); non-ego 0.697 vs ego 0.804. **Next:** user picks H1 (position-shift
-> stress test, ~free) / H2(a) (causal max-hold, free) / H4 (V2-B) → pre-register before running.
+> fades ~2 s after onset (peak in span 61 %); non-ego 0.697 vs ego 0.804. **Next:** close v2 first. **H1 is DEFERRED** until v2 is closed
+> (design guard = pending (ay): same-length unshifted control, re-baked CRN per crop, frozen `p_T2`). Then H2(a) / H4.
 
 > *Previous TL;DR (2026-10-06, after E3).* **E3 → adopt A3 (CRN + V2-S), `F` = A0**: A3 − A0 on
 > DoTA-CAP-dev macro **+0.0855 [+0.057, +0.114]** (5/5 seeds), A3 − A1 **+0.098 [+0.086, +0.109]**; CRN alone −0.015
