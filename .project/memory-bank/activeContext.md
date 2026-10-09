@@ -129,6 +129,17 @@ Track 0b closed; T2 + Option A remain the live track. Partial update: `activeCon
 architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 13,833 source LOC, 582 collected); **docs 24 → 25** (+ `core/docs/D2CITY_EDA.md`).
 
+## 2026-10-09 (late) — **Nexar: feasibility plan + N0 tooling** (branch `v2`)
+
+- Plan `.project/plans/katvad-v2-nexar-feasibility.md` (§0 status). User scope: **N3 zero-shot read of the 20 T2
+  ckpts on a sealed Nexar split, then train A0_N/A3_N**; the 750 negative videos in scope behind an N-X gate (C38).
+- Facts: 1,500 train mp4 (750/750), ~40 s, 720p, ~30 fps, `time_of_alert`/`time_of_event` only (no span end);
+  official test ends before the event (anticipation) even though `solution.csv` is public → own split (pending (be)).
+- Built (uncommitted): `core/data/nexar.py`, `core/tools/nexar_census.py`, `core/tools/nexar_splits.py`
+  (`NEXAR_MANIFEST.json`, `nexar_test` sealed), `core/tests/test_nexar.py` (15), `colab/v2/nexar_n0_census.ipynb`,
+  `core/docs/v2/NEXAR_SETUP.md`. Raw repo mirrored to `Thesis/data/Nexar/raw/` (DoTA lesson), not deleted.
+- **Next (user):** accept license → run `nexar_n0_census.ipynb` → paste `census.md`; then freeze split locally → N1.
+
 ## 2026-10-07 (latest) — **Final read out: A3 holds on sealed sets; gain survives position at w=2** (branch `v2`)
 
 - Run 2026-10-06 (2nd attempt, after Amendment 11), `OPENED.json` 14:21Z, sets `dota_eval`, `dota_cap_eval`,

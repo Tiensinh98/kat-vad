@@ -354,8 +354,14 @@ V2_SPLIT_DOTA_EVAL = "dota_eval"
 V2_SPLIT_DOTA_CAP_DEV = "dota_cap_dev"
 V2_SPLIT_DOTA_CAP_EVAL = "dota_cap_eval"
 V2_DOTA_CAP_MANIFEST_FILENAME = "DOTA_CAP_MANIFEST.json"
-V2_DERIVED_MANIFEST_FILENAMES = (V2_DOTA_CAP_MANIFEST_FILENAME,)
-V2_SEALED_SPLITS = frozenset({V2_SPLIT_DOTA_EVAL, V2_SPLIT_DOTA_CAP_EVAL})
+# Nexar (plan .project/plans/katvad-v2-nexar-feasibility.md N0): frozen from the census alone by
+# `python -m core.tools.nexar_splits freeze` into its own manifest; nexar_test is sealed.
+V2_SPLIT_NEXAR_TRAIN = "nexar_train"
+V2_SPLIT_NEXAR_VAL = "nexar_val"
+V2_SPLIT_NEXAR_TEST = "nexar_test"
+V2_NEXAR_MANIFEST_FILENAME = "NEXAR_MANIFEST.json"
+V2_DERIVED_MANIFEST_FILENAMES = (V2_DOTA_CAP_MANIFEST_FILENAME, V2_NEXAR_MANIFEST_FILENAME)
+V2_SEALED_SPLITS = frozenset({V2_SPLIT_DOTA_EVAL, V2_SPLIT_DOTA_CAP_EVAL, V2_SPLIT_NEXAR_TEST})
 V2_T2_VAL_FRACTION = 0.15  # of T2-train SOURCE videos, per accident type
 V2_DOTA_DEV_FRACTION = 0.5  # of DoTA val clips, grouped by source YouTube video
 V2_SPLIT_SEED = SEED
@@ -466,6 +472,21 @@ DOTA_CAP_STEP_TOL = 1  # a CAP step |dj - median dj| > this is irregular
 DOTA_CAP_MAX_IRREGULAR = 0.05  # share of irregular steps a clip may have
 # DoTA is native 10 fps: 16 consecutive frames = the same causal 1.5 s as DADA's every 3rd at 30 fps
 DOTA_VIDEOMAE_FRAME_STEP = VIDEOMAE_CLIP_FRAME_STEP * DOTA_FPS // DADA_ASSUMED_FPS
+
+# --- Nexar collision prediction: N0 census + frozen split (plan katvad-v2-nexar-feasibility.md) ---
+NEXAR_DATASET = "Nexar"
+NEXAR_HF_REPO = "nexar-ai/nexar_collision_prediction"
+NEXAR_TRAIN_DIR = "train"  # train/{positive,negative}/{id}.mp4 + metadata.csv per class folder
+NEXAR_CLASS_DIRS = {"positive": 1, "negative": 0}  # folder -> video label
+NEXAR_METADATA_FILENAME = "metadata.csv"
+NEXAR_VIDEOS = 1500  # README: 750 positive + 750 negative; fewer -> the census refuses
+NEXAR_TEST_FRACTION = 0.25  # of all train videos, sealed
+NEXAR_VAL_FRACTION = 0.15  # of all train videos; taken from what the test draw leaves
+NEXAR_POSITION_STRATA = 3  # positives: terciles of t_event / duration, pooled over positives
+NEXAR_HIST_BINS = 10  # relative-position histogram in the census
+NEXAR_DURATION_BIN_S = 5.0  # duration histogram bin width
+NEXAR_POST_EVENT_PROBES_S = (0.0, 1.0, 2.0)  # informational abnormal share for N1's Δ_post
+NEXAR_FPS_ROUND = 1  # decimals when tabulating frame rates
 
 # --- E2(d): encoder choice on DoTA-CAP-dev (addendum §12, N1-N12; proposal §10.2) ---
 V2_E2D_STRIDE = V2_E1_STRIDE_BC  # N1: protocol B rows of the stride-1 caches

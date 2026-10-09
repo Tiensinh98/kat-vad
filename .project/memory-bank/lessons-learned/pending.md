@@ -1885,3 +1885,15 @@ smoother on tail clips (where it can only add false positives) and under positio
 **Rule:** Report a smoother's Δ on the clips with a normal tail before proposing it.
 **Files:** `core/tools/posthoc_hold.py` (`tail_clips`), `.project/plans/katvad-v2-h2a-hold.md` App. A.
 **Gate status.** One occurrence; candidate until it recurs.
+
+## (be) [MEDIUM] Data - A dataset's official test split may be a different task; check that it contains the event (2026-10-09)
+**Triggers:** new dataset, official test set, Kaggle, anticipation, prediction, solution.csv, time_to_accident, Nexar
+**Problem:** Nexar's 1,344 official test clips end 0.5–1.5 s **before** the collision (an anticipation task scored by
+clip-level mAP), so they hold no anomalous frame; a frame-level VAD read on them is undefined. The dataset card says
+"test set", and `solution.csv` makes it look ready to score.
+**Bad:** plan "train on train, evaluate on the official test" for a detection model from the card's split names.
+**Good:** before planning eval, check that the test clips contain the labelled event (clip end vs event time); if not,
+freeze an own split of the labelled train videos (sealed test side) and keep the official set as a separate task.
+**Rule:** Verify that an official test split's clips contain the target event before using it as a detection endpoint.
+**Files:** `core/tools/nexar_splits.py`, `core/docs/v2/NEXAR_SETUP.md` §0, `.project/plans/katvad-v2-nexar-feasibility.md` §2.
+**Gate status.** One occurrence; candidate until it recurs.
