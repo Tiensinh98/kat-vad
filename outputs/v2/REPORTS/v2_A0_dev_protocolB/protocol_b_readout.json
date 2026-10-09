@@ -1,0 +1,45 @@
+{
+  "arm": {
+    "crn": "none",
+    "motion": "none"
+  },
+  "checkpoints": {
+    "s2024": "/content/drive/MyDrive/Thesis/outputs/DADA2000_orig_phase4/s2024/stage2_kip_off/checkpoint_last.pt",
+    "s2025": "/content/drive/MyDrive/Thesis-V2/outputs/v2_p4_retrain/s2025/stage2_kip_off/checkpoint_last.pt",
+    "s2026": "/content/drive/MyDrive/Thesis-V2/outputs/v2_p4_retrain/s2026/stage2_kip_off/checkpoint_last.pt"
+  },
+  "clips": 702,
+  "global_steps": {
+    "s2024": 2040,
+    "s2025": 2040,
+    "s2026": 2040
+  },
+  "input_dir": "/content/e2d/DoTA_s1_ncc_dev",
+  "macro": {
+    "clips": 702,
+    "clusters": 93,
+    "high": 0.6823370010913455,
+    "low": 0.6436120895654833,
+    "mean": 0.6627978547118231
+  },
+  "per_run_macro": {
+    "s2024": 0.6291080481882152,
+    "s2025": 0.6705319240953254,
+    "s2026": 0.6456947535982799
+  },
+  "position_ruler": {
+    "clips": 702,
+    "clusters": 93,
+    "high": 0.5863226928932258,
+    "low": 0.5464894326401094,
+    "mean": 0.5663323568735095
+  },
+  "protocol": "B: s1[::3], whole clip, native frames (addendum \u00a78.1 J1-J5)",
+  "runs": [
+    "s2024",
+    "s2025",
+    "s2026"
+  ],
+  "split": "dota_dev",
+  "two_class": 702
+}

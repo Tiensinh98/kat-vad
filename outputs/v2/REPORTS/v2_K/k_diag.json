@@ -1,0 +1,142 @@
+{
+  "bar": 0.03,
+  "bootstrap": 2000,
+  "clip_dir": "/content/drive/MyDrive/Thesis/cache/clip/DADA2000_orig",
+  "commit": "n/a",
+  "folds": 5,
+  "ids_requested": 295,
+  "ids_sha1": "634a105d7175593f01aeb64fb1d8f0b8d6176732",
+  "pad": {
+    "arms": {
+      "i_source": {
+        "u": {
+          "high": 0.7818376658732091,
+          "low": 0.7354206153487226,
+          "mean": 0.7583815630507288
+        },
+        "x": {
+          "high": 0.6704948473221651,
+          "low": 0.6209486766374543,
+          "mean": 0.6460295761882144
+        },
+        "xu": {
+          "high": 0.7749977710189571,
+          "low": 0.7291751938031579,
+          "mean": 0.752027683431585
+        }
+      },
+      "ii_type": {
+        "u": {
+          "high": 0.7871283806448162,
+          "low": 0.7402843744540791,
+          "mean": 0.7633955876943063
+        },
+        "x": {
+          "high": 0.6701053941105393,
+          "low": 0.6201476410757077,
+          "mean": 0.6453325413419156
+        },
+        "xu": {
+          "high": 0.7689840244668465,
+          "low": 0.7218875552133408,
+          "mean": 0.745207155282397
+        }
+      }
+    },
+    "delta_xu_minus_x": {
+      "i_source": {
+        "high": 0.13034027829957665,
+        "low": 0.08024182802094668,
+        "mean": 0.10599810724337072
+      },
+      "ii_type": {
+        "high": 0.12575845253637388,
+        "low": 0.07438412803382748,
+        "mean": 0.09987461394048153
+      }
+    },
+    "reading": "NOT_PAD",
+    "sources_lost": 0,
+    "sources_two_class": 295,
+    "steps_dropped_per_source": 6
+  },
+  "position": {
+    "arms": {
+      "i_source": {
+        "p": {
+          "high": 0.7582270884184481,
+          "low": 0.7014647594279666,
+          "mean": 0.7301476748234144
+        },
+        "xp": {
+          "high": 0.7552299895433222,
+          "low": 0.7112552239079184,
+          "mean": 0.7336763601381867
+        },
+        "xup": {
+          "high": 0.7965655336087528,
+          "low": 0.7566835334056806,
+          "mean": 0.7764851888484116
+        }
+      },
+      "ii_type": {
+        "p": {
+          "high": 0.7586585491097793,
+          "low": 0.7007294506163668,
+          "mean": 0.7300201972544833
+        },
+        "xp": {
+          "high": 0.7544195085281526,
+          "low": 0.7083057411194199,
+          "mean": 0.732087839168044
+        },
+        "xup": {
+          "high": 0.7920289085107862,
+          "low": 0.7506993050355036,
+          "mean": 0.7713668411228144
+        }
+      }
+    },
+    "delta_xup_minus_xp": {
+      "i_source": {
+        "high": 0.06395742953280191,
+        "low": 0.023007012288205966,
+        "mean": 0.0428088287102249
+      },
+      "ii_type": {
+        "high": 0.0608223602315626,
+        "low": 0.017571683646736936,
+        "mean": 0.03927900195477034
+      }
+    },
+    "features": "tau^1..tau^3, tau=(t+0.5)/L",
+    "reading": "BEYOND_POSITION",
+    "sources_two_class": 295
+  },
+  "seed": 2024,
+  "status": "printed, not gated (addendum \u00a76.2); K's verdict is unchanged",
+  "video_dir": "/content/drive/MyDrive/Thesis/cache/video/vit_b_k710_dl_from_giant/DADA2000_orig_s8_squash",
+  "video_manifest": {
+    "assumed_fps": 30,
+    "clip_frame_step": 3,
+    "clip_frames": 16,
+    "encoder": "vit_b_k710_dl_from_giant",
+    "feature": "fc_norm(mean over tokens)",
+    "image_mean": [
+      0.485,
+      0.456,
+      0.406
+    ],
+    "image_std": [
+      0.229,
+      0.224,
+      0.225
+    ],
+    "pad": "clamp to frame 0 (repeat first frame)",
+    "repo_id": "OpenGVLab/VideoMAE2",
+    "revision": "706cc172d65ebd4dedbee3f9c0183a93df9fa125",
+    "stride": 8,
+    "transform": "squash224_imagenet",
+    "weights_sha256": "8141a6955e0700d11bf15928fe6d61e5cfe482606fed8cfdddb1b922c0fd88ec"
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "arms": {
+    "i_source": {
+      "u": {
+        "high": 0.7806294784304361,
+        "low": 0.7400959025620077,
+        "mean": 0.7596896006397288
+      },
+      "x": {
+        "high": 0.6371939851402568,
+        "low": 0.5909442463452379,
+        "mean": 0.6147146123287396
+      },
+      "xu": {
+        "high": 0.7680696877899579,
+        "low": 0.7264435214299247,
+        "mean": 0.7471691013699872
+      }
+    },
+    "ii_type": {
+      "u": {
+        "high": 0.7818720877937237,
+        "low": 0.7389883532844923,
+        "mean": 0.759569180535847
+      },
+      "x": {
+        "high": 0.6373009608630649,
+        "low": 0.5887046369434443,
+        "mean": 0.6138286716649038
+      },
+      "xu": {
+        "high": 0.7627232203897789,
+        "low": 0.7183657187432991,
+        "mean": 0.7401263981502086
+      }
+    }
+  },
+  "bootstrap": 2000,
+  "ci": 0.95,
+  "clip_dir": "/content/drive/MyDrive/Thesis/cache/clip/DADA2000_orig",
+  "commit": "UNKNOWN (git said: 'fatal: not a git repository (or any parent up to mount point /content)\\nStopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).')",
+  "delta_xu_minus_x": {
+    "i_source": {
+      "high": 0.1550941337219734,
+      "low": 0.10934968810284362,
+      "mean": 0.13245448904124765
+    },
+    "ii_type": {
+      "high": 0.15168542990288475,
+      "low": 0.10101449258117347,
+      "mean": 0.12629772648530466
+    }
+  },
+  "dim_u": 768,
+  "dim_x": 512,
+  "folds": 5,
+  "frames": 12409,
+  "gate_d0_macro_reference": 0.6518,
+  "ids_requested": 295,
+  "ids_sha1": "634a105d7175593f01aeb64fb1d8f0b8d6176732",
+  "probes": {
+    "i_source": "source-grouped CV (in-domain)",
+    "ii_type": "type-grouped CV (held-out accident types; NOT a domain transfer)"
+  },
+  "rule": {
+    "control": "u under i_source",
+    "control_floor": 0.5,
+    "kill_upper": 0.03
+  },
+  "seed": 2024,
+  "sources_dropped_single_class": 0,
+  "sources_two_class": 295,
+  "verdict": "GO",
+  "video_dir": "/content/drive/MyDrive/Thesis/cache/video/vit_b_k710_dl_from_giant/DADA2000_orig_s8_squash",
+  "video_manifest": {
+    "assumed_fps": 30,
+    "clip_frame_step": 3,
+    "clip_frames": 16,
+    "encoder": "vit_b_k710_dl_from_giant",
+    "feature": "fc_norm(mean over tokens)",
+    "image_mean": [
+      0.485,
+      0.456,
+      0.406
+    ],
+    "image_std": [
+      0.229,
+      0.224,
+      0.225
+    ],
+    "pad": "clamp to frame 0 (repeat first frame)",
+    "repo_id": "OpenGVLab/VideoMAE2",
+    "revision": "706cc172d65ebd4dedbee3f9c0183a93df9fa125",
+    "stride": 8,
+    "transform": "squash224_imagenet",
+    "weights_sha256": "8141a6955e0700d11bf15928fe6d61e5cfe482606fed8cfdddb1b922c0fd88ec"
+  }
+}
