@@ -32,7 +32,7 @@
 > this branch *this file and `progress.md` are the only durable record of the
 > attribution campaign*. Do not delete them; do not re-run those arms here.
 
-**Last Memory Bank Update:** 2026-10-07 (partial: activeContext, progress, plan §0/P7/App. A — Final read out). Before that 2026-10-06 (partial: activeContext, progress, plan §0/P7/App. A, pending (av), addendum §18 signed + §19 drafted — E3 read out). Before that 2026-10-05, later (partial: activeContext, plan §0/App. A, pending (au) — D6 + T2-test O1′ read out). Earlier 2026-10-05 (partial: activeContext, pending (at) — batch 2 read out, Amendment 8). Before that 2026-10-04, later (partial: activeContext, progress — P6 batch 1 read out, Amendment 7). Earlier 2026-10-04 (partial: activeContext, progress, pending (ar) — E2(d) read out, Amendment 6). Before that 2026-10-03 (partial: activeContext only — DoTA-CAP frozen, L7). Before that 2026-09-30 ( — **full update, branch `v2`: E1 = B, Amendment 2/3, P5 built, D11 tooling**;
+**Last Memory Bank Update:** 2026-10-09 (partial: activeContext, pending (ba)/(bc), REPORT §8 H3 — tw_probe KILL). Before that 2026-10-07 (partial: activeContext, progress, plan §0/P7/App. A — Final read out). Before that 2026-10-06 (partial: activeContext, progress, plan §0/P7/App. A, pending (av), addendum §18 signed + §19 drafted — E3 read out). Before that 2026-10-05, later (partial: activeContext, plan §0/App. A, pending (au) — D6 + T2-test O1′ read out). Earlier 2026-10-05 (partial: activeContext, pending (at) — batch 2 read out, Amendment 8). Before that 2026-10-04, later (partial: activeContext, progress — P6 batch 1 read out, Amendment 7). Earlier 2026-10-04 (partial: activeContext, progress, pending (ar) — E2(d) read out, Amendment 6). Before that 2026-10-03 (partial: activeContext only — DoTA-CAP frozen, L7). Before that 2026-09-30 ( — **full update, branch `v2`: E1 = B, Amendment 2/3, P5 built, D11 tooling**;
 all six core files + CLAUDE.md reviewed; counts re-measured: **109 Python files (73 source + 36 test), 17,520 source LOC,
 754 tests, 35 docs**.)
 
@@ -50,6 +50,9 @@ all six core files + CLAUDE.md reviewed; counts re-measured: **109 Python files 
 > per-clip AUC(A3) vs AUC(`p_T2`) r = 0.135, A3 flat across accident position while `p_T2` ranges 0.43–0.98; score
 > fades ~2 s after onset (peak in span 61 %); non-ego 0.697 vs ego 0.804. **Next:** close v2 first. **H1 is DEFERRED** until v2 is closed
 > (design guard = pending (ay): same-length unshifted control, re-baked CRN per crop, frozen `p_T2`). Then H2(a) / H4.
+> **2026-10-09: `tw_probe` (pending (ba)) = KILL** — transfer Δ(text − `[x;u;p]`) −0.036 [−0.046, −0.026]; text margin
+> at chance zero-shot (0.504); CLIP tiles (`mean`) also negative → H3 demoted to v3. Cubic `p` alone 0.847 > base 0.809.
+> Small v2 read-outs `outputs/v2/REPORTS/**` (md/json/log) are now **tracked** (`.gitignore`), `*.npz` still ignored.
 
 > *Previous TL;DR (2026-10-06, after E3).* **E3 → adopt A3 (CRN + V2-S), `F` = A0**: A3 − A0 on
 > DoTA-CAP-dev macro **+0.0855 [+0.057, +0.114]** (5/5 seeds), A3 − A1 **+0.098 [+0.086, +0.109]**; CRN alone −0.015
@@ -143,6 +146,22 @@ architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
   `data.is_egocentric=false` on T2/phase 4/v2. `DADA_SETUP.md` said `true`; that rule was for the archive only and was
   silently dropped for T2. Kept as is (A0 ≡ phase 4); never measured. Noted in `REPORT_V2_RESULTS.md` §1 and
   `DADA_SETUP.md` §scope note. An ablation (A0/A3 with `true`) is possible but is lower priority than H1/H2/H4.
+- **2026-10-08 — text-guided multi-scale CLIP window probe BUILT (uncommitted), pending (ba).**
+  `core/tools/clip_windows.py` + `core/tools/text_window_probe.py` + `core/tests/test_text_window_probe.py` (16) +
+  `colab/v2/tw_probe.ipynb`; constants `TW_*`. Rule in the tool docstring: GO iff transfer Δ(text − [x;u;p]) ≥ +0.01
+  with CI low > 0. Suite **939 collected, 0 fail**. Ideas (ay) H1 and (az) region pooling stay DEFERRED.
+  Alert-CLIP dropped (no public checkpoint). **Next: user runs `tw_probe.ipynb` → paste `tw_readout.md`.**
+- **2026-10-09 — tw_probe step 3 stopped: 15 DoTA-CAP-dev clips refused by `global_window_cos`.** Diagnosed from
+  `outputs/v2/REPORTS/tw_probe/`: all 15 were admitted at mean 0.9901–0.9918 over s1 and read 0.9889–0.9900 over s3
+  (min row ≥ 0.964). Fix: per-clip gate = rows + min ≥ 0.95, mean ≥ 0.99 moved to `corpus_gate` (T2 `frames` keeps the
+  per-clip mean). +2 tests; suite **941 / 0 fail**. Pending (bb). **Next: re-upload, re-run step 3 (only the 15 clips'
+  CAP groups re-stream), then step 4+.**
+- **2026-10-09 (later) — tw_probe RUN: KILL.** `tw_readout.md`: transfer Δ(text − base) **−0.0360 [−0.0462, −0.0261]**
+  (ego −0.035, non-ego −0.038), text − mean −0.024, mean − base −0.012, prior − base −0.018, score ≈ 0; in-domain −0.016.
+  Zero-shot margin 0.504, `cos(z_abn, z_norm)` 0.84, weight entropy T2 0.67 / DoTA 0.53. Reading in pending (ba);
+  lesson candidate (bc) (gate a weighting signal zero-shot first). H3: CLIP tiles closed, detector crops → v3.
+  `.gitignore`: `outputs/v*` → `outputs/v*/*` + `!outputs/v2/REPORTS/`. Code kept (provenance), commit 1 prepared.
+  **Next: close v2 → H2(a) (free) → H1 (guard (ay)) → H4.**
 - Earlier this session Claude wrongly said Final had not run (read only activeContext, not `outputs/`). Fixed here.
 
 ## 2026-10-04 — **P6 batch 1 read out; D5 FAIL as O6 predicted; Amendment 7** (branch `v2`)

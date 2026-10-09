@@ -1822,3 +1822,54 @@ probe per ego/non-ego with `p` printed. Pre-registered bar: non-ego beyond-posit
 with ego not worse. Step 2 (full build) only if it passes. If per-token CRN alone closes the gap, the contribution is
 "region-wise CRN" (parameter-free).
 **Gate status.** Idea + design review only. **DEFERRED by the user (2026-10-07) until v2 is closed.** Related: (ay), H3 in `REPORT_V2_RESULTS.md` §8.
+
+## (ba) [MEDIUM] Experiments - Text-guided multi-scale CLIP window pooling: probe built, not run (2026-10-08)
+**Triggers:** text-guided pooling, WinCLIP, AnyAnomaly, multi-scale windows, definition Z, non-ego, region-aware, Alert-CLIP
+**Idea (external, 2026-10-07):** pool CLIP embeddings of multi-scale frame windows, weighting each window by
+cos(e, z_abn) − cos(e, z_norm) against LaGoVAD's `Z` (DoTA/DADA `CarAccident` / `Normal` definitions). This is
+AnyAnomaly's WinCLIP-based attention made into a feature. Alert-CLIP was dropped (no public checkpoint).
+**Why it beats (az) as a probe target:** the weights come from text similarity and have no trained parameter, so a
+frozen probe tests exactly what would be built.
+**Built (2026-10-08, uncommitted):** `core/tools/clip_windows.py` (grids 1/2/3/5; the 1×1 cell = `x` is a row gate
+against the CLIP cache) + `core/tools/text_window_probe.py` (A3-form probe `[x;u;p]` + pooled stream; controls
+`mean` / `prior` / `score`; ego/non-ego split) + `core/tests/test_text_window_probe.py` (16) + `colab/v2/tw_probe.ipynb`.
+**Rule (in the tool docstring, before any number):** GO iff transfer Δ(text − base) mean ≥ +0.01 and CI low > 0.
+Sentences for text − mean and text − prior are printed and never decide.
+**Risks named up front:** CLIP text may be too "entangled" (Alert-CLIP's point), which shows as a weight entropy ≈ 1;
+a spatial prior can masquerade as semantics (hence `prior`); DoTA-CAP-eval is already opened, so a GO buys a
+pre-registered build on a fresh test set, not a claim.
+**Gate status.** **RUN 2026-10-09: KILL** (`outputs/v2/REPORTS/tw_probe/tw_readout.md`, tracked). Transfer Δ(text − base)
+**−0.0360 [−0.0462, −0.0261]** (ego −0.035, non-ego −0.038); text − mean −0.024 [−0.036, −0.013]; text − prior −0.018;
+mean − base −0.012, prior − base −0.018; score − base +0.0001. In-domain text − base −0.016. Both printed sentences NOT.
+Why (exploratory reading, not gated): (1) the text margin carries no signal — zero-shot max-margin macro **0.504**,
+`cos(z_abn, z_norm)` 0.84, so the T=0.01 softmax picks windows by noise (entropy T2 0.67 → DoTA 0.53: it picks
+*different* windows across domains, hence transfer −0.036 vs in-domain −0.016); (2) any extra 512-d CLIP stream
+hurts the C=1 logistic probe on 295 sources (`mean`, `prior` also negative) — a confound that cannot rescue the idea,
+since text − mean < 0 and the 3-d `score` is 0; (3) non-ego, the group the idea targeted, loses most. Position alone
+(cubic `p`) 0.847 > base 0.809 again. Consequence for H3: CLIP tile mean-pooling (`mean`) also fails H3's kill
+criterion (non-ego −0.021) → H3 demoted to v3 (detector crops only). Code kept in git as provenance (lesson (bc)).
+
+## (bb) [MEDIUM] Gates - A consistency check must not re-admit items with a different statistic at the admission threshold (2026-10-09)
+**Triggers:** gate, threshold, re-check, consistency gate, DOTA_CAP_MEAN_COS, subsample, stride, admitted, margin
+**Problem:** `clip_windows.gate_rows` re-applied DoTA-CAP's per-clip mean ≥ 0.99 on the s3 rows, while admission
+had measured it over all s1 frames. 15/496 dev clips admitted at 0.9901–0.9918 read 0.9889–0.9900 and were refused
+(min row cos ≥ 0.964 for all; window − admission mean: median −0.0003, range ±0.002). Not a transform error.
+**Bad:** `passes_frame_gate(cos_on_s3_rows)` per clip, against DoTA's own cache.
+**Good:** per clip: row count + every row ≥ `DOTA_CAP_MIN_COS`; the mean is a **corpus** gate (`corpus_gate`). A same-pixel
+cache (T2 `frames`) keeps the per-clip mean (`min_mean_cos=`).
+**Rule:** Gate what the check is for (transform → corpus, frame map → rows); never re-run an admission threshold on a
+subsample of what admitted the item.
+**Files:** `core/tools/clip_windows.py` (`gate_rows`, `corpus_gate`), `colab/v2/tw_probe.ipynb` step 3.
+**Gate status.** One occurrence; candidate until it recurs.
+
+## (bc) [MEDIUM] Experiments - Measure a weighting signal zero-shot before building a stream pooled by it (2026-10-09)
+**Triggers:** attention pooling, text-guided, softmax weights, window margin, zero-shot, WinCLIP, pooled stream, probe
+**Problem:** `tw_probe` extracted 39 CLIP windows per frame for T2 + DoTA-CAP-dev and probed a text-weighted stream,
+then found its weighting signal (window margin vs `Z`) scores **0.504** zero-shot — the pooling selected noise, and
+the stream lost −0.036 transfer (pending (ba)). The zero-shot read needed only the windows of a few hundred clips.
+**Bad:** build + probe `softmax(s_w / T)`-pooled features, print the zero-shot AUC of `s_w` as a side line.
+**Good:** gate first on the signal itself: zero-shot AUC of `max_w s_w` (and the weight entropy) on a small dev
+sample; only if it is clearly > 0.5 build the pooled stream and its controls.
+**Rule:** Check that a weighting signal discriminates on its own before spending extraction on features pooled by it.
+**Files:** `core/tools/text_window_probe.py` (printed `zero_shot` line), `colab/v2/tw_probe.ipynb`.
+**Gate status.** One occurrence; candidate until it recurs.

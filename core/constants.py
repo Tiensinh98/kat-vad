@@ -522,6 +522,21 @@ V2_FINAL_DEV_DELTA = {
     ("A3", "A1"): (0.0999, 0.0388, 0.0179),
 }
 
+# --- Exploratory probe: text-guided multi-scale CLIP windows (pending (ba); not an amendment) ---
+# AnyAnomaly's WinCLIP-style windows on the `_ncc` field of view: non-overlapping g x g grids.
+# Grid 1 is the whole frame, i.e. the existing CLIP row `x` -- extracted only as a row gate.
+TW_GRIDS = (1, 2, 3, 5)
+TW_GLOBAL_GRID = 1
+TW_CACHE_DIR = CACHE_ROOT / "clip_windows"
+TW_FRAMES_PER_BATCH = 8  # frames per encoder call (x 39 windows)
+TW_STORE_DTYPE = "float16"
+TW_TEMPERATURE = 0.01  # softmax temperature over windows: CLIP's logit scale (1/100)
+TW_DOTA_STRIDE = V2_E2D_STRIDE  # protocol B rows (s1[::3]), as E2(d)
+TW_CRN = V2_E2D_CRN  # every stream in the A3 form: per-clip median removed
+TW_GAIN_MIN = 0.01  # GO iff the transfer gain of the text-pooled stream beyond [x;u;p] reaches this
+TW_BOOTSTRAP = V2_E2D_BOOTSTRAP
+TW_CI = V2_E2D_CI
+
 # ---------------------------------------------------------------------------
 # Evaluation score pooling (lesson C12)
 #

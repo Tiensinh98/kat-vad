@@ -40,6 +40,9 @@ results/
 datasets/
 /data/
 
-# Outputs
-outputs/v*
+# Outputs -- run artifacts stay local; the small v2 read-outs (md/json/log) are tracked as the
+# durable record. `outputs/v*/*` (not `outputs/v*`) so the REPORTS dir can be re-included;
+# *.npz above still applies inside it.
+outputs/v*/*
+!outputs/v2/REPORTS/
 
