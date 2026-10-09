@@ -32,7 +32,7 @@
 > this branch *this file and `progress.md` are the only durable record of the
 > attribution campaign*. Do not delete them; do not re-run those arms here.
 
-**Last Memory Bank Update:** 2026-10-09 (partial: activeContext, pending (ba)/(bc), REPORT §8 H3 — tw_probe KILL). Before that 2026-10-07 (partial: activeContext, progress, plan §0/P7/App. A — Final read out). Before that 2026-10-06 (partial: activeContext, progress, plan §0/P7/App. A, pending (av), addendum §18 signed + §19 drafted — E3 read out). Before that 2026-10-05, later (partial: activeContext, plan §0/App. A, pending (au) — D6 + T2-test O1′ read out). Earlier 2026-10-05 (partial: activeContext, pending (at) — batch 2 read out, Amendment 8). Before that 2026-10-04, later (partial: activeContext, progress — P6 batch 1 read out, Amendment 7). Earlier 2026-10-04 (partial: activeContext, progress, pending (ar) — E2(d) read out, Amendment 6). Before that 2026-10-03 (partial: activeContext only — DoTA-CAP frozen, L7). Before that 2026-09-30 ( — **full update, branch `v2`: E1 = B, Amendment 2/3, P5 built, D11 tooling**;
+**Last Memory Bank Update:** 2026-10-09 (partial: activeContext, pending (ba)/(bc)/(bd), REPORT §6.3/§8 H2/H3 — tw_probe KILL, H2(a) KILL). Before that 2026-10-07 (partial: activeContext, progress, plan §0/P7/App. A — Final read out). Before that 2026-10-06 (partial: activeContext, progress, plan §0/P7/App. A, pending (av), addendum §18 signed + §19 drafted — E3 read out). Before that 2026-10-05, later (partial: activeContext, plan §0/App. A, pending (au) — D6 + T2-test O1′ read out). Earlier 2026-10-05 (partial: activeContext, pending (at) — batch 2 read out, Amendment 8). Before that 2026-10-04, later (partial: activeContext, progress — P6 batch 1 read out, Amendment 7). Earlier 2026-10-04 (partial: activeContext, progress, pending (ar) — E2(d) read out, Amendment 6). Before that 2026-10-03 (partial: activeContext only — DoTA-CAP frozen, L7). Before that 2026-09-30 ( — **full update, branch `v2`: E1 = B, Amendment 2/3, P5 built, D11 tooling**;
 all six core files + CLAUDE.md reviewed; counts re-measured: **109 Python files (73 source + 36 test), 17,520 source LOC,
 754 tests, 35 docs**.)
 
@@ -53,6 +53,8 @@ all six core files + CLAUDE.md reviewed; counts re-measured: **109 Python files 
 > **2026-10-09: `tw_probe` (pending (ba)) = KILL** — transfer Δ(text − `[x;u;p]`) −0.036 [−0.046, −0.026]; text margin
 > at chance zero-shot (0.504); CLIP tiles (`mean`) also negative → H3 demoted to v3. Cubic `p` alone 0.847 > base 0.809.
 > Small v2 read-outs `outputs/v2/REPORTS/**` (md/json/log) are now **tracked** (`.gitignore`), `*.npz` still ignored.
+> **2026-10-09 (later): H2(a) causal hold = KILL** (plan `katvad-v2-h2a-hold.md` App. A): A3 Δ all −0.071, `f_2`
+> −0.022, tail clips −0.125; H2(b) not proposed. **Next: H1-lite (score-slice, local) → full H1 only if `p_T2` collapses.**
 
 > *Previous TL;DR (2026-10-06, after E3).* **E3 → adopt A3 (CRN + V2-S), `F` = A0**: A3 − A0 on
 > DoTA-CAP-dev macro **+0.0855 [+0.057, +0.114]** (5/5 seeds), A3 − A1 **+0.098 [+0.086, +0.109]**; CRN alone −0.015
@@ -162,6 +164,12 @@ architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
   lesson candidate (bc) (gate a weighting signal zero-shot first). H3: CLIP tiles closed, detector crops → v3.
   `.gitignore`: `outputs/v*` → `outputs/v*/*` + `!outputs/v2/REPORTS/`. Code kept (provenance), commit 1 prepared.
   **Next: close v2 → H2(a) (free) → H1 (guard (ay)) → H4.**
+- **2026-10-09 (night) — H2(a) RUN: KILL.** `core/tools/posthoc_hold.py` (+19 tests, suite **960 / 0 fail**), plan
+  `.project/plans/katvad-v2-h2a-hold.md`. G0 PASS; w = 30 frames (T2-train median span 3.02 s, 1,272 sources). A3
+  max_hold: G1 +0.037 (∋0), G2 `f_2` −0.022, G3 −0.071; tail clips (277) −0.125; A0/A1 neutral, A2/A3 lose (the hold
+  erases the video arms' temporal precision). Provenance: rule on disk 21:10, read-out 21:16, **not in git before the
+  number** (aw) — recorded in App. A. Read-out copied to `outputs/v2/REPORTS/h2a_hold/` (tracked). REPORT §8 H2 + §6.3
+  note updated. Lesson candidate (bd). **Next: H1-lite pre-reg (commit before run), then decide on full H1.**
 - Earlier this session Claude wrongly said Final had not run (read only activeContext, not `outputs/`). Fixed here.
 
 ## 2026-10-04 — **P6 batch 1 read out; D5 FAIL as O6 predicted; Amendment 7** (branch `v2`)

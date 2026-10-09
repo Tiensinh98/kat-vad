@@ -537,6 +537,14 @@ TW_GAIN_MIN = 0.01  # GO iff the transfer gain of the text-pooled stream beyond 
 TW_BOOTSTRAP = V2_E2D_BOOTSTRAP
 TW_CI = V2_E2D_CI
 
+# --- Exploratory: H2(a) causal post-hoc hold on y^bin (.project/plans/katvad-v2-h2a-hold.md) ---
+H2A_ARM = "A3"  # §5: the rule reads the adopted arm only
+H2A_PRIMARY = "max_hold"  # §4: decides; "ema" is printed only
+H2A_VARIANTS = ("max_hold", "ema")
+H2A_LONG_SHARE_BINS = ("50-70", ">70")  # G1: accident share >= 0.5
+H2A_FUSION_WEIGHT = V2_FINAL_FUSION_PRIMARY  # G2: f_2 = z(score) + 2 z(p_T2), Final's P4
+H2A_T2_SPLIT = "train"  # §3: T2 meta split the hold length is measured on (minus T2-val sources)
+
 # ---------------------------------------------------------------------------
 # Evaluation score pooling (lesson C12)
 #

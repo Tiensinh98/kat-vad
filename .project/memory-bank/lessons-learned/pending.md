@@ -1873,3 +1873,15 @@ sample; only if it is clearly > 0.5 build the pooled stream and its controls.
 **Rule:** Check that a weighting signal discriminates on its own before spending extraction on features pooled by it.
 **Files:** `core/tools/text_window_probe.py` (printed `zero_shot` line), `colab/v2/tw_probe.ipynb`.
 **Gate status.** One occurrence; candidate until it recurs.
+
+## (bd) [MEDIUM] Experiments - A post-hoc smoother must be read on the clips where the event has ended (2026-10-09)
+**Triggers:** max-hold, EMA, smoothing, post-processing, score fade, temporal precision, tail clips, H2
+**Problem:** §6.3 read "the score fades before the span ends" and proposed a causal hold. 277/569 DoTA-CAP-dev clips
+carry ≥ 3 s of normal after the span; there the hold cost A3 −0.125 and the whole verdict was KILL (−0.071). Part of the
+"fade" was the model correctly tracking the end.
+**Bad:** diagnose a fade from the event-aligned mean curve at onset alone; judge a smoother on long-span clips only.
+**Good:** print the end-aligned curve and the share of clips with a normal tail beside any "fade" claim; read every
+smoother on tail clips (where it can only add false positives) and under position control.
+**Rule:** Report a smoother's Δ on the clips with a normal tail before proposing it.
+**Files:** `core/tools/posthoc_hold.py` (`tail_clips`), `.project/plans/katvad-v2-h2a-hold.md` App. A.
+**Gate status.** One occurrence; candidate until it recurs.
