@@ -1,0 +1,104 @@
+{
+  "inputs": {
+    "census": {
+      "name": "census.json",
+      "sha1": "58a4aaf020228e301169b2484f8acb57bfdfcd25"
+    },
+    "metadata": {
+      "negative": {
+        "name": "negative/metadata.csv",
+        "sha1": "5cda2748517e5475fd759412d6334ea40bfadc55"
+      },
+      "positive": {
+        "name": "positive/metadata.csv",
+        "sha1": "57c4d24e05a1db8e52a78d25bae711bdce8812a5"
+      }
+    }
+  },
+  "median_duration_s": 40.1307,
+  "per_label": {
+    "nexar_test": {
+      "0": 188,
+      "1": 187
+    },
+    "nexar_train": {
+      "0": 449,
+      "1": 451
+    },
+    "nexar_val": {
+      "0": 113,
+      "1": 112
+    }
+  },
+  "per_stratum": {
+    "neg|long": {
+      "nexar_test": 90,
+      "nexar_train": 215,
+      "nexar_val": 54
+    },
+    "neg|short": {
+      "nexar_test": 98,
+      "nexar_train": 234,
+      "nexar_val": 59
+    },
+    "pos|long|p0": {
+      "nexar_test": 37,
+      "nexar_train": 89,
+      "nexar_val": 22
+    },
+    "pos|long|p1": {
+      "nexar_test": 33,
+      "nexar_train": 79,
+      "nexar_val": 20
+    },
+    "pos|long|p2": {
+      "nexar_test": 26,
+      "nexar_train": 62,
+      "nexar_val": 15
+    },
+    "pos|short|p0": {
+      "nexar_test": 25,
+      "nexar_train": 62,
+      "nexar_val": 15
+    },
+    "pos|short|p1": {
+      "nexar_test": 29,
+      "nexar_train": 71,
+      "nexar_val": 18
+    },
+    "pos|short|p2": {
+      "nexar_test": 37,
+      "nexar_train": 88,
+      "nexar_val": 22
+    }
+  },
+  "plan": ".project/plans/katvad-v2-nexar-feasibility.md N0",
+  "position_edges": [
+    0.486932,
+    0.505549
+  ],
+  "rule": "one video = one group; stratum = label x duration half (pooled median) x, for positives, tercile of t_event/duration (pooled over clean positives; else 'pna'); test = 0.25 of all, val = 0.15 of all drawn from the rest (core.data.v2_splits.grouped_split)",
+  "sealed": [
+    "nexar_test"
+  ],
+  "seed": 2024,
+  "splits": {
+    "nexar_test": {
+      "count": 375,
+      "sha1": "198e0889f8e540bdfd94edeb816bd00d7d2547f0"
+    },
+    "nexar_train": {
+      "count": 900,
+      "sha1": "6768538af32a76e560bb178875601dd211ddbb00"
+    },
+    "nexar_val": {
+      "count": 225,
+      "sha1": "cdbc0aafd3d658aed384c4d7cc97649db18e6ccb"
+    }
+  },
+  "with_issues": {
+    "nexar_test": 0,
+    "nexar_train": 0,
+    "nexar_val": 0
+  }
+}
