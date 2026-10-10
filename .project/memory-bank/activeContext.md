@@ -129,6 +129,21 @@ Track 0b closed; T2 + Option A remain the live track. Partial update: `activeCon
 architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 13,833 source LOC, 582 collected); **docs 24 → 25** (+ `core/docs/D2CITY_EDA.md`).
 
+## 2026-10-11 — **v2.1 proposal reviewed + synced to code; E4-0 (A3-ign) added and built** (branch `v2`)
+
+- Nexar training **deferred** by the user. `core/docs/v2.1/` (proposal + architecture, untracked) reviewed: SG-NM's Gap S
+  motivation missed that A3 trains with `dvs_anchor_mode=span` (whole anchor = 1, C29; never chosen for v2, default).
+- Docs synced to code (non-SG-NM parts): `H_mul` has no projections and top-k pooling; `C` = 2; `z` re-encoded per
+  step/pass; batch ≈ 32+32 only on average; local attention band 25; `L_dvs` = dense BCE + span top-k; ATS not implemented.
+- **New step E4-0 = A3-ign** (A3 + `loss.dvs_anchor_mode=ignore`, 5 seeds) and **base rule** §11.4: `B` = A3-ign iff
+  paired t95 > 0, `f_2` point ≥ 0, guardrails (T2-val macro ≥ A3 − 0.01, normal-window peak ≤ +0.02, O1′); else A3.
+  E4a/pilot/E4 then run on `B`. Operational definitions fixed (per-clip min-max span reads, tail w = 30 → 277 clips).
+- Built (uncommitted): `core/tools/e4_0_readout.py`, `core.metrics.{span_reads,span_summary,normal_window_peak}`,
+  `v2_diagnostics` `t2_val_reads`, constants `V2_E4_0_*`, `test_e4_0_readout.py` (+21), `colab/v2/e4_0_a3ign.ipynb`
+  (preflight proves config diff == `loss.dvs_anchor_mode` before GPU). Tests **1017 / 0 fail**.
+- Prior `ignore` evidence (DADA Phase 1 −0.0056, TAD +0.0035) is n = 1 in collapsed regimes → not transferable.
+- **Next (user):** upload → run `e4_0_a3ign.ipynb` → paste `e4_0_readout.md`. Pending (bh).
+
 ## 2026-10-10 (later) — **Nexar: `whole` first, `window` only on a pre-registered trigger** (branch `v2`)
 
 - User changed the order: train on uncut videos first (cheaper), cut into windows only if the result is not OK.

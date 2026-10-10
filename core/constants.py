@@ -599,6 +599,15 @@ H2A_LONG_SHARE_BINS = ("50-70", ">70")  # G1: accident share >= 0.5
 H2A_FUSION_WEIGHT = V2_FINAL_FUSION_PRIMARY  # G2: f_2 = z(score) + 2 z(p_T2), Final's P4
 H2A_T2_SPLIT = "train"  # §3: T2 meta split the hold length is measured on (minus T2-val sources)
 
+# --- v2.1 E4-0: A3-ign and the base rule (core/docs/v2.1/KAT_VAD_PROPOSAL_v2.1.md §11.4) ---
+V2_E4_0_CONTROL = "A3"  # trained with dvs_anchor_mode = span (E3's runs)
+V2_E4_0_ARM = "A3ign"  # A3 with dvs_anchor_mode = ignore, nothing else
+V2_E4_0_ANCHOR_MODE = DVS_ANCHOR_MODE_IGNORE
+V2_E4_0_T2_MACRO_MARGIN = 0.01  # §11.1 guardrail: T2-val macro at most this far below A3's
+V2_E4_0_PEAK_MARGIN = 0.02  # §11.1 guardrail: normal-window peak rises at most this much
+V2_E4_0_TAIL_FRAMES = 30  # H2(a)'s w: T2-train median span 3.02 s at DoTA's 10 fps
+V2_E4_0_TAIL_CLIPS = 277  # H2(a)'s tail-clip count on DoTA-CAP-dev at that w (regression gate)
+
 # ---------------------------------------------------------------------------
 # Evaluation score pooling (lesson C12)
 #

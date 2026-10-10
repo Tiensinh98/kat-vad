@@ -178,12 +178,71 @@ def cluster_bootstrap_ci(
     }
 
 
+def span_reads(
+    scores: dict[str, np.ndarray], labels: dict[str, np.ndarray]
+) -> dict[str, dict[str, float]]:
+    """Per two-class clip: where the score sits relative to the anomalous span.
+
+    Each clip is min-max normalized first, so a global rescale of an arm's scores
+    cannot move these reads. Keys: ``argmax_in_span`` (1.0 if the clip's first
+    argmax is a positive frame), ``in_mean`` (mean over positive frames) and, when
+    the clip has normal frames before its first positive one, ``pre_mean``.
+    """
+    out: dict[str, dict[str, float]] = {}
+    for clip in sorted(scores):
+        lab = np.asarray(labels[clip]).astype(bool)
+        if not 0 < int(lab.sum()) < len(lab):
+            continue
+        if len(scores[clip]) != len(lab):
+            raise ValueError(f"{clip}: {len(scores[clip])} scores vs {len(lab)} labels")
+        norm = normalize_scores(
+            np.asarray(scores[clip], dtype=np.float64), constants.SCORE_NORM_MINMAX
+        )
+        read = {
+            "argmax_in_span": float(lab[int(np.argmax(norm))]),
+            "in_mean": float(norm[lab].mean()),
+        }
+        first = int(np.flatnonzero(lab)[0])
+        if first > 0:
+            read["pre_mean"] = float(norm[:first].mean())
+        out[clip] = read
+    return out
+
+
+def span_summary(reads: dict[str, dict[str, float]]) -> dict[str, float | int | None]:
+    """Mean of each :func:`span_reads` key over the clips that have it."""
+    summary: dict[str, float | int | None] = {"clips": len(reads)}
+    for key in ("argmax_in_span", "in_mean", "pre_mean"):
+        values = [r[key] for r in reads.values() if key in r]
+        summary[key] = float(np.mean(values)) if values else None
+    return summary
+
+
+def normal_window_peak(
+    scores: list[np.ndarray], labels: list[np.ndarray], topk_pct: int
+) -> float | None:
+    """Mean over all-normal windows of the mean top-k raw score, k = max(1, L // topk_pct).
+
+    The quantity ``L_MIL`` pushes down on a normal bag; ``None`` without a normal window.
+    """
+    peaks = []
+    for score, lab in zip(scores, labels, strict=True):
+        if np.asarray(lab).any():
+            continue
+        k = max(1, len(score) // topk_pct)
+        peaks.append(float(np.sort(np.asarray(score, dtype=np.float64))[-k:].mean()))
+    return float(np.mean(peaks)) if peaks else None
+
+
 __all__ = [
     "cluster_bootstrap_ci",
     "frame_ap",
     "frame_auc",
     "macro_video_auc",
+    "normal_window_peak",
     "normalize_scores",
     "pooled_metrics",
     "resolve_score_norm",
+    "span_reads",
+    "span_summary",
 ]

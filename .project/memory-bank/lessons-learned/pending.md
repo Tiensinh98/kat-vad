@@ -1919,3 +1919,13 @@ for DADA's short clips (C32), not as a corpus-independent default.
 **Rule:** Recount abnormal windows per source whenever the window cap meets a new source length.
 **Files:** `core/data/windows.py:cap_windows`, `core/constants.py:NEXAR_WINDOW_MAX_PER_CLIP`.
 **Gate status.** One occurrence (design time); candidate.
+
+## (bh) [MEDIUM] Experiments - Compare span reads across a label change on per-clip normalized scores (2026-10-11)
+**Triggers:** span profile, pre-anomaly mean, argmax in span, dvs_anchor_mode, ignore, rescale, mechanism read
+**Problem:** `dvs_anchor_mode=ignore` lowers positive scores everywhere (DADA Phase 1: mean_pos 0.116 -> 0.077), so a
+raw-scale "mean score before the span" falls for free and reads as a fixed Gap S.
+**Bad:** compare A3 vs A3-ign pre-anomaly means on raw `sigma(y^bin)`.
+**Good:** min-max each clip first (`core.metrics.span_reads`), and require the inside mean NOT to fall alongside.
+**Rule:** Normalize per clip before comparing any within-clip location read between arms trained on different labels.
+**Files:** `core/metrics.py:span_reads`, `core/tools/e4_0_readout.py:mechanism`, proposal v2.1 §11.4.
+**Gate status.** Design-time; candidate.

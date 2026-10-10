@@ -217,6 +217,9 @@ class TestRunSmoke:
         assert readout["source_shortcut_auc"]["v_t"] > 0.9  # the DoTA rows were shifted by +2
         assert "Guardrails" in (out / diag.DIAG_MD).read_text()
         assert "o1_prime" not in readout["guardrails"]  # no --a0-diag: A0 has no reference
+        reads = readout["t2_val_reads"]  # v2.1 §11.1 / §11.4
+        assert set(reads) == {"normal_window_peak", "span_profile"}
+        assert reads["span_profile"]["clips"] >= 0
 
         a1_out = tmp_path / "out_a1"
         diag.main([

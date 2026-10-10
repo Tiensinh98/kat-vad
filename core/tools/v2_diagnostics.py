@@ -57,7 +57,13 @@ from core.device import resolve_device
 from core.eda.features import transfer_scores
 from core.eda.protocol import clip_constant_oracle
 from core.inference import make_class_feats_fn
-from core.metrics import frame_auc, pooled_metrics
+from core.metrics import (
+    frame_auc,
+    normal_window_peak,
+    pooled_metrics,
+    span_reads,
+    span_summary,
+)
 from core.models.kat_vad import KATVAD
 from core.models.text_encoding import TextEncodeFn
 from core.tools.kill_switch_probe import write_json_atomic, write_text_atomic
@@ -311,6 +317,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
     if a0 is not None:
         guard["o1_prime"] = o1_prime(guard, a0["guardrails"])
+    # v2.1 §11.1 / §11.4: the normal-window peak guardrail and the in-domain Gap S replicate
+    t2_val_reads = {
+        "normal_window_peak": normal_window_peak(
+            [y_t2[w] for w in window_ids],
+            [labels[w] for w in window_ids],
+            constants.DADA_ORIGIN_MIL_TOPK_PCT,
+        ),
+        "span_profile": span_summary(span_reads(y_t2, labels)),
+    }
     readout: dict[str, Any] = {
         "addendum": "core/docs/v2/PREREG_ADDENDUM.md §4, §14 (O1-O7)",
         "run": name,
@@ -325,6 +340,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "dota_split": args.dota_split,
         "dota_dev_clips_unlabelled": len(dota_ids),
         "guardrails": guard,
+        "t2_val_reads": t2_val_reads,
         "motion_share": motion_share(Path(ckpt).parent / METRICS_FILENAME),
         "position_r2": {
             "v_t": position_r2(vt_t2, groups, args.folds),
