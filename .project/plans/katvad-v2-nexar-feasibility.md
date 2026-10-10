@@ -13,7 +13,13 @@
 | Repo listing (2026-10-09) | `train/{positive,negative}/` 750 + 750 mp4 + `metadata.csv` each; `test-public/`, `test-private/`; **`solution.csv` is public** (official test labels, clip-level anticipation — still not a detection set) |
 | Raw storage | **changed:** mirror the whole repo to `Thesis/data/Nexar/raw/` (~31 GB) instead of deleting mp4 after features — DoTA's pixels were lost with their links |
 | N0 code | built 2026-10-09 (uncommitted): `core/data/nexar.py`, `core/tools/nexar_census.py`, `core/tools/nexar_splits.py`, `core/tests/test_nexar.py` (15), `colab/v2/nexar_n0_census.ipynb`, `core/docs/v2/NEXAR_SETUP.md`; `nexar_test` added to `V2_SEALED_SPLITS` |
-| Next | user runs `nexar_n0_census.ipynb` → paste `census.md` → freeze split locally → N1 |
+| N0 census | **RUN 2026-10-09** — 1,500 videos, 0 issues, length AUC 0.537, **no collision/near-miss column**, `t_event/duration` 730/750 in [0.4, 0.6) (`NEXAR_SETUP.md` §1.1) |
+| N0 split | **FROZEN 2026-10-10** — 900 / 225 / 375 (`nexar_test` sealed), `core/splits/v2/NEXAR_MANIFEST.json`, `--check` passes |
+| Scope change (user, 2026-10-10) | train **two constructions**: `whole` (uncut videos, both pools) vs `window` (T2 windows, positives only), arms A0/A3 |
+| N1 | addendum **§21 DRAFT** (D-N1…D-N10) — val reads may run, `nexar_test` needs the signature |
+| N2–N5 code | built 2026-10-10 (uncommitted): `nexar_extract`, `nexar_build`, `nexar_eval`, `build_v2_inputs fit-ids`, `test_nexar_pipeline.py` (16), `colab/v2/nexar_train.ipynb` |
+| Whole first (user, 2026-10-10) | train `whole` only; `window` iff the pilot trigger fires (D-N10: W1 edge drop > 0.05 · W2 ≤ E3-A3 zero-shot · W3 clip AUC ≥ 0.95 and A3 < A0). D-N9 split into (a) whole-only: `whole`/A3 − `whole`/A0, (b) both. Built: `nexar_trigger` (+5 tests), notebook step 5b (zero-shot) + trigger in step 7 |
+| Next | user uploads → runs `nexar_train.ipynb` pilot (s2099, `whole` × {A0, A3}, 2 runs + E3 zero-shot) → pastes `summary_pilot.md` (trigger verdict inside) |
 
 ## 1. Summary
 

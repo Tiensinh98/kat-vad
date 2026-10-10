@@ -10,6 +10,11 @@ clip, plus :data:`constants.V2_INPUT_MANIFEST_FILENAME` and the fitted statistic
     then baked with its own CRN reference. Windows stay slices of the baked source
     file, so a T2 window's reference is its source video in training *and* in eval.
 
+``fit-ids``
+    Any corpus whose train split is an id list (Nexar, addendum §21): statistics fitted on
+    ``--train-ids-file`` sources, every id of ``--ids-file`` baked with its own reference over its
+    ``[::stride]`` rows (Nexar trains at ``s1[::8]``). ``run_fit``'s T2 path is untouched.
+
 ``apply``
     Another corpus (DoTA-dev clips) baked with the statistics of a ``fit`` cache;
     each clip is its own CRN reference. Nothing is refitted.
@@ -62,6 +67,7 @@ LOGGER = logging.getLogger(__name__)
 
 SUBCOMMAND_FIT = "fit"
 SUBCOMMAND_APPLY = "apply"
+SUBCOMMAND_FIT_IDS = "fit-ids"
 FITTED_ON = "T2-train minus T2-val (core/splits/v2/t2_val_sources.txt)"
 
 
@@ -178,6 +184,61 @@ def run_fit(args: argparse.Namespace) -> dict[str, Any]:
     return manifest
 
 
+def read_id_lines(path: Path) -> list[str]:
+    """Sorted ids, one per line, blanks ignored."""
+    return sorted(
+        line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+    )
+
+
+def run_fit_ids(args: argparse.Namespace) -> dict[str, Any]:
+    """Fit on an id list and bake another id list at ``[::stride]`` (Nexar)."""
+    train = read_id_lines(args.train_ids_file)
+    everything = read_id_lines(args.ids_file)
+    outside = sorted(set(train) - set(everything))
+    if outside:
+        raise SystemExit(f"{len(outside)} train ids are not baked by --ids-file: {outside[:5]}")
+    has_motion = args.motion != constants.V2_OFF
+    clips = {v: rows[:: args.stride] for v, rows in load_rows(args.clip_dir, everything).items()}
+    motions = None
+    if has_motion:
+        check_video_stride(args.video_dir, args.stride)
+        motions = {
+            v: rows[:: args.stride] for v, rows in load_rows(args.video_dir, everything).items()
+        }
+        short = [v for v in everything if len(motions[v]) != len(clips[v])]
+        if short:
+            raise SystemExit(f"{len(short)} ids: motion rows != CLIP rows: {short[:5]}")
+    stats = fit_stats(
+        {v: clips[v] for v in train},
+        None if motions is None else {v: motions[v] for v in train},
+        args.crn,
+        args.motion,
+    )
+    width = bake(everything, clips, motions, stats, args.out_dir)
+    save_stats(args.out_dir, stats)
+    manifest = _manifest(
+        stats,
+        width,
+        {
+            "mode": SUBCOMMAND_FIT_IDS,
+            "fitted_on": str(args.train_ids_file.name),
+            "train_sources": len(train),
+            "train_ids_sha1": lines_sha1(train),
+            "baked_ids": len(everything),
+            "baked_ids_sha1": lines_sha1(everything),
+            "reference_unit": "source video at the baked stride (windows are slices of it)",
+            "clip_dir": str(args.clip_dir),
+            "stride_over_clip_dir": args.stride,
+            "video_dir": str(args.video_dir) if has_motion else None,
+        },
+    )
+    write_json_atomic(args.out_dir / constants.V2_INPUT_MANIFEST_FILENAME, manifest)
+    LOGGER.info("fit-ids %s: s=%.4f c=%.4f on %d sources, baked %d at stride %d",
+                manifest["arm"], stats.s, stats.c, len(train), len(everything), args.stride)
+    return manifest
+
+
 def run_apply(args: argparse.Namespace) -> dict[str, Any]:
     stats = load_stats(args.stats_dir)
     fitted = json.loads(
@@ -229,6 +290,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
     fit.add_argument("--crn", choices=constants.V2_CRN_CHOICES, required=True)
     fit.add_argument("--motion", choices=constants.V2_MOTION_CHOICES, required=True)
     fit.add_argument("--out-dir", type=Path, required=True)
+    fit_ids = sub.add_parser(SUBCOMMAND_FIT_IDS, help="fit on an id list, bake an id list")
+    fit_ids.add_argument("--train-ids-file", type=Path, required=True, help="fit on these")
+    fit_ids.add_argument("--ids-file", type=Path, required=True, help="bake these (incl. train)")
+    fit_ids.add_argument("--clip-dir", type=Path, required=True, help="per-source CLIP cache")
+    fit_ids.add_argument("--video-dir", type=Path, default=None, help="stride-1 VideoMAE cache")
+    fit_ids.add_argument("--stride", type=int, default=1, help="bake rows [::N] (Nexar: 8)")
+    fit_ids.add_argument("--crn", choices=constants.V2_CRN_CHOICES, required=True)
+    fit_ids.add_argument("--motion", choices=constants.V2_MOTION_CHOICES, required=True)
+    fit_ids.add_argument("--out-dir", type=Path, required=True)
     apply = sub.add_parser(SUBCOMMAND_APPLY, help="bake another corpus with fitted stats")
     apply.add_argument("--stats-dir", type=Path, required=True, help="a `fit` output dir")
     apply.add_argument("--clip-dir", type=Path, required=True, help="per-clip CLIP cache")
@@ -249,6 +319,11 @@ def main(argv: list[str] | None = None) -> None:
             raise SystemExit("--motion needs --video-dir")
         arm_name(args.crn, args.motion)
         run_fit(args)
+    elif args.command == SUBCOMMAND_FIT_IDS:
+        if args.motion != constants.V2_OFF and args.video_dir is None:
+            raise SystemExit("--motion needs --video-dir")
+        arm_name(args.crn, args.motion)
+        run_fit_ids(args)
     else:
         run_apply(args)
 

@@ -36,6 +36,9 @@ DATASET_NAME_TO_ABBR = {
     # Original DADA-2000 release (Phase 2 / T2): different corpus, same single
     # abnormal class and therefore the same traffic definition set.
     "DADA2000_orig": "dada",
+    # Nexar (addendum §21 D-N4): no collision / near-miss column, so positives are T2's one
+    # abnormal class under the same traffic definition set -- the text side does not change.
+    "Nexar": "dada",
     "TAD": "tad",
 }
 

@@ -487,6 +487,39 @@ NEXAR_HIST_BINS = 10  # relative-position histogram in the census
 NEXAR_DURATION_BIN_S = 5.0  # duration histogram bin width
 NEXAR_POST_EVENT_PROBES_S = (0.0, 1.0, 2.0)  # informational abnormal share for N1's Δ_post
 NEXAR_FPS_ROUND = 1  # decimals when tabulating frame rates
+# --- Nexar N1/N2/N5: span rule, caches, the two training constructions (addendum §21) ---
+# D-N1: abnormal = [t_alert, t_event + this]; = median (accident -> abnormal end) of DADA's
+# 1,945 annotated rows at 30 fps (1.40 s), read from the annotation, never from a Nexar score.
+NEXAR_POST_EVENT_S = 1.4
+NEXAR_CLIP_S1_DATASET = "Nexar_s1_ncc"  # cache/clip/<this>/{id}.npy, every native frame
+NEXAR_VIDEO_S1_DATASET = "Nexar_s1"  # cache/video/<encoder>/<this>_squash/, row-aligned
+NEXAR_EXTRACT_CHUNK = 64  # frames decoded + resized per step (C9)
+NEXAR_TRAIN_STRIDE = FRAME_STRIDE  # training rows = s1[::8], as T2
+NEXAR_EVAL_STRIDE = 3  # protocol N-B rows = s1[::3], as E1's protocol B
+NEXAR_CONSTRUCTION_WHOLE = "whole"  # every nexar_train video, video-level label
+NEXAR_CONSTRUCTION_WINDOW = "window"  # T2-style windows from positive videos only
+NEXAR_CONSTRUCTIONS = (NEXAR_CONSTRUCTION_WHOLE, NEXAR_CONSTRUCTION_WINDOW)
+NEXAR_WINDOW_LENGTH = DADA_ORIGIN_WINDOW_LENGTH  # 20 rows at s8, T2's geometry
+NEXAR_WINDOW_STRIDE = DADA_ORIGIN_WINDOW_STRIDE  # hop 8
+# No per-video cap: T2's cap of 4 evenly spaced windows would skip the ~11-row event of a
+# 150-row Nexar video. Balance comes from DVSFeatureDataset (2 x abnormal, A9), not the cap.
+NEXAR_WINDOW_MAX_PER_CLIP = 10_000
+# Optimizer steps of every Nexar run = the E3 recipe's (20 epochs x 87 steps, v2_pilot metrics):
+# the two constructions differ in items per epoch, so epochs = budget / steps per epoch.
+NEXAR_STEP_BUDGET = 1740
+# Whole videos (~150 rows at s8) under DVS's 5-clip splice reach ~750 rows and truncate_sample
+# cuts at 512, which can drop the anchor; 3 clips keep a 40 s video's splice under 512.
+NEXAR_WHOLE_SYN_MAX_CLIPS = 3
+NEXAR_CROP_S = 8.0  # D-N2: shifted-crop length (739 / 750 positives fit all five placements)
+NEXAR_CROP_PLACEMENTS = (0.1, 0.3, 0.5, 0.7, 0.9)  # event centre's relative position in a crop
+NEXAR_RUN_SEEDS = (2024, 2025, 2026, 2027, 2028)
+NEXAR_PILOT_SEED = 2099
+# D-N10 (addendum §21): `whole` is trained first; the `window` arm is trained iff the pilot
+# whole/A3 val read fires any of W1-W3 (thresholds fixed before any Nexar score existed).
+NEXAR_TRIGGER_CENTRE = 0.5  # W1: reference crop placement
+NEXAR_TRIGGER_EDGES = (0.1, 0.9)  # W1: placements compared to the centre
+NEXAR_TRIGGER_MAX_EDGE_DROP = 0.05  # W1: centre - edge crop macro above this fires
+NEXAR_TRIGGER_CLIP_AUC = 0.95  # W3: clip-level AUC at/above this (with crops < A0) fires
 
 # --- E2(d): encoder choice on DoTA-CAP-dev (addendum §12, N1-N12; proposal §10.2) ---
 V2_E2D_STRIDE = V2_E1_STRIDE_BC  # N1: protocol B rows of the stride-1 caches

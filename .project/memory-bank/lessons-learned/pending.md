@@ -1897,3 +1897,25 @@ freeze an own split of the labelled train videos (sealed test side) and keep the
 **Rule:** Verify that an official test split's clips contain the target event before using it as a detection endpoint.
 **Files:** `core/tools/nexar_splits.py`, `core/docs/v2/NEXAR_SETUP.md` §0, `.project/plans/katvad-v2-nexar-feasibility.md` §2.
 **Gate status.** One occurrence; candidate until it recurs.
+
+## (bf) [HIGH] Data - DVS splicing of long clips can truncate the anchor away (2026-10-10)
+**Triggers:** DVS, compose_sequence, truncate_sample, max_vis_len, whole video, long clips, Nexar, syn_max_num_clips
+**Problem:** `truncate_sample` hard-cuts a spliced sequence at `max_vis_len` (512). With ~150-row clips (40 s at s8) and
+up to 5 spliced clips (~750 rows), an anchor inserted last starts past row 512: an "abnormal" item then holds no anchor
+row at all — a label-1 bag of normal fillers. Nothing raises. T2's 20-row windows never reach the cap, so it never showed.
+**Bad:** reuse T2's DVS config on a corpus whose items are 7× longer.
+**Good:** check `syn_max_num_clips × max item rows ≤ max_vis_len` for every new corpus; Nexar `whole` sets 3 clips.
+**Rule:** Bound the DVS splice length by the item length before training on a new corpus.
+**Files:** `core/data/synthesis.py:truncate_sample`, `core/constants.py:NEXAR_WHOLE_SYN_MAX_CLIPS`, addendum §21 D-N6.
+**Gate status.** One occurrence (caught at design time, not by a run); candidate.
+
+## (bg) [MEDIUM] Data - An evenly spaced window cap skips a mid-video event in long videos (2026-10-10)
+**Triggers:** cap_windows, WINDOW_MAX_PER_CLIP, windowing, long videos, Nexar, event position
+**Problem:** T2's cap keeps 4 evenly spaced windows per source. On a 150-row Nexar video they start at ~0/43/87/130, and
+the ~11-row event at rows ~70–80 falls between them: the corpus would hold almost no abnormal window. The cap was sized
+for DADA's short clips (C32), not as a corpus-independent default.
+**Bad:** carry `WINDOW_MAX_PER_CLIP = 4` to a corpus with 7× longer sources.
+**Good:** count abnormal windows per source after windowing; Nexar uses no cap and lets DVS's 2 × abnormal balance it.
+**Rule:** Recount abnormal windows per source whenever the window cap meets a new source length.
+**Files:** `core/data/windows.py:cap_windows`, `core/constants.py:NEXAR_WINDOW_MAX_PER_CLIP`.
+**Gate status.** One occurrence (design time); candidate.

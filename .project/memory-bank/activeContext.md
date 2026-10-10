@@ -129,6 +129,26 @@ Track 0b closed; T2 + Option A remain the live track. Partial update: `activeCon
 architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 13,833 source LOC, 582 collected); **docs 24 → 25** (+ `core/docs/D2CITY_EDA.md`).
 
+## 2026-10-10 (later) — **Nexar: `whole` first, `window` only on a pre-registered trigger** (branch `v2`)
+
+- User changed the order: train on uncut videos first (cheaper), cut into windows only if the result is not OK.
+- "Not OK" fixed before any Nexar score: §21 **D-N10** (W1 crop macro 0.5 − edge > 0.05; W2 `whole`/A3 endpoint ≤ E3 T2-trained A3 zero-shot; W3 clip AUC ≥ 0.95 and A3 < A0). Pilot only; it schedules `window`, it is not a result.
+- D-N9 split: (a) whole-only primary = `whole`/A3 − `whole`/A0 (no claim about windowing); (b) both = the original window − whole.
+- Built: `core/tools/nexar_trigger.py` + 5 tests (21 in `test_nexar_pipeline.py`); notebook default `CONSTRUCTIONS=['whole']`, step 5b zero-shot (`outputs/v2_e3/A3/s*` with stats `cache/v2/A3_R2_S/DADA2000_orig`), trigger in step 7. The corpus step still builds both.
+- Caveat recorded: W1 can fire from crop-edge effects; a false fire costs only the window arm.
+- Next: user uploads + runs the pilot (2 runs) → pastes `summary_pilot.md`. §21 still unsigned. Nothing committed.
+
+## 2026-10-10 — **Nexar: N0 read, split frozen, N2–N5 built (whole vs window)** (branch `v2`)
+
+- Census read (`NEXAR_SETUP.md` §1.1): 1,500 videos, 0 issues, length AUC 0.537, **no collision/near-miss column**,
+  `t_event/duration` 730/750 in [0.4, 0.6) → middle ruler 0.974 macro on train positives (annotation only).
+- Split frozen locally: 900 / 225 / 375, `nexar_test` sealed (`NEXAR_MANIFEST.json`, `--check` passes).
+- User scope: train **two constructions** — `whole` (uncut, both pools) vs `window` (T2 windows, positives only) × A0/A3.
+- Built (uncommitted): `nexar_extract` (one decode → CLIP s1 + V2-S s1, bit-exact transforms), `nexar_build`
+  (corpora, s8 subsample, step-budget epochs), `build_v2_inputs fit-ids`, `nexar_eval` (8 s shifted crops = endpoint),
+  `test_nexar_pipeline.py` (16), `colab/v2/nexar_train.ipynb`; addendum **§21 DRAFT** (D-N1…D-N9); pending (bf), (bg).
+- **Next (user):** upload → `nexar_train.ipynb` pilot (s2099) → paste `summary_pilot.md`; sign §21 before `nexar_test`.
+
 ## 2026-10-09 (late) — **Nexar: feasibility plan + N0 tooling** (branch `v2`)
 
 - Plan `.project/plans/katvad-v2-nexar-feasibility.md` (§0 status). User scope: **N3 zero-shot read of the 20 T2
