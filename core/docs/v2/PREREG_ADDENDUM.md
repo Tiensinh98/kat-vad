@@ -579,10 +579,10 @@ sealed-set number exists; not reviewed by the advisor.**
 
 ## 21. Nexar (2026-10-10) — span rule, constructions, endpoint, what is opened (D-N1–D-N10)
 
-**DRAFT — not in force for `nexar_test` until the user signs it here.** Written after the N0 census (metadata only) and
-**before** any Nexar feature, score or position prior exists. The pilot and the `nexar_val` reads of
-`colab/v2/nexar_train.ipynb` may run under this draft; opening `nexar_test` (`--final`) needs the signature. Not reviewed
-by the advisor. Plan `.project/plans/katvad-v2-nexar-feasibility.md`; census `core/docs/v2/NEXAR_SETUP.md` §1.1.
+**Authorized by the user on 2026-10-10, before any Nexar feature, score or position prior exists; not reviewed by the
+advisor.** Written after the N0 census (metadata only); D-N10 and the D-N9 split were added the same day, also before any
+Nexar number. Frozen from here: a change is a numbered Amendment, never an edit. `nexar_test` is opened once, by
+`nexar_eval --split nexar_test --final`, after the full seeds of D-N9. Plan `.project/plans/katvad-v2-nexar-feasibility.md`; census `core/docs/v2/NEXAR_SETUP.md` §1.1.
 
 | # | Choice | Why |
 |---|---|---|
@@ -597,4 +597,4 @@ by the advisor. Plan `.project/plans/katvad-v2-nexar-feasibility.md`; census `co
 | D-N9 | **Decision rule (written now, read on `nexar_test` once, after the full seeds).** **(a) D-N10 did not fire** (`whole` only): primary = per-seed endpoint (D-N2 mean) of `whole`/A3 − `whole`/A0, paired t95 over 5 seeds; "A3 helps on Nexar" iff the CI low > 0, "A3 hurts" iff the CI high < 0, otherwise "no difference shown". The E3 T2-trained A3 zero-shot endpoint (5 ckpts, seed-averaged) and the middle ruler per placement are printed beside. Nothing is claimed about windowing: without the `window` arm, "whole is enough" is **not** a reachable verdict. **(b) D-N10 fired** (both constructions): primary = per-seed endpoint of `window`/A3 − `whole`/A3, paired t95; checked in order: "window is needed" iff the CI low > 0; "whole is better" iff the CI high < 0; "whole is enough" iff the CI lies inside [−0.01, +0.01]; otherwise "undecided". Printed beside: A3 − A0 per construction, each placement, the middle ruler. `nexar_val` reads (pilot and full) never change this rule | Rule in git before the number |
 | D-N10 | **Window trigger (pilot only, `nexar_val`, `core.tools.nexar_trigger`).** Read on the s2099 `whole` pilot; `window` is trained iff **any** fires, on seed-averaged point estimates: **W1 position** — `whole`/A3 crop macro at 0.5 minus that at 0.1 or at 0.9 > **0.05** (`NEXAR_TRIGGER_MAX_EDGE_DROP`; the zero-shot drop is printed beside, not gated); **W2 no gain** — `whole`/A3 crop endpoint ≤ the endpoint of E3's five T2-trained A3 checkpoints scored zero-shot on `nexar_val` with their own T2 statistics; **W3 clip classifier** — `whole`/A3 clip-level AUC ≥ **0.95** (`NEXAR_TRIGGER_CLIP_AUC`) **and** its crop endpoint < `whole`/A0's (C14). The verdict only schedules the `window` arm; it is not a result and is not re-read on the full seeds | User, 2026-10-10: train on uncut videos first (cheaper), cut only if the result is not OK. "Not OK" fixed here before any Nexar score exists (lesson 14). Known: W1 can fire from crop-edge effects (CRN reference, causal motion warm-up) rather than learned position — a false fire costs only the `window` arm |
 
-**Signature:** _(empty — the user signs here before `nexar_test` is opened)_
+**Signature:** signed by the user, 2026-10-10 (rules D-N1–D-N10 as written above; no Nexar feature or score existed).

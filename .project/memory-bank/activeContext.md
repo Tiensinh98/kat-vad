@@ -136,7 +136,8 @@ architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 - D-N9 split: (a) whole-only primary = `whole`/A3 − `whole`/A0 (no claim about windowing); (b) both = the original window − whole.
 - Built: `core/tools/nexar_trigger.py` + 5 tests (21 in `test_nexar_pipeline.py`); notebook default `CONSTRUCTIONS=['whole']`, step 5b zero-shot (`outputs/v2_e3/A3/s*` with stats `cache/v2/A3_R2_S/DADA2000_orig`), trigger in step 7. The corpus step still builds both.
 - Caveat recorded: W1 can fire from crop-edge effects; a false fire costs only the window arm.
-- Next: user uploads + runs the pilot (2 runs) → pastes `summary_pilot.md`. §21 still unsigned. Nothing committed.
+- `data.is_egocentric` stays **false** on Nexar (user, 2026-10-10), as on T2/E3: Nexar differs from T2 only in the corpus, so W2 vs E3 zero-shot stays clean. `L_neg` stays off (one class; metadata captions would be a scene shortcut).
+- Next: user uploads + runs the pilot (2 runs) → pastes `summary_pilot.md`. §21 **signed 2026-10-10** (before any Nexar number). Committed `d2dcf01` (census + split) and `ddf2bb5` (pipeline).
 
 ## 2026-10-10 — **Nexar: N0 read, split frozen, N2–N5 built (whole vs window)** (branch `v2`)
 

@@ -75,7 +75,7 @@ Rules: `PREREG_ADDENDUM.md` §21 (D-N1…D-N10). One notebook, resumable at ever
 | A0 input | `core.tools.nexar_build subsample` (`s1[::8]`) | `Thesis-V2/cache/clip/Nexar_s8_ncc/` |
 | A3 input | `core.tools.build_v2_inputs fit-ids` — R2 + V2-S statistics on `nexar_train`, train + val baked at `s1[::8]` | `Thesis-V2/cache/v2/A3_R2_S/Nexar_s8/` |
 | KNN | `core.data.knn_cache --dataset Nexar` on `Nexar_s8_ncc` | `Thesis-V2/cache/knn/Nexar_{c}/` |
-| N5 train | `core.train`, E3 recipe, `data.dataset=Nexar`; `whole` adds `dvs.syn_max_num_clips=3`; only the notebook's `CONSTRUCTIONS` (default `['whole']`) | `Thesis-V2/outputs/v2_nexar/<c>/<arm>/s<seed>/` |
+| N5 train | `core.train`, E3 recipe (`data.is_egocentric=false` and `L_neg` off, as E3), `data.dataset=Nexar`; `whole` adds `dvs.syn_max_num_clips=3`; only the notebook's `CONSTRUCTIONS` (default `['whole']`) | `Thesis-V2/outputs/v2_nexar/<c>/<arm>/s<seed>/` |
 | val read | `core.tools.nexar_eval` — shifted 8 s crops (endpoint) + whole videos + middle ruler | `REPORTS/nexar_val/<tag>_<c>_<arm>/` |
 | zero-shot | `nexar_eval` on E3's five T2-trained A3 ckpts (`outputs/v2_e3/A3/s*`) with their T2 stats (`cache/v2/A3_R2_S/DADA2000_orig`) — W2's bar | `REPORTS/nexar_val/zeroshot_e3_A3/` |
 | trigger | `core.tools.nexar_trigger` (pilot only): W1 edge drop > 0.05, W2 endpoint ≤ zero-shot, W3 clip AUC ≥ 0.95 and A3 < A0 | `REPORTS/nexar_val/trigger_pilot/window_trigger.{json,md}` |
