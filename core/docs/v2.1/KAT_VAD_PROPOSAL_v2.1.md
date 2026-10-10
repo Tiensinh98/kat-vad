@@ -636,6 +636,21 @@ Otherwise the final model is `B`. SG-NM is training-only, and A3-ign differs fro
 - **"The whole-anchor label causes (part of) Gap S"** requires all three §7 mechanism rows for A3-ign to come out as predicted: the pre-anomaly mean falls while the inside mean does not, the argmax-in-span share rises, and the tail-clip macro does not fall.
 - **A non-significant E4-0** is "not detectable at this size". It is not evidence that C29 is harmless on T2.
 
+**Operational definitions** (fixed now; implemented by `core.tools.e4_0_readout`):
+- **Span reads** use the seed-averaged DoTA-CAP-dev scores, **min-max normalized per clip**, so a global rescale cannot move them. `ignore` lowers positive scores everywhere, so a raw-scale read would show a "falling pre-anomaly level" for free.
+  - argmax-in-span: 1 if the clip's argmax is an anomalous frame;
+  - pre mean: the mean over frames before the span's first frame, on clips that have such frames;
+  - inside mean: the mean over anomalous frames.
+  - A3's values are **recomputed by the same code**. The results report's 61 % / 0.55 / 0.86 came from an ad hoc script, so they are context, not the reference.
+- **Each Δ** is A3-ign − A3 per clip, with a cluster bootstrap over source videos (B = 10,000, 95 %).
+  - "falls" means the interval lies **below** 0;
+  - "rises" means the interval lies **above** 0;
+  - "does not fall" means the interval does **not** lie entirely below 0.
+- **Tail clips:** two-class clips with ≥ w = 30 normal frames after the span. w is H2(a)'s T2-train median span, 3.02 s at 10 fps. The read-out refuses to run unless it finds H2(a)'s 277 clips.
+- **Normal-window peak:** the mean over all-normal T2-val windows of the mean top-k `σ(y^bin)`, k = max(1, ⌊L/5⌋). These are the steps `L_MIL` pushes down.
+- **Guardrails** compare seed means of T2-val macro and normal-window peak against A3, re-diagnosed with the same code. O1′ must pass on every A3-ign seed, against E3's A0 of the same seed.
+- **T2-val span profile** (the in-domain replicate) is printed per seed, never gated.
+
 ---
 
 ## 12. Justification ledger
