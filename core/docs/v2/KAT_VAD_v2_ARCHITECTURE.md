@@ -9,6 +9,8 @@
 
 There are no new losses, and nothing is added to the trunk or heads.
 
+**Chosen configuration (updated 2026-10-10):** arm **A3**, with encoder **VideoMAE V2-S** (`d_v` = 384) and CRN reference **R2** (per-dimension median). DoTA is read at **stride 3 over the whole clip** (protocol B). Where the text below lists options, the chosen one is marked **Chosen:**.
+
 **Conventions:**
 - Shapes are written `batch × time × channels`.
 - Values marked **‹code›** are unchanged LaGoVAD / KIP-off settings: take them from the current implementation.
@@ -21,10 +23,10 @@ There are no new losses, and nothing is added to the trunk or heads.
 |---|---|---|
 | `B` | windows per training batch | 64 (32 abnormal + 32 normal) |
 | `L` | steps per window | 20 |
-| `T` | steps in a full test clip | variable (DoTA median ≈ 35 at stride 3) |
+| `T` | steps in a full test clip | variable (DoTA median ≈ 33 at stride 3) |
 | `r` | step rate | 3.75 Hz (30 fps sources, stride 8) · 3.33 Hz (10 fps sources, stride 3) |
 | `D` | trunk width | 512 |
-| `d_v` | VideoMAE V2 feature size | 768 (ViT-B) · 384 (ViT-S) |
+| `d_v` | VideoMAE V2 feature size | 768 (ViT-B) · **384 (ViT-S, chosen)** |
 | `C` | categories in the definition `Z` | ‹code› |
 | `k` | MIL top-k | 4 |
 
@@ -48,7 +50,7 @@ H_bin(V^t, V^u) ─► y^bin ∈ B×L          H_mul(V^u, Z^u) ─► y^mul ∈ 
 
 | Item | Value |
 |---|---|
-| Step rate | 3.75 Hz for DADA (30 fps, stride 8) · 3.33 Hz for DoTA (10 fps, stride 3, if E1 adopts it; otherwise stride 8) |
+| Step rate | 3.75 Hz for DADA (30 fps, stride 8) · 3.33 Hz for DoTA (10 fps, **stride 3, chosen**) |
 | Frame input (per step) | the frame at the step, full frame resized to 224 × 224, no centre crop |
 | Clip input (per step) | 16 frames at 10 fps **ending at** the step (causal, 1.5 s). DADA: every 3rd native frame; DoTA: native frames. Full frame squashed to 224 × 224, as the CLIP stream (no geometry probe; proposal §4.1). VideoMAE mean/std. |
 | Training item | a T2 window of `L` = 20 consecutive steps of one source video |
@@ -80,7 +82,7 @@ Cached: **`X ∈ B × L × 512`**.
 | 12 blocks, joint space-time attention (width 768, 12 heads, MLP 3072) | 1,568 × 768 | 1,568 × 768 |
 | Mean over tokens → fc_norm (LN); the classifier head is removed | 1,568 × 768 | **`u_t ∈ ℝ^768`** |
 
-ViT-S variant: width 384, 6 heads, MLP 1536, so `u_t ∈ ℝ^384`. E2 picks B or S.
+ViT-S variant: width 384, 6 heads, MLP 1536, so `u_t ∈ ℝ^384`. E2 picks B or S. **Chosen: ViT-S** (`vit_s_k710_dl_from_giant`), so `u_t ∈ ℝ^384`. The ViT-B description above is kept for reference.
 
 Cached: **`U ∈ B × L × d_v`**.
 
@@ -99,7 +101,7 @@ Cached: **`U ∈ B × L × d_v`**.
 
 **Reference unit:** the window's **source video** during training; the **whole clip** at test time.
 
-**Reference form:** one of four, fixed by the E2 check before training.
+**Reference form:** one of four, fixed by the E2 check before training. **Chosen: R2** (per-dimension median), for both streams.
 
 | Form | Computed over | Shape per window |
 |---|---|---|
@@ -133,7 +135,7 @@ At initialization `H = X̃` exactly, so the model starts from the KIP-off functi
 **Where the magnitude goes after `V^t`:**
 - **Its size relative to the normalized branch.** `Enc(H)` ends in a LayerNorm, so its per-token norm is ≈ √512 ≈ 22.6 while the gain is ≈ 1 (its initial value; it is trained). ‖H‖ ≈ 9.87, so the un-normalized part is present at ≈ 0.44× the other. The heads can weight it, but it does not dominate.
 - **The co-attention re-normalizes it.** `CoAttnFusionLayer` is post-LN (`vis_norm1`, `vis_norm2`; `core/models/fusion.py:56–58`) and `CoAttentionFusion` stacks the layers with no outer skip (`fusion.py:84–86`), so `V^u` is re-normalized.
-- **So it reaches one of the two `H_bin` paths.** `H_bin`'s language-agnostic path reads `V^t` (`before_fused`, `core/models/kat_vad.py:154`) and keeps the magnitude. The language-guided path and `H_mul` read `V^u` and see only its direction and context.
+- **So it reaches one of the two `H_bin` paths.** `H_bin`'s language-agnostic path reads `V^t` (`before_fused`, `core/models/kat_vad.py:164`) and keeps the magnitude. The language-guided path and `H_mul` read `V^u` and see only its direction and context.
 
 ---
 
@@ -189,15 +191,13 @@ At initialization `H = X̃` exactly, so the model starts from the KIP-off functi
 | Step | Input | Output |
 |---|---|---|
 | Encode every step (§3) | T steps | `X ∈ T × 512`, `U ∈ T × d_v`; `z ∈ C × 512` (cached) |
-| CRN with the chosen reference over the clip (R4: strictly past, streamable after the `N_w`-step warm-up) | `T × d` | `X̃ ∈ T × 512`, `Ũ ∈ T × d_v` |
+| CRN with the chosen reference over the clip (**chosen: R2**, the median over all `T` steps; R4 would be strictly past and streamable after the `N_w`-step warm-up) | `T × d` | `X̃ ∈ T × 512`, `Ũ ∈ T × d_v` |
 | Fusion (§5) | `X̃`, `Ũ` | `H ∈ T × 512` |
-| Sliding windows: W = 20, hop 4, last window aligned to the clip end; `n_w = max(1, ⌈(T − 20)/4⌉ + 1)` | `T × 512` | `n_w × 20 × 512` (DoTA median: T ≈ 35 → n_w = 5) |
-| Trunk and heads (§6–§8) | `n_w × 20 × 512` | `y^bin ∈ n_w × 20`, `y^mul ∈ n_w × 20 × C` |
-| Overlap-average onto the clip timeline | `n_w × 20` | **`y^bin ∈ T`**, **`y^mul ∈ T × C`** |
+| **Chosen:** the whole clip in one pass through the trunk and heads (§6–§8) | `1 × T × 512` | **`y^bin ∈ T`**, **`y^mul ∈ T × C`** |
 | Interpolate to native frames; per-clip min-max (benchmark) or a threshold (deployment) | `T` | frame-level anomaly curve |
 
-- Clips with `T ≤ 20` run as a single window.
-- If E1 does not adopt rate matching, DoTA is read at stride 8 and runs as a whole clip, as now.
+- **Not chosen** (kept for reference): sliding windows W = 20, hop 4, last window aligned to the clip end, `n_w = max(1, ⌈(T − 20)/4⌉ + 1)`; trunk on `n_w × 20 × 512`; overlap-average onto the clip timeline.
+- R2 needs the whole clip, so the chosen pipeline is not streamable.
 - The ATS → MLLM report is optional and asynchronous. It reads `y^bin` and the frames.
 
 ---
@@ -209,18 +209,18 @@ At initialization `H = X̃` exactly, so the model starts from the KIP-off functi
 | A0 (KIP-off) | – | – | `X` | 0 |
 | A1 | ✓ | – | `s·(X − μ^x)` | 0 |
 | A2 | – | ✓ | `X + W_u·(c·(U − m_u) ⊘ σ_u)` | `W_u` |
-| A3 (full v2) | ✓ | ✓ | `s·(X − μ^x) + W_u·(c·(U − μ^u) ⊘ σ_u)` | `W_u` |
+| **A3 (full v2) — chosen** | ✓ (R2) | ✓ (V2-S) | `s·(X − μ^x) + W_u·(c·(U − μ^u) ⊘ σ_u)` | `W_u` (≈ 0.20 M) |
 
 `σ_u` is computed per arm on the representation that arm feeds (`U − m_u` for A2, `U − μ^u` for A3). Model selection between arms follows the proposal §10.3: a costly arm (A2 or A3) needs its contrast against A0 **and** against the best adoptable free arm `F` (A1 if A1 passes its rule, A0 otherwise) to exclude 0.
 
 ---
 
-## 12. Master shape table (training, one batch, full v2)
+## 12. Master shape table (training, one batch, full v2; chosen: V2-S, `d_v` = 384, CRN R2)
 
 | # | Component | Input | Output | Params |
 |---|---|---|---|---|
 | 1 | CLIP ViT-B/16 image | `B×L×3×224×224` | `X: B×L×512` | frozen |
-| 2 | VideoMAE V2 (B or S) | `B×L×3×16×224×224` | `U: B×L×d_v` | frozen |
+| 2 | VideoMAE V2 (B or S; **chosen S**) | `B×L×3×16×224×224` | `U: B×L×d_v` (`d_v` = 384) | frozen |
 | 3 | CLIP text + soft prompts | `C×77` | `z: C×512` | tower frozen; prompts trained |
 | 4 | CRN (both streams) | `X`, `U` + references | `X̃: B×L×512`, `Ũ: B×L×d_v` | none |
 | 5 | Motion fusion (fixed `c·(·)⊘σ_u` → `W_u`, zero-init → add) | `X̃`, `Ũ` | `H: B×L×512` | **new: ≈ 0.39 M (B) · 0.20 M (S)**; `σ_u` fixed |
@@ -238,5 +238,5 @@ At initialization `H = X̃` exactly, so the model starts from the KIP-off functi
 |---|---|---|
 | CLIP image and text towers; VideoMAE V2 | soft prompts; motion `W_u` (new; `σ_u` and `c` are fixed statistics); temporal encoder; co-attention; `H_bin`; `H_mul` | KIP (PMG flow head, integer-cast gate, 50 % shift, motion head, `L_KIP-rec/align`, `L_kin`), the stage-1 warm-up, RAFT |
 
-- **Deployed network:** two frozen encoders, plus LaGoVAD's trunk, plus ≈ 0.2–0.4 M new parameters.
+- **Deployed network:** two frozen encoders, plus LaGoVAD's trunk, plus ≈ 0.2–0.4 M new parameters. **Chosen (V2-S):** ≈ 0.20 M.
 - **Inference is RGB only.**

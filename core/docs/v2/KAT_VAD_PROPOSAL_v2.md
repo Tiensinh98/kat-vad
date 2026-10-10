@@ -6,13 +6,33 @@
 - Numbers quoted as "report §x" were measured in that study.
 - Numbers marked *derived* are computed from report numbers, with the arithmetic shown.
 **Companion:** `KAT_VAD_v2_ARCHITECTURE.md` (every component with its tensor shapes).
-**Date:** 2026-09-27.
+**Date:** 2026-09-27 (design). **Updated 2026-10-10:** the options v2 chose are marked **Chosen:** in place. Everything else is the original design. The chosen options are also summarized in §S.
 
 > **Design rule for this version.** A component is in v2 only if (i) it fixes a failure the T2 study **measured**, (ii) a project paper supports the mechanism, and (iii) it can be checked cheaply **before** it is trained.
 > - That leaves **two architectural changes**, one **protocol fix**, and **no new loss terms**.
 > - Everything else from the earlier draft is either removed or listed as deferred, with the reason (§4.3, §12).
 > - No change can be proven to help before training. What the design guarantees is that each change targets a measured failure, is checked first, and is kept only if a paired comparison supports it.
 > - The floor is the KIP-off trunk: T2 macro 0.6248, DoTA macro 0.6113.
+
+---
+
+## S. Options chosen (the v2 model as adopted)
+
+| Design choice | Options in this proposal | **Chosen** |
+|---|---|---|
+| Video encoder (§4.1) | VideoMAE V2-B · V2-S · SimpleTAD DAPT | **VideoMAE V2-S** (`vit_s_k710_dl_from_giant`), `d_v` = 384, so `W_u` ≈ 0.20 M. DAPT was not a candidate: no DAPT-only release was available |
+| CRN reference (§4.2) | R1 mean · R2 median · R3 robust mean · R4 past-only | **R2**, the per-dimension median over the clip (the source video in training) |
+| DoTA reading protocol (§7.3, §9) | A: stride 8, whole clip · B: stride 3, whole clip · C: stride 3, sliding W = 20 | **B**: stride 3, the whole clip in one pass, scores interpolated to native frames |
+| Model arm (§8, §10.3) | A0 · A1 · A2 · A3 | **A3 = CRN + video stream** |
+| Endpoint for arms with the video stream (§7.1) | DoTA-dev / DoTA-eval | **DoTA-CAP**, the DoTA clips whose pixels could be recovered, because DoTA's own frames are no longer available. CRN-only arms still use DoTA-dev / -eval |
+
+The adopted network is therefore:
+
+```
+frame ─► CLIP ViT-B/16 (frozen) ─► x ─► CRN (R2) ─► x̃ ─────────────────────────────┐
+causal 16-frame clip, 1.5 s ─► VideoMAE V2-S (frozen) ─► u ∈ ℝ^384 ─► CRN (R2) ─► c·(⊘σ_u) ─► W_u (0-init) ─(+)─► h
+h ─► LaGoVAD temporal encoder ─► V^t ─► CoAttn(V^t, z) ─► H_bin → y^bin, H_mul → y^mul      (DoTA: stride 3, whole clip)
+```
 
 ---
 
@@ -91,7 +111,7 @@ The review accepted round 3, including the pushback on point 6, and confirmed th
 1. A **Motion Stream**: a frozen VideoMAE V2 encoder reads a causal 1.5 s clip at each step. It enters the network as a zero-initialized residual on the CLIP input, so training starts exactly at the baseline.
 2. **Clip-Referenced Normalization**: each feature has a robust per-clip reference subtracted. This removes the clip-level fixed effect (scene, camera, dataset signature) that the DoTA metrics ignore and that fails to transfer. The reference is chosen by a check that rejects any reference that reverses the ranking in long-accident clips.
 
-**Everything else.** KIP and RAFT are removed. The LaGoVAD trunk, heads and losses are unchanged. At evaluation, DoTA is read at the training step rate (0.3 s instead of 0.8 s per step) with window-matched inference, if a no-training check on the existing checkpoints supports it. The LLM stays off the critical path (Holmes-VAU ATS).
+**Everything else.** KIP and RAFT are removed. The LaGoVAD trunk, heads and losses are unchanged. At evaluation, DoTA is read at the training step rate (0.3 s instead of 0.8 s per step) with window-matched inference, if a no-training check on the existing checkpoints supports it. **Chosen:** stride 3 over the whole clip (protocol B), not window-matched inference. The LLM stays off the critical path (Holmes-VAU ATS).
 
 **Name.** *Kinematics-aware* in KAT-VAD means the network receives motion-bearing video features. v2 does not model explicit trajectories or velocities.
 
@@ -159,7 +179,7 @@ The review accepted round 3, including the pushback on point 6, and confirmed th
 ```
                   ┌─ frame @ step t ──────────────► CLIP ViT-B/16 image (frozen) ─► x_t ∈ ℝ^512 ─► CRN ─► x̃_t ────────────────┐
 video @ rate r ───┤                                                                                                          (+)─► h_t ∈ ℝ^512
-                  └─ causal clip 16f @ 10 fps ─────► VideoMAE V2 (frozen) ────────► u_t ∈ ℝ^768 ─► CRN ─► c·(⊘σ_u) ─► W_u (0-init)┘
+                  └─ causal clip 16f @ 10 fps ─────► VideoMAE V2 (frozen) ────────► u_t ∈ ℝ^dv ──► CRN ─► c·(⊘σ_u) ─► W_u (0-init)┘
                                                                                                                                │
                                         h ∈ ℝ^{L×512} ─► LaGoVAD temporal encoder (2 layers, RoPE) ─► V^t ∈ ℝ^{L×512}      │
 definition Z ─► CLIP text (frozen) + soft prompts ─► z ∈ ℝ^{C×512} ──► co-attention CoAttn(V^t, z) ─► V^u, Z^u
@@ -220,6 +240,7 @@ for each step t (time τ_t):
 - The distilled VideoMAE V2 checkpoints (`vit_b_k710_dl_from_giant`, `vit_s_k710_dl_from_giant`; public) combine MVM pre-training, the family SimpleTAD found best for TAD, with K710 post-training. That gives them semantic frozen features, whereas plain MAE features are weak under a frozen read-out. This is why E2 must check them before any training.
 - They stay frozen because there are only 4.4 k weakly labelled windows and the source is separable at 1.000. Fine-tuning would most likely learn DADA.
 - A third candidate is SimpleTAD's DAPT encoder (BDD100K), **only if the released weight is DAPT-only**. Checkpoints fine-tuned on DoTA or DADA carry benchmark frame labels and are **forbidden**.
+- **Chosen:** VideoMAE V2-S (`d_v` = 384). DAPT was not a candidate because no DAPT-only release was available.
 
 **Why causal 1.5 s at 10 fps.** It is SimpleTAD's default window (`X_t` ends at `t`), it spans the approach-to-contact phase of a collision, and it streams with no look-ahead.
 
@@ -274,6 +295,8 @@ x̃_t = s · ( x_t − μ_t^ref )          for the CLIP stream  (s: one scalar, 
 | R4 past-only | mean of the **strictly past** steps τ < t, for t ≥ `N_w`; for t < `N_w`, the mean of the first `N_w` steps (warm-up, `N_w` = 8 steps ≈ 2.1–2.4 s) | the clip starts inside the accident; slow scene drift; a position artefact (below) |
 
 R4 is also the deployment form: streaming emits its first score after the `N_w`-step warm-up.
+
+**Chosen:** **R2** (per-dimension median), at the DoTA stride-3 protocol. R2 needs the whole clip, so the adopted model is not streamable; a streaming variant would need R4.
 
 **The position artefact, and why the rule controls for it in every reference.** Any reference can make the deviation depend on *where* a step sits, not only on what happens there:
 - **R4:** with the naive form (steps ≤ t) the deviation is exactly 0 at t = 0, and its variance grows with t even when nothing happens. The warm-up and the strict past remove the t = 0 degeneracy, but not the trend.
@@ -343,7 +366,7 @@ Holmes-VAU's **ATS** samples frames from `y^bin` for an MLLM incident report. It
 |---|---|
 | WS training | DADA-2000 original, **T2** (W = 20, hop 8): 4,401 windows (3,242 abnormal / 1,159 normal) |
 | In-domain test | T2 test: 1,106 windows, scored raw |
-| Zero-shot benchmark | **DoTA**: 1,397 clips, per-clip min-max (LaGoVAD protocol) |
+| Zero-shot benchmark | **DoTA**: 1,397 clips, per-clip min-max (LaGoVAD protocol). **Chosen for arms with the video stream:** DoTA-CAP, the subset whose pixels could be recovered (DoTA's own frames are no longer available), split dev / eval like DoTA |
 | Not used | TAD, the DADA archive, D2City / BDD-A normals and CCD (leaks or source shortcut); PreVAD (no pixels, so no motion stream) |
 
 ### 7.2 Splits (the benchmark is protected from the checks)
@@ -365,7 +388,7 @@ Holmes-VAU's **ATS** samples frames from `y^bin` for an MLLM incident report. It
 | 1 step | 0.27 s | 0.80 s | 0.30 s |
 | Score kernel 3 | 0.8 s | 2.4 s | 0.9 s |
 | MIL k = 4 | 1.1 s | 3.2 s | 1.2 s |
-| Sequence | W = 20 → 5.3 s | whole clip, median ≈ 10.4 s | sliding W = 20 → 6.0 s |
+| Sequence | W = 20 → 5.3 s | whole clip, median ≈ 10.4 s | ~~sliding W = 20 → 6.0 s~~ **Chosen:** whole clip |
 
 - Scores are interpolated to native frames, and the baseline is re-scored under the same evaluator.
 - Both protocols are reported.
@@ -392,14 +415,16 @@ Holmes-VAU's **ATS** samples frames from `y^bin` for an MLLM incident report. It
 | A2 | – | ✓ | `x_t + W_u·(c·(u_t − m_u) ⊘ σ_u)` |
 | A3 (full v2) | ✓ | ✓ | `x̃_t + W_u·(c·ũ_t ⊘ σ_u)` |
 
+**Chosen:** **A3**, with CRN = R2 and the V2-S encoder.
+
 ---
 
 ## 9. Inference
 
 1. **Steps** at the harmonized rate: stride 8 on 30 fps sources, stride 3 on 10 fps.
 2. **Encode:** CLIP on the frame at each step; VideoMAE V2 on the causal 1.5 s clip ending there. The definition `Z` is encoded once and cached.
-3. **CRN:** the chosen reference over the clip. If R4 was chosen, the strictly-past mean makes the whole pipeline streamable after the `N_w`-step warm-up.
-4. **Trunk:** sliding windows (W = 20, hop 4) → LaGoVAD trunk → `y^bin`, `y^mul`; overlapping steps are averaged.
+3. **CRN:** the chosen reference over the clip. If R4 was chosen, the strictly-past mean makes the whole pipeline streamable after the `N_w`-step warm-up. **Chosen:** R2, the median over the whole clip.
+4. **Trunk:** ~~sliding windows (W = 20, hop 4) → LaGoVAD trunk → `y^bin`, `y^mul`; overlapping steps are averaged.~~ **Chosen:** the whole clip in one pass → LaGoVAD trunk → `y^bin`, `y^mul`.
 5. **Score:** interpolate to native frames; apply per-clip min-max (benchmark) or a threshold (deployment).
 6. **Optional:** ATS → MLLM report (off-path).
 
@@ -412,7 +437,7 @@ Holmes-VAU's **ATS** samples frames from `y^bin` for an MLLM incident report. It
 | VideoMAE V2-B | ≈ 180 |
 
 - The trunk and heads cost a negligible amount.
-- At 3.75 steps/s the total is ≈ 280–740 GFLOPs/s: real-time on one GPU. SimpleTAD's VideoMAE-S runs at 95 windows/s.
+- At 3.75 steps/s the total is ≈ 280–740 GFLOPs/s: real-time on one GPU. SimpleTAD's VideoMAE-S runs at 95 windows/s. **Chosen (V2-S):** ≈ 75 GFLOPs/step, ≈ 280 GFLOPs/s.
 - RAFT is gone from training.
 
 ---
