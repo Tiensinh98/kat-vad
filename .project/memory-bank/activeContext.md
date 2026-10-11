@@ -40,9 +40,8 @@ all six core files + CLAUDE.md reviewed; counts re-measured: **109 Python files 
 > **+0.0398 [+0.035, +0.045]** (5/5, sd 0.004); `f_2` Δ +0.010 [+0.005, +0.015] (beyond-position sentence licensed);
 > guardrails PASS (T2-val macro 0.703 → 0.734, normal peak +0.013 of 0.02, O1′ 5/5). Mechanism: pre −0.29, argmax-in-span
 > +0.05, tail +0.03, but **inside mean −0.155 → no Gap S claim**: floor suppression, not coverage. `p_T2` 0.822 still >
-> A3-ign 0.791. **Second look BUILT (2026-10-11, addendum §23 Amendment 12, signed):** `colab/v2/e4_0_second_look.ipynb`
-> + `core.tools.second_look_readout` — A3-ign on DoTA-CAP-eval + T2-test, paired with the Final's A3; nothing re-decides.
-> **Next (user): upload → run → paste `second_look_readout.md`.** **SG-NM CLOSED 2026-10-11: E4a gate FAIL (Δ −0.012 [−0.016, −0.008], `f_2` −0.003, T2-val −0.012; read-out `outputs/v2/v2_e4b/REPORTS/e4a_readout.md`); code never committed and reverted on the user's word. **v2's training recipe = `B` = A3-ign.****
+> A3-ign 0.791. **SECOND LOOK READ (2026-10-11, §23): A3-ign DoTA-CAP-eval **0.8120** vs A3 0.7785, Δ **+0.0376 [+0.033, +0.043]** (5/5); `f_2` Δ +0.016 [+0.010, +0.021]; T2-test macro 0.720 (+0.025), window AUC flat, O1′ 5/5; optimism −0.021 (= A3's). Both S5 sentences licensed. `p_T2` 0.8256 still > A3-ign** (`RESULTS_E4_0.md` §6, `REPORT_V2_RESULTS.md` §4.5). **v2 is closed on A3-ign.**
+> Next candidate: DF8 position-shift stress test (no training). **SG-NM CLOSED 2026-10-11: E4a gate FAIL (Δ −0.012 [−0.016, −0.008], `f_2` −0.003, T2-val −0.012; read-out `outputs/v2/v2_e4b/REPORTS/e4a_readout.md`); code never committed and reverted on the user's word. **v2's training recipe = `B` = A3-ign.****
 >
 > **TL;DR — where v2 stands (2026-10-07, after Final).** **Final READ OUT (§19, opened once 2026-10-06T14:21Z,
 > `outputs/v2/v2_final/`, P7 gate PASS 22/22). Nothing re-decides (P1): A3 stays adopted.**
@@ -136,6 +135,12 @@ Track 0b closed; T2 + Option A remain the live track. Partial update: `activeCon
 `progress`, lessons; the other four core files are untouched because nothing
 architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 13,833 source LOC, 582 collected); **docs 24 → 25** (+ `core/docs/D2CITY_EDA.md`).
+
+## 2026-10-11 (latest) — **Second look read: the E4-0 gain holds on eval; v2 closed on A3-ign** (branch `v2`)
+
+- Amendment 12 (§23) committed `97f53e9` 07:25:49Z; opened 07:33:44Z (`second_look/SECOND_LOOK_OPENED.json`). S7 gates PASS.
+- SECOND LOOK READ (2026-10-11, §23): A3-ign DoTA-CAP-eval **0.8120** vs A3 0.7785, Δ **+0.0376 [+0.033, +0.043]** (5/5); `f_2` Δ +0.016 [+0.010, +0.021]; T2-test macro 0.720 (+0.025), window AUC flat, O1′ 5/5; optimism −0.021 (= A3's). Both S5 sentences licensed. `p_T2` 0.8256 still > A3-ign. T2-test micro 0.733 > clip oracle 0.704 → "O1 FAIL as registered; not collapsed under O1′".
+- Recorded: `RESULTS_E4_0.md` §6, `REPORT_V2_RESULTS.md` TL;DR 7 + §4.5 + §5 + §7, CLAUDE.md row. Outputs tracked (md/json).
 
 ## 2026-10-11 (later) — **E4-0 read out: `B` = A3-ign; SG-NM closed** (branch `v2`)
 

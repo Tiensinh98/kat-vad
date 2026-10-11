@@ -139,12 +139,44 @@ Gap N is untouched, as expected.
 - **SG-NM closed 2026-10-11**: a training-only normality branch on `B` failed its pre-registered frozen-trunk gate
   (Δ rank-avg − `y^bin` −0.012 [−0.016, −0.008], `f_2` −0.003 [−0.006, −0.001], T2-val −0.012, 5/5 seeds negative;
   read-out `outputs/v2/v2_e4b/REPORTS/e4a_readout.md`). Not pursued; its code was never committed.
-- **Second look pre-registered**: addendum §23 (Amendment 12) reads A3-ign once on DoTA-CAP-eval and T2-test, paired
-  with the Final's A3 (`colab/v2/e4_0_second_look.ipynb`); its result is labelled a second look and re-decides nothing.
+- **Second look run** (addendum §23): the gain holds on DoTA-CAP-eval and T2-test (§6). Labelled a second look.
 - **Any arm trained after this date carries `dvs_anchor_mode = ignore`**, including Nexar (deferred) if it is meant to
   be comparable with `B`.
 
-## 6. Prior evidence, revisited
+## 6. Second look on the opened sets (addendum §23, Amendment 12)
+
+Pre-registered in `97f53e9` (2026-10-11T07:25:49Z); opened `2026-10-11T07:33:44Z`
+(`outputs/v2/v2_e4_0/second_look/SECOND_LOOK_OPENED.json`). Read-out
+`outputs/v2/v2_e4_0/second_look/REPORTS/second_look_readout.{md,json}`. Every S7 gate passed (same checkpoints at
+step 1740, 560 clips, 1,106 T2-test windows, A0's T2-test macro == the Final's). Paired with the Final's A3 by seed.
+
+| read (second look at an opened set) | A3-ign | A3 (Final) | Δ A3-ign − A3 |
+|---|---|---|---|
+| DoTA-CAP (n/1397) eval macro, seed-averaged | **0.8120** | 0.7785 | paired t95 **+0.0376 [+0.0326, +0.0426]**, 5/5 (per seed +0.042 / +0.039 / +0.040 / +0.034 / +0.033) |
+| clip-level Δ (cluster CI, printed) | | | +0.0336 [+0.0255, +0.0415] |
+| `f_2` macro (position-controlled) | 0.8640 | 0.8484 | **+0.0157 [+0.0104, +0.0207]** |
+| optimism dev − eval | −0.0209 | −0.0209 | — |
+| A3-ign − A0 (printed) | | | +0.1276 [+0.0991, +0.1561] |
+| `p_T2` alone | 0.8256 | 0.8256 | — |
+| T2-test macro (1,106 windows) | **0.7202** | 0.6950 | +0.0252 [+0.0170, +0.0333] |
+| T2-test micro / window AUC | 0.7334 / 0.7714 | 0.7095 / 0.7706 | window AUC +0.001 |
+| O1′ vs A0, T2-test | 5/5 | 5/5 | — |
+
+**S5 sentences (both licensed):** "Dropping the whole-anchor DVS label improves DoTA-CAP (n/1397) detection, on dev
+and on a second look at the opened eval set." · "… beyond the position prior (second look)." Nothing re-decides (S2).
+
+**Reading.**
+- **The dev gain replicates almost exactly** (dev +0.0398 → eval +0.0376, both 5/5), and the optimism is the same
+  −0.021 for both arms: the eval set is easier for both, so the gap between them is not a selection artefact.
+- **The beyond-position gain is larger on eval** (+0.016 vs +0.010 on dev).
+- **`p_T2` (0.8256) still beats A3-ign (0.8120).** The gap shrank from 0.047 (A3) to 0.014 but did not close: never
+  write "the model beats the position prior". The licensed form is that the model adds to it (`f_2` 0.864 > 0.826).
+- **On T2-test the window-level AUC does not move** (0.7706 → 0.7714): the macro gain is within-window ranking, the
+  same floor-suppression mechanism as on dev (§3), not better separation of abnormal from normal windows.
+- T2-test micro 0.733 sits above the clip oracle 0.704: "O1 FAIL as registered; not collapsed under O1′" (5/5).
+- The Gap S sentence stays refused (§3). No DoTA-eval number exists for A3-ign (no DoTA pixels for the video stream).
+
+## 7. Prior evidence, revisited
 
 `ignore` had been measured twice, both n = 1 in regimes that could not localize (DADA Phase 1 −0.0056, TAD +0.0035).
 E4-0 is its first measurement where the model localizes (T2, kernel 3), and the first with 5 seeds: a +0.040 gain with

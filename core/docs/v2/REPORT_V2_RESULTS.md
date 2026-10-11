@@ -1,10 +1,10 @@
 # KAT-VAD v2 — Summary of experimental results (P0 → Final) and directions for improvement
 
-*2026-10-07 · branch `v2` · code `472adb0` · author: sinhpham (drafted with Claude)*
+*2026-10-07, updated 2026-10-11 (§4.5: E4-0 and its second look) · branch `v2` · code `472adb0` · author: sinhpham (drafted with Claude)*
 
 **Sources.** Every number here comes from an existing read-out: `MOTION_STREAM_K.md`, `RESULTS_E2_CRN.md`,
 `RESULTS_E1.md`, `RESULTS_E2D.md`, `RESULTS_P6_PILOT.md`, `RESULTS_E3.md` and
-`outputs/v2/v2_final/REPORTS/final_readout.{md,json}`. `outputs/` is gitignored, so this file is the tracked record
+`outputs/v2/v2_final/REPORTS/final_readout.{md,json}`; §4.5 from `RESULTS_E4_0.md`. `outputs/` is gitignored, so this file is the tracked record
 of the Final. **§6 is new.** It is a per-clip error analysis run **on DoTA-CAP-dev**. It is exploratory and
 **not pre-registered**: it points to directions, and nothing in it is a claim.
 
@@ -37,6 +37,10 @@ of the Final. **§6 is new.** It is a per-clip error analysis run **on DoTA-CAP-
      elsewhere, **A3 beats `p_T2` by a wide margin**.
    - Two main weaknesses: the score fades before the anomalous span ends, and **non-ego** accidents score clearly
      below ego accidents.
+7. **After the Final (§4.5): v2's training recipe is A3-ign** — A3 trained with `loss.dvs_anchor_mode=ignore`
+   (the whole-anchor DVS label, C29, dropped; same deployed network). Adopted on DoTA-CAP-dev (+0.040, E4-0); on a
+   **second look at the opened eval set** A3-ign scores **0.8120** vs A3 0.7785, Δ **+0.038 [+0.033, +0.043]**
+   (5/5), `f_2` Δ +0.016 [+0.010, +0.021], T2-test macro 0.720 (+0.025). `p_T2` 0.8256 is still above it.
 
 ---
 
@@ -154,6 +158,28 @@ Dev and eval agree to the third decimal.
 Clip oracle 0.7037. In-domain, A2 > A3 by about 0.013: **CRN has a small in-domain cost on T2**, consistent with the
 pilot.
 
+### 4.5 After the Final: E4-0 (A3-ign) and its second look (addendum §22, §23)
+
+E4-0 (dev, 2026-10-11) adopted **A3-ign**: A3 with the whole-anchor DVS label dropped (`loss.dvs_anchor_mode=ignore`).
+DoTA-CAP-dev Δ +0.0398 [+0.0347, +0.0450], `f_2` Δ +0.0102 [+0.0048, +0.0154], guardrails pass; the gain is floor
+suppression (pre-span mean −0.29), not span coverage (inside mean −0.155), so no Gap S claim. Amendment 12 then read
+A3-ign **once** on the sets §19 had opened — a **second look**, which re-decides nothing:
+
+| read (second look at an opened set) | A3-ign | A3 (Final) | Δ A3-ign − A3 |
+|---|---|---|---|
+| DoTA-CAP (n/1397) eval macro, seed-averaged | **0.8120** | 0.7785 | paired t95 **+0.0376 [+0.0326, +0.0426]**, 5/5 (per seed +0.042 / +0.039 / +0.040 / +0.034 / +0.033) |
+| clip-level Δ (cluster CI, printed) | | | +0.0336 [+0.0255, +0.0415] |
+| `f_2` macro (position-controlled) | 0.8640 | 0.8484 | **+0.0157 [+0.0104, +0.0207]** |
+| optimism dev − eval | −0.0209 | −0.0209 | — |
+| A3-ign − A0 (printed) | | | +0.1276 [+0.0991, +0.1561] |
+| `p_T2` alone | 0.8256 | 0.8256 | — |
+| T2-test macro (1,106 windows) | **0.7202** | 0.6950 | +0.0252 [+0.0170, +0.0333] |
+| T2-test micro / window AUC | 0.7334 / 0.7714 | 0.7095 / 0.7706 | window AUC +0.001 |
+| O1′ vs A0, T2-test | 5/5 | 5/5 | — |
+
+`RESULTS_E4_0.md` §6 has the reading. A training-only normality branch (SG-NM) was tried on top of A3-ign and closed
+the same day: its frozen-trunk gate failed (Δ −0.012 [−0.016, −0.008]).
+
 ---
 
 ## 5. What may and may not be claimed
@@ -165,6 +191,7 @@ pilot.
 | The gain is **≈ +0.02** after controlling for the T2 position prior, on both dev and eval | "+0.09" without `p_T2` beside it |
 | No selection optimism (dev ≤ eval for every arm) | "CRN improves transfer" (A1 − A0 contains 0) |
 | CRN removes the T2↔DoTA corpus shortcut in `V^t` (0.9998 → 0.57) | A2/A3 "pass O1". The required wording is "O1 FAIL as registered; not collapsed under O1′" |
+| "Dropping the whole-anchor DVS label improves DoTA-CAP (n/1397) detection, on dev and on a second look at the opened eval set" (+0.038), "… beyond the position prior (second look)" (`f_2` +0.016) | A3-ign "beats the position prior" (0.8120 < `p_T2` 0.8256); an A3-ign eval number without "second look"; "the whole-anchor label causes Gap S" |
 
 ---
 
@@ -256,6 +283,7 @@ little normal context before the onset.
 | Protocol B (s3) | +0.033 on the same checkpoints, 3/3 seeds (E1) | — | kept; it is protocol |
 | V2-S video stream | +0.098 over CRN (eval), 5/5 seeds; T2-test +0.077 | D6: not temporal order; most of it co-moves with position (G6) | kept, named "video appearance encoder" |
 | CRN (R2) | shortcut 0.9998 → 0.57; lets A3 survive position control (A2 does not) | A1 − A0 contains 0 on DoTA-dev and -eval; ≈ 0.013 macro in-domain cost on T2 (A3 vs A2) | kept inside A3; no stand-alone claim |
+| DVS anchor label `ignore` (A3-ign) | +0.040 dev, +0.038 eval (second look), `f_2` +0.010 / +0.016, T2-test +0.025; free (one training flag) | inside-span mean falls (−0.155): floor suppression, not coverage | **adopted after the Final** (v2's recipe) |
 | V2-S vs V2-B | cheaper; wins by the tie rule | B is ahead beyond position in transfer (+0.037 vs +0.018, E2(d)) | candidate to revisit |
 
 ---
