@@ -9,7 +9,7 @@
 
 There are no new losses, and nothing is added to the trunk or heads.
 
-**Chosen configuration (updated 2026-10-10):** arm **A3**, with encoder **VideoMAE V2-S** (`d_v` = 384) and CRN reference **R2** (per-dimension median). DoTA is read at **stride 3 over the whole clip** (protocol B). Where the text below lists options, the chosen one is marked **Chosen:**.
+**Chosen configuration (updated 2026-10-10; training label 2026-10-11):** arm **A3**, with encoder **VideoMAE V2-S** (`d_v` = 384) and CRN reference **R2** (per-dimension median), **trained as A3-ign** (`loss.dvs_anchor_mode = ignore`, E4-0; same network, §9 and §11). DoTA is read at **stride 3 over the whole clip** (protocol B). Where the text below lists options, the chosen one is marked **Chosen:**.
 
 **Conventions:**
 - Shapes are written `batch × time × channels`.
@@ -181,7 +181,7 @@ At initialization `H = X̃` exactly, so the model starts from the KIP-off functi
 |---|---|---|
 | `L_MIL`: top-k (k = 4) mean of `s` per window, BCE against the window label | `y^bin` | `B × L` → `B` |
 | `L_MIL-align`: video-level classification | `y^mul` | `B × L × C` → `B × C` |
-| `L_dvs` (only if the KIP-off config enables it): spliced sequences of length `L' ≤ δ_m·L`, masked. CRN is applied per segment **before** splicing. | `y^bin` | `B × L'` |
+| `L_dvs` (**on** in every v2 run: `dvs_sup`, `dvs_sup_mil` logged on every step) = `L_dvs-sup` (dense per-step BCE against `y^p`) + `L_dvs-mil` (top-k inside the `y^p` span). Spliced sequences of length `L' ≤ δ_m·L`, masked; CRN is applied per segment **before** splicing. Anchor label: `span` (A0–A3; the whole anchor window of a spliced abnormal sequence is 1) or **`ignore`** (A3-ign, the chosen recipe: those steps leave the dense BCE) | `y^bin` | `B × L'` |
 | `L_neg` | — | **off**, as in the KIP-off T2 config |
 
 ---
@@ -209,7 +209,8 @@ At initialization `H = X̃` exactly, so the model starts from the KIP-off functi
 | A0 (KIP-off) | – | – | `X` | 0 |
 | A1 | ✓ | – | `s·(X − μ^x)` | 0 |
 | A2 | – | ✓ | `X + W_u·(c·(U − m_u) ⊘ σ_u)` | `W_u` |
-| **A3 (full v2) — chosen** | ✓ (R2) | ✓ (V2-S) | `s·(X − μ^x) + W_u·(c·(U − μ^u) ⊘ σ_u)` | `W_u` (≈ 0.20 M) |
+| A3 (full v2) | ✓ (R2) | ✓ (V2-S) | `s·(X − μ^x) + W_u·(c·(U − μ^u) ⊘ σ_u)` | `W_u` (≈ 0.20 M) |
+| **A3-ign — chosen** (E4-0, 2026-10-11) | ✓ (R2) | ✓ (V2-S) | as A3; trained with `loss.dvs_anchor_mode = ignore` | as A3 |
 
 `σ_u` is computed per arm on the representation that arm feeds (`U − m_u` for A2, `U − μ^u` for A3). Model selection between arms follows the proposal §10.3: a costly arm (A2 or A3) needs its contrast against A0 **and** against the best adoptable free arm `F` (A1 if A1 passes its rule, A0 otherwise) to exclude 0.
 

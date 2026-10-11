@@ -6,7 +6,7 @@
 - Numbers quoted as "report §x" were measured in that study.
 - Numbers marked *derived* are computed from report numbers, with the arithmetic shown.
 **Companion:** `KAT_VAD_v2_ARCHITECTURE.md` (every component with its tensor shapes).
-**Date:** 2026-09-27 (design). **Updated 2026-10-10:** the options v2 chose are marked **Chosen:** in place. Everything else is the original design. The chosen options are also summarized in §S.
+**Date:** 2026-09-27 (design). **Updated 2026-10-10:** the options v2 chose are marked **Chosen:** in place. Everything else is the original design. The chosen options are also summarized in §S. **Updated 2026-10-11:** the post-Final training-label choice (E4-0, A3-ign; `PREREG_ADDENDUM.md` §22–§23) is added to §S, §8, §10.2 and §12. The deployed network is unchanged.
 
 > **Design rule for this version.** A component is in v2 only if (i) it fixes a failure the T2 study **measured**, (ii) a project paper supports the mechanism, and (iii) it can be checked cheaply **before** it is trained.
 > - That leaves **two architectural changes**, one **protocol fix**, and **no new loss terms**.
@@ -24,9 +24,10 @@
 | CRN reference (§4.2) | R1 mean · R2 median · R3 robust mean · R4 past-only | **R2**, the per-dimension median over the clip (the source video in training) |
 | DoTA reading protocol (§7.3, §9) | A: stride 8, whole clip · B: stride 3, whole clip · C: stride 3, sliding W = 20 | **B**: stride 3, the whole clip in one pass, scores interpolated to native frames |
 | Model arm (§8, §10.3) | A0 · A1 · A2 · A3 | **A3 = CRN + video stream** |
+| DVS anchor label in `L_dvs-sup` (§8; added after the Final) | `span`: the whole anchor window of a spliced abnormal sequence is 1 (LaGoVAD default) · `ignore`: those anchor steps leave the dense BCE | **`ignore`** (A3-ign), by E4-0 on DoTA-CAP-dev (+0.040 [+0.035, +0.045]) and held on the second look (+0.038). A3's E3/Final runs used `span` |
 | Endpoint for arms with the video stream (§7.1) | DoTA-dev / DoTA-eval | **DoTA-CAP**, the DoTA clips whose pixels could be recovered, because DoTA's own frames are no longer available. CRN-only arms still use DoTA-dev / -eval |
 
-The adopted network is therefore:
+The adopted network is therefore (trained as A3-ign; the network is A3's):
 
 ```
 frame ─► CLIP ViT-B/16 (frozen) ─► x ─► CRN (R2) ─► x̃ ─────────────────────────────┐
@@ -401,8 +402,8 @@ Holmes-VAU's **ATS** samples frames from `y^bin` for an MLLM incident report. It
 
 ## 8. Training
 
-- **Loss:** the KIP-off configuration's loss set, **unchanged**. `L_neg` stays off, as in that config, and no term is added.
-- **Hyper-parameters (unchanged):** AdamW, lr 5e-5, batch 64 (32 + 32), 2,040 steps, score kernel 3, k = 4, hidden 512.
+- **Loss:** the KIP-off configuration's loss set: `L_MIL + L_MIL-align + L_dvs` (`L_dvs = L_dvs-sup + L_dvs-mil`); `L_neg` stays off, as in that config, and no term is added. **Chosen after the Final (E4-0):** `loss.dvs_anchor_mode = ignore` — in a DVS-spliced abnormal sequence the anchor's steps leave the dense `L_dvs-sup` BCE (the fillers stay 0), instead of all being labelled 1 (`span`, lesson C29).
+- **Hyper-parameters (unchanged):** AdamW, lr 5e-5, batch 64 (≈ 32 + 32 on average, from a per-epoch permutation of the balanced item list), **1,740 steps** (87 per epoch × 20; the 2,040 of the design was the phase-4 schedule), score kernel 3, k = 4, hidden 512.
 - **Frozen:** CLIP (both towers) and VideoMAE V2.
 - **Trained:** the soft prompts, temporal encoder, co-attention and heads (all as before), plus the Motion Stream's `W_u` (new). `σ_u` is a fixed statistic, not trained.
 - **Stage 1 (KIP warm-up):** removed. v2 trains in a single stage.
@@ -415,7 +416,7 @@ Holmes-VAU's **ATS** samples frames from `y^bin` for an MLLM incident report. It
 | A2 | – | ✓ | `x_t + W_u·(c·(u_t − m_u) ⊘ σ_u)` |
 | A3 (full v2) | ✓ | ✓ | `x̃_t + W_u·(c·ũ_t ⊘ σ_u)` |
 
-**Chosen:** **A3**, with CRN = R2 and the V2-S encoder.
+**Chosen:** **A3**, with CRN = R2 and the V2-S encoder; **trained as A3-ign** (`dvs_anchor_mode = ignore`) since E4-0.
 
 ---
 
@@ -476,6 +477,8 @@ Holmes-VAU's **ATS** samples frames from `y^bin` for an MLLM incident report. It
 | **E2** | (a) accident-share histograms, DoTA and DADA sources. (b) Position ruler, then CRN reference choice on the position-residualized deviation (§4.2). (c) CRN transfer-probe veto. (d) Encoder choice: probe `[x ; u]` for VideoMAE V2-B, V2-S (and SimpleTAD DAPT if DAPT-only), all squashed; probe the representation each arm feeds the trunk (raw `u − m_u` for A2, CRN'd `ũ` for A3, both ⊘ `σ_u`); eligible if the in-domain DoTA-dev probe is ≥ +0.10 over CLIP-only (the report's rule) or the transfer probe is ≥ +0.03. Pick the best transfer probe; within 0.02, the cheaper encoder wins | no | fixes the reference and the encoder, or drops CRN or the Motion Stream before any training |
 | **E3** | **2 × 2 factorial** (A0–A3) × 5 seeds = **20 runs** | yes | the rules below |
 | **Final** | Open T2-test and DoTA-eval once | no | reported numbers |
+| *E4-0* (added 2026-10-11) | A3 + `dvs_anchor_mode = ignore` (A3-ign) × 5 seeds, paired with E3's A3, on DoTA-CAP-dev (`PREREG_ADDENDUM.md` §22) | yes | adopt A3-ign (done) |
+| *Second look* (added 2026-10-11) | A3-ign once on the sets the Final opened, paired with the Final's A3 (§23) | no | reported, labelled a second look; re-decides nothing |
 
 **Run order** (E0b and E1 already decide on DoTA-dev, so the splits must exist first):
 1. **Freeze and commit** the T2-val source list, the DoTA-dev / DoTA-eval clip lists and this proposal's rules. Record the commit hash in every read-out.
@@ -537,9 +540,9 @@ Holmes-VAU's **ATS** samples frames from `y^bin` for an MLLM incident report. It
 ## 12. Deferred (not in v2; each needs its own experiment)
 
 - **H1 — Flow as an auxiliary on the motion stream.** Only if the flow head beats the per-clip oracle (K < W) on the new input; weight set from ρ.
-- **H2 — Overlap-negative MIL (the E4a rung).** Report it with and without, because it is equivalent to span labels at hop resolution.
-- **H3 — `L_neg` enabled (the E4b rung).** Needs a **class mask** for duplicate category labels (83 strings; the top one 12.2 %), plus same-source normal windows as hard-negative rows.
-- **H4 — SG-NM-style consistency, ablation only.** Fix the draft's bugs first: no per-window min-max, a stop-gradient on the reconstruction target, and powering as an E7-style ablation, not a ladder rung.
+- **H2 — Overlap-negative MIL** (an "E4a rung" in the design; E4a later named the SG-NM gate). Report it with and without, because it is equivalent to span labels at hop resolution.
+- **H3 — `L_neg` enabled** (an "E4b rung" in the design). Needs a **class mask** for duplicate category labels (83 strings; the top one 12.2 %), plus same-source normal windows as hard-negative rows.
+- **H4 — SG-NM-style consistency, ablation only.** Fix the draft's bugs first: no per-window min-max, a stop-gradient on the reconstruction target, and powering as an E7-style ablation, not a ladder rung. **Tried and closed 2026-10-11:** a detached branch on A3-ign's frozen trunk failed its pre-registered gate (rank-average Δ −0.012 [−0.016, −0.008] on DoTA-CAP-dev, −0.012 on T2-val; `outputs/v2/v2_e4b/REPORTS/e4a_readout.md`); not pursued.
 - **H5 — A clip-context token for concept drift.** Only with a stop-gradient in the `H_bin` path, or confined to `H_mul`, and with the source-shortcut AUC re-measured on `y^bin`.
 - **H6 — DAPT of VideoMAE** on BDD100K / DADA-train frames (SimpleTAD). Never on DoTA.
 - **H7 — Train at DoTA's coarser rate**, if E1 shows DoTA rewards it.

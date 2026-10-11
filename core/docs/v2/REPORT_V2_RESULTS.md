@@ -1,11 +1,12 @@
 # KAT-VAD v2 — Summary of experimental results (P0 → Final) and directions for improvement
 
-*2026-10-07, updated 2026-10-11 (§4.5: E4-0 and its second look) · branch `v2` · code `472adb0` · author: sinhpham (drafted with Claude)*
+*2026-10-07; updated 2026-10-11 (post-Final: E4-0, its second look, SG-NM closed, DF8 deferred, figures) · branch `v2` · code `03d365e` · author: sinhpham (drafted with Claude)*
 
 **Sources.** Every number here comes from an existing read-out: `MOTION_STREAM_K.md`, `RESULTS_E2_CRN.md`,
 `RESULTS_E1.md`, `RESULTS_E2D.md`, `RESULTS_P6_PILOT.md`, `RESULTS_E3.md` and
-`outputs/v2/v2_final/REPORTS/final_readout.{md,json}`; §4.5 from `RESULTS_E4_0.md`. `outputs/` is gitignored, so this file is the tracked record
-of the Final. **§6 is new.** It is a per-clip error analysis run **on DoTA-CAP-dev**. It is exploratory and
+`outputs/v2/v2_final/REPORTS/final_readout.{md,json}`; §4.5 from `RESULTS_E4_0.md`. Score files (`*.npz`) under `outputs/`
+are gitignored; the small v2 read-outs (`REPORTS/**/*.{md,json}`) are tracked. This file is the summary record
+of the Final and of what came after it. **§6 is new.** It is a per-clip error analysis run **on DoTA-CAP-dev**. It is exploratory and
 **not pre-registered**: it points to directions, and nothing in it is a claim.
 
 **Reading conventions.**
@@ -19,8 +20,9 @@ of the Final. **§6 is new.** It is a per-clip error analysis run **on DoTA-CAP-
 
 ## 0. TL;DR
 
-1. **Adopted model: A3 = CRN + a frozen VideoMAE V2-S video stream** (zero-init residual) on the LaGoVAD trunk.
-   It has no KIP or RAFT and no new loss.
+1. **Adopted architecture: A3 = CRN + a frozen VideoMAE V2-S video stream** (zero-init residual) on the LaGoVAD
+   trunk. It has no KIP or RAFT and no new loss. **Since 2026-10-11 it is trained as A3-ign** (item 7): same network,
+   one training label changed. Items 2–6 are the Final's read of A3.
 2. **On the sealed set (DoTA-CAP-eval, 560 clips, opened once):** A3 macro is **0.7785** vs A0 (raw CLIP) 0.6979.
    Δ = **+0.090 [+0.065, +0.115]**, positive on 5/5 seeds. **Optimism dev − eval is negative for every arm**, so the
    dev numbers were not inflated.
@@ -57,7 +59,8 @@ h ─► temporal encoder (2 layers, RoPE) ─► V^t ─► CoAttn(V^t, z) ─�
 | A0 | – | – | = phase-4 KIP-off, the baseline |
 | A1 | ✓ | – | the "free arm" |
 | A2 | – | ✓ | |
-| **A3** | ✓ | ✓ | **adopted** (E3) |
+| **A3** | ✓ | ✓ | **adopted** (E3); read by the Final |
+| **A3-ign** | ✓ | ✓ | A3 + `loss.dvs_anchor_mode=ignore`; **v2's training recipe since E4-0** (§4.5) |
 
 Training data: T2 (DADA-2000 original; windows W=20, hop 8; negatives cut from inside the accident videos), minus
 T2-val. 20 epochs, step 1740, 5 seeds. No new loss. The only new parameters are `W_u` (≈ 0.20 M).
@@ -66,7 +69,7 @@ T2-val. 20 epochs, step 1740, 5 seeds. No new loss. The only new parameters are 
 pilot only in `train.seed`, §18 M1):
 - **On:** L_MIL, L_mul-MIL and **L_dvs**. `dvs_sup` and `dvs_sup_mil` are logged on 1,740/1,740 steps.
   DVS runs with **LaGoVAD's default** settings: θ = 0.7 (no-synthesis probability), δ_m = 5,
-  `dvs_anchor_mode=span`, 50 % KNN fillers. This is because `data.is_egocentric=false`.
+  `dvs_anchor_mode=span` (A0–A3; A3-ign uses `ignore`), 50 % KNN fillers. This is because `data.is_egocentric=false`.
   The KAT-VAD spec's ego setting (θ_ego 0.85, δ_m 2, spec §6.1) is **not** used, and neither is the motion-aware
   KNN key, which needs RAFT `e_O`. Phase 4 ran the same way, so A0 ≡ phase-4 KIP-off holds.
 - **Off: L_neg.** `captions_from_definitions=false`, so no caption features exist and the `cap_contrastive` term never
@@ -104,6 +107,11 @@ CAP is about 0.01–0.02 harder than the dropped clips, and every interval overl
 | **P6 · pilot** (10-04/05, s2099) | Do the mechanisms work? Is there a C14-style collapse? | CRN: shortcut on `V^t` **0.9999 → 0.551**. A2/A3 fail O1 as registered, but window AUC and macro **rise together** → not C14 (Amendment 8, O1′). T2-test: O1′ PASS | All 4 arms kept for E3 |
 | **E3** (10-06, 20 runs) | Which arm to adopt? (DoTA-CAP-dev) | A3 − A0 **+0.0855 [+0.057, +0.114]**; A3 − A1 **+0.098 [+0.086, +0.109]**; A1 − A0 (DoTA-dev) −0.015 (ns) | **adopt A3**, `F` = A0 |
 | **Final** (10-06) | Does it hold on the sealed sets? | see §4 | **holds**, optimism < 0 |
+| **H2(a)** (10-09) | Does a post-hoc causal hold make scores cover the span? | Δ all −0.071, `f_2` −0.022, tail clips −0.125 | **KILL** (§8) |
+| **H3 probe** (10-09) | Do text-guided windows / CLIP tiles help non-ego accidents? | transfer Δ vs `[x;u;p]` −0.036 [−0.046, −0.026] | **KILL** (§8) |
+| **E4-0** (10-11, 5 runs) | Does the whole-anchor DVS label (C29) hurt? (CAP-dev) | A3-ign − A3 **+0.0398 [+0.035, +0.045]**, `f_2` +0.010, guardrails pass | **adopt A3-ign** (§4.5) |
+| **E4a** (10-11) | Does an SG-NM normality score add ranking information to A3-ign? | Δ rank-avg − `y^bin` **−0.012 [−0.016, −0.008]**, `f_2` −0.003, T2-val −0.012 | **SG-NM closed**; code reverted |
+| **Second look** (10-11) | Does A3-ign's gain hold on the opened sets? | CAP-eval Δ **+0.0376 [+0.033, +0.043]**, `f_2` +0.016, T2-test +0.025 | **holds** (§4.5) |
 
 ## 4. Final — sealed sets, opened exactly once
 
@@ -180,6 +188,12 @@ A3-ign **once** on the sets §19 had opened — a **second look**, which re-deci
 `RESULTS_E4_0.md` §6 has the reading. A training-only normality branch (SG-NM) was tried on top of A3-ign and closed
 the same day: its frozen-trunk gate failed (Δ −0.012 [−0.016, −0.008]).
 
+![DoTA-CAP (n/1397) eval: pooled ROC and PR for A0, A3, A3-ign (second look) and p_T2](figs/cap_eval/roc_pr.png)
+
+*Pooled frames, per-clip min-max (lesson 12); `python -m core.tools.v2_plots roc` (`TRAINING_V2.md` §6f). Legend
+numbers equal the read-outs (`figs/cap_eval/roc_metrics.json`): micro / AP — A0 0.651 / 0.447, A3 0.730 / 0.524,
+A3-ign 0.782 / 0.596, `p_T2` 0.802 / 0.607. A3-ign's precision is above `p_T2`'s only at low recall (≲ 0.3).*
+
 ---
 
 ## 5. What may and may not be claimed
@@ -199,7 +213,8 @@ the same day: its frozen-trunk gate failed (Δ −0.012 [−0.016, −0.008]).
 
 *Inputs: seed-averaged scores of A0–A3 (E3 `clip_scores.npz`) and `p_T2` on the 569 dev clips. This runs on dev
 because eval is already opened. Any improvement drawn from it must be tested on a set that has never been looked at
-(see §8).*
+(see §8). It reads **A3**, not A3-ign; the A3-ign re-read of §6.3 (Gap S), by position bin and by ego class is
+`RESULTS_E4_0.md` §4 (also exploratory).*
 
 ### 6.1 A3 and position are complementary, not redundant
 
@@ -284,13 +299,15 @@ little normal context before the onset.
 | V2-S video stream | +0.098 over CRN (eval), 5/5 seeds; T2-test +0.077 | D6: not temporal order; most of it co-moves with position (G6) | kept, named "video appearance encoder" |
 | CRN (R2) | shortcut 0.9998 → 0.57; lets A3 survive position control (A2 does not) | A1 − A0 contains 0 on DoTA-dev and -eval; ≈ 0.013 macro in-domain cost on T2 (A3 vs A2) | kept inside A3; no stand-alone claim |
 | DVS anchor label `ignore` (A3-ign) | +0.040 dev, +0.038 eval (second look), `f_2` +0.010 / +0.016, T2-test +0.025; free (one training flag) | inside-span mean falls (−0.155): floor suppression, not coverage | **adopted after the Final** (v2's recipe) |
+| SG-NM (training-only normality branch, on A3-ign) | — | E4a gate: Δ −0.012 [−0.016, −0.008] on CAP-dev, −0.012 on T2-val, 5/5 seeds negative; `S̃` correlates 0.85 with `y^bin` per clip | **closed 2026-10-11**; code reverted |
 | V2-S vs V2-B | cheaper; wins by the tie rule | B is ahead beyond position in transfer (+0.037 vs +0.018, E2(d)) | candidate to revisit |
 
 ---
 
 ## 8. Directions for improvement (ranked by evidence and cost)
 
-> **Global constraint.** DoTA-CAP-eval and DoTA-eval are **already opened**. Any change chosen from §6 or from eval
+> **Global constraint.** DoTA-CAP-eval and DoTA-eval are **already opened** (DoTA-CAP-eval twice: the Final and
+> A3-ign's second look). Any change chosen from §6 or from eval
 > no longer has a clean test set on DoTA-CAP. A Final number for the next version needs one of:
 > (a) pre-registration and a read on a new set (proposed in H1), or
 > (b) an explicit label "second look at an opened set".
@@ -298,17 +315,18 @@ little normal context before the onset.
 
 | # | Direction | Evidence (numbers) | Concrete experiment | Cost | Kill criterion |
 |---|---|---|---|---|---|
-| **H1** | **Position-shift stress test** (a protocol, not yet a model change) | §6.2: A3 flat across position 0.70–0.81, `p_T2` 0.43–0.98; correlation 0.135 | Re-cut the DoTA-CAP clips (dev, then eval) so the accident centre is spread evenly over [0.1, 0.9]. **Design guard (pending (ay)):** crop both ends to a fixed length distribution; add a same-length crop with the accident at its original position as a control (position cost = control − shifted, context cost = full − control); keep `p_T2` frozen at its T2 fit. No retraining. **Deferred until v2 is closed (user, 2026-10-07)** | **Cheap but not free**: CRN must be re-baked on every crop and the 20 checkpoints re-run (forward pass on cached features; no training, no extraction) | If `p_T2` is still ≥ A3 on the shifted set, the "position is an artefact" argument is wrong |
-| **H2** | **Scores that cover the span** (temporal precision) | §6.3: peak at +2 s, then fades; peak-in-span 61 %; A3 − p from −0.001 (<30 %) to −0.196 (>70 %) | (a) Post-hoc causal max-hold or EMA on `y^bin` (a free arm, no training). Fix the window by a rule, e.g. the median span length of **T2**, not of DoTA. (b) If (a) helps: MIL top-k as a **fraction** of window length (`mil_topk_pct`) instead of a fixed k = 4 | (a) cheap; (b) one small E3 (2 arms × 5 seeds) | (a) no macro gain in the >50 % share bins on dev → drop. **(a) RUN 2026-10-09: KILL** (`core/tools/posthoc_hold.py`, plan `katvad-v2-h2a-hold.md` App. A): causal max-hold w = 30 (T2 median span) on A3: Δ all −0.071, Δ share ≥ 0.5 +0.037 (∋ 0), Δ `f_2` −0.022; tail clips −0.125. **(b) not proposed**: `k = L // MIL_TOPK_PCT` already scales with `L`, and the motivating share-bin slope is largely position (see §6.3 note) |
+| **H1** | **Position-shift stress test** (a protocol, not yet a model change) | §6.2: A3 flat across position 0.70–0.81, `p_T2` 0.43–0.98; correlation 0.135 | Re-cut the DoTA-CAP clips (dev, then eval) so the accident centre is spread evenly over [0.1, 0.9]. **Design guard (pending (ay)):** crop both ends to a fixed length distribution; add a same-length crop with the accident at its original position as a control (position cost = control − shifted, context cost = full − control); keep `p_T2` frozen at its T2 fit. No retraining. **Measured 2026-10-11: the [0.1, 0.9] grid is infeasible** — with the span kept whole it fits ≤ 3 CAP clips for any crop of 3–12 s (spans are long: median 28 of 99 frames). The feasible design is a same-length early/late swap inside each clip (centre 0.30 ↔ 0.70, 491 CAP-dev clips); plan `.project/plans/katvad-v2-df8-position-shift.md`. **Deferred by the user (2026-10-11)** | **Cheap but not free**: CRN must be re-baked on every crop and the 20 checkpoints re-run (forward pass on cached features; no training, no extraction) | If `p_T2` is still ≥ A3 on the shifted set, the "position is an artefact" argument is wrong |
+| **H2** | **Scores that cover the span** (temporal precision) | §6.3: peak at +2 s, then fades; peak-in-span 61 %; A3 − p from −0.001 (<30 %) to −0.196 (>70 %) | (a) Post-hoc causal max-hold or EMA on `y^bin` (a free arm, no training). Fix the window by a rule, e.g. the median span length of **T2**, not of DoTA. (b) If (a) helps: MIL top-k as a **fraction** of window length (`mil_topk_pct`) instead of a fixed k = 4 | (a) cheap; (b) one small E3 (2 arms × 5 seeds) | (a) no macro gain in the >50 % share bins on dev → drop. **(a) RUN 2026-10-09: KILL** (`core/tools/posthoc_hold.py`, plan `katvad-v2-h2a-hold.md` App. A): causal max-hold w = 30 (T2 median span) on A3: Δ all −0.071, Δ share ≥ 0.5 +0.037 (∋ 0), Δ `f_2` −0.022; tail clips −0.125. **(b) not proposed**: `k = L // MIL_TOPK_PCT` already scales with `L`, and the motivating share-bin slope is largely position (see §6.3 note). **After the Final:** A3-ign removed the pre-onset half of the gap (pre-span mean 0.53 → 0.24) but not the coverage half (inside mean falls); SG-NM, a training-side coverage remedy, failed its gate (both 2026-10-11) |
 | **H3** | **Region- or object-level features** for non-ego accidents | §6.4: non-ego 0.697 vs ego 0.804 (−0.107) | Add CLIP on a tile grid (e.g. 2×2 + global, max-pooled over tiles) or detector crops. Probe frozen features first, as in K/E2(d): `[x_tiles; u]` vs `[x; u]`, T2 → CAP-dev transfer, **with `p` printed beside it** | Medium: re-extract CLIP for T2 and DoTA. DoTA s1 survives on Drive, but tiles need pixels → only possible on DoTA-CAP | Beyond-position transfer of the probe < +0.01 → not worth building. **Probed 2026-10-09 (`text_window_probe.py`, pending (ba)): KILL.** Text-guided windows: transfer Δ vs `[x;u;p]` **−0.036 [−0.046, −0.026]**; the text margin is at chance zero-shot (0.504). Plain multi-scale tile mean-pool also fails this criterion (−0.012; non-ego −0.021). **→ CLIP tiles closed; only detector crops remain, as a v3 direction** |
-| **H4** | **V2-B instead of V2-S** | E2(d): beyond-position transfer B +0.037 vs S +0.018; T2 side B +0.137 vs S +0.107 | Arm A3-B, 5 seeds, same recipe. Compare with A3-S on dev and on the H1-shifted set | 5 GPU runs. V2-B exists for DoTA-CAP and the 295 K sources, but only V2-S was extracted for full T2 (G2) → V2-B must be extracted for T2 | A3-B − A3-S `f_2` contains 0 → keep S |
+| **H4** | **V2-B instead of V2-S** | E2(d): beyond-position transfer B +0.037 vs S +0.018; T2 side B +0.137 vs S +0.107 | Arm A3-B (trained as A3-ign, the current recipe), 5 seeds. Compare with A3-ign on dev and on the H1-shifted set | 5 GPU runs. V2-B exists for DoTA-CAP and the 295 K sources, but only V2-S was extracted for full T2 (G2) → V2-B must be extracted for T2 | A3-B − A3-S `f_2` contains 0 → keep S |
 | **H5** | **A stream that is actually order-sensitive** (only if the thesis wants to keep "kinematics") | D6: ordered − shuffled ±0.0004 | Difference features `u_t − u_{t−k}`, or VideoMAE on reversed clips / one frame repeated ×16 (motion-energy control). Probe first, with D6 as the gate | Cheap (probe) to medium | Shuffled control still contains 0 → drop the motion claim for good |
 | H6 | Early-onset anomalies / short context | §6.5: start < 20 %: A3 0.675 (the lowest) | Check CRN reference R2 when most of the clip is anomalous; compare R2 vs R4 (past-only, eligible at s3) on this group | Cheap (probe on caches) | No difference → leave as is |
 
-**Proposed order:**
-- **H1 first once v2 is closed** (deferred, pending (ay)). It is cheap, and it decides how the whole position story is told in the thesis.
-- **Then H2(a).** Free, and it targets the largest measured weakness.
-- **Then H4.** Cheap, with existing evidence.
+**Status and order (2026-10-11; v2 is closed on A3-ign):**
+- **H2(a) and the H3 probe are done (KILL)**; E4-0 (adopted) and SG-NM (closed) came out of H2's line.
+- **H1 is planned and deferred by the user.** It is still the cheapest way to decide how the position story is told
+  (`p_T2` 0.8256 > A3-ign 0.8120).
+- **H4** is next in cost and evidence, against A3-ign.
 - **H3 and H5 are research directions for a v3.** Do them only if time allows, each through a probe gate before any
   training.
 
@@ -332,5 +350,9 @@ little normal context before the onset.
 | Pilot | `core/docs/v2/RESULTS_P6_PILOT.md` |
 | E3 | `core/docs/v2/RESULTS_E3.md` |
 | Final (raw) | `outputs/v2/v2_final/REPORTS/final_readout.{md,json}` (gitignored) |
-| Pre-registered rules | `core/docs/v2/PREREG_ADDENDUM.md` §1–§20 |
+| Pre-registered rules | `core/docs/v2/PREREG_ADDENDUM.md` §1–§23 (§22 E4-0, §23 second look) |
+| E4-0 + second look | `core/docs/v2/RESULTS_E4_0.md`; raw `outputs/v2/v2_e4_0/REPORTS/`, `outputs/v2/v2_e4_0/second_look/REPORTS/` |
+| E4a (SG-NM gate) | `outputs/v2/v2_e4b/REPORTS/e4a_readout.{md,json}` |
+| H1 / DF8 plan | `.project/plans/katvad-v2-df8-position-shift.md` (deferred) |
+| Figures | `core/docs/v2/figs/` (`core.tools.v2_plots`) |
 | §6 (dev error analysis) | computed from `outputs/v2/v2_s3/REPORTS/pb/A*/dota_cap_dev/clip_scores.npz` + `position_prior/dota_cap_dev/position_prior.npz` + `data/DoTA/metadata_val.json` |
