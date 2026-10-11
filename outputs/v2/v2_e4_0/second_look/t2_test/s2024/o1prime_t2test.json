@@ -1,0 +1,134 @@
+{
+  "a0": "A0",
+  "addendum": "core/docs/v2/PREREG_ADDENDUM.md \u00a717 (Q2, Q4, Q5)",
+  "arms": {
+    "A0": {
+      "reference": true,
+      "survivor": true
+    },
+    "A3ign": {
+      "by": "O1' (Amendment 8)",
+      "o1_prime_t2_test": {
+        "checks": {
+          "micro_within_a0_margin": true,
+          "not_collapsed": true
+        },
+        "collapsed": false,
+        "macro_delta": 0.09821662029112,
+        "micro_delta": 0.12001839882306542,
+        "pass": true,
+        "window_auc_delta": 0.10387115412393466
+      },
+      "o1_prime_t2_val": {
+        "checks": {
+          "micro_within_a0_margin": true,
+          "not_collapsed": true
+        },
+        "collapsed": false,
+        "macro_delta": 0.08934366809368455,
+        "micro_delta": 0.09978615002063451,
+        "pass": true,
+        "window_auc_delta": 0.10928162045654943
+      },
+      "o1_t2_test": false,
+      "o1_t2_val": false,
+      "reference": false,
+      "survivor": true
+    }
+  },
+  "data_dir": "/content/second_look/stage/corpus",
+  "motion_stream_dropped": false,
+  "runs": {
+    "A0": {
+      "arm": {
+        "crn": "none",
+        "motion": "none"
+      },
+      "checkpoint": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A0/s2024/checkpoint_last.pt",
+      "global_step": 1740,
+      "input_dir": "/content/second_look/stage/A0_T2",
+      "motion": false,
+      "windows": 1106
+    },
+    "A3ign": {
+      "arm": {
+        "crn": "R2",
+        "motion": "vit_s_k710_dl_from_giant"
+      },
+      "checkpoint": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e4_0/A3ign/s2024/checkpoint_last.pt",
+      "global_step": 1740,
+      "input_dir": "/content/second_look/stage/A3_T2",
+      "motion": true,
+      "windows": 1106
+    }
+  },
+  "t2_test": {
+    "A0": {
+      "a0_micro": null,
+      "checks": {
+        "macro_at_least_micro": true,
+        "micro_below_clip_oracle": true
+      },
+      "clip_oracle_micro": 0.7036535859269283,
+      "macro": 0.6277135924894617,
+      "micro": 0.6189046893032413,
+      "pass": true,
+      "score_norm": "none",
+      "window_level_auc": 0.6653721549287055
+    },
+    "A3ign": {
+      "a0_micro": 0.6189046893032413,
+      "checks": {
+        "macro_at_least_micro": false,
+        "micro_below_clip_oracle": false,
+        "micro_within_a0_margin": true
+      },
+      "clip_oracle_micro": 0.7036535859269283,
+      "macro": 0.7259302127805817,
+      "micro": 0.7389230881263067,
+      "pass": false,
+      "score_norm": "none",
+      "window_level_auc": 0.7692433090526402
+    }
+  },
+  "t2_val": {
+    "A0": {
+      "a0_micro": null,
+      "checks": {
+        "macro_at_least_micro": true,
+        "micro_below_clip_oracle": true
+      },
+      "clip_oracle_micro": 0.6986450798025032,
+      "macro": 0.6472906163877074,
+      "micro": 0.6445891645562907,
+      "pass": true,
+      "score_norm": "none",
+      "window_level_auc": 0.6731654746742431
+    },
+    "A3ign": {
+      "a0_micro": 0.6445891645562907,
+      "checks": {
+        "macro_at_least_micro": false,
+        "micro_below_clip_oracle": false,
+        "micro_within_a0_margin": true
+      },
+      "clip_oracle_micro": 0.6986450798025032,
+      "macro": 0.7366342844813919,
+      "micro": 0.7443753145769252,
+      "o1_prime": {
+        "checks": {
+          "micro_within_a0_margin": true,
+          "not_collapsed": true
+        },
+        "collapsed": false,
+        "macro_delta": 0.08934366809368455,
+        "micro_delta": 0.09978615002063451,
+        "pass": true,
+        "window_auc_delta": 0.10928162045654943
+      },
+      "pass": false,
+      "score_norm": "none",
+      "window_level_auc": 0.7824470951307926
+    }
+  }
+}
