@@ -1,6 +1,8 @@
 # Progress
 
-**2026-10-06 (latest, branch `v2`) — E3 read out: adopt A3 (CRN + V2-S), `F` = A0.** A3 − A0 DoTA-CAP-dev macro **+0.0855 [+0.057, +0.114]** (n = 5, 5/5 +), A3 − A1 +0.098 [+0.086, +0.109]; CRN alone (A1 − A0, DoTA-dev) −0.015, not detectable, free rule FAIL. O1′ 5/5 for A1–A3. **The cubic T2 position prior `p_T2` (no pixels) scores 0.822 > A3 0.758**; post-hoc on dev, A3 − A0 survives position control at +0.023…+0.045, A2 − A0 does not. §18 signed after the read-out (guard disabled by hand; text unchanged since `59ee17e`). Amendment 10 (§19, Final + beyond-position read) signed 2026-10-06. `core/docs/v2/RESULTS_E3.md`.
+**2026-10-11 (latest, branch `v2`) — E4-0 read out: `B` = A3-ign (new `F`).** A3-ign − A3 DoTA-CAP-dev macro **+0.0398 [+0.035, +0.045]** (n = 5, 5/5 +); `f_2` Δ +0.010 [+0.005, +0.015]; guardrails PASS; mechanism 3/4 (inside mean falls → no Gap S claim). First measurement of C29's `ignore` on a localizing model. `p_T2` 0.822 > A3-ign 0.791. Next: E4a (planned, not built). `core/docs/v2.1/RESULTS_E4_0.md`.
+
+**2026-10-06 (branch `v2`) — E3 read out: adopt A3 (CRN + V2-S), `F` = A0.** A3 − A0 DoTA-CAP-dev macro **+0.0855 [+0.057, +0.114]** (n = 5, 5/5 +), A3 − A1 +0.098 [+0.086, +0.109]; CRN alone (A1 − A0, DoTA-dev) −0.015, not detectable, free rule FAIL. O1′ 5/5 for A1–A3. **The cubic T2 position prior `p_T2` (no pixels) scores 0.822 > A3 0.758**; post-hoc on dev, A3 − A0 survives position control at +0.023…+0.045, A2 − A0 does not. §18 signed after the read-out (guard disabled by hand; text unchanged since `59ee17e`). Amendment 10 (§19, Final + beyond-position read) signed 2026-10-06. `core/docs/v2/RESULTS_E3.md`.
 
 **2026-10-04 (branch `v2`) — P6 batch 1 read out (A0 + A1, seed 2099, T2-val only).** Guardrails PASS for
 both (micro 0.6586 / 0.6683 < oracle 0.6986; macro 0.6737 / 0.6705; window AUC ≈ macro → no C14 collapse). **CRN

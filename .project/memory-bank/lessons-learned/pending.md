@@ -1928,7 +1928,7 @@ raw-scale "mean score before the span" falls for free and reads as a fixed Gap S
 **Good:** min-max each clip first (`core.metrics.span_reads`), and require the inside mean NOT to fall alongside.
 **Rule:** Normalize per clip before comparing any within-clip location read between arms trained on different labels.
 **Files:** `core/metrics.py:span_reads`, `core/tools/e4_0_readout.py:mechanism`, proposal v2.1 §11.4.
-**Gate status.** Design-time; candidate.
+**Gate status.** Design-time; candidate. **Confirmed 2026-10-11 (E4-0):** min-max reads separated the floor drop (pre −0.29) from an inside drop (−0.155) that a raw read would have hidden; the Gap S claim was correctly refused.
 
 ## (bi) [HIGH] Colab - Publish checkpoints to Drive by tmp + rename, and never re-copy a verified one (2026-10-11)
 **Triggers:** publish, sync, Drive, checkpoint_last.pt, torch.load, "invalid header or archive is corrupted", resume
@@ -1941,4 +1941,15 @@ returns -1 and is renamed `*.corrupt-<stamp>` (never deleted) before the seed is
 **Rule:** Write every Drive artifact atomically and treat an unreadable checkpoint as "not trained", never as a crash.
 **Files:** `colab/v2/e4_0_a3ign.ipynb` (helpers override); same in-place `publish` in `colab/v2/e3_factorial.ipynb`
 and other v2 notebooks that copied it.
+**Gate status.** One occurrence (measured); candidate.
+
+## (bj) [MEDIUM] Experiments - Audit every inherited loss default against the corpus before calling a model "adopted" (2026-10-11)
+**Triggers:** default, LaGoVAD default, dvs_anchor_mode, span, inherited config, baseline parity, never chosen
+**Problem:** v2 adopted A3 with `dvs_anchor_mode=span` only because it was LaGoVAD's default; C29 had flagged it a month
+earlier, and the one-line switch was worth +0.040 macro (half of A3 − A0) once measured on a localizing model.
+**Bad:** carry a baseline's loss defaults into every arm and pre-register only the new components.
+**Good:** list every loss/label default in the adopted config with the corpus fact it assumes (here: anchor ≈ fully
+anomalous; T2 is 46 % positive) and test the ones whose assumption fails, before a costly arm is built on top.
+**Rule:** Check each inherited default's assumption against the training corpus before adopting a model.
+**Files:** `core/data/synthesis.py:83`, `core/config.py` (`loss.dvs_anchor_mode`), `core/docs/v2.1/RESULTS_E4_0.md`.
 **Gate status.** One occurrence (measured); candidate.

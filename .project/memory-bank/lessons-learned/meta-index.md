@@ -205,6 +205,7 @@ and `loss.bottomk_weight>0` (`abnormal_bottomk_loss`). A bad mode string raises.
 **Trained 2026-09-12 and both FAILED their pre-registered predictions** — the gap
 shrank, `auc_macro` fell, the score scale fell with it. The lesson stands; it is
 just not the bottleneck (C27 is). `RESULTS_DADA_PHASE1.md`.
+**Measured on a localizing model 2026-10-11 (T2, v2 A3, 5 seeds):** `ignore` **+0.040 [+0.035, +0.045]** DoTA-CAP-dev macro, adopted as `B` (`core/docs/v2.1/RESULTS_E4_0.md`). The Phase 1 failure was the regime (C27), not the label.
 → `core/data/synthesis.py:83`, `core/losses/dvs.py:16`, `core/losses/mil.py:47`, `core/train.py:295-302`
 
 ### C30 [HIGH] Experiments — an eval-time sampler seeded once per run leaks across items
