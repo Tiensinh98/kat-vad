@@ -40,9 +40,7 @@ all six core files + CLAUDE.md reviewed; counts re-measured: **109 Python files 
 > **+0.0398 [+0.035, +0.045]** (5/5, sd 0.004); `f_2` Δ +0.010 [+0.005, +0.015] (beyond-position sentence licensed);
 > guardrails PASS (T2-val macro 0.703 → 0.734, normal peak +0.013 of 0.02, O1′ 5/5). Mechanism: pre −0.29, argmax-in-span
 > +0.05, tail +0.03, but **inside mean −0.155 → no Gap S claim**: floor suppression, not coverage. `p_T2` 0.822 still >
-> A3-ign 0.791. Exploratory: Gap S on `B` is *sharper* (peak +0.87 @ +20, −0.04 @ +40; span cover −0.05) → SG-NM's
-> coverage target survives, its "pull the 0.55 baseline down" argument is spent. **Next: E4a on `B` — plan
-> `.project/plans/katvad-v2.1-e4a.md` awaiting the user's sign-off; no SG-NM code yet.**
+> A3-ign 0.791. **SG-NM CLOSED 2026-10-11: E4a gate FAIL (Δ −0.012 [−0.016, −0.008], `f_2` −0.003, T2-val −0.012; read-out `outputs/v2/v2_e4b/REPORTS/e4a_readout.md`); code never committed and reverted on the user's word. **v2.1 = `B` = A3-ign.**** Next: the second look of A3-ign on the sealed sets (§11.2).
 >
 > **TL;DR — where v2 stands (2026-10-07, after Final).** **Final READ OUT (§19, opened once 2026-10-06T14:21Z,
 > `outputs/v2/v2_final/`, P7 gate PASS 22/22). Nothing re-decides (P1): A3 stays adopted.**
@@ -137,7 +135,7 @@ Track 0b closed; T2 + Option A remain the live track. Partial update: `activeCon
 architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 13,833 source LOC, 582 collected); **docs 24 → 25** (+ `core/docs/D2CITY_EDA.md`).
 
-## 2026-10-11 (later) — **E4-0 read out: `B` = A3-ign; E4a planned** (branch `v2`)
+## 2026-10-11 (later) — **E4-0 read out: `B` = A3-ign; SG-NM closed** (branch `v2`)
 
 - Read-out `outputs/v2/v2_e4_0/REPORTS/e4_0_readout.md` (run by the user); record `core/docs/v2.1/RESULTS_E4_0.md`.
 - §11.4: t95 +0.0398 [+0.0347, +0.0450], `f_2` +0.0102 [+0.0048, +0.0154], guardrails PASS → **`B` = A3-ign = new `F`**.
@@ -148,8 +146,7 @@ architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
   ∋ 0 at ≥ 0.70 (n = 41); ego +0.039, non-ego +0.027; corr(AUC, `p_T2`) 0.135 → 0.147.
 - Gap S re-measured on `B`: pre-onset half gone, impact-locked fade sharper. SG-NM references move to `B`
   (argmax 0.664, pre 0.239, inside 0.708).
-- E4a needs segment labels the data path does not emit (`compose_sequence` returns only `pseudo_label`, all-zero on
-  unspliced abnormal windows). Plan `.project/plans/katvad-v2.1-e4a.md`; **build waits for the user**.
+- SG-NM CLOSED 2026-10-11: E4a gate FAIL (Δ −0.012 [−0.016, −0.008], `f_2` −0.003, T2-val −0.012; read-out `outputs/v2/v2_e4b/REPORTS/e4a_readout.md`); code never committed and reverted on the user's word. **v2.1 = `B` = A3-ign.**
 - Any later arm (incl. deferred Nexar) must carry `dvs_anchor_mode=ignore` to be comparable with `B`.
 
 ## 2026-10-11 — **v2.1 proposal reviewed + synced to code; E4-0 (A3-ign) added and built** (branch `v2`)
