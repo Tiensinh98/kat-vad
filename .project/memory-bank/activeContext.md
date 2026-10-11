@@ -41,7 +41,8 @@ all six core files + CLAUDE.md reviewed; counts re-measured: **109 Python files 
 > guardrails PASS (T2-val macro 0.703 → 0.734, normal peak +0.013 of 0.02, O1′ 5/5). Mechanism: pre −0.29, argmax-in-span
 > +0.05, tail +0.03, but **inside mean −0.155 → no Gap S claim**: floor suppression, not coverage. `p_T2` 0.822 still >
 > A3-ign 0.791. **SECOND LOOK READ (2026-10-11, §23): A3-ign DoTA-CAP-eval **0.8120** vs A3 0.7785, Δ **+0.0376 [+0.033, +0.043]** (5/5); `f_2` Δ +0.016 [+0.010, +0.021]; T2-test macro 0.720 (+0.025), window AUC flat, O1′ 5/5; optimism −0.021 (= A3's). Both S5 sentences licensed. `p_T2` 0.8256 still > A3-ign** (`RESULTS_E4_0.md` §6, `REPORT_V2_RESULTS.md` §4.5). **v2 is closed on A3-ign.**
-> Next candidate: DF8 position-shift stress test (no training). **SG-NM CLOSED 2026-10-11: E4a gate FAIL (Δ −0.012 [−0.016, −0.008], `f_2` −0.003, T2-val −0.012; read-out `outputs/v2/v2_e4b/REPORTS/e4a_readout.md`); code never committed and reverted on the user's word. **v2's training recipe = `B` = A3-ign.****
+> Next: DF8 position-shift stress test — plan `.project/plans/katvad-v2-df8-position-shift.md` (proposal's 0.1–0.9 grid
+> infeasible: ≤ 3 clips; same-length early/late swap 0.30 ↔ 0.70 on 491 CAP-dev clips); **DEFERRED by the user 2026-10-11**. **SG-NM CLOSED 2026-10-11: E4a gate FAIL (Δ −0.012 [−0.016, −0.008], `f_2` −0.003, T2-val −0.012; read-out `outputs/v2/v2_e4b/REPORTS/e4a_readout.md`); code never committed and reverted on the user's word. **v2's training recipe = `B` = A3-ign.****
 >
 > **TL;DR — where v2 stands (2026-10-07, after Final).** **Final READ OUT (§19, opened once 2026-10-06T14:21Z,
 > `outputs/v2/v2_final/`, P7 gate PASS 22/22). Nothing re-decides (P1): A3 stays adopted.**
