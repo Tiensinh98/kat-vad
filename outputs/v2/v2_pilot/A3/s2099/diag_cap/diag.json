@@ -1,0 +1,51 @@
+{
+  "addendum": "core/docs/v2/PREREG_ADDENDUM.md \u00a74, \u00a714 (O1-O7)",
+  "arm": {
+    "crn": "R2",
+    "motion": "vit_s_k710_dl_from_giant",
+    "motion_dim": 384
+  },
+  "checkpoint": "/content/drive/MyDrive/Thesis-V2/outputs/v2_pilot/A3/s2099/checkpoint_last.pt",
+  "dota_dev_clips_unlabelled": 569,
+  "dota_split": "dota_cap_dev",
+  "global_step": 1740,
+  "guardrails": {
+    "a0_micro": 0.6585987163247722,
+    "checks": {
+      "macro_at_least_micro": false,
+      "micro_below_clip_oracle": false,
+      "micro_within_a0_margin": true
+    },
+    "clip_oracle_micro": 0.6986450798025032,
+    "macro": 0.7051712407311965,
+    "micro": 0.7160620693715699,
+    "pass": false,
+    "score_norm": "none",
+    "window_level_auc": 0.7637466934456745
+  },
+  "motion_share": {
+    "motion_share": {
+      "first": 0.0,
+      "last": 0.10752732306718826,
+      "max": 0.12226314842700958,
+      "records": 1740
+    },
+    "w_u_norm": {
+      "first": 0.0,
+      "last": 1.1017963886260986,
+      "max": 1.1017963886260986,
+      "records": 1740
+    }
+  },
+  "position_r2": {
+    "a0_v_t": -0.2009387679800183,
+    "input": 0.049411136547464984,
+    "v_t": 0.009557712674355012
+  },
+  "run": "A3_s2099",
+  "source_shortcut_auc": {
+    "v_t": 0.5829791126092263,
+    "y_bin": 0.5372014857207523
+  },
+  "t2_val_windows": 645
+}

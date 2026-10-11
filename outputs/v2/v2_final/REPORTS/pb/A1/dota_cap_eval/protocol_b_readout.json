@@ -1,0 +1,55 @@
+{
+  "arm": {
+    "crn": "R2",
+    "motion": "none"
+  },
+  "checkpoints": {
+    "s2024": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A1/s2024/checkpoint_last.pt",
+    "s2025": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A1/s2025/checkpoint_last.pt",
+    "s2026": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A1/s2026/checkpoint_last.pt",
+    "s2027": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A1/s2027/checkpoint_last.pt",
+    "s2028": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A1/s2028/checkpoint_last.pt"
+  },
+  "clips": 560,
+  "excluded_featureless": [],
+  "global_steps": {
+    "s2024": 1740,
+    "s2025": 1740,
+    "s2026": 1740,
+    "s2027": 1740,
+    "s2028": 1740
+  },
+  "input_dir": "/content/final/bake/A1_R2/DoTA_eval_s3_from_s1",
+  "macro": {
+    "clips": 560,
+    "clusters": 85,
+    "high": 0.7050062072848852,
+    "low": 0.6610502331762562,
+    "mean": 0.6834676427906952
+  },
+  "per_run_macro": {
+    "s2024": 0.6582818316997402,
+    "s2025": 0.6677824833560898,
+    "s2026": 0.6691448883437846,
+    "s2027": 0.6694394123565643,
+    "s2028": 0.6647222831241552
+  },
+  "position_ruler": {
+    "clips": 560,
+    "clusters": 85,
+    "high": 0.5832424721770314,
+    "low": 0.540939942965377,
+    "mean": 0.5616562843225555
+  },
+  "protocol": "B: s1[::3], whole clip, native frames (addendum \u00a78.1 J1-J5)",
+  "runs": [
+    "s2024",
+    "s2025",
+    "s2026",
+    "s2027",
+    "s2028"
+  ],
+  "split": "dota_cap_eval",
+  "split_clips": 560,
+  "two_class": 560
+}

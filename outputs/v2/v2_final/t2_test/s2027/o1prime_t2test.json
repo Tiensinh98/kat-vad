@@ -1,0 +1,292 @@
+{
+  "a0": "A0",
+  "addendum": "core/docs/v2/PREREG_ADDENDUM.md \u00a717 (Q2, Q4, Q5)",
+  "arms": {
+    "A0": {
+      "reference": true,
+      "survivor": true
+    },
+    "A1": {
+      "by": "O1' (Amendment 8)",
+      "o1_prime_t2_test": {
+        "checks": {
+          "micro_within_a0_margin": true,
+          "not_collapsed": true
+        },
+        "collapsed": false,
+        "macro_delta": 0.006493581358743561,
+        "micro_delta": 0.041909739761737175,
+        "pass": true,
+        "window_auc_delta": 0.06784424588844629
+      },
+      "o1_prime_t2_val": {
+        "checks": {
+          "micro_within_a0_margin": true,
+          "not_collapsed": true
+        },
+        "collapsed": false,
+        "macro_delta": -7.002685822843357e-05,
+        "micro_delta": 0.022175599562283543,
+        "pass": true,
+        "window_auc_delta": 0.03169393553443722
+      },
+      "o1_t2_test": false,
+      "o1_t2_val": false,
+      "reference": false,
+      "survivor": true
+    },
+    "A2": {
+      "by": "O1' (Amendment 8)",
+      "o1_prime_t2_test": {
+        "checks": {
+          "micro_within_a0_margin": true,
+          "not_collapsed": true
+        },
+        "collapsed": false,
+        "macro_delta": 0.07461106775482851,
+        "micro_delta": 0.09665420720983142,
+        "pass": true,
+        "window_auc_delta": 0.12271723654072342
+      },
+      "o1_prime_t2_val": {
+        "checks": {
+          "micro_within_a0_margin": true,
+          "not_collapsed": true
+        },
+        "collapsed": false,
+        "macro_delta": 0.03572568635556084,
+        "micro_delta": 0.07313979436220619,
+        "pass": true,
+        "window_auc_delta": 0.08909326932497319
+      },
+      "o1_t2_test": false,
+      "o1_t2_val": false,
+      "reference": false,
+      "survivor": true
+    },
+    "A3": {
+      "by": "O1' (Amendment 8)",
+      "o1_prime_t2_test": {
+        "checks": {
+          "micro_within_a0_margin": true,
+          "not_collapsed": true
+        },
+        "collapsed": false,
+        "macro_delta": 0.05264039761806538,
+        "micro_delta": 0.08896650418674634,
+        "pass": true,
+        "window_auc_delta": 0.11729019211324576
+      },
+      "o1_prime_t2_val": {
+        "checks": {
+          "micro_within_a0_margin": true,
+          "not_collapsed": true
+        },
+        "collapsed": false,
+        "macro_delta": 0.04664273226499038,
+        "micro_delta": 0.06507750164461523,
+        "pass": true,
+        "window_auc_delta": 0.05970167532085824
+      },
+      "o1_t2_test": false,
+      "o1_t2_val": false,
+      "reference": false,
+      "survivor": true
+    }
+  },
+  "data_dir": "/content/final/stage/corpus",
+  "motion_stream_dropped": false,
+  "runs": {
+    "A0": {
+      "arm": {
+        "crn": "none",
+        "motion": "none"
+      },
+      "checkpoint": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A0/s2027/checkpoint_last.pt",
+      "global_step": 1740,
+      "input_dir": "/content/final/stage/A0_T2",
+      "motion": false,
+      "windows": 1106
+    },
+    "A1": {
+      "arm": {
+        "crn": "R2",
+        "motion": "none"
+      },
+      "checkpoint": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A1/s2027/checkpoint_last.pt",
+      "global_step": 1740,
+      "input_dir": "/content/final/stage/A1_T2",
+      "motion": false,
+      "windows": 1106
+    },
+    "A2": {
+      "arm": {
+        "crn": "none",
+        "motion": "vit_s_k710_dl_from_giant"
+      },
+      "checkpoint": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A2/s2027/checkpoint_last.pt",
+      "global_step": 1740,
+      "input_dir": "/content/final/stage/A2_T2",
+      "motion": true,
+      "windows": 1106
+    },
+    "A3": {
+      "arm": {
+        "crn": "R2",
+        "motion": "vit_s_k710_dl_from_giant"
+      },
+      "checkpoint": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A3/s2027/checkpoint_last.pt",
+      "global_step": 1740,
+      "input_dir": "/content/final/stage/A3_T2",
+      "motion": true,
+      "windows": 1106
+    }
+  },
+  "t2_test": {
+    "A0": {
+      "a0_micro": null,
+      "checks": {
+        "macro_at_least_micro": true,
+        "micro_below_clip_oracle": true
+      },
+      "clip_oracle_micro": 0.7036535859269283,
+      "macro": 0.6348168016130273,
+      "micro": 0.622606738061966,
+      "pass": true,
+      "score_norm": "none",
+      "window_level_auc": 0.6581127091888324
+    },
+    "A1": {
+      "a0_micro": 0.622606738061966,
+      "checks": {
+        "macro_at_least_micro": false,
+        "micro_below_clip_oracle": true,
+        "micro_within_a0_margin": true
+      },
+      "clip_oracle_micro": 0.7036535859269283,
+      "macro": 0.6413103829717709,
+      "micro": 0.6645164778237032,
+      "pass": false,
+      "score_norm": "none",
+      "window_level_auc": 0.7259569550772786
+    },
+    "A2": {
+      "a0_micro": 0.622606738061966,
+      "checks": {
+        "macro_at_least_micro": false,
+        "micro_below_clip_oracle": false,
+        "micro_within_a0_margin": true
+      },
+      "clip_oracle_micro": 0.7036535859269283,
+      "macro": 0.7094278693678558,
+      "micro": 0.7192609452717974,
+      "pass": false,
+      "score_norm": "none",
+      "window_level_auc": 0.7808299457295558
+    },
+    "A3": {
+      "a0_micro": 0.622606738061966,
+      "checks": {
+        "macro_at_least_micro": false,
+        "micro_below_clip_oracle": false,
+        "micro_within_a0_margin": true
+      },
+      "clip_oracle_micro": 0.7036535859269283,
+      "macro": 0.6874571992310927,
+      "micro": 0.7115732422487123,
+      "pass": false,
+      "score_norm": "none",
+      "window_level_auc": 0.7754029013020781
+    }
+  },
+  "t2_val": {
+    "A0": {
+      "a0_micro": null,
+      "checks": {
+        "macro_at_least_micro": true,
+        "micro_below_clip_oracle": true
+      },
+      "clip_oracle_micro": 0.6986450798025032,
+      "macro": 0.6637592327373056,
+      "micro": 0.6453593001028318,
+      "pass": true,
+      "score_norm": "none",
+      "window_level_auc": 0.6877388067012834
+    },
+    "A1": {
+      "a0_micro": 0.6453593001028318,
+      "checks": {
+        "macro_at_least_micro": false,
+        "micro_below_clip_oracle": true,
+        "micro_within_a0_margin": true
+      },
+      "clip_oracle_micro": 0.6986450798025032,
+      "macro": 0.6636892058790772,
+      "micro": 0.6675348996651154,
+      "o1_prime": {
+        "checks": {
+          "micro_within_a0_margin": true,
+          "not_collapsed": true
+        },
+        "collapsed": false,
+        "macro_delta": -7.002685822843357e-05,
+        "micro_delta": 0.022175599562283543,
+        "pass": true,
+        "window_auc_delta": 0.03169393553443722
+      },
+      "pass": false,
+      "score_norm": "none",
+      "window_level_auc": 0.7194327422357206
+    },
+    "A2": {
+      "a0_micro": 0.6453593001028318,
+      "checks": {
+        "macro_at_least_micro": false,
+        "micro_below_clip_oracle": false,
+        "micro_within_a0_margin": true
+      },
+      "clip_oracle_micro": 0.6986450798025032,
+      "macro": 0.6994849190928665,
+      "micro": 0.718499094465038,
+      "o1_prime": {
+        "checks": {
+          "micro_within_a0_margin": true,
+          "not_collapsed": true
+        },
+        "collapsed": false,
+        "macro_delta": 0.03572568635556084,
+        "micro_delta": 0.07313979436220619,
+        "pass": true,
+        "window_auc_delta": 0.08909326932497319
+      },
+      "pass": false,
+      "score_norm": "none",
+      "window_level_auc": 0.7768320760262566
+    },
+    "A3": {
+      "a0_micro": 0.6453593001028318,
+      "checks": {
+        "macro_at_least_micro": false,
+        "micro_below_clip_oracle": false,
+        "micro_within_a0_margin": true
+      },
+      "clip_oracle_micro": 0.6986450798025032,
+      "macro": 0.710401965002296,
+      "micro": 0.710436801747447,
+      "o1_prime": {
+        "checks": {
+          "micro_within_a0_margin": true,
+          "not_collapsed": true
+        },
+        "collapsed": false,
+        "macro_delta": 0.04664273226499038,
+        "micro_delta": 0.06507750164461523,
+        "pass": true,
+        "window_auc_delta": 0.05970167532085824
+      },
+      "pass": false,
+      "score_norm": "none",
+      "window_level_auc": 0.7474404820221416
+    }
+  }
+}

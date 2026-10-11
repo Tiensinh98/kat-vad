@@ -1,0 +1,55 @@
+{
+  "arm": {
+    "crn": "R2",
+    "motion": "vit_s_k710_dl_from_giant"
+  },
+  "checkpoints": {
+    "s2024": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e4_0/A3ign/s2024/checkpoint_last.pt",
+    "s2025": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e4_0/A3ign/s2025/checkpoint_last.pt",
+    "s2026": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e4_0/A3ign/s2026/checkpoint_last.pt",
+    "s2027": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e4_0/A3ign/s2027/checkpoint_last.pt",
+    "s2028": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e4_0/A3ign/s2028/checkpoint_last.pt"
+  },
+  "clips": 569,
+  "excluded_featureless": [],
+  "global_steps": {
+    "s2024": 1740,
+    "s2025": 1740,
+    "s2026": 1740,
+    "s2027": 1740,
+    "s2028": 1740
+  },
+  "input_dir": "/content/e4_0/stage/A3_CAP",
+  "macro": {
+    "clips": 569,
+    "clusters": 91,
+    "high": 0.8077256547730837,
+    "low": 0.7740308680516995,
+    "mean": 0.791155125086156
+  },
+  "per_run_macro": {
+    "s2024": 0.7819452487994817,
+    "s2025": 0.7797120874339852,
+    "s2026": 0.7847360874197381,
+    "s2027": 0.7816293310353966,
+    "s2028": 0.7773393857917902
+  },
+  "position_ruler": {
+    "clips": 569,
+    "clusters": 91,
+    "high": 0.5764967326968747,
+    "low": 0.5379905922012269,
+    "mean": 0.5573060693077054
+  },
+  "protocol": "B: s1[::3], whole clip, native frames (addendum \u00a78.1 J1-J5)",
+  "runs": [
+    "s2024",
+    "s2025",
+    "s2026",
+    "s2027",
+    "s2028"
+  ],
+  "split": "dota_cap_dev",
+  "split_clips": 569,
+  "two_class": 569
+}

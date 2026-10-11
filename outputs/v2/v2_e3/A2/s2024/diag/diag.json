@@ -1,0 +1,62 @@
+{
+  "addendum": "core/docs/v2/PREREG_ADDENDUM.md \u00a74, \u00a714 (O1-O7)",
+  "arm": {
+    "crn": "none",
+    "motion": "vit_s_k710_dl_from_giant",
+    "motion_dim": 384
+  },
+  "checkpoint": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A2/s2024/checkpoint_last.pt",
+  "dota_dev_clips_unlabelled": 569,
+  "dota_split": "dota_cap_dev",
+  "global_step": 1740,
+  "guardrails": {
+    "a0_micro": 0.6445891645562907,
+    "checks": {
+      "macro_at_least_micro": false,
+      "micro_below_clip_oracle": false,
+      "micro_within_a0_margin": true
+    },
+    "clip_oracle_micro": 0.6986450798025032,
+    "macro": 0.6827905513220175,
+    "micro": 0.7109002337818036,
+    "o1_prime": {
+      "checks": {
+        "micro_within_a0_margin": true,
+        "not_collapsed": true
+      },
+      "collapsed": false,
+      "macro_delta": 0.03549993493431014,
+      "micro_delta": 0.06631106922551289,
+      "pass": true,
+      "window_auc_delta": 0.10590771039482705
+    },
+    "pass": false,
+    "score_norm": "none",
+    "window_level_auc": 0.7790731850690702
+  },
+  "motion_share": {
+    "motion_share": {
+      "first": 0.0,
+      "last": 0.14012977480888367,
+      "max": 0.1452821046113968,
+      "records": 1740
+    },
+    "w_u_norm": {
+      "first": 0.0,
+      "last": 1.2743561267852783,
+      "max": 1.2743561267852783,
+      "records": 1740
+    }
+  },
+  "position_r2": {
+    "a0_v_t": -0.226500075187694,
+    "input": -0.1191036915845256,
+    "v_t": -0.1279985874518672
+  },
+  "run": "A2_s2024",
+  "source_shortcut_auc": {
+    "v_t": 0.9997183799338781,
+    "y_bin": 0.5117255579536177
+  },
+  "t2_val_windows": 645
+}

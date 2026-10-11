@@ -1,0 +1,61 @@
+{
+  "arm": {
+    "crn": "none",
+    "motion": "none"
+  },
+  "checkpoints": {
+    "s2024": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A0/s2024/checkpoint_last.pt",
+    "s2025": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A0/s2025/checkpoint_last.pt",
+    "s2026": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A0/s2026/checkpoint_last.pt",
+    "s2027": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A0/s2027/checkpoint_last.pt",
+    "s2028": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A0/s2028/checkpoint_last.pt"
+  },
+  "clips": 695,
+  "excluded_featureless": [
+    "TNZv-NBcV5U_002389",
+    "TNZv-NBcV5U_002660",
+    "W6YrlYyWguc_005597",
+    "W6YrlYyWguc_005927",
+    "nADqn-DZ-Dc_000075"
+  ],
+  "global_steps": {
+    "s2024": 1740,
+    "s2025": 1740,
+    "s2026": 1740,
+    "s2027": 1740,
+    "s2028": 1740
+  },
+  "input_dir": "/content/final/stage/DoTA_s1_ncc_eval",
+  "macro": {
+    "clips": 695,
+    "clusters": 86,
+    "high": 0.7157694257770403,
+    "low": 0.6770462136239508,
+    "mean": 0.6971140958391413
+  },
+  "per_run_macro": {
+    "s2024": 0.6454505611369039,
+    "s2025": 0.6807721240181686,
+    "s2026": 0.6563422945658586,
+    "s2027": 0.6883293667482049,
+    "s2028": 0.6982918391952802
+  },
+  "position_ruler": {
+    "clips": 695,
+    "clusters": 86,
+    "high": 0.5956465060607173,
+    "low": 0.5554476495316808,
+    "mean": 0.5754154232663596
+  },
+  "protocol": "B: s1[::3], whole clip, native frames (addendum \u00a78.1 J1-J5)",
+  "runs": [
+    "s2024",
+    "s2025",
+    "s2026",
+    "s2027",
+    "s2028"
+  ],
+  "split": "dota_eval",
+  "split_clips": 700,
+  "two_class": 695
+}

@@ -1,0 +1,36 @@
+{
+  "addendum": "core/docs/v2/PREREG_ADDENDUM.md \u00a74, \u00a714 (O1-O7)",
+  "arm": {
+    "crn": "none",
+    "motion": "none",
+    "motion_dim": 0
+  },
+  "checkpoint": "/content/drive/MyDrive/Thesis-V2/outputs/v2_p4_retrain/s2026/stage2_kip_off/checkpoint_last.pt",
+  "dota_dev_clips_unlabelled": 702,
+  "global_step": 2040,
+  "guardrails": {
+    "a0_micro": null,
+    "checks": {
+      "macro_at_least_micro": false,
+      "micro_below_clip_oracle": false
+    },
+    "clip_oracle_micro": 0.6986450798025032,
+    "macro": 0.6523916856583718,
+    "micro": 0.7567359359884605,
+    "pass": false,
+    "score_norm": "none",
+    "window_level_auc": 0.9613255608895855
+  },
+  "motion_share": null,
+  "position_r2": {
+    "a0_v_t": null,
+    "input": -0.21391709603262066,
+    "v_t": -0.21975436059600484
+  },
+  "run": "p4_s2026",
+  "source_shortcut_auc": {
+    "v_t": 0.9998808322090481,
+    "y_bin": 0.5428518594292943
+  },
+  "t2_val_windows": 645
+}

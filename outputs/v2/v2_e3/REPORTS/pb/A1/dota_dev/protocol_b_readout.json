@@ -1,0 +1,53 @@
+{
+  "arm": {
+    "crn": "R2",
+    "motion": "none"
+  },
+  "checkpoints": {
+    "s2024": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A1/s2024/checkpoint_last.pt",
+    "s2025": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A1/s2025/checkpoint_last.pt",
+    "s2026": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A1/s2026/checkpoint_last.pt",
+    "s2027": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A1/s2027/checkpoint_last.pt",
+    "s2028": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A1/s2028/checkpoint_last.pt"
+  },
+  "clips": 702,
+  "global_steps": {
+    "s2024": 1740,
+    "s2025": 1740,
+    "s2026": 1740,
+    "s2027": 1740,
+    "s2028": 1740
+  },
+  "input_dir": "/content/e3/stage/A1_DOTA",
+  "macro": {
+    "clips": 702,
+    "clusters": 93,
+    "high": 0.6778510361049059,
+    "low": 0.6426218773688899,
+    "mean": 0.6601635932728978
+  },
+  "per_run_macro": {
+    "s2024": 0.6297577624303197,
+    "s2025": 0.6504116176546004,
+    "s2026": 0.6484328510009244,
+    "s2027": 0.6463931175848341,
+    "s2028": 0.6472670561342044
+  },
+  "position_ruler": {
+    "clips": 702,
+    "clusters": 93,
+    "high": 0.5863226928932258,
+    "low": 0.5464894326401094,
+    "mean": 0.5663323568735095
+  },
+  "protocol": "B: s1[::3], whole clip, native frames (addendum \u00a78.1 J1-J5)",
+  "runs": [
+    "s2024",
+    "s2025",
+    "s2026",
+    "s2027",
+    "s2028"
+  ],
+  "split": "dota_dev",
+  "two_class": 702
+}

@@ -44,5 +44,4 @@ datasets/
 # durable record. `outputs/v*/*` (not `outputs/v*`) so the REPORTS dir can be re-included;
 # *.npz above still applies inside it.
 outputs/v*/*
-!outputs/v2/REPORTS/
-
+!outputs/v2/*

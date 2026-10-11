@@ -1,0 +1,71 @@
+{
+  "addendum": "core/docs/v2/PREREG_ADDENDUM.md \u00a74, \u00a714 (O1-O7)",
+  "arm": {
+    "crn": "R2",
+    "motion": "vit_s_k710_dl_from_giant",
+    "motion_dim": 384
+  },
+  "checkpoint": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A3/s2028/checkpoint_last.pt",
+  "dota_dev_clips_unlabelled": 569,
+  "dota_split": "dota_cap_dev",
+  "global_step": 1740,
+  "guardrails": {
+    "a0_micro": 0.6458149511914149,
+    "checks": {
+      "macro_at_least_micro": false,
+      "micro_below_clip_oracle": false,
+      "micro_within_a0_margin": true
+    },
+    "clip_oracle_micro": 0.6986450798025032,
+    "macro": 0.7012912116978692,
+    "micro": 0.710268114130803,
+    "o1_prime": {
+      "checks": {
+        "micro_within_a0_margin": true,
+        "not_collapsed": true
+      },
+      "collapsed": false,
+      "macro_delta": 0.04262614875879189,
+      "micro_delta": 0.06445316293938819,
+      "pass": true,
+      "window_auc_delta": 0.07875722543352603
+    },
+    "pass": false,
+    "score_norm": "none",
+    "window_level_auc": 0.7622097580092094
+  },
+  "motion_share": {
+    "motion_share": {
+      "first": 0.0,
+      "last": 0.11903410404920578,
+      "max": 0.12248755991458893,
+      "records": 1740
+    },
+    "w_u_norm": {
+      "first": 0.0,
+      "last": 1.1261394023895264,
+      "max": 1.1261394023895264,
+      "records": 1740
+    }
+  },
+  "position_r2": {
+    "a0_v_t": -0.2399830716761846,
+    "input": 0.049411136547464984,
+    "v_t": 0.03138981768928795
+  },
+  "run": "A3_s2028",
+  "source_shortcut_auc": {
+    "v_t": 0.5959784497740701,
+    "y_bin": 0.5463820800090533
+  },
+  "t2_val_reads": {
+    "normal_window_peak": 0.6110558400607177,
+    "span_profile": {
+      "argmax_in_span": 0.6595744680851063,
+      "clips": 470,
+      "in_mean": 0.7588548708779665,
+      "pre_mean": 0.5250679312857877
+    }
+  },
+  "t2_val_windows": 645
+}
