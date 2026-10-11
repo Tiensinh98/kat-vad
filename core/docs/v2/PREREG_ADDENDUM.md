@@ -679,3 +679,22 @@ sealed-set number for A3-ign is a second look at an opened set. Read-out `core/d
 - **Normal-window peak:** the mean over all-normal T2-val windows of the mean top-k `σ(y^bin)`, k = max(1, ⌊L/5⌋). These are the steps `L_MIL` pushes down.
 - **Guardrails** compare seed means of T2-val macro and normal-window peak against A3, re-diagnosed with the same code. O1′ must pass on every A3-ign seed, against E3's A0 of the same seed.
 - **T2-val span profile** (the in-domain replicate) is printed per seed, never gated.
+
+## 23. Amendment 12 (2026-10-11) — the second look of A3-ign on the opened sets (S1–S8)
+
+**Authorized by the user on 2026-10-11, before any sealed-set score of A3-ign exists; not reviewed by the advisor.**
+§19 opened DoTA-CAP-eval and T2-test once (2026-10-06, `OPENED.json`) for A0–A3. E4-0 (§22) later adopted A3-ign on
+DoTA-CAP-dev. This amendment fixes, before the read, how A3-ign is read on those already-opened sets. It is a
+**second look at an opened set**, and every number it produces carries that label. Tool `core.tools.second_look_readout`;
+runbook `colab/v2/e4_0_second_look.ipynb`.
+
+| # | Choice | Why |
+|---|---|---|
+| S1 | **What is read.** A3-ign's five E4-0 checkpoints (seeds 2024–2028, step 1740) on **DoTA-CAP-eval** (560 clips, `protocol_b_eval --final`, input = the Final's A3 CAP-eval bake: same T2-train statistics, same CRN R2 + V2-S) and on **T2-test** (1,106 windows, `v2_guard_test`, A0 of the same seed as the O1′ reference). Nothing else: no DoTA-eval (A3-ign has the video stream; DoTA pixels are gone, Amendment 1), no other arm, no other setting | The only arm whose sealed numbers are missing is the one the project now adopts |
+| S2 | **Nothing re-decides.** `B` = A3-ign stands whatever this read shows (§22 E3); §19's numbers for A0–A3 stay as recorded; no later step selects, tunes or seeds on these numbers | The eval set has been opened; a second selection on it would be fitting it |
+| S3 | **Contrast.** A3-ign − A3, paired by seed with the Final's A3 runs, on DoTA-CAP-eval macro: the paired t95 of the per-seed Δ (t = 2.776). Printed only: clip-level Δ (cluster bootstrap over source videos, B = 10,000), A3-ign − A0, optimism (dev − eval) of A3-ign beside A3's | Same statistic as §22 and §19, so dev and eval read alike |
+| S4 | **Position control.** `f_2 = z(ȳ) + 2·z(p_T2)` on seed-averaged scores, `p_T2` = the Final's DoTA-CAP-eval prior (fit on T2 only); Δ (A3-ign − A3) with the cluster bootstrap; `p_T2` macro printed beside every macro | §19 P4/P5 |
+| S5 | **Sentences, by outcome.** t95 entirely above 0 → "Dropping the whole-anchor DVS label improves DoTA-CAP (n/1397) detection, on dev and on a second look at the opened eval set." t95 contains 0 → "On the second look, A3-ign's gain over A3 is not detectable at this size (dev: +0.040)." t95 entirely below 0 → "On the second look, A3-ign scores below A3: the dev gain did not hold. A3-ign stays the recipe by §22 (no re-decision); both numbers are reported." "… beyond the position prior (second look)" only if the `f_2` Δ interval lies entirely above 0 | Fixed before the read (lesson 14) |
+| S6 | **T2-test guardrail.** O1′ against A0 on every seed; the paired t95 of T2-test macro Δ (A3-ign − A3, against the Final's A3 rows) is printed. A failure is reported as "guardrail failed on the second look"; nothing re-decides | §17 Q4–Q5 |
+| S7 | **Integrity gates, before any number is printed.** A3-ign's eval steps == its E4-0 dev steps (1740, J10); its eval clips == the Final's A3 CAP-eval clips; the Final's A3 eval steps == E3's; every T2-test read has 1,106 windows; A0's T2-test macro re-read here == the Final's within `V2_FINAL_DEV_TOL` (1e-4). Any failure stops the read-out | The pairing is only valid on the same clips, windows and checkpoints |
+| S8 | **Once.** The notebook writes `SECOND_LOOK_OPENED.json` before scoring; a re-run resumes and skips every output that exists; nothing is re-scored with other settings | §19 "once means once" |

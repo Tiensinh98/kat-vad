@@ -608,6 +608,11 @@ V2_E4_0_PEAK_MARGIN = 0.02  # §11.1 guardrail: normal-window peak rises at most
 V2_E4_0_TAIL_FRAMES = 30  # H2(a)'s w: T2-train median span 3.02 s at DoTA's 10 fps
 V2_E4_0_TAIL_CLIPS = 277  # H2(a)'s tail-clip count on DoTA-CAP-dev at that w (regression gate)
 
+# --- v2 second look of A3-ign on the opened sets (addendum §23, Amendment 12) ---
+V2_SL_DIR = "second_look"  # under the E4-0 output dir
+V2_SL_T2_TEST_WINDOWS = 1106  # S7: every T2-test read has exactly these windows
+V2_SL_CAP_EVAL_CLIPS = 560  # S1: DoTA-CAP-eval
+
 # ---------------------------------------------------------------------------
 # Evaluation score pooling (lesson C12)
 #

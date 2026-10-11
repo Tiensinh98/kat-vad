@@ -208,6 +208,17 @@ No training: the 20 E3 checkpoints are scored on the sets E3 never read. Runbook
    prints macro, optimism (dev − eval), contrasts (descriptive), share bins, DoTA micro/AP under per-clip min-max,
    `p_T2` / `t/N`, the P4 table `f_w = z(ȳ) + w·z(p_T2)` for w ∈ {1, 2} and the P5 sentences at w = 2.
 
+## 6e. E4-0 (A3-ign) and its second look (addendum §22, §23)
+
+- **E4-0** (`colab/v2/e4_0_a3ign.ipynb`, `core.tools.e4_0_readout`): A3 + `loss.dvs_anchor_mode=ignore`, 5 seeds →
+  **adopt A3-ign** on DoTA-CAP-dev (`RESULTS_E4_0.md`). Every later v2 arm carries `ignore`.
+- **Second look** (`colab/v2/e4_0_second_look.ipynb`, `core.tools.second_look_readout`): A3-ign's five checkpoints on
+  the sets §19 already opened — DoTA-CAP-eval (`protocol_b_eval --final` on the Final's A3 CAP-eval bake) and T2-test
+  (`v2_guard_test`, A0 + A3-ign per seed). Outputs `outputs/v2_e4_0/second_look/`, marker `SECOND_LOOK_OPENED.json`.
+- `second_look_readout --e3-dir <v2_e3> --e4-dir <v2_e4_0> --final-dir <v2_final> --sl-dir <…/second_look>` runs the
+  S7 gates first (same checkpoints, same 560 clips, 1,106 T2-test windows, A0's T2-test macro == the Final's within
+  1e-4), then pairs A3-ign with the Final's A3 by seed and prints the §23 S5 sentence. Nothing re-decides (S2).
+
 ## 7. Checkpoint compatibility
 
 - v1 / phase-4 / A0 checkpoints have no `model.motion_dim` or `v2` section; they load as A0.

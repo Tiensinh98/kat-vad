@@ -139,6 +139,8 @@ Gap N is untouched, as expected.
 - **SG-NM closed 2026-10-11**: a training-only normality branch on `B` failed its pre-registered frozen-trunk gate
   (Δ rank-avg − `y^bin` −0.012 [−0.016, −0.008], `f_2` −0.003 [−0.006, −0.001], T2-val −0.012, 5/5 seeds negative;
   read-out `outputs/v2/v2_e4b/REPORTS/e4a_readout.md`). Not pursued; its code was never committed.
+- **Second look pre-registered**: addendum §23 (Amendment 12) reads A3-ign once on DoTA-CAP-eval and T2-test, paired
+  with the Final's A3 (`colab/v2/e4_0_second_look.ipynb`); its result is labelled a second look and re-decides nothing.
 - **Any arm trained after this date carries `dvs_anchor_mode = ignore`**, including Nexar (deferred) if it is meant to
   be comparable with `B`.
 

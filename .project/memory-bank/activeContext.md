@@ -40,7 +40,9 @@ all six core files + CLAUDE.md reviewed; counts re-measured: **109 Python files 
 > **+0.0398 [+0.035, +0.045]** (5/5, sd 0.004); `f_2` Δ +0.010 [+0.005, +0.015] (beyond-position sentence licensed);
 > guardrails PASS (T2-val macro 0.703 → 0.734, normal peak +0.013 of 0.02, O1′ 5/5). Mechanism: pre −0.29, argmax-in-span
 > +0.05, tail +0.03, but **inside mean −0.155 → no Gap S claim**: floor suppression, not coverage. `p_T2` 0.822 still >
-> A3-ign 0.791. **SG-NM CLOSED 2026-10-11: E4a gate FAIL (Δ −0.012 [−0.016, −0.008], `f_2` −0.003, T2-val −0.012; read-out `outputs/v2/v2_e4b/REPORTS/e4a_readout.md`); code never committed and reverted on the user's word. **v2's training recipe = `B` = A3-ign.**** Next: the second look of A3-ign on the sealed sets (§11.2).
+> A3-ign 0.791. **Second look BUILT (2026-10-11, addendum §23 Amendment 12, signed):** `colab/v2/e4_0_second_look.ipynb`
+> + `core.tools.second_look_readout` — A3-ign on DoTA-CAP-eval + T2-test, paired with the Final's A3; nothing re-decides.
+> **Next (user): upload → run → paste `second_look_readout.md`.** **SG-NM CLOSED 2026-10-11: E4a gate FAIL (Δ −0.012 [−0.016, −0.008], `f_2` −0.003, T2-val −0.012; read-out `outputs/v2/v2_e4b/REPORTS/e4a_readout.md`); code never committed and reverted on the user's word. **v2's training recipe = `B` = A3-ign.****
 >
 > **TL;DR — where v2 stands (2026-10-07, after Final).** **Final READ OUT (§19, opened once 2026-10-06T14:21Z,
 > `outputs/v2/v2_final/`, P7 gate PASS 22/22). Nothing re-decides (P1): A3 stays adopted.**
