@@ -1929,3 +1929,16 @@ raw-scale "mean score before the span" falls for free and reads as a fixed Gap S
 **Rule:** Normalize per clip before comparing any within-clip location read between arms trained on different labels.
 **Files:** `core/metrics.py:span_reads`, `core/tools/e4_0_readout.py:mechanism`, proposal v2.1 §11.4.
 **Gate status.** Design-time; candidate.
+
+## (bi) [HIGH] Colab - Publish checkpoints to Drive by tmp + rename, and never re-copy a verified one (2026-10-11)
+**Triggers:** publish, sync, Drive, checkpoint_last.pt, torch.load, "invalid header or archive is corrupted", resume
+**Problem:** E3's `publish()` copied a 1.4 GB checkpoint in place and the train loop synced twice per run; a disconnect
+during the second copy left a truncated `checkpoint_last.pt` beside a finished `metrics.jsonl`, and the next session's
+`verified()` crashed in `torch.load` (E4-0, first session).
+**Bad:** `shutil.copy2(src, dst)` onto the Drive file; `sync()` again after the loop unconditionally.
+**Good:** copy to `<dst>.partial`, fsync, `os.replace`; sync again only if not verified; an unreadable checkpoint
+returns -1 and is renamed `*.corrupt-<stamp>` (never deleted) before the seed is retrained.
+**Rule:** Write every Drive artifact atomically and treat an unreadable checkpoint as "not trained", never as a crash.
+**Files:** `colab/v2/e4_0_a3ign.ipynb` (helpers override); same in-place `publish` in `colab/v2/e3_factorial.ipynb`
+and other v2 notebooks that copied it.
+**Gate status.** One occurrence (measured); candidate.
