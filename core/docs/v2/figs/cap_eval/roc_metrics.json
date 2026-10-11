@@ -1,0 +1,46 @@
+{
+  "norm": "minmax",
+  "series": {
+    "A0": {
+      "ap": 0.44719382451263034,
+      "ap_raw": 0.4186614425667726,
+      "auc": 0.6513947085603614,
+      "auc_macro": 0.6978909942649314,
+      "auc_macro_videos": 560,
+      "auc_raw": 0.6041191087877795,
+      "num_frames": 56705,
+      "score_norm": "minmax"
+    },
+    "A3": {
+      "ap": 0.5237054307195756,
+      "ap_raw": 0.5212435835213886,
+      "auc": 0.7303875393621801,
+      "auc_macro": 0.7784830163606026,
+      "auc_macro_videos": 560,
+      "auc_raw": 0.7217505674817704,
+      "num_frames": 56705,
+      "score_norm": "minmax"
+    },
+    "A3-ign": {
+      "ap": 0.596037100189025,
+      "ap_raw": 0.6012130178218259,
+      "auc": 0.7820646149418198,
+      "auc_macro": 0.8120491316212708,
+      "auc_macro_videos": 560,
+      "auc_raw": 0.7811134694155328,
+      "num_frames": 56705,
+      "score_norm": "minmax"
+    },
+    "p_T2 (position only)": {
+      "ap": 0.6066236223857309,
+      "ap_raw": 0.6062842516748886,
+      "auc": 0.802311675450051,
+      "auc_macro": 0.8256266295525575,
+      "auc_macro_videos": 560,
+      "auc_raw": 0.8023205517014527,
+      "num_frames": 56705,
+      "score_norm": "minmax"
+    }
+  },
+  "title": "DoTA-CAP (n/1397) eval \u2014 A3-ign: second look"
+}

@@ -137,7 +137,13 @@ Track 0b closed; T2 + Option A remain the live track. Partial update: `activeCon
 architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 13,833 source LOC, 582 collected); **docs 24 → 25** (+ `core/docs/D2CITY_EDA.md`).
 
-## 2026-10-11 (latest) — **Second look read: the E4-0 gain holds on eval; v2 closed on A3-ign** (branch `v2`)
+## 2026-10-11 (latest) — **v2 figures tool** (branch `v2`, uncommitted)
+
+- `core/tools/v2_plots.py` (`roc` / `curves`) on protocol-B `clip_scores.npz` + `position_prior.npz`; legend numbers
+  via `pooled_metrics` (== Final's micro/AP). Old `core/tools/visualize.py` reads v1 per-video npz only (KeyError on
+  v2 files) — left as is. Docs `TRAINING_V2.md` §6f; tests +7 → 1032 / 0. DF8 deferred.
+
+## 2026-10-11 (earlier) — **Second look read: the E4-0 gain holds on eval; v2 closed on A3-ign** (branch `v2`)
 
 - Amendment 12 (§23) committed `97f53e9` 07:25:49Z; opened 07:33:44Z (`second_look/SECOND_LOOK_OPENED.json`). S7 gates PASS.
 - SECOND LOOK READ (2026-10-11, §23): A3-ign DoTA-CAP-eval **0.8120** vs A3 0.7785, Δ **+0.0376 [+0.033, +0.043]** (5/5); `f_2` Δ +0.016 [+0.010, +0.021]; T2-test macro 0.720 (+0.025), window AUC flat, O1′ 5/5; optimism −0.021 (= A3's). Both S5 sentences licensed. `p_T2` 0.8256 still > A3-ign. T2-test micro 0.733 > clip oracle 0.704 → "O1 FAIL as registered; not collapsed under O1′".

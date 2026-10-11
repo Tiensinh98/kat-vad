@@ -219,6 +219,31 @@ No training: the 20 E3 checkpoints are scored on the sets E3 never read. Runbook
   S7 gates first (same checkpoints, same 560 clips, 1,106 T2-test windows, A0's T2-test macro == the Final's within
   1e-4), then pairs A3-ign with the Final's A3 by seed and prints the §23 S5 sentence. Nothing re-decides (S2).
 
+## 6f. Figures (`core.tools.v2_plots`, local, no GPU)
+
+Reads the protocol-B `clip_scores.npz` files already on disk (and `position_prior.npz` for `p_T2`); nothing is
+re-scored. Up to 4 arms per figure, colours in a fixed order, `p_T2` as a grey dashed reference.
+
+- `roc`: pooled ROC + PR under per-clip min-max (lesson 12). Legend numbers come from `pooled_metrics`, so they equal
+  the read-outs' micro / AP / macro (checked: Final CAP-eval A0 0.6514 / 0.4472, A3 0.7304 / 0.5237). Writes
+  `roc_pr.png` + `roc_metrics.json`.
+- `curves`: one PNG per clip + `curves_grid.png`; per-clip AUCs in each panel title, one shared legend. Clips via
+  `--clips`, or `--n` spread over `--sort-by`'s per-clip AUC rank (worst → best, never a best-case pick).
+- Label DoTA-CAP figures "DoTA-CAP (n/1397)"; an A3-ign eval figure is a second look (§23).
+
+```bash
+python -m core.tools.v2_plots roc --out-dir figs/cap_eval --title "DoTA-CAP (n/1397) eval" \
+  --arm A0 outputs/v2/v2_final/REPORTS/pb/A0/dota_cap_eval/clip_scores.npz \
+  --arm A3 outputs/v2/v2_final/REPORTS/pb/A3/dota_cap_eval/clip_scores.npz \
+  --arm A3-ign outputs/v2/v2_e4_0/second_look/REPORTS/pb/A3ign/dota_cap_eval/clip_scores.npz \
+  --prior outputs/v2/v2_final/REPORTS/position_prior/dota_cap_eval/position_prior.npz
+python -m core.tools.v2_plots curves --out-dir figs/curves_dev --n 6 --sort-by A3-ign \
+  --arm A0 outputs/v2/v2_e3/REPORTS/pb/A0/dota_cap_dev/clip_scores.npz \
+  --arm A3 outputs/v2/v2_e3/REPORTS/pb/A3/dota_cap_dev/clip_scores.npz \
+  --arm A3-ign outputs/v2/v2_e4_0/REPORTS/pb/A3ign/dota_cap_dev/clip_scores.npz \
+  --prior outputs/v2/v2_e3/REPORTS/position_prior/dota_cap_dev/position_prior.npz
+```
+
 ## 7. Checkpoint compatibility
 
 - v1 / phase-4 / A0 checkpoints have no `model.motion_dim` or `v2` section; they load as A0.
