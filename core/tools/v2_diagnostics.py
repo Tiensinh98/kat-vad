@@ -317,7 +317,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
     if a0 is not None:
         guard["o1_prime"] = o1_prime(guard, a0["guardrails"])
-    # v2.1 §11.1 / §11.4: the normal-window peak guardrail and the in-domain Gap S replicate
+    # addendum §22 (E4-0): the normal-window peak guardrail and the in-domain Gap S replicate
     t2_val_reads = {
         "normal_window_peak": normal_window_peak(
             [y_t2[w] for w in window_ids],

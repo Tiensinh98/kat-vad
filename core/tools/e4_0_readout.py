@@ -1,4 +1,4 @@
-"""v2.1 E4-0: A3-ign vs A3 and the base rule (proposal v2.1 §11.4, fixed before any number).
+"""v2 E4-0: A3-ign vs A3 and the base rule (addendum §22, fixed before any A3-ign number).
 
 Pure aggregation -- no model is loaded. A3-ign is A3 trained with ``dvs_anchor_mode = ignore``;
 A3 is E3's five runs. Inputs, as laid out by ``colab/v2/e4_0_a3ign.ipynb``::
@@ -9,14 +9,14 @@ A3 is E3's five runs. Inputs, as laid out by ``colab/v2/e4_0_a3ign.ipynb``::
     <e4-dir>/<A3|A3ign>/s<seed>/diag/diag.json        v2_diagnostics, both arms re-diagnosed
                                                        with the same code (t2_val_reads)
 
-The rule, mechanically (§11.4): ``B`` = A3-ign iff
+The rule, mechanically (§22 E3): ``B`` = A3-ign iff
 
 1. the paired t95 of the per-seed DoTA-CAP-dev macro Δ (A3-ign - A3) lies above 0;
 2. the ``f_2`` Δ point estimate is ≥ 0 (``f_2 = z(score) + 2·z(p_T2)``, seed-averaged scores);
 3. the guardrails hold: seed-mean T2-val macro ≥ A3's - 0.01, seed-mean normal-window peak
    ≤ A3's + 0.02, O1' on every A3-ign seed;
 
-otherwise ``B`` = A3. The mechanism reads (§7, §11.4) license the Gap S sentence only; they never
+otherwise ``B`` = A3. The mechanism reads (§22 E2/E4) license the Gap S sentence only; they never
 move ``B``. Everything else is printed.
 
 CLI::
@@ -86,7 +86,7 @@ def load_pb(root: Path, arm: str, seeds: list[str]) -> dict[str, Any]:
 
 def load_diags(e4_dir: Path, arm: str, seeds: list[str], pb: dict[str, Any]) -> dict[str, Any]:
     """Per-seed diags; each must read the same checkpoint step as protocol B and carry the
-    v2.1 ``t2_val_reads`` (an E3-era diag does not -- re-diagnose)."""
+    E4-0's ``t2_val_reads`` (an E3-era diag does not -- re-diagnose)."""
     diags = {s: _json(e4_dir / arm / s / DIAG_DIR / DIAG_JSON) for s in seeds}
     for s, d in diags.items():
         if pb["readout"]["global_steps"][s] != d["global_step"]:
@@ -125,7 +125,7 @@ def _ge(a: float | None, b: float | None, offset: float) -> bool:
 
 
 def guardrails(control: dict[str, Any], arm: dict[str, Any]) -> dict[str, Any]:
-    """§11.1 against A3: T2-val macro, normal-window peak (seed means), O1' every seed."""
+    """§22 E2 guardrails vs A3: T2-val macro, normal-window peak (seed means), O1' every seed."""
     def macro(d: dict[str, Any]) -> float:
         return float(d["guardrails"]["macro"])
 
@@ -156,7 +156,7 @@ def mechanism(
     labels: dict[str, np.ndarray],
     seed: int,
 ) -> dict[str, Any]:
-    """§7 / §11.4 on seed-averaged DoTA-CAP-dev scores: span reads and the tail-clip macro."""
+    """§22 E2 / E4 on seed-averaged DoTA-CAP-dev scores: span reads and the tail-clip macro."""
     reads = {CONTROL: span_reads(control, labels), ARM: span_reads(arm, labels)}
     deltas = {
         key: bootstrap(
@@ -202,7 +202,7 @@ def mechanism(
 def decide(
     interval: dict[str, Any], f2: dict[str, float] | None, guards: dict[str, Any]
 ) -> dict[str, Any]:
-    """§11.4 base rule; no tie clause."""
+    """§22 E3 base rule; no tie clause."""
     checks = {
         "macro_t95_above_0": positive(interval),
         "f2_point_ge_0": f2 is not None and f2["mean"] >= 0.0,
@@ -213,7 +213,7 @@ def decide(
 
 def claims(decision: dict[str, Any], f2: dict[str, float] | None, mech: dict[str, Any],
            interval: dict[str, Any]) -> list[str]:
-    """§11.4 'what the thesis may claim', in the order the proposal lists them."""
+    """§22 E3 'what the thesis may claim', in the order the addendum lists them."""
     out: list[str] = []
     if decision["checks"]["macro_t95_above_0"]:
         out.append("Dropping the whole-anchor DVS label improves DoTA-CAP (n/1397) dev detection.")
@@ -227,7 +227,7 @@ def claims(decision: dict[str, Any], f2: dict[str, float] | None, mech: dict[str
         out.append("A3-ign vs A3 on DoTA-CAP dev macro: not detectable at this size "
                    "(not evidence that C29 is harmless on T2).")
     out.append("The whole-anchor label causes (part of) Gap S." if mech["gap_s_claim"] else
-               "No Gap S claim: not every §7 mechanism condition held.")
+               "No Gap S claim: not every §22 mechanism condition held.")
     if decision["base"] == CONTROL:
         out.append("E4 runs on span; the C29 interaction is a limitation of any SG-NM result.")
     else:
@@ -260,7 +260,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     decision = decide(interval, f2, guards)
 
     result: dict[str, Any] = {
-        "rule": "core/docs/v2.1/KAT_VAD_PROPOSAL_v2.1.md §11.4 (fixed before any A3-ign number)",
+        "rule": "core/docs/v2/PREREG_ADDENDUM.md §22 (fixed before any A3-ign number)",
         "set": "DoTA-CAP (n/1397) dev",
         "seeds": seeds,
         "macro": {arm: float(np.mean(list(a.values()))) for arm, a in raw_aucs.items()},
@@ -312,7 +312,7 @@ def _num(v: float | None) -> str:
 def render_markdown(r: dict[str, Any]) -> str:
     i, g, m = r["decision_interval"], r["guardrails"], r["mechanism"]
     lines = [
-        f"# v2.1 E4-0 — {ARM} vs {CONTROL} on {r['set']}",
+        f"# v2 E4-0 — {ARM} vs {CONTROL} on {r['set']}",
         "",
         f"Rule: {r['rule']}. **Base B = {r['decision']['base']}.**",
         "",

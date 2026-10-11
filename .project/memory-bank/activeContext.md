@@ -32,15 +32,15 @@
 > this branch *this file and `progress.md` are the only durable record of the
 > attribution campaign*. Do not delete them; do not re-run those arms here.
 
-**Last Memory Bank Update:** 2026-10-11 (partial: activeContext, progress, C29, pending (bh)/(bj) — E4-0 read out, B = A3-ign, `core/docs/v2.1/RESULTS_E4_0.md`). Before that 2026-10-09 (partial: activeContext, pending (ba)/(bc)/(bd), REPORT §6.3/§8 H2/H3 — tw_probe KILL, H2(a) KILL). Before that 2026-10-07 (partial: activeContext, progress, plan §0/P7/App. A — Final read out). Before that 2026-10-06 (partial: activeContext, progress, plan §0/P7/App. A, pending (av), addendum §18 signed + §19 drafted — E3 read out). Before that 2026-10-05, later (partial: activeContext, plan §0/App. A, pending (au) — D6 + T2-test O1′ read out). Earlier 2026-10-05 (partial: activeContext, pending (at) — batch 2 read out, Amendment 8). Before that 2026-10-04, later (partial: activeContext, progress — P6 batch 1 read out, Amendment 7). Earlier 2026-10-04 (partial: activeContext, progress, pending (ar) — E2(d) read out, Amendment 6). Before that 2026-10-03 (partial: activeContext only — DoTA-CAP frozen, L7). Before that 2026-09-30 ( — **full update, branch `v2`: E1 = B, Amendment 2/3, P5 built, D11 tooling**;
+**Last Memory Bank Update:** 2026-10-11 (partial: activeContext, progress, C29, pending (bh)/(bj) — E4-0 read out, B = A3-ign, `core/docs/v2/RESULTS_E4_0.md`); later: v2.1 docs deleted, E4-0 rule → addendum §22, SG-NM closed and reverted). Before that 2026-10-09 (partial: activeContext, pending (ba)/(bc)/(bd), REPORT §6.3/§8 H2/H3 — tw_probe KILL, H2(a) KILL). Before that 2026-10-07 (partial: activeContext, progress, plan §0/P7/App. A — Final read out). Before that 2026-10-06 (partial: activeContext, progress, plan §0/P7/App. A, pending (av), addendum §18 signed + §19 drafted — E3 read out). Before that 2026-10-05, later (partial: activeContext, plan §0/App. A, pending (au) — D6 + T2-test O1′ read out). Earlier 2026-10-05 (partial: activeContext, pending (at) — batch 2 read out, Amendment 8). Before that 2026-10-04, later (partial: activeContext, progress — P6 batch 1 read out, Amendment 7). Earlier 2026-10-04 (partial: activeContext, progress, pending (ar) — E2(d) read out, Amendment 6). Before that 2026-10-03 (partial: activeContext only — DoTA-CAP frozen, L7). Before that 2026-09-30 ( — **full update, branch `v2`: E1 = B, Amendment 2/3, P5 built, D11 tooling**;
 all six core files + CLAUDE.md reviewed; counts re-measured: **109 Python files (73 source + 36 test), 17,520 source LOC,
 754 tests, 35 docs**.)
 
-> **2026-10-11 — E4-0 READ OUT: `B` = A3-ign** (`core/docs/v2.1/RESULTS_E4_0.md`). A3-ign − A3 DoTA-CAP-dev macro
+> **2026-10-11 — E4-0 READ OUT: `B` = A3-ign** (`core/docs/v2/RESULTS_E4_0.md`). A3-ign − A3 DoTA-CAP-dev macro
 > **+0.0398 [+0.035, +0.045]** (5/5, sd 0.004); `f_2` Δ +0.010 [+0.005, +0.015] (beyond-position sentence licensed);
 > guardrails PASS (T2-val macro 0.703 → 0.734, normal peak +0.013 of 0.02, O1′ 5/5). Mechanism: pre −0.29, argmax-in-span
 > +0.05, tail +0.03, but **inside mean −0.155 → no Gap S claim**: floor suppression, not coverage. `p_T2` 0.822 still >
-> A3-ign 0.791. **SG-NM CLOSED 2026-10-11: E4a gate FAIL (Δ −0.012 [−0.016, −0.008], `f_2` −0.003, T2-val −0.012; read-out `outputs/v2/v2_e4b/REPORTS/e4a_readout.md`); code never committed and reverted on the user's word. **v2.1 = `B` = A3-ign.**** Next: the second look of A3-ign on the sealed sets (§11.2).
+> A3-ign 0.791. **SG-NM CLOSED 2026-10-11: E4a gate FAIL (Δ −0.012 [−0.016, −0.008], `f_2` −0.003, T2-val −0.012; read-out `outputs/v2/v2_e4b/REPORTS/e4a_readout.md`); code never committed and reverted on the user's word. **v2's training recipe = `B` = A3-ign.**** Next: the second look of A3-ign on the sealed sets (§11.2).
 >
 > **TL;DR — where v2 stands (2026-10-07, after Final).** **Final READ OUT (§19, opened once 2026-10-06T14:21Z,
 > `outputs/v2/v2_final/`, P7 gate PASS 22/22). Nothing re-decides (P1): A3 stays adopted.**
@@ -137,7 +137,7 @@ architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
 
 ## 2026-10-11 (later) — **E4-0 read out: `B` = A3-ign; SG-NM closed** (branch `v2`)
 
-- Read-out `outputs/v2/v2_e4_0/REPORTS/e4_0_readout.md` (run by the user); record `core/docs/v2.1/RESULTS_E4_0.md`.
+- Read-out `outputs/v2/v2_e4_0/REPORTS/e4_0_readout.md` (run by the user); record `core/docs/v2/RESULTS_E4_0.md`.
 - §11.4: t95 +0.0398 [+0.0347, +0.0450], `f_2` +0.0102 [+0.0048, +0.0154], guardrails PASS → **`B` = A3-ign = new `F`**.
   Headline macro = seed-averaged score (A3 0.7576 / A3-ign 0.7912); per-seed means 0.7413 / 0.7811 — never mix them.
 - Mechanism 3/4: `in_mean` falls (−0.155) → no Gap S sentence. Reading: taller, narrower peak on a lower floor.
@@ -146,10 +146,13 @@ architectural changed.) Code counts unchanged since `ef9c3c3` (89 Python files,
   ∋ 0 at ≥ 0.70 (n = 41); ego +0.039, non-ego +0.027; corr(AUC, `p_T2`) 0.135 → 0.147.
 - Gap S re-measured on `B`: pre-onset half gone, impact-locked fade sharper. SG-NM references move to `B`
   (argmax 0.664, pre 0.239, inside 0.708).
-- SG-NM CLOSED 2026-10-11: E4a gate FAIL (Δ −0.012 [−0.016, −0.008], `f_2` −0.003, T2-val −0.012; read-out `outputs/v2/v2_e4b/REPORTS/e4a_readout.md`); code never committed and reverted on the user's word. **v2.1 = `B` = A3-ign.**
+- SG-NM CLOSED 2026-10-11: E4a gate FAIL (Δ −0.012 [−0.016, −0.008], `f_2` −0.003, T2-val −0.012; read-out `outputs/v2/v2_e4b/REPORTS/e4a_readout.md`); code never committed and reverted on the user's word. **v2's training recipe = `B` = A3-ign.**
 - Any later arm (incl. deferred Nexar) must carry `dvs_anchor_mode=ignore` to be comparable with `B`.
 
 ## 2026-10-11 — **v2.1 proposal reviewed + synced to code; E4-0 (A3-ign) added and built** (branch `v2`)
+
+> *Later 2026-10-11: the `core/docs/v2.1/` documents were deleted on the user's word; E4-0 became a v2 result —
+> rule moved unchanged to `core/docs/v2/PREREG_ADDENDUM.md` §22, record `core/docs/v2/RESULTS_E4_0.md`.*
 
 - Nexar training **deferred** by the user. `core/docs/v2.1/` (proposal + architecture, untracked) reviewed: SG-NM's Gap S
   motivation missed that A3 trains with `dvs_anchor_mode=span` (whole anchor = 1, C29; never chosen for v2, default).

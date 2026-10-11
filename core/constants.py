@@ -599,7 +599,7 @@ H2A_LONG_SHARE_BINS = ("50-70", ">70")  # G1: accident share >= 0.5
 H2A_FUSION_WEIGHT = V2_FINAL_FUSION_PRIMARY  # G2: f_2 = z(score) + 2 z(p_T2), Final's P4
 H2A_T2_SPLIT = "train"  # §3: T2 meta split the hold length is measured on (minus T2-val sources)
 
-# --- v2.1 E4-0: A3-ign and the base rule (core/docs/v2.1/KAT_VAD_PROPOSAL_v2.1.md §11.4) ---
+# --- v2 E4-0: A3-ign and the base rule (core/docs/v2/PREREG_ADDENDUM.md §22) ---
 V2_E4_0_CONTROL = "A3"  # trained with dvs_anchor_mode = span (E3's runs)
 V2_E4_0_ARM = "A3ign"  # A3 with dvs_anchor_mode = ignore, nothing else
 V2_E4_0_ANCHOR_MODE = DVS_ANCHOR_MODE_IGNORE

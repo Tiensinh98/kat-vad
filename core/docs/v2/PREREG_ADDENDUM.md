@@ -598,3 +598,84 @@ Nexar number. Frozen from here: a change is a numbered Amendment, never an edit.
 | D-N10 | **Window trigger (pilot only, `nexar_val`, `core.tools.nexar_trigger`).** Read on the s2099 `whole` pilot; `window` is trained iff **any** fires, on seed-averaged point estimates: **W1 position** — `whole`/A3 crop macro at 0.5 minus that at 0.1 or at 0.9 > **0.05** (`NEXAR_TRIGGER_MAX_EDGE_DROP`; the zero-shot drop is printed beside, not gated); **W2 no gain** — `whole`/A3 crop endpoint ≤ the endpoint of E3's five T2-trained A3 checkpoints scored zero-shot on `nexar_val` with their own T2 statistics; **W3 clip classifier** — `whole`/A3 clip-level AUC ≥ **0.95** (`NEXAR_TRIGGER_CLIP_AUC`) **and** its crop endpoint < `whole`/A0's (C14). The verdict only schedules the `window` arm; it is not a result and is not re-read on the full seeds | User, 2026-10-10: train on uncut videos first (cheaper), cut only if the result is not OK. "Not OK" fixed here before any Nexar score exists (lesson 14). Known: W1 can fire from crop-edge effects (CRN reference, causal motion warm-up) rather than learned position — a false fire costs only the `window` arm |
 
 **Signature:** signed by the user, 2026-10-10 (rules D-N1–D-N10 as written above; no Nexar feature or score existed).
+
+## 22. E4-0 (2026-10-11) — A3-ign and the base rule (E1–E4)
+
+**Authorized by the user on 2026-10-11, before any A3-ign number; not reviewed by the advisor.** First committed as
+proposal v2.1 §11.4 / §11.1 / §7 in `b2b6512` and `2395e39` (both 2026-10-11 01:28 +0700); the E4-0 read-out was
+committed in `f9fe5fa` (12:04 +0700). The v2.1 documents were removed on 2026-10-11 after SG-NM closed, and the E4-0
+part of their text was moved here **unchanged**, except for section cross-references and the omitted SG-NM lines
+(marked). E4-0 is a **post-Final v2 step on DoTA-CAP-dev only**: it does not re-decide §19 (Final read A3), and any
+sealed-set number for A3-ign is a second look at an opened set. Read-out `core/docs/v2/RESULTS_E4_0.md`.
+
+### E1. Why this step exists
+
+- A3 was trained with `dvs_anchor_mode = span`, LaGoVAD's default, which v2 never chose on purpose (Gap S: `REPORT_V2_RESULTS.md` §6.3).
+- On a spliced abnormal sequence this labels **every** step of the anchor window `y^p` = 1, although ≈ 54 % of an abnormal T2 window's steps are normal (C29). It is a candidate cause of Gap S that needs no new module.
+- *[Three lines on the interaction with SG-NM omitted: SG-NM closed 2026-10-11 (its E4a gate failed); full text in
+  `b2b6512`.]*
+
+**What A3-ign changes, and what it does not.**
+- **Only** spliced abnormal sequences are affected: about 30 % of abnormal anchors (θ = 0.7), i.e. ≈ 15 % of batch rows.
+- On those, the anchor's steps leave the dense `L_dvs-sup` BCE; the fillers stay hard negatives (0).
+- Positive pressure on the anchor still comes from `L_dvs-mil` (top-k inside the anchor, k = ⌊n_pos/4⌋) and from `L_MIL`.
+- Unspliced windows and every normal sequence are trained exactly as in A3.
+- No parameter, no code change: the flag exists, with tests, since 2026-09-09.
+
+**Prior evidence, and why it does not decide.**
+- `ignore` was measured twice, both times with v1 code, KIP off, n = 1 seed, and in regimes where the model could not localize:
+  - DADA-2000 archive Phase 1: macro 0.5190 (`span`) vs 0.5134 (`ignore`); the score head spanned the whole clip (C27/C28).
+  - TAD T-ladder: macro 0.6174 vs 0.6209 (+0.0035, below the metric's resolution); the model had collapsed into a clip classifier (C14).
+- T2 is the first corpus here where the model localizes (kernel 3, macro ≥ micro), so the anchor label can matter for the first time. **No directional prediction is made on macro.**
+
+**The run.** A3-ign × 5 seeds (2024–2028), 1,740 steps each, config-diffed against the E3 A3 run of the same seed (exactly one line differs: `loss.dvs_anchor_mode`). Read with E3's harness (§18) and the endpoints and diagnostics of E2, plus the `L_dvs-sup` / `L_dvs-mil` trajectories against A3's.
+
+### E2. Endpoints, guardrails and predictions
+
+- **Decision interval:** the paired t95 over the 5 seeds (2024–2028, paired with E3's A3 runs) of the per-seed
+  DoTA-CAP-dev macro Δ (t = 2.776).
+- **Position control:** `f_2 = z(ȳ) + 2·z(p_T2)`, the score the Final used (§19 P4), on seed-averaged scores, with a
+  cluster bootstrap over source videos (B = 10,000). `p_T2` is printed beside every macro.
+- **Guardrails** (T2-val, against A3): T2-val macro no more than 0.01 below A3's; the normal-window peak (mean top-k
+  score on T2-val normal windows) rises by no more than 0.02; O1′ (§17).
+
+| Prediction (stated before the run) | Drop or qualify if… |
+|---|---|
+| **The pre-anomaly level falls:** A3's 0.55 mean before the span falls, and the 0.86 inside does not | the inside mean falls with it → a global rescale, not a contrast; no Gap S claim |
+| **More of the span is covered:** A3's 61 % argmax-in-span share rises | it does not rise → the whole-anchor label is not what shapes the peak |
+| **No hold failure:** the tail-clip macro (277 of 569) does not fall | it falls → the change repeats the hold's failure mode |
+| **In-domain positive pressure survives:** T2-val macro no more than 0.01 below A3's | guardrail fails: `L_dvs-mil` and `L_MIL` alone are too weak a positive signal |
+| DoTA-CAP-dev macro: **no directional prediction** | — (the base rule, E3, decides) |
+
+### E3. Base rule
+
+**Base rule.** `B` = **A3-ign** if all of the following hold; otherwise `B` = **A3** (`span`):
+1. the paired t95 of the (A3-ign − A3) DoTA-CAP-dev macro Δ lies **above 0**;
+2. the `f_2` Δ point estimate is **≥ 0**;
+3. the guardrails (E2) hold against A3.
+
+- No tie clause, margin or tie-break is added after the number is seen (lesson 14).
+- If `B` = A3-ign, A3-ign is also the new best adoptable free arm `F`, and every later costly arm must beat it.
+
+**What the thesis may claim from E4-0:**
+- **"Dropping the whole-anchor DVS label improves DoTA-CAP detection"** requires rule 1. The eval number is labelled a second look.
+- **"… beyond the position prior"** requires the `f_2` Δ **interval** to exclude 0.
+- **"The whole-anchor label causes (part of) Gap S"** requires all three mechanism rows (E2) for A3-ign to come out as predicted: the pre-anomaly mean falls while the inside mean does not, the argmax-in-span share rises, and the tail-clip macro does not fall.
+- **A non-significant E4-0** is "not detectable at this size". It is not evidence that C29 is harmless on T2.
+
+### E4. Operational definitions
+
+**Operational definitions** (fixed now; implemented by `core.tools.e4_0_readout`):
+- **Span reads** use the seed-averaged DoTA-CAP-dev scores, **min-max normalized per clip**, so a global rescale cannot move them. `ignore` lowers positive scores everywhere, so a raw-scale read would show a "falling pre-anomaly level" for free.
+  - argmax-in-span: 1 if the clip's argmax is an anomalous frame;
+  - pre mean: the mean over frames before the span's first frame, on clips that have such frames;
+  - inside mean: the mean over anomalous frames.
+  - A3's values are **recomputed by the same code**. The results report's 61 % / 0.55 / 0.86 came from an ad hoc script, so they are context, not the reference.
+- **Each Δ** is A3-ign − A3 per clip, with a cluster bootstrap over source videos (B = 10,000, 95 %).
+  - "falls" means the interval lies **below** 0;
+  - "rises" means the interval lies **above** 0;
+  - "does not fall" means the interval does **not** lie entirely below 0.
+- **Tail clips:** two-class clips with ≥ w = 30 normal frames after the span. w is H2(a)'s T2-train median span, 3.02 s at 10 fps. The read-out refuses to run unless it finds H2(a)'s 277 clips.
+- **Normal-window peak:** the mean over all-normal T2-val windows of the mean top-k `σ(y^bin)`, k = max(1, ⌊L/5⌋). These are the steps `L_MIL` pushes down.
+- **Guardrails** compare seed means of T2-val macro and normal-window peak against A3, re-diagnosed with the same code. O1′ must pass on every A3-ign seed, against E3's A0 of the same seed.
+- **T2-val span profile** (the in-domain replicate) is printed per seed, never gated.

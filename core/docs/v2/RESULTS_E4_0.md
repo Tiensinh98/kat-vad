@@ -1,7 +1,8 @@
-# KAT-VAD v2.1 — E4-0 results (A3-ign vs A3, 5 seeds)
+# KAT-VAD v2 — E4-0 results (A3-ign vs A3, 5 seeds)
 
-Pre-registration: `KAT_VAD_PROPOSAL_v2.1.md` §11.4 (base rule, claims, operational definitions), §11.1 (endpoints,
-guardrails), §7 (A3-ign predictions). All fixed on 2026-10-11 before any A3-ign number.
+Pre-registration: `PREREG_ADDENDUM.md` **§22** (E1–E4: rationale, endpoints and guardrails, predictions, base rule,
+claims, operational definitions), first committed in `b2b6512` / `2395e39` before any A3-ign number. A **post-Final v2
+step on DoTA-CAP-dev**: it does not re-decide §19 (the Final read A3); any sealed-set number for A3-ign is a second look.
 Raw outputs: `outputs/v2/v2_e4_0/` (`REPORTS/e4_0_readout.{md,json}`, `REPORTS/pb/A3ign/dota_cap_dev/`,
 `A3ign/s{2024..2028}/{config.yaml,metrics.jsonl,diag/}`, `A3/s*/diag/`). Control = E3's A3 runs
 (`outputs/v2/v2_e3/`). Runbook `colab/v2/e4_0_a3ign.ipynb`. Read-out tool `core/tools/e4_0_readout.py`.
@@ -17,10 +18,11 @@ fillers stay 0; `L_dvs-mil` and `L_MIL` supply the positives.
 
 ## 1. Decision
 
-**`B` = A3-ign.** All three §11.4 checks pass. A3-ign is also the new best adoptable free arm `F`: E4a, the pilot and
-E4 run on A3-ign, and every later costly arm must beat it.
+**`B` = A3-ign.** All three §22 E3 checks pass. A3-ign is v2's adopted training recipe from here (same deployed
+architecture as A3, one training label changed) and the new best adoptable free arm `F`: every later costly arm must
+beat it.
 
-| check (§11.4) | value | result |
+| check (§22 E3) | value | result |
 |---|---|---|
 | 1. paired t95 of the DoTA-CAP-dev macro Δ above 0 | **+0.0398 [+0.0347, +0.0450]** (n = 5, t = 2.776) | PASS |
 | 2. `f_2` Δ point ≥ 0 | +0.0102 | PASS |
@@ -33,12 +35,12 @@ Per seed (2024…2028): +0.0427 / +0.0420 / +0.0428 / +0.0332 / +0.0384, sd 0.00
 the per-clip AUC of the **seed-averaged** score, as in E3 and the Final. The per-seed means are 0.7413 / 0.7811. The
 decision interval is on per-seed macros.
 
-**Licensed sentences (§11.4):**
+**Licensed sentences (§22 E3):**
 - "Dropping the whole-anchor DVS label improves DoTA-CAP (n/1397) detection" (dev; any eval number is a **second look
   at an opened set**).
 - "… beyond the T2 position prior": `f_2` Δ **+0.0102 [+0.0048, +0.0154]**, interval excludes 0 (`f_2` macro A3
   0.8424 → A3-ign 0.8526).
-- **Not** "the whole-anchor label causes Gap S": one of the four §7 mechanism conditions fails (§3).
+- **Not** "the whole-anchor label causes Gap S": one of the four mechanism conditions (§22 E2) fails (§3).
 
 ## 2. Guardrails (T2-val, seed means, re-diagnosed with the same code)
 
@@ -110,8 +112,8 @@ curve.
 
 **Gap S is not smaller on `B`; its shape changed.** The pre-onset half of Gap S (the 0.55 baseline) is largely gone.
 The other half — the score is locked to the impact and fades within ~4 s, so most of a long span is under-scored — is
-**sharper**: higher peak, faster fade, less span covered. That is the half SG-NM targets (§5.3, reason 1), so the
-motivation survives `B`, but its reference numbers change (§5).
+**sharper**: higher peak, faster fade, less span covered. A training-side fix for span coverage is still open; its
+references are `B`'s numbers (§5).
 
 ### 4.3 Δ (A3-ign − A3) by accident position and ego class (raw per-clip AUC, cluster CI)
 
@@ -128,16 +130,15 @@ The gain is not concentrated where `p_T2` is strong (largest at < 0.40, where `p
 correlation of AUC with `p_T2`'s is unchanged (0.135 → 0.147). The ego/non-ego gap widens slightly (0.107 → 0.118):
 Gap N is untouched, as expected.
 
-## 5. Consequences for E4a / pilot / E4
+## 5. Consequences
 
-- **Control and references move to `B` = A3-ign** (§11.2: "wherever §5.3 says A3, read `B`"). The §7 SG-NM rows that
-  quote A3's numbers are read against `B`'s, recomputed by the same code: argmax-in-span **0.664**, pre **0.239**,
-  inside **0.708** (min-max, seed-averaged), tail clips 277, `S̃`–`p_T2` correlation reference **0.147**.
-- **SG-NM's "pulls the 0.55 baseline down" argument (§5.3, departure 2) is spent** — `ignore` already did it. What is
-  left for SG-NM is span coverage (§4.2). Its predictions "argmax-in-span rises" and "inside mean does not fall" are
-  now the informative ones.
-- **E4a candidate purity should improve**: the bottom-40 % steps of an abnormal segment sit on a lower floor, so they
-  are more likely truly normal. Not measured.
+- **v2's training recipe is now A3-ign** (`loss.dvs_anchor_mode = ignore`). The Final's sealed-set numbers (§19) belong
+  to A3 and stay as recorded; A3-ign has dev numbers only until its second look.
+- **References move to `B` = A3-ign**, recomputed by the same code: argmax-in-span **0.664**, pre **0.239**, inside
+  **0.708** (min-max, seed-averaged), tail clips 277, corr(AUC, `p_T2` AUC) **0.147**.
+- **SG-NM closed 2026-10-11**: a training-only normality branch on `B` failed its pre-registered frozen-trunk gate
+  (Δ rank-avg − `y^bin` −0.012 [−0.016, −0.008], `f_2` −0.003 [−0.006, −0.001], T2-val −0.012, 5/5 seeds negative;
+  read-out `outputs/v2/v2_e4b/REPORTS/e4a_readout.md`). Not pursued; its code was never committed.
 - **Any arm trained after this date carries `dvs_anchor_mode = ignore`**, including Nexar (deferred) if it is meant to
   be comparable with `B`.
 

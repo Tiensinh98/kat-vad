@@ -1927,7 +1927,7 @@ raw-scale "mean score before the span" falls for free and reads as a fixed Gap S
 **Bad:** compare A3 vs A3-ign pre-anomaly means on raw `sigma(y^bin)`.
 **Good:** min-max each clip first (`core.metrics.span_reads`), and require the inside mean NOT to fall alongside.
 **Rule:** Normalize per clip before comparing any within-clip location read between arms trained on different labels.
-**Files:** `core/metrics.py:span_reads`, `core/tools/e4_0_readout.py:mechanism`, proposal v2.1 §11.4.
+**Files:** `core/metrics.py:span_reads`, `core/tools/e4_0_readout.py:mechanism`, addendum §22.
 **Gate status.** Design-time; candidate. **Confirmed 2026-10-11 (E4-0):** min-max reads separated the floor drop (pre −0.29) from an inside drop (−0.155) that a raw read would have hidden; the Gap S claim was correctly refused.
 
 ## (bi) [HIGH] Colab - Publish checkpoints to Drive by tmp + rename, and never re-copy a verified one (2026-10-11)
@@ -1951,5 +1951,5 @@ earlier, and the one-line switch was worth +0.040 macro (half of A3 − A0) once
 **Good:** list every loss/label default in the adopted config with the corpus fact it assumes (here: anchor ≈ fully
 anomalous; T2 is 46 % positive) and test the ones whose assumption fails, before a costly arm is built on top.
 **Rule:** Check each inherited default's assumption against the training corpus before adopting a model.
-**Files:** `core/data/synthesis.py:83`, `core/config.py` (`loss.dvs_anchor_mode`), `core/docs/v2.1/RESULTS_E4_0.md`.
+**Files:** `core/data/synthesis.py:83`, `core/config.py` (`loss.dvs_anchor_mode`), `core/docs/v2/RESULTS_E4_0.md`.
 **Gate status.** One occurrence (measured); candidate.

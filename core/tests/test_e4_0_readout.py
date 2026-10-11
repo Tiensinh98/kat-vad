@@ -1,4 +1,4 @@
-"""v2.1 E4-0: the span reads, the guardrails and the base rule as pre-registered (§11.4).
+"""v2 E4-0: the span reads, the guardrails and the base rule as pre-registered (addendum §22).
 
 The failures that matter are silent: a span read that a global rescale can move (``ignore``
 lowers every positive score, so a raw-scale read would show a "falling pre-anomaly level" for
