@@ -613,6 +613,41 @@ V2_SL_DIR = "second_look"  # under the E4-0 output dir
 V2_SL_T2_TEST_WINDOWS = 1106  # S7: every T2-test read has exactly these windows
 V2_SL_CAP_EVAL_CLIPS = 560  # S1: DoTA-CAP-eval
 
+# --- v2.2 order diagnostics S1-S3 (.project/plans/katvad-v2.2-order-diagnostics.md) ---
+V22_BAR_MIN = 0.01  # proposal §6.1: gate = CI low > 0 AND mean >= this (H3's bar)
+V22_BOOTSTRAP = V2_E1_BOOTSTRAP  # cluster bootstrap over source videos
+V22_CI = V2_E1_CI
+V22_CRN = V2_E2D_CRN  # x~ = x - R2(x), u~ = u - R2(u), per source / clip (O4)
+V22_DOTA_STRIDE = V2_E2D_STRIDE  # protocol B rows of DoTA-CAP
+V22_BLOCK = 5  # arch §2: shuffle block, ~1.5 s
+V22_MIN_SHUFFLE_BLOCK = 4  # arch §2: no adjacency-free permutation of 2 or 3 steps
+V22_TWIN_GAP = 6  # arch §4: neighbours >= 6 original steps apart in the order-free twin
+V22_TWIN_RESTARTS = 200  # randomised construction attempts per gap before lowering it
+V22_PCA_DIM = 64  # arch §3 row 5: d_q
+V22_JITTER = 3  # arch §3 rows 6-7: causal mean over t-2..t
+V22_MAX_WINDOW = 5  # arch §3 row 4: m5 = causal max over t-4..t (~1.5 s)
+V22_TRACE_HALF_LIFE = 3.5  # arch §3 row 4: e_t half-life in steps (~1 s)
+V22_MIN_STEPS = 3  # O10: acceleration needs three steps
+V22_PROBE_CHANNELS = 64  # arch §5: temporal probe width
+V22_PROBE_KERNEL = 5  # arch §5: two valid convs -> receptive field 9
+V22_PROBE_CONTEXT = 4  # arch §5: real context steps on each side of a training window
+V22_PROBE_LR = 1e-3
+V22_PROBE_WEIGHT_DECAY = 1e-2
+V22_PROBE_BATCH = 64
+V22_PROBE_EPOCHS = 20
+V22_PROBE_SEEDS = V2_E3_SEEDS  # O7: scores averaged over these before any metric
+V22_FUSION_WEIGHT = V2_FINAL_FUSION_PRIMARY  # f_2 = z(score) + 2 z(p_T2)
+V22_ECHO_PEAK = (5, 6)  # S1b: steps after the span end where the exit echo would sit
+V22_ECHO_BASE = (10, 15)  # S1b: post-span baseline steps
+V22_ECHO_MARGIN_SD = 0.1  # S1b: admit du iff the CI lies inside +-0.1 SD of the baseline
+V22_ECHO_LAGS = (3, 4, 5, 6, 7)  # S1b: printed autocorrelation lags
+V22_START_STEPS = 3  # S1c: steps 0-2 vs the rest
+V22_SMD_MAX = 0.1  # S1c: any summary |SMD| above this withdraws the early-onset prediction
+V22_TOP_STEPS = 5  # S1a printed: share of a clip's top-5 m5 steps inside the span
+V22_SHORTCUT_FOLDS = 5  # O14: corpus-shortcut probe on kappa (printed)
+V22_GATE_OK = "PASS"
+V22_GATE_NO = "FAIL"
+
 # ---------------------------------------------------------------------------
 # Evaluation score pooling (lesson C12)
 #

@@ -1953,3 +1953,15 @@ anomalous; T2 is 46 % positive) and test the ones whose assumption fails, before
 **Rule:** Check each inherited default's assumption against the training corpus before adopting a model.
 **Files:** `core/data/synthesis.py:83`, `core/config.py` (`loss.dvs_anchor_mode`), `core/docs/v2/RESULTS_E4_0.md`.
 **Gate status.** One occurrence (measured); candidate.
+
+## (bk) [MEDIUM] Experiments - An order control must not keep adjacency that the feature cannot tell from order (2026-10-11)
+**Triggers:** shuffle, permutation, order control, block shuffle, reversal, |Δ|, velocity, D6-step, twin
+**Problem:** a random within-block permutation of 5 steps keeps on average 1.6 of 4 adjacencies (1/5 same direction +
+1/5 reversed), and `|Δ|` is reversal-symmetric, so a "shuffled" arm still carries 40 % of the one-step velocity it is
+supposed to destroy; time reversal is no order control at all for a magnitude feature (v2.2 review rounds 1 and 3).
+**Bad:** `rng.permutation(block)`; or "reverse the clip" as the order-free arm for `|x_t − x_{t−1}|`.
+**Good:** sample only adjacency-free permutations (A002464: 14 of 120 for n = 5), constrain block boundaries too, and
+for computed features build the twin in an order whose neighbours are ≥ 6 apart, then quantile-match it.
+**Rule:** Enumerate which original neighbours an order control still places side by side, in either direction.
+**Files:** `core/tools/order_features.py` (`block_permutation`, `far_ordering`, `twin_rows`).
+**Gate status.** Design-time; candidate (no measured failure yet).
