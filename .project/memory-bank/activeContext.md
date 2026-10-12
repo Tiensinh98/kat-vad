@@ -36,6 +36,8 @@
 all six core files + CLAUDE.md reviewed; counts re-measured: **109 Python files (73 source + 36 test), 17,520 source LOC,
 754 tests, 35 docs**.)
 
+> **2026-10-11 (latest) — v2.2 designed and S1–S3 BUILT, not run.** `core/docs/v2.2/` (proposal + architecture, review rounds 1–4): the deployed model stays A3-ign; a staged order test answers "does step order carry signal" before any training. Built: `core/tools/order_{features,probe,diagnostics}.py`, `V22_*` constants, 61 tests (suite 1093 / 0 fail), runbook `colab/v2/v22_order_s1_s3.ipynb`, plan `.project/plans/katvad-v2.2-order-diagnostics.md` (O1–O15). **Next: user runs the notebook → paste s{1,2,3}_readout.md → plan App. A → advisor check before S4/S5.** Uncommitted.
+>
 > **2026-10-11 — E4-0 READ OUT: `B` = A3-ign** (`core/docs/v2/RESULTS_E4_0.md`). A3-ign − A3 DoTA-CAP-dev macro
 > **+0.0398 [+0.035, +0.045]** (5/5, sd 0.004); `f_2` Δ +0.010 [+0.005, +0.015] (beyond-position sentence licensed);
 > guardrails PASS (T2-val macro 0.703 → 0.734, normal peak +0.013 of 0.02, O1′ 5/5). Mechanism: pre −0.29, argmax-in-span
