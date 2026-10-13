@@ -135,3 +135,21 @@ Printed: DADA↔DoTA shortcut AUC on κ **0.905**. Sequences: T2-train 1,272, T2
   inference on the existing A3-ign checkpoints; descriptive, decides nothing).
 - **The open problem is unchanged:** `p_T2` 0.8256 > A3-ign 0.8120 on CAP-eval. The candidates that address it are
   DF8/H1 (deferred) and H4 (V2-B), not S4.
+
+---
+
+## 8. Addendum 2026-10-14: batch-1 gates (R0-probe, K1)
+
+Plan `.project/plans/katvad-v2.2-two-tracks.md` App. A.1–A.2; raw `outputs/v2/REPORTS/v22_gates/`.
+
+- **C-b answered (descriptive, unpaired).** A `p`-only probe with the same architecture scores **0.833** on DoTA-CAP-dev.
+  True-order `F0` 0.853 (+0.020 over it); shuffled `F0` 0.825 (−0.008). Most of S2's +0.028 therefore lies above
+  position. The shuffle's own damage is ≈ 0.008. The S2 claim wording stands, and the chapter can now say "beyond a
+  position-only probe of the same architecture".
+- **No onset signal beyond trend.** The onset-window AUC ΔT is retired (D14): `p`-only wins it (0.954). Detrended,
+  every score is ≈ 0.5 (`m5` 0.530 [0.497, 0.564]).
+- **`m5` is post-event, not anticipatory.** Of its top steps outside the span, 55 % lie after the span and 27 % in
+  the 2 s before it. Never write "precursor".
+- **K1, global flow (T2-val only):** `F0 + stats23` − `F0` span **+0.0103 [+0.0027, +0.0181]**, 5/5 seeds. It is
+  in-domain signal with no transfer read (DoTA pixels gone) and needs RAFT at inference. It is recorded, and it does
+  not re-open the motion track.

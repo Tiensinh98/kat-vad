@@ -1,6 +1,8 @@
 # Progress
 
-**2026-10-13 (latest, branch `v2.2`) — round 7 + R0-saved: ΔT retired (D14).** ΔT(`p_T2`) 0.970 on 557 eligible CAP-dev clips (span 0.824); detrended ΔT `p_T2` 0.000. Motion claim → span + `f_2` + DF8; motion track parked after R0-probe/K1. `core/tools/v22_gates.py`, plan `katvad-v2.2-two-tracks.md` App. A.1.
+**2026-10-14 (latest, branch `v2`) — batch 1 closed.** R0-probe: `p`-only probe 0.833 < true `F0` 0.853 (shuffled 0.825) → S2 gain mostly above position; detrended ΔT ≈ 0.5 everywhere; `m5` post-event (55 % after span). K1 (T2-val): flow stats23 adds +0.0103 [+0.0027, +0.0181] span, 5/5 seeds, in-domain only → recorded, motion stays parked. Next: SC-1 DF8.
+
+**2026-10-13 (branch `v2.2`) — round 7 + R0-saved: ΔT retired (D14).** ΔT(`p_T2`) 0.970 on 557 eligible CAP-dev clips (span 0.824); detrended ΔT `p_T2` 0.000. Motion claim → span + `f_2` + DF8; motion track parked after R0-probe/K1. `core/tools/v22_gates.py`, plan `katvad-v2.2-two-tracks.md` App. A.1.
 
 **2026-10-13 (branch `v2.2`) — v2.2 order diagnostics S1–S3 read out.** S1a PASS (`m5` 0.750, − twin +0.271; twin below chance), Δu not admitted, H6 withdrawn; **S2 PASS** (`F0` true − shuffled +0.0283 [+0.021, +0.036], `f_2` +0.014, T2-val +0.017, 5/5); **S3 VALUE FAIL** (−0.0007 [−0.006, +0.005]), ORDER FAIL (+0.008). TDP not built, S5 closed, A3-ign stays. `core/docs/v2.2/RESULTS_V22_ORDER.md`. Next: advisor check (S4 yes/no).
 
