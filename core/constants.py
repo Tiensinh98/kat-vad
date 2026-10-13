@@ -647,6 +647,19 @@ V22_TOP_STEPS = 5  # S1a printed: share of a clip's top-5 m5 steps inside the sp
 V22_SHORTCUT_FOLDS = 5  # O14: corpus-shortcut probe on kappa (printed)
 V22_GATE_OK = "PASS"
 V22_GATE_NO = "FAIL"
+# v2.2 round 7, batch 1 (proposal §R7 D10-D13; plan katvad-v2.2-two-tracks.md G1-G9)
+V22_DOTA_STEP_SECONDS = V22_DOTA_STRIDE / DOTA_FPS  # 0.30 s, conditional on A1' (DoTA = 10 fps)
+V22_T2_STEP_SECONDS = FRAME_STRIDE / DADA_ASSUMED_FPS  # 0.267 s, conditional on A1 (DADA = 30 fps)
+V22_ONSET_POS_SECONDS = 2.0  # ΔT positives: first 2 s of the span (proposal §5.2)
+V22_ONSET_NEG_SECONDS = (3.0, 0.5)  # ΔT negatives: normal steps in [t_s - 3 s, t_s - 0.5 s)
+V22_ONSET_MIN_POS = 2  # ΔT eligibility, in steps
+V22_ONSET_MIN_NEG = 3
+V22_ONSET_MIN_ELIGIBLE = 200  # §5.3: fewer eligible CAP-dev clips -> ΔT demoted to "reported"
+V22_ONSET_FUTILITY = 0.90  # §5.3: ΔT(A3-ign) or ΔT(F0 probe) at or above -> ΔT demoted
+V22_PRECURSOR_SECONDS = 2.0  # R0-d: the window before onset counted as "precursor"
+V22_K1_SOFT_STOP = 0.005  # K1: both T2-val Δ points below -> advisor go-ahead before M0 (D10)
+V22_DETREND_DECIMALS = 9  # G10: residuals rounded so a linear ramp ties exactly (AUC 0.5)
+V22_CAP_RATE_GROUPS = (1, 3)  # D7: DoTA-CAP alignment rate groups that are reported and gated
 
 # ---------------------------------------------------------------------------
 # Evaluation score pooling (lesson C12)

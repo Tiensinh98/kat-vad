@@ -1965,3 +1965,17 @@ for computed features build the twin in an order whose neighbours are ≥ 6 apar
 **Rule:** Enumerate which original neighbours an order control still places side by side, in either direction.
 **Files:** `core/tools/order_features.py` (`block_permutation`, `far_ordering`, `twin_rows`).
 **Gate status.** Design-time; candidate (no measured failure yet).
+
+## (bl) [HIGH] Experiments - An onset-window estimand (post-onset vs pre-onset AUC) is a time ruler, not a position control (2026-10-13)
+**Triggers:** onset, ΔT, transition AUC, pre-onset negatives, onset window, detrend, position prior, p_T2, estimand
+**Problem:** v2.2 round 5 registered ΔT (positives = first 2 s of the span, negatives = normal steps 0.5–3 s before
+onset) as the estimand "where position is controlled". Every positive follows every negative in time, so any score that
+rises through the onset wins: the no-pixel `p_T2` scored **0.970** on 557 CAP-dev clips (span 0.824). Detrending on the
+negatives swaps one artefact for another (`p_T2` 0.000, A3 0.32: it measures each score's pre-onset slope).
+**Bad:** registering a local before/after contrast as position-free because the window is short.
+**Good:** before registering any estimand, score a no-pixel position prior and a pure time ramp on it from saved scores;
+an estimand on which the ramp is far from 0.5 cannot carry a "beyond position" claim.
+**Rule:** Run a position prior and a time ramp through every new estimand before it is allowed to decide a claim.
+**Files:** `core/tools/v22_gates.py` (`onset_aucs`, `detrended_onset_aucs`); proposal §R7 D14; plan
+`katvad-v2.2-two-tracks.md` App. A.1.
+**Gate status.** Measured failure (one occurrence); candidate.

@@ -1,6 +1,8 @@
 # Progress
 
-**2026-10-13 (latest, branch `v2.2`) — v2.2 order diagnostics S1–S3 read out.** S1a PASS (`m5` 0.750, − twin +0.271; twin below chance), Δu not admitted, H6 withdrawn; **S2 PASS** (`F0` true − shuffled +0.0283 [+0.021, +0.036], `f_2` +0.014, T2-val +0.017, 5/5); **S3 VALUE FAIL** (−0.0007 [−0.006, +0.005]), ORDER FAIL (+0.008). TDP not built, S5 closed, A3-ign stays. `core/docs/v2.2/RESULTS_V22_ORDER.md`. Next: advisor check (S4 yes/no).
+**2026-10-13 (latest, branch `v2.2`) — round 7 + R0-saved: ΔT retired (D14).** ΔT(`p_T2`) 0.970 on 557 eligible CAP-dev clips (span 0.824); detrended ΔT `p_T2` 0.000. Motion claim → span + `f_2` + DF8; motion track parked after R0-probe/K1. `core/tools/v22_gates.py`, plan `katvad-v2.2-two-tracks.md` App. A.1.
+
+**2026-10-13 (branch `v2.2`) — v2.2 order diagnostics S1–S3 read out.** S1a PASS (`m5` 0.750, − twin +0.271; twin below chance), Δu not admitted, H6 withdrawn; **S2 PASS** (`F0` true − shuffled +0.0283 [+0.021, +0.036], `f_2` +0.014, T2-val +0.017, 5/5); **S3 VALUE FAIL** (−0.0007 [−0.006, +0.005]), ORDER FAIL (+0.008). TDP not built, S5 closed, A3-ign stays. `core/docs/v2.2/RESULTS_V22_ORDER.md`. Next: advisor check (S4 yes/no).
 
 **2026-10-11 (branch `v2`) — E4-0 read out: `B` = A3-ign (new `F`).** A3-ign − A3 DoTA-CAP-dev macro **+0.0398 [+0.035, +0.045]** (n = 5, 5/5 +); `f_2` Δ +0.010 [+0.005, +0.015]; guardrails PASS; mechanism 3/4 (inside mean falls → no Gap S claim). First measurement of C29's `ignore` on a localizing model. `p_T2` 0.822 > A3-ign 0.791. `core/docs/v2/RESULTS_E4_0.md`. SG-NM CLOSED 2026-10-11: E4a gate FAIL (Δ −0.012 [−0.016, −0.008], `f_2` −0.003, T2-val −0.012; read-out `outputs/v2/v2_e4b/REPORTS/e4a_readout.md`); code never committed and reverted on the user's word. **v2's training recipe = `B` = A3-ign.** Second look (§23) READ: eval 0.8120 vs A3 0.7785, Δ +0.0376 [+0.033, +0.043], `f_2` +0.016, T2-test +0.025; `p_T2` 0.8256 still above. v2 closed on A3-ign.
 
