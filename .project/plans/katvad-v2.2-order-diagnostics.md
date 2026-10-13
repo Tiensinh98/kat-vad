@@ -2,18 +2,19 @@
 
 **Branch:** `v2`. **Design:** `core/docs/v2.2/KAT_VAD_PROPOSAL_v2.2.md` §3–§6, §9–§10 and
 `core/docs/v2.2/KAT_VAD_v2.2_ARCHITECTURE.md` §2–§5 (after review round 4, 2026-10-11).
-**Status:** BUILT 2026-10-11, not run. Read-outs go to App. A.
+**Status:** BUILT 2026-10-11; **RUN 2026-10-13: S1a PASS · S2 PASS · S3 VALUE FAIL · ORDER FAIL → TDP not built, S5 closed.**
+Claim-ladder row "S2 passes, S3(a) fails". Results: `core/docs/v2.2/RESULTS_V22_ORDER.md`; App. A below.
 
 ## 0. Status
 
 | Step | What | Training? | Gate (proposal §6.1 bar: 95 % low > 0 **and** mean ≥ +0.01) | Status |
 |---|---|---|---|---|
-| S1a | `m5` change score vs 0.5 and vs its quantile-matched twin, DoTA-CAP-dev | none | both Δs pass → TDP branch open; fail → S3/S5 closed, **S2 still runs** | built |
-| S1b | Δu echo, equivalence ±0.1 SD | none | CI inside ±0.1 SD → Δu admitted to κ; else CLIP only | built |
-| S1c | clip-start SMD on 5 summary channels | none | any \|SMD\| > 0.1 → H6 prediction withdrawn (never stops) | built |
-| S2 | temporal probe, true order vs adjacency-free block shuffle, on `F0 = [x̃; ũ; p]` | probe only | bar on DoTA-CAP-dev; fail → stop (§9 row 1) | built |
-| S3 | probe on `F0` / `F0+K` / `F0+K^π` | probe only | VALUE and ORDER both pass → S5 eligible | built; **refuses to run unless S1a and S2 PASS** |
-| advisor | outcome table §10 | — | before S4/S5 | — |
+| S1a | `m5` change score vs 0.5 and vs its quantile-matched twin, DoTA-CAP-dev | none | both Δs pass → TDP branch open; fail → S3/S5 closed, **S2 still runs** | **PASS** (+0.250 / +0.271) |
+| S1b | Δu echo, equivalence ±0.1 SD | none | CI inside ±0.1 SD → Δu admitted to κ; else CLIP only | **not admitted** (CLIP only) |
+| S1c | clip-start SMD on 5 summary channels | none | any \|SMD\| > 0.1 → H6 prediction withdrawn (never stops) | **withdrawn** |
+| S2 | temporal probe, true order vs adjacency-free block shuffle, on `F0 = [x̃; ũ; p]` | probe only | bar on DoTA-CAP-dev; fail → stop (§9 row 1) | **PASS** (+0.0283) |
+| S3 | probe on `F0` / `F0+K` / `F0+K^π` | probe only | VALUE and ORDER both pass → S5 eligible | **VALUE FAIL, ORDER FAIL** → S5 not eligible |
+| advisor | outcome table §10 | — | before S4/S5 | **next** (§10 row 2: chapter + S4 yes/no) |
 
 ## 1. Files
 
@@ -57,4 +58,29 @@
 
 ## Appendix A — read-outs
 
-*(empty)*
+### A.1 Run 2026-10-13 (Colab, `outputs/v2/REPORTS/v22_order/`)
+
+Full tables and interpretation: `core/docs/v2.2/RESULTS_V22_ORDER.md`. DoTA-CAP-dev decides; T2-val reported.
+
+| Step | Contrast | Δ [cluster 95 %] | `f_2` Δ | T2-val Δ | Seeds | Verdict |
+|---|---|---|---|---|---|---|
+| S1a | AUC(`m5`) − 0.5 | +0.2503 [+0.2330, +0.2669] | — | +0.194 | — | PASS |
+| S1a | AUC(`m5`) − AUC(`m5^π`) | +0.2713 [+0.2537, +0.2891] | — | +0.198 | — | PASS |
+| S1b | Δu echo (margin ±0.638) | +2.877 [+1.418, +4.362] | — | — | — | not admitted |
+| S1c | max of 5 summary \|SMD\| | 0.395 (`v̄`) | — | — | — | H6 withdrawn |
+| **S2** | `F0` true − shuffled | **+0.0283 [+0.0212, +0.0356]** | +0.0138 [+0.0103, +0.0174] | +0.0165 [+0.0060, +0.0267] | 5/5 + | **PASS** |
+| S2 (printed) | `[x̃;p]` true − shuffled | +0.0119 [+0.0015, +0.0230] | +0.0087 | +0.0252 | 5/5 + | — |
+| **S3(a)** | `F0+K − F0` | **−0.0007 [−0.0063, +0.0047]** | +0.0006 ∋ 0 | −0.0004 | 2+/3− | **FAIL** |
+| S3(b) | `F0+K − F0+K^π` | +0.0080 [+0.0021, +0.0140] | +0.0019 ∋ 0 | −0.0034 | 3+/2− | FAIL (point < 0.01) |
+
+Absolute: AUC(`m5`) 0.750 (twin 0.479); `F0` true 0.853 / shuffled 0.825; κ shortcut AUC 0.905; corr(`m5`, `p_T2`) −0.053.
+
+**Caveats recorded, not acted on** (the user declined further notebooks, 2026-10-13): (a) the quantile-matched twin is
+**below chance**, so the S1a "beyond atypicality" control removed nothing measurable; (b) true-order `F0` 0.853 ≈
+E2(d)'s cubic `p` alone 0.847 (different probe class), and the same-architecture `p`-only reference was not built;
+(c) `m5` is low at clip starts (SMD −0.35), a small position-like effect; (d) κ replicate padding did not remove the
+clip-start spike (61/131 channels > 0.1); (e) S1b cannot separate echo from post-accident change; (f) read-outs omit
+`p_T2` beside the macro (§6.1).
+
+**Decision:** claim-ladder row "S2 passes, S3(a) fails". TDP not built; S5 closed; deployed network = A3-ign.
+Next = advisor check (proposal §10 row 2): analysis chapter acceptable? S4 (10 runs) yes/no?
