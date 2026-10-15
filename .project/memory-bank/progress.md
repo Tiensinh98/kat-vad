@@ -1,6 +1,10 @@
 # Progress
 
-**2026-10-14 (latest, branch `v2`) — batch 1 closed.** R0-probe: `p`-only probe 0.833 < true `F0` 0.853 (shuffled 0.825) → S2 gain mostly above position; detrended ΔT ≈ 0.5 everywhere; `m5` post-event (55 % after span). K1 (T2-val): flow stats23 adds +0.0103 [+0.0027, +0.0181] span, 5/5 seeds, in-domain only → recorded, motion stays parked. Next: SC-1 DF8.
+**2026-10-15 (latest, branch `v2`) — SC-1 DF8 read out: "R1 > 0, X7 fails".** R1 +0.120 [+0.097, +0.141] (prior collapses on early, 0.376); A3-ign early − control −0.125, late − control +0.074. Post-hoc `position_shift same-frame` (+2 tests): A3-ign shifts ≤ ¼–⅓ of `p_T2` on identical frames, opposite sign on late, r ≤ 0.23 → context-sensitive, not a position prior. `f_2` tied to DoTA placement (pending (bn)). `core/docs/v2.2/RESULTS_DF8.md`. Batch 2 closed; next SC-2 A3-B.
+
+**2026-10-14 (later, branch `v2`) — SC-1 DF8 built, not run.** v2 addendum §24 (X1–X10, X7 = D8 sign fix); `core/tools/position_shift.py` + 26 tests; `colab/v2/df8_position_shift.ipynb`; suite 1142 / 0 fail.
+
+**2026-10-14 (branch `v2`) — batch 1 closed.** R0-probe: `p`-only probe 0.833 < true `F0` 0.853 (shuffled 0.825) → S2 gain mostly above position; detrended ΔT ≈ 0.5 everywhere; `m5` post-event (55 % after span). K1 (T2-val): flow stats23 adds +0.0103 [+0.0027, +0.0181] span, 5/5 seeds, in-domain only → recorded, motion stays parked. Next: SC-1 DF8.
 
 **2026-10-13 (branch `v2.2`) — round 7 + R0-saved: ΔT retired (D14).** ΔT(`p_T2`) 0.970 on 557 eligible CAP-dev clips (span 0.824); detrended ΔT `p_T2` 0.000. Motion claim → span + `f_2` + DF8; motion track parked after R0-probe/K1. `core/tools/v22_gates.py`, plan `katvad-v2.2-two-tracks.md` App. A.1.
 

@@ -1,6 +1,6 @@
 # KAT-VAD v2 — DF8 / H1: position-shift stress test (plan)
 
-Status (2026-10-11): **DEFERRED by the user** (plan kept; not built, not pre-registered). When resumed it waits for D1–D6 (§6). Once signed,
+Status (2026-10-15): **RUN and READ OUT — X8 verdict "R1 > 0, X7 fails"** (App. A; `core/docs/v2.2/RESULTS_DF8.md`). Before that (2026-10-14): **BUILT, pre-registered as v2 addendum §24 (Amendment 13, X1–X10), not run.** Resumed as v2.2 batch 2 / SC-1 (round 7 D8, D13). Earlier (2026-10-11): deferred by the user. When resumed it waits for D1–D6 (§6). Once signed,
 the rule (§4) becomes addendum §24 (Amendment 13) and is committed **before** any crop is scored.
 Origin: `REPORT_V2_RESULTS.md` §8 H1, pending (ay) (design guard), RESULTS_E4_0.md §6 (`p_T2` 0.8256 > A3-ign 0.8120
 on the second look). No training.
@@ -9,13 +9,14 @@ on the second look). No training.
 
 | step | what | state |
 |---|---|---|
-| P0 | signed choices D1–D6 → addendum §24 | waiting |
-| P1 | `core/tools/position_shift.py plan` — crop table from labels (pure) | not started |
-| P2 | `position_shift build` — cropped CLIP rows, cropped V2-S rows (+ head re-extraction), crop labels | not started |
-| P3 | bake CRN per crop (`build_v2_inputs apply`, T2-train stats) | not started |
-| P4 | `position_shift score` — every checkpoint on every arm, protocol B on the crop | not started |
-| P5 | `position_shift readout` — §4 rule | not started |
-| P6 | `colab/v2/df8_position_shift.ipynb` | not started |
+| P0 | signed choices D1–D6 → addendum §24 (X1–X10; X7 corrects D8's sign) | **done 2026-10-14** |
+| P1 | `core/tools/position_shift.py plan` — crop table from labels (pure) | **built** (491 reproduced on the saved labels) |
+| P2 | `position_shift heads` — re-extract the clamped V2-S windows from CAP frames (D2) + gate X10(c) | **built** (7,524 windows) |
+| P3 | CRN per crop | **folded into `score`**: `bake_rows` on each crop's own `[::3]` rows with E3's T2 stats, in memory (no baked crop cache) |
+| P4 | `position_shift score` — A3-ign / A3 / A0 × 5 on every arm, gate X10(b) (`full` == saved protocol-B scores) | **built** |
+| P5 | `position_shift prior` + `readout` — §24 rule | **built** |
+| P6 | `colab/v2/df8_position_shift.ipynb` | **run 2026-10-15**, X10 (a)–(d) pass |
+| P7 | `position_shift same-frame` — post-hoc, printed only: same frames scored in the crop vs in the full clip, `p_T2` as ruler | **built + run locally 2026-10-15** (+2 tests) |
 
 ## 1. The question
 
@@ -121,4 +122,24 @@ plus reading the CAP frames of 491 clips. One Colab session.
 
 ## Appendix A — read-outs
 
-(empty)
+### A.1 DF8 run, 2026-10-15 (Colab; `outputs/v2/REPORTS/v22_df8/df8_readout.md`)
+
+- **X10 all pass:** J10 1740 × 15; `full` == saved scores (max 3.5e-07); heads 491/491, 7,524 windows, min cos
+  0.99935 (thin margin over 0.999); 491 clips.
+- **Verdict (X8): R1 > 0, X7 fails.** R1 **+0.1201 [+0.0974, +0.1413]** (full clips −0.0351 [−0.0613, −0.0098]).
+  R2 early − control −0.1251 [−0.1405, −0.1096], late − control +0.0744 [+0.0573, +0.0912], early − late −0.1994.
+  R3 +0.0264.
+- Macro A3-ign full / control / early / late = 0.793 / 0.767 / 0.642 / 0.841; `p_T2` 0.829 / 0.874 / **0.376** /
+  0.867. R1 is driven entirely by the prior's collapse on early; on control and late the prior still leads.
+- X9: `f_2` early 0.45–0.48 for every model → `f_2` is tied to DoTA's placement (pending (bn)). R1 ≥ 4 s span
+  −0.015 ∋ 0 (geometry). D2 sensitivity +0.133. Kept ≈ dropped.
+
+### A.2 Post-hoc same-frame read, 2026-10-15 (local; `df8_same_frame.md`; printed only, decides nothing)
+
+Asked by the user: "is A3-ign learning position?". Same frames, crop-scored minus full-clip-scored AUC:
+A3-ign control / early / late **+0.056 / −0.077 / +0.038**; `p_T2` +0.148 / −0.328 / −0.053; A0 ≤ 0.017. Per-clip
+tracking of the ruler: A3-ign r −0.03 / +0.21 / +0.23 (slope ≤ 0.18); A0 r ≤ 0. Early − late (−0.199) = frame set
+−0.084 + move −0.115. **Reading:** not a position prior (≤ ¼–⅓ of the ruler's shift, opposite sign on late); a weak
+position-like component remains (RoPE + 25-step window ≥ crop length → edges visible); A0 with the same trunk barely
+moves → the extra sensitivity enters via CRN's crop median / V2-S's clamped window (inferred, not measured). The
+direct test (CRN reference from the full clip) was not run, by the user's decision.

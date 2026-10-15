@@ -1979,3 +1979,28 @@ an estimand on which the ramp is far from 0.5 cannot carry a "beyond position" c
 **Files:** `core/tools/v22_gates.py` (`onset_aucs`, `detrended_onset_aucs`); proposal §R7 D14; plan
 `katvad-v2.2-two-tracks.md` App. A.1.
 **Gate status.** Measured failure (one occurrence); candidate.
+
+## (bm) [MEDIUM] Experiments - Write a non-inferiority condition as "new − reference lower bound > −margin", and re-derive its sign before freezing (2026-10-14)
+**Triggers:** non-inferiority, margin, lower bound, pre-registration, contrast direction, control − early
+**Problem:** Round 7's D8 required "`control − early` lower bound > −0.01" for "the detector survives the swap". That tests whether moving the accident *helps*, which is the opposite of the claim. A contrast written in the wrong direction passes trivially for a detector that loses accuracy when moved.
+**Bad:** `ok = ci(control - moved)["low"] > -margin`
+**Good:** `ok = ci(moved - control)["low"] > -margin   # moving costs less than margin`
+**Rule:** Phrase every non-inferiority bar with the arm under test first ("moved − reference"). Before freezing it, check the bar with a toy case: a detector that loses 0.05 when moved must fail it.
+**Files:** core/docs/v2/PREREG_ADDENDUM.md §24 X7, core/tools/position_shift.py:run_readout
+**Gates:** recurring? first seen; HIGH-impact? would have licensed the strong SC-1 sentence wrongly, caught before any read → pending.
+
+## (bn) [MEDIUM] Experiments - A score fused with a position prior is only "beyond position" for the prior's own placement; test a position claim on identical frames moved (2026-10-15)
+**Triggers:** f_2, fusion, p_T2, position prior, beyond position, position swap, DF8, same frames, crop, learns position
+**Problem:** `f_2 = z(score) + 2 z(p_T2)` was quoted in E3, E4-0, Final and S2 as the "beyond position" read. In DF8,
+with the accident moved to centre 0.30, `f_2` fell to 0.45–0.48 for every model (late: 0.89–0.91). The fusion carries
+the prior's placement, so it controls position only where DoTA-CAP puts its accidents. Separately, an arm contrast
+(early − late −0.20) cannot say whether a detector "learns position": early and late differ in content (aftermath vs
+pre-accident) and in CRN's crop-median reference.
+**Bad:** "`f_2` shows the gain survives position control"; "early − late −0.20 → the model learned position".
+**Good:** qualify `f_2` with "(for DoTA-CAP's placement, centre ≈ 0.5–0.7)". For a position claim, score the
+**identical frames** in the crop and in the full clip, and compare that shift to a pure-position ruler's shift on the
+same frames, plus per-clip r and slope (`position_shift same-frame`: A3-ign ≤ ¼–⅓ of `p_T2`, opposite sign on late).
+**Rule:** Measure a position claim on content-fixed frames against a position-only ruler, and qualify any
+prior-fused metric with the placement it was measured on.
+**Files:** core/tools/position_shift.py (`same_frame_aucs`, `tracking`, `run_same_frame`); core/docs/v2.2/RESULTS_DF8.md §4–§5
+**Gates:** recurring? `f_2` is cited in ≥ 4 read-outs; HIGH-impact? wording only (no verdict depends on it) → pending.

@@ -11,7 +11,7 @@ the body where they conflict. Predecessor plan (S1–S3): `katvad-v2.2-order-dia
 | 1 | motion | **R0-saved** | ΔT / detrended ΔT / span of A0–A3, A3-ign, `p_T2` on saved CAP-dev scores; eligibility; per rate group | local | **RUN 2026-10-13 → D14: ΔT retired** (App. A.1) |
 | 1 | motion | R0-probe | ΔT of `m5`, `s`, probes `F0`, `F0+κ`, `p`-only (R0-e), R0-d precursor share | Colab `colab/v2/v22_r0_k1.ipynb` | **RUN 2026-10-14** (App. A.2): `p`-only probe 0.833 → C-b answered |
 | 1 | motion | K1 | `F0` vs `F0 + stats23` (flow/v1, causal), T2-val only | same notebook | **RUN 2026-10-14** (App. A.2): span +0.0103 [+0.0027, +0.0181], no soft stop; recorded, does not re-open the track |
-| 2 | score | SC-1 | DF8 swap (plan `katvad-v2-df8-position-shift.md`, D1–D6 as recommended, + D8's R2 condition) | Colab | **next to build** (batch 1 closed 2026-10-14) |
+| 2 | score | SC-1 | DF8 swap (plan `katvad-v2-df8-position-shift.md`, D1–D6 as recommended, + D8's R2 condition) | Colab `colab/v2/df8_position_shift.ipynb` | **RUN 2026-10-15** (App. A.3): verdict "R1 > 0, X7 fails"; post-hoc same-frame read → not a position prior, context-sensitive. `core/docs/v2.2/RESULTS_DF8.md` |
 | 3 | score | SC-2 | A3-B: V2-B extraction for full T2 + 5 runs, adopt on span only (re-opens N7, D9) | Colab | queued |
 | 4 | motion | EMS-v2.1 + K2 | descriptor code, quality-only pilot | Colab | **parked (D14)** |
 
@@ -104,3 +104,11 @@ point estimate clears +0.01 by 0.0003. **It does not re-open the motion track**,
 (d) D10 pre-declared K1 a weak read.
 Permitted wording: "frame-global flow statistics carry ≈ 0.01 of in-domain signal that the RGB streams do not; the
 transfer value is untestable here." **Batch 1 closed; motion track stays parked (D14).**
+
+### A.3 SC-1 DF8, 2026-10-15 (Colab + local; `outputs/v2/REPORTS/v22_df8/`, `core/docs/v2.2/RESULTS_DF8.md`)
+
+X10 pass. **X8: R1 > 0, X7 fails** — R1 +0.1201 [+0.0974, +0.1413], but A3-ign early − control −0.125 and
+late − control +0.074. Post-hoc same-frame read (printed only): moving identical frames shifts A3-ign by ≤ ¼–⅓ of what
+it shifts `p_T2` (opposite sign on late), per-clip r ≤ 0.23 → **context-sensitive, not a position prior**. `f_2`
+falls to 0.45–0.48 on early → every `f_2` claim is conditional on DoTA's placement (pending (bn)). Batch 2 closed;
+next = batch 3 (SC-2 A3-B).
