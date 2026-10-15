@@ -671,6 +671,13 @@ V22_DF8_NONINFERIOR = 0.01  # X7: moved - control lower bound must exceed -this
 V22_DF8_HEAD_GATE_COS = 0.999  # X10(c): re-extracted unclamped window vs the cache row
 V22_DF8_SPAN_BINS_SECONDS = (2.0, 4.0)  # X9: span-length bins for the printed R1 split
 
+# v2.2 batch 3 = SC-2, A3-B vs A3-ign (v2 addendum §25, Amendment 14, Y1-Y11)
+V22_SC2_CONTROL = "A3ign"  # Y2: E4-0's runs, never retrained
+V22_SC2_ARM = "A3B"  # Y1: A3-ign with VideoMAE V2-B, nothing else
+V22_SC2_ENCODER = VIDEOMAE_ENCODER_B
+V22_SC2_MIN_GAIN = 0.01  # Y5(c): the paired mean must reach this (proposal §7.1 trained-arm bar)
+V22_SC2_T2_MACRO_MARGIN = 0.01  # Y7: T2-val macro at most this far below A3-ign's
+
 # ---------------------------------------------------------------------------
 # Evaluation score pooling (lesson C12)
 #

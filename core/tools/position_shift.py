@@ -107,6 +107,8 @@ SAME_FRAME_JSON = "df8_same_frame.json"
 SAME_FRAME_MD = "df8_same_frame.md"
 PRIOR_NAME = "pT2"
 PRIMARY = "A3ign"
+# models `score` accepts; A3B = SC-2's arm (§25 Y10, scored only if adopted)
+SCORED_MODELS = (PRIMARY, "A3", "A0", constants.V22_SC2_ARM)
 LEAKY = "_leaky"  # X9: D2 sensitivity arm suffix (cache slice, no re-extracted heads)
 GATE_KEY = "gate_cos/"
 OK = "ok"
@@ -818,7 +820,7 @@ def run_same_frame(args: argparse.Namespace) -> dict[str, Any]:
             constants.V2_E1_CI,
         )
 
-    names = [m for m in (PRIMARY, "A3", "A0", PRIOR_NAME)
+    names = [m for m in (*SCORED_MODELS, PRIOR_NAME)
              if (args.scores_dir / scores_npz(m)).is_file()]
     if PRIOR_NAME not in names:
         raise FileNotFoundError(f"same-frame needs {scores_npz(PRIOR_NAME)} as the ruler")
@@ -913,7 +915,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     heads.add_argument("--out-dir", type=Path, required=True)
     score = sub.add_parser(SCORE, help="one model's checkpoints on every arm")
     score.add_argument("--crops", type=Path, required=True)
-    score.add_argument("--model", required=True, choices=(PRIMARY, "A3", "A0"))
+    score.add_argument("--model", required=True, choices=SCORED_MODELS)
     score.add_argument("--run", nargs=2, action="append", required=True, metavar=("NAME", "CKPT"))
     score.add_argument("--s1-dir", type=Path, required=True)
     score.add_argument("--video-dir", type=Path, default=None)

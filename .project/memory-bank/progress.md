@@ -1,6 +1,8 @@
 # Progress
 
-**2026-10-15 (latest, branch `v2`) — SC-1 DF8 read out: "R1 > 0, X7 fails".** R1 +0.120 [+0.097, +0.141] (prior collapses on early, 0.376); A3-ign early − control −0.125, late − control +0.074. Post-hoc `position_shift same-frame` (+2 tests): A3-ign shifts ≤ ¼–⅓ of `p_T2` on identical frames, opposite sign on late, r ≤ 0.23 → context-sensitive, not a position prior. `f_2` tied to DoTA placement (pending (bn)). `core/docs/v2.2/RESULTS_DF8.md`. Batch 2 closed; next SC-2 A3-B.
+**2026-10-15, later (latest, branch `v2`) — SC-2 A3-B built, DEFERRED by the user (GPU cost), not run.** v2 addendum §25 (Y1–Y11); `core/tools/sc2_readout.py` + 11 tests; `colab/v2/sc2_a3b.ipynb`; plan `katvad-v2.2-sc2-a3b.md`.
+
+**2026-10-15 (branch `v2`) — SC-1 DF8 read out: "R1 > 0, X7 fails".** R1 +0.120 [+0.097, +0.141] (prior collapses on early, 0.376); A3-ign early − control −0.125, late − control +0.074. Post-hoc `position_shift same-frame` (+2 tests): A3-ign shifts ≤ ¼–⅓ of `p_T2` on identical frames, opposite sign on late, r ≤ 0.23 → context-sensitive, not a position prior. `f_2` tied to DoTA placement (pending (bn)). `core/docs/v2.2/RESULTS_DF8.md`. Batch 2 closed; next SC-2 A3-B.
 
 **2026-10-14 (later, branch `v2`) — SC-1 DF8 built, not run.** v2 addendum §24 (X1–X10, X7 = D8 sign fix); `core/tools/position_shift.py` + 26 tests; `colab/v2/df8_position_shift.ipynb`; suite 1142 / 0 fail.
 

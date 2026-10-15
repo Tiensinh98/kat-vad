@@ -2004,3 +2004,14 @@ same frames, plus per-clip r and slope (`position_shift same-frame`: A3-ign ≤ 
 prior-fused metric with the placement it was measured on.
 **Files:** core/tools/position_shift.py (`same_frame_aucs`, `tracking`, `run_same_frame`); core/docs/v2.2/RESULTS_DF8.md §4–§5
 **Gates:** recurring? `f_2` is cited in ≥ 4 read-outs; HIGH-impact? wording only (no verdict depends on it) → pending.
+
+## (bo) [LOW] Git - Read `git diff --cached --name-only` before every commit; the index may already hold the user's staged files (2026-10-15)
+**Triggers:** git commit, git add, staged, index, 20 files per commit, batch commit
+**Problem:** The user had staged 15 DF8 output files before asking for a commit. `git add <9 files> && git commit`
+committed all 24 + 5 = 29 files in one commit, over CLAUDE.md's 20-file cap; caught only from the `--stat` line and
+fixed by `reset --soft` (local, unpushed).
+**Bad:** `git add a.py b.py && git commit -m ...` on an index you did not inspect.
+**Good:** `git reset -q && git add <batch> && git diff --cached --name-only | wc -l` (≤ 20) → commit.
+**Rule:** Start every commit batch from an empty index and count the staged files before committing.
+**Files:** CLAUDE.md §10 (Git)
+**Gates:** recurring? first seen; HIGH-impact? no (local, reversible) → pending.

@@ -723,3 +723,30 @@ recommended); v2.2 proposal §R7 D8 (with the sign correction in X7). Tool `core
 X7 fails"**: R1 +0.1201 [+0.0974, +0.1413]; A3-ign early − control −0.1251, late − control +0.0744. Sentence as fixed in
 X8. A post-hoc same-frame read (`position_shift same-frame`, printed only, decides nothing) is in
 `core/docs/v2.2/RESULTS_DF8.md` §4.
+
+## 25. Amendment 14 (2026-10-15) — SC-2: A3-B vs A3-ign, the adoption rule (Y1–Y11)
+
+**Authorized by the user on 2026-10-15 ("commit đi rồi làm batch 3"), under round 7's standing authority ("decide what
+you can and run"); written before any V2-B T2 feature beyond K's 300 sources is extracted and before any A3-B run;
+not reviewed by the advisor.** Design: v2.2 proposal §3.4, §7.1, §8 (SC-2a/b), §R7 D5 and D9. Plan
+`.project/plans/katvad-v2.2-sc2-a3b.md`. Tool `core.tools.sc2_readout`; runbook `colab/v2/sc2_a3b.ipynb`.
+
+| # | Choice | Why |
+|---|---|---|
+| Y1 | **Arm.** A3-B = A3-ign (E4-0's recipe, `loss.dvs_anchor_mode=ignore`) with `v2.motion = vit_b_k710_dl_from_giant` and `model.motion_dim = 768`. Its config differs from E4-0's A3-ign of the same seed in **exactly** those two keys (asserted before any GPU time). Input cache `A3_R2_B`: `build_v2_inputs fit --crn R2 --motion B` on the same v2 dataset dir (manifest `train_ids_sha1` == A3's), `apply --stride 3` on `dota_cap_dev` from the DoTA-CAP V2-B cache that E2(d) read | one change: the encoder. D9: this re-opens N7 (a cost rule, not evidence of equivalence) |
+| Y2 | **Control.** E4-0's five A3-ign runs (seeds 2024–2028), their protocol-B read and their diags, read from `v2_e4_0/`, **never retrained**. Pairing by seed | the deployed `B` |
+| Y3 | **V2-B on T2 (SC-2a).** K's geometry (16 frames every 3rd at the assumed 30 fps, causal, squash 224², stride 8), the **same** cache dir as K's 300 V2-B sources (manifest checked, C2); every T2 source (train + T2-val + test, `t2_all_sources`) | what `fit` bakes; identical to how V2-S was extended (§15 G2) |
+| Y4 | **Primary (span).** DoTA-CAP-dev macro, protocol B (`s1[::3]`, whole clip, native frames), 569 clips. Δ = A3-B − A3-ign | proposal §8 SC-2b |
+| Y5 | **Trained-arm bar (§7.1).** (a) paired t95 over the 5 per-seed macro Δ: lower bound **> 0**; (b) cluster bootstrap (source videos, B = 10,000, 95 %) of the per-clip Δ on seed-averaged scores: lower bound **> 0**; (c) point = the paired mean **≥ +0.01** | as registered |
+| Y6 | **`f_2`.** `z(score) + 2 z(p_T2)` per clip, Δ point **≥ 0** (E3's `p_T2`). Qualified by DF8: it holds for DoTA-CAP's placement only (pending (bn)) | proposal §8 |
+| Y7 | **Guardrails.** Seed-mean T2-val macro(A3-B) ≥ A3-ign's − 0.01; **O1′** (§17 Q2) on every A3-B seed against E3's A0 of the same seed. The normal-window peak is printed, not gated (it is not in SC-2b's row) | proposal §8 |
+| Y8 | **Decision, mechanical.** Y5 (a)(b)(c) + Y6 + Y7 all hold → **adopt A3-B**: it becomes `B`, the deployed model, and the base of any later arm; sentence "A larger frozen video encoder improves DoTA-CAP-dev detection." Otherwise **A3-ign stays**; sentence "A larger frozen video encoder does not improve DoTA-CAP-dev detection at this size" (never "V2-B is no better"). No tie clause | lesson 14 |
+| Y9 | **Printed, never decided on.** Macros with `p_T2` beside them; clip-level raw Δ; `f_2` macros; per native-fps group (`r1` / `r3` / other, D7); T2-val span profile; source-shortcut and position R² of `v^t`; final-epoch losses; extraction wall time | context |
+| Y10 | **DF8 forward (printed only), only if Y8 adopts.** `position_shift score --model A3B` with V2-B heads re-extracted for the crops, then `readout`'s macros per arm and `same-frame`. If A3-ign stays, DF8 already describes the deployed model and nothing is run | the position story is told for the deployed model; no GPU spent on a model that is not deployed |
+| Y11 | **Integrity, before any number.** (a) J10 on every A3-B checkpoint; (b) Y1's config diff; (c) the bake manifest's `train_ids_sha1` == A3's and `width` == 512 + 768; (d) the V2-B T2 cache manifest == K's and every T2 source present; (e) protocol B covers the 569 clips for both arms with the same labels; (f) every diag reads the same `global_step` as protocol B. Any failure stops the read-out | the arm must differ from the control only by the encoder |
+
+Sets: DoTA-CAP-dev decides; T2-val is the guardrail. Nothing sealed is opened; DoTA-CAP-eval and T2-test are not read
+in SC-2.
+
+**Status (2026-10-15): DEFERRED by the user before any run** (GPU cost). The rule stays frozen as written; if SC-2 is
+ever run, it is run under Y1–Y11 unchanged. Until then `B` = A3-ign and no V2-B claim is made either way.
