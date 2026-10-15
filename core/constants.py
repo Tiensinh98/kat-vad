@@ -660,6 +660,16 @@ V22_PRECURSOR_SECONDS = 2.0  # R0-d: the window before onset counted as "precurs
 V22_K1_SOFT_STOP = 0.005  # K1: both T2-val Δ points below -> advisor go-ahead before M0 (D10)
 V22_DETREND_DECIMALS = 9  # G10: residuals rounded so a linear ramp ties exactly (AUC 0.5)
 V22_CAP_RATE_GROUPS = (1, 3)  # D7: DoTA-CAP alignment rate groups that are reported and gated
+# v2.2 batch 2 = SC-1, the DF8 position swap (v2 addendum §24, Amendment 13, X1-X10)
+V22_DF8_K = 3  # X2: frames kept on the near side of the span in the shifted arms
+V22_DF8_MIN_CONTEXT = 10  # X2: min(pre, post) in native frames (1 s at 10 fps) for eligibility
+V22_DF8_EXPECTED_CLIPS = 491  # X2/X10(d): measured on the frozen CAP-dev labels before any score
+V22_DF8_FULL, V22_DF8_CONTROL, V22_DF8_EARLY, V22_DF8_LATE = "full", "control", "early", "late"
+V22_DF8_ARMS = (V22_DF8_FULL, V22_DF8_CONTROL, V22_DF8_EARLY, V22_DF8_LATE)
+V22_DF8_SHIFTED = (V22_DF8_CONTROL, V22_DF8_EARLY, V22_DF8_LATE)  # arms that may start past frame 0
+V22_DF8_NONINFERIOR = 0.01  # X7: moved - control lower bound must exceed -this
+V22_DF8_HEAD_GATE_COS = 0.999  # X10(c): re-extracted unclamped window vs the cache row
+V22_DF8_SPAN_BINS_SECONDS = (2.0, 4.0)  # X9: span-length bins for the printed R1 split
 
 # ---------------------------------------------------------------------------
 # Evaluation score pooling (lesson C12)

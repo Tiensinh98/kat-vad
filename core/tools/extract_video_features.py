@@ -143,6 +143,22 @@ def encode_frame_dir(
         if sorted(frame_order) != list(range(constants.VIDEOMAE_CLIP_FRAMES)):
             raise ValueError(f"frame_order {frame_order} is not a permutation of the clip slots")
         clips = [[clip[k] for k in frame_order] for clip in clips]
+    return encode_clips(paths, clips, encoder, device, batch_size)
+
+
+@torch.no_grad()
+def encode_clips(
+    paths: list[Path],
+    clips: list[list[int]],
+    encoder: nn.Module,
+    device: torch.device,
+    batch_size: int = 16,
+) -> np.ndarray:
+    """``(len(clips), D)`` float32 features of explicit frame-index clips over ``paths``.
+
+    The encoding core of :func:`encode_frame_dir`; DF8 (``core.tools.position_shift``) calls it
+    with windows clamped at a crop's first frame instead of frame 0.
+    """
     frames = decode_frames(paths, sorted({i for clip in clips for i in clip}))
     chunks: list[Tensor] = []
     for start in range(0, len(clips), batch_size):
