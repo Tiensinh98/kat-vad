@@ -1,0 +1,60 @@
+{
+  "checkpoints": {
+    "s2024": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A0/s2024/checkpoint_last.pt",
+    "s2025": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A0/s2025/checkpoint_last.pt",
+    "s2026": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A0/s2026/checkpoint_last.pt",
+    "s2027": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A0/s2027/checkpoint_last.pt",
+    "s2028": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A0/s2028/checkpoint_last.pt"
+  },
+  "global_steps": {
+    "s2024": 1740,
+    "s2025": 1740,
+    "s2026": 1740,
+    "s2027": 1740,
+    "s2028": 1740
+  },
+  "input": {
+    "crn": "none",
+    "motion": "none"
+  },
+  "model": "A0",
+  "per_run_macro": {
+    "control": {
+      "s2024": 0.5871376466652153,
+      "s2025": 0.6372065843689694,
+      "s2026": 0.600256028355191,
+      "s2027": 0.6393351938523436,
+      "s2028": 0.6472176845236535
+    },
+    "early": {
+      "s2024": 0.5620354619919485,
+      "s2025": 0.5912180337443936,
+      "s2026": 0.5802680980004666,
+      "s2027": 0.5936244845450777,
+      "s2028": 0.599173594237232
+    },
+    "full": {
+      "s2024": 0.6164883670986283,
+      "s2025": 0.6679136069204955,
+      "s2026": 0.6306691010505646,
+      "s2027": 0.6692931472470132,
+      "s2028": 0.6706913710847106
+    },
+    "late": {
+      "s2024": 0.6524831845534125,
+      "s2025": 0.7036388532612764,
+      "s2026": 0.6617469822487698,
+      "s2027": 0.7095015352869061,
+      "s2028": 0.6975407867870924
+    }
+  },
+  "reference": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/REPORTS/pb/A0/dota_cap_dev/clip_scores.npz",
+  "runs": [
+    "s2024",
+    "s2025",
+    "s2026",
+    "s2027",
+    "s2028"
+  ],
+  "x10b_max_abs_diff": 0.0
+}
