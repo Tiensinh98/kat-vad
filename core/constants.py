@@ -679,6 +679,36 @@ V22_SC2_MIN_GAIN = 0.01  # Y5(c): the paired mean must reach this (proposal §7.
 V22_SC2_T2_MACRO_MARGIN = 0.01  # Y7: T2-val macro at most this far below A3-ign's
 
 # ---------------------------------------------------------------------------
+# KAT-VAD v4 / ReSH, Stage A (core/docs/v4/PREREG.md I1-I6, S1-S14, G1a)
+# ---------------------------------------------------------------------------
+V4_ENCODER = VIDEOMAE_ENCODER_S  # I1: the encoder v2 already uses
+V4_HEAD_FEATURE = "attn.proj input, mean over tokens (heads merged: channel = head*d_h + d)"  # I2
+V4_U_COS_MIN = 0.999  # I4: pooled u from the hooked pass vs the cached V2-S row (as DF8 X10(c))
+V4_UCOS_SUBDIR = "ucos"  # I4: per-source row cosines, written before the head file
+V4_CRN = V2_E2D_CRN  # I6: R2, per source / clip / crop
+V4_SEED = 2024  # S5, S12, G0
+V4_DETREND_DEGREE = 3  # S3: cubic in tau = (t + 0.5) / T, intercept included
+V4_SELECT_FOLDS = 5  # S5
+V4_SELECT_MAX_PER_CLASS = 4000  # S6
+V4_MMD_MAX_PER_CLASS = 1000  # S7(c)
+V4_KMEANS_N_INIT = 4  # S7(d)
+V4_RSS_LAMBDA = 0.5  # S9: HeadHunt's robustness penalty
+V4_HEADS_K = 5  # S9
+V4_STABILITY_MIN_JACCARD = 0.25  # S10: two of five heads shared between two folds, on average
+V4_RAND_DRAWS = 20  # S12: G1a's random-head draws
+V4_A4_RAND_SEED_OFFSET = 1  # S12: the one committed A4-rand draw
+V4_DRAWS_SEED_OFFSET = 2  # S12: G1a's 20 draws
+V4_CI = V2_E1_CI  # G0
+V4_BOOTSTRAP = V2_E1_BOOTSTRAP  # G0
+V4_G1B_MIN_DELTA = 0.01  # G1b.2: report-H3's kill threshold
+V4_SELECTION_FILENAME = "head_selection.json"
+V4_SELECTION_MD = "head_selection.md"
+V4_G1A_JSON = "g1a_readout.json"
+V4_G1A_MD = "g1a_readout.md"
+V4_PASS = "PASS"
+V4_FAIL = "FAIL"
+
+# ---------------------------------------------------------------------------
 # Evaluation score pooling (lesson C12)
 #
 # Micro AUC concatenates every video's frames into one ranking, so the

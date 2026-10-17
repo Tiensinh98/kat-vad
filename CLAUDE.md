@@ -544,7 +544,7 @@ codebase-memory-mcp cli index_repository '{"repo_path": "/path/to/your-project"}
 
 ### 14.0.1 WHICH BRANCH AM I ON? (READ FIRST — the tree differs)
 
-The repository carries **three live branches** (`main` = v1, `v3` = gate rebuild, `v2` = the v2 build line off `main`). They share
+The repository carries **live branches** `main` = v1, `v3` = gate rebuild, `v2` = the v2 build line off `main`, `v2.2` = the order test off `v2`, and `v4` = ReSH off `v2@5469bfd`. They share
 history up to `fac71a3`; the memory bank under `.project/memory-bank/` is tracked
 **per branch**, so the one you just loaded describes *this* branch only.
 
@@ -553,6 +553,7 @@ history up to `fac71a3`; the memory bank under `.project/memory-bank/` is tracke
 | **`main` (tip `cc39882`)** | **KAT-VAD v1** — the original KIP: `PMGFlowHead` + `KinematicShift` (frozen 321-param MLP gate) + `MotionScoreHead`. Plus the DoTA / PreVAD / TAD / DADA adapters, `core/eda/`, and `core/data/windows.py`. | **v1 only.** No `kip.gate_type`, no `core/kip/ecmr.py`, no gate diagnostics, no train-only inference graph. | **598 collected, 0 fail** (2026-09-27) |
 | **`v2` (from `main@cc39882`)** | **KAT-VAD v2 build line** — `main`'s v1 code + the v2 design (`core/docs/v2/`) + tools: frozen splits `core/splits/v2/` (P0, `7422975`); VideoMAE V2 extractor + kill-switch K (P1: **GO**, K-pos: `u` +0.043 beyond CLIP+position); `crn_select` (P2: CRN = **R2** at s3 via D11 (R1 at s8), E2(c) +0.037); `rate_matched_eval` (P3 **E1 = B: DoTA at stride 3, +0.033**, Amendments 2–3, `7ce8bf5`); **P5 model inputs (2026-09-30):** `build_v2_inputs` + `core/data/v2_inputs.py` (CRN + motion scaling baked into the input cache) + `core/models/motion_residual.py` (`W_u`), config `model.motion_dim` + `v2`. Plan `.project/plans/katvad-v2-e0-e2.md` (§0 = status table). | v1 only (as `main`); v2 trains with KIP off. | **758 collected, 0 fail** (2026-09-30) |
 | **`v2.2` (from `v2`)** | **KAT-VAD v2.2** — v2 (closed on A3-ign) + the staged order test (`core/docs/v2.2/`): `core/tools/order_{features,probe,diagnostics}.py`, runbook `colab/v2/v22_order_s1_s3.ipynb`, plan `.project/plans/katvad-v2.2-order-diagnostics.md`. **S1–S3 read out 2026-10-13: S2 PASS (+0.028), S3 VALUE FAIL → TDP not built, S5 closed**; next = advisor (S4 yes/no). | v1 only; deployed = A3-ign. | 1093 / 0 fail (2026-10-11) |
+| **`v4` (from `v2@5469bfd`)** | **KAT-VAD v4 / ReSH** — v2 (A3-ign) + Reference-Steered Expert Heads: 5 of V2-S's 72 attention heads, selected on T2-train (detrended, weak labels), CRN'd, steered by the CRN reference. Proposal rev 3 + **binding `core/docs/v4/PREREG.md`**; plan `.project/plans/katvad-v4-resh.md`. **Stage A built 2026-10-15** (`HeadTap`, `extract_head_features`, `select_heads`, `v4_gate g1a`, `colab/v4/stage_a.ipynb`); decision gate = G1a → G1b + G1c before any training. | v1 only; v4 trains with KIP off. | 1188 collected, exit 0 (2026-10-15) |
 | **`v3` (tip `bb1516c`)** | v1 **+** the 2026-08-30 gate rebuild: four selectable `gate_type`s (`rank`/`mlp_frozen`/`mlp_ste`/`constant`), ECMR, `train_only_modules`, `--dump-kip-diag`. | v3, default `rank`. | 537 green |
 
 **Run `git branch --show-current` before acting on anything in §14.5.** Writing

@@ -2015,3 +2015,29 @@ fixed by `reset --soft` (local, unpushed).
 **Rule:** Start every commit batch from an empty index and count the staged files before committing.
 **Files:** CLAUDE.md §10 (Git)
 **Gates:** recurring? first seen; HIGH-impact? no (local, reversible) → pending.
+
+## (bp) [HIGH] Caches - `feature_cache.is_complete` only accepts 2-D arrays; a 3-D cache is never "done" (2026-10-15)
+**Triggers:** feature cache, save_array, pending_items, is_complete, resume, 3-D, heads, ndim
+**Problem:** v4's head cache was first written as `(T, 72, 64)`. `is_complete` returns `ndim == 2 and shape[0] > 0`,
+so every 3-D file reads as an interrupted write: `pending_items` deletes nothing but re-queues it, and `ucos_failures`
+reported the finished file as missing (-1). On Colab that is a silent full re-extraction on every resume. Caught only
+by a unit test of the row check.
+**Bad:** `save_array(target, heads)` with `heads.ndim == 3` into a `pending_items`-resumed cache.
+**Good:** store `(T, prod(rest))` and reshape on load from the manifest (`extract_head_features.load_head_rows`).
+**Rule:** Store every resumable per-item cache 2-D and record the reshape in its manifest; test that a finished file
+reads as complete.
+**Files:** core/tools/feature_cache.py:50 (`is_complete`); core/tools/extract_head_features.py (`load_head_rows`)
+**Gates:** recurring? first seen; HIGH-impact? would cost a full GPU re-run per disconnect → pending.
+
+## (bq) [MEDIUM] Docs - Copy a split count from the code that builds it, never re-derive it from a prose "A − B" (2026-10-16)
+**Triggers:** T2-train, T2-val, split count, 1,272, 1,053, preflight assert, PREREG
+**Problem:** v2 docs write "T2-train − T2-val | 1,272 − 219 sources", meaning the set (T2-train minus T2-val) has 1,272
+sources. v4's PREREG I5, the proposal and `stage_a.ipynb` read it as arithmetic and subtracted again → 1,053. The
+preflight assert fired on Colab with `(1272, 219)`. Caught before any GPU work only because the notebook asserts counts.
+**Bad:** `assert (len(train), len(val)) == (1053, 219)` (number taken from prose).
+**Good:** `assert (len(train), len(val)) == (1272, 219)` (1,491 − 219, from `crn_select.t2_sources`); write a set count as
+"1,491 − 219 = 1,272", never as a bare "A − B".
+**Rule:** Take every count in a PREREG or a notebook assert from a run of the function that defines the set, and write
+set differences with their result.
+**Files:** core/docs/v4/PREREG.md:26 (I5); colab/v4/stage_a.ipynb §1; core/tools/crn_select.py:157 (`t2_sources`)
+**Gates:** recurring? first seen; HIGH-impact? no (assert caught it) → pending.
