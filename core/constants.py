@@ -678,6 +678,20 @@ V22_SC2_ENCODER = VIDEOMAE_ENCODER_B
 V22_SC2_MIN_GAIN = 0.01  # Y5(c): the paired mean must reach this (proposal §7.1 trained-arm bar)
 V22_SC2_T2_MACRO_MARGIN = 0.01  # Y7: T2-val macro at most this far below A3-ign's
 
+# v2 TAD zero-shot generalization probe (v2 addendum §26, Amendment 15, T1-T10)
+V2_TADZ_STRIDE = 8  # T2: TAD read at s8 = Gate T0's protocol and T2's seconds/step (assumed 30 fps)
+V2_TADZ_ARM = "A3ign"  # T3: the deployed B
+V2_TADZ_CONTROL = "A0"  # T3: CLIP only, same T2 recipe (E3)
+V2_TADZ_PRINTED_ARM = "A3"  # T3: E3's A3 -- splits the A3-ign - A0 Δ into factorial and `ignore`
+V2_TADZ_ARMS = (V2_TADZ_CONTROL, V2_TADZ_PRINTED_ARM, V2_TADZ_ARM)
+V2_TADZ_REFERENCE = "T0"  # T6: LaGoVAD's released checkpoint, Gate T0
+V2_TADZ_T0_MICRO = 0.7912  # T9(a): TAD_SETUP.md §8.1, re-scored here before any v2 number
+V2_TADZ_T0_TOLERANCE = 0.001
+V2_TADZ_VIDEOS = 100  # T9(b): tad_test_anno.json, 60 Car Accident + 40 Normal
+V2_TADZ_ABNORMAL = 60
+V2_TADZ_FRAME_GATE_COS = 0.999  # T9(c): Kaggle-frame CLIP re-extraction vs Drive TAD_ncc rows
+V2_TADZ_FRAME_GATE_IDS = 5  # T9(c): test videos re-extracted for that gate
+
 # ---------------------------------------------------------------------------
 # Evaluation score pooling (lesson C12)
 #
