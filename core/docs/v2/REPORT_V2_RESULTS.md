@@ -1,10 +1,11 @@
 # KAT-VAD v2 — Summary of experimental results (P0 → Final) and directions for improvement
 
-*2026-10-07; updated 2026-10-11 (post-Final: E4-0, its second look, SG-NM closed, DF8 deferred, figures) · branch `v2` · code `03d365e` · author: sinhpham (drafted with Claude)*
+*2026-10-07; updated 2026-10-11 (post-Final: E4-0, its second look, SG-NM closed, DF8 deferred, figures); 2026-10-21 (§4.6 TAD zero-shot) · branch `v2` · code `03d365e` · author: sinhpham (drafted with Claude)*
 
 **Sources.** Every number here comes from an existing read-out: `MOTION_STREAM_K.md`, `RESULTS_E2_CRN.md`,
 `RESULTS_E1.md`, `RESULTS_E2D.md`, `RESULTS_P6_PILOT.md`, `RESULTS_E3.md` and
-`outputs/v2/v2_final/REPORTS/final_readout.{md,json}`; §4.5 from `RESULTS_E4_0.md`. Score files (`*.npz`) under `outputs/`
+`outputs/v2/v2_final/REPORTS/final_readout.{md,json}`; §4.5 from `RESULTS_E4_0.md`; §4.6 from
+`outputs/v2/v2_tadz/REPORTS/tadz_readout.{md,json}` (addendum §26). Score files (`*.npz`) under `outputs/`
 are gitignored; the small v2 read-outs (`REPORTS/**/*.{md,json}`) are tracked. This file is the summary record
 of the Final and of what came after it. **§6 is new.** It is a per-clip error analysis run **on DoTA-CAP-dev**. It is exploratory and
 **not pre-registered**: it points to directions, and nothing in it is a claim.
@@ -43,6 +44,10 @@ of the Final and of what came after it. **§6 is new.** It is a per-clip error a
    (the whole-anchor DVS label, C29, dropped; same deployed network). Adopted on DoTA-CAP-dev (+0.040, E4-0); on a
    **second look at the opened eval set** A3-ign scores **0.8120** vs A3 0.7785, Δ **+0.038 [+0.033, +0.043]**
    (5/5), `f_2` Δ +0.016 [+0.010, +0.021], T2-test macro 0.720 (+0.025). `p_T2` 0.8256 is still above it.
+8. **Zero-shot on fixed-camera TAD (§4.6, 2026-10-21):** A3-ign macro **0.759**, not separated from LaGoVAD's released
+   checkpoint (0.758) and above every position ruler (`p_T2` 0.689). But **no gain of v2's components over A0 is shown**
+   (A3-ign − A0 +0.022, both intervals contain 0), and v2 **cannot tell a normal video from an accident video**
+   (clip-level AUC 0.544 vs LaGoVAD 0.769): it raises false alarms on long normal footage.
 
 ---
 
@@ -112,6 +117,7 @@ CAP is about 0.01–0.02 harder than the dropped clips, and every interval overl
 | **E4-0** (10-11, 5 runs) | Does the whole-anchor DVS label (C29) hurt? (CAP-dev) | A3-ign − A3 **+0.0398 [+0.035, +0.045]**, `f_2` +0.010, guardrails pass | **adopt A3-ign** (§4.5) |
 | **E4a** (10-11) | Does an SG-NM normality score add ranking information to A3-ign? | Δ rank-avg − `y^bin` **−0.012 [−0.016, −0.008]**, `f_2` −0.003, T2-val −0.012 | **SG-NM closed**; code reverted |
 | **Second look** (10-11) | Does A3-ign's gain hold on the opened sets? | CAP-eval Δ **+0.0376 [+0.033, +0.043]**, `f_2` +0.016, T2-test +0.025 | **holds** (§4.5) |
+| **TAD zero-shot** (10-21, 15 evals) | Does v2 transfer to fixed traffic cameras? (TAD test, 60 two-class videos) | A3-ign − A0 **+0.022**, t95 [−0.003, +0.047], bootstrap [−0.049, +0.116]; A3-ign − LaGoVAD +0.002 [−0.063, +0.067]; clip-level AUC 0.544 | **no transfer gain shown**; parity with LaGoVAD; clip-level weakness (§4.6) |
 
 ## 4. Final — sealed sets, opened exactly once
 
@@ -194,6 +200,46 @@ the same day: its frozen-trunk gate failed (Δ −0.012 [−0.016, −0.008]).
 numbers equal the read-outs (`figs/cap_eval/roc_metrics.json`): micro / AP — A0 0.651 / 0.447, A3 0.730 / 0.524,
 A3-ign 0.782 / 0.596, `p_T2` 0.802 / 0.607. A3-ign's precision is above `p_T2`'s only at low recall (≲ 0.3).*
 
+### 4.6 Zero-shot on TAD — fixed traffic cameras (addendum §26, Amendment 15)
+
+Every number above is dashcam. TAD (`tad_test_anno.json`: 100 videos, 60 `Car Accident` + 40 `Normal`, fixed
+traffic cameras) is the first fixed-camera read. Protocol (T2): `core.evaluate --set data.dataset=TAD`, stride 8 (Gate
+T0's protocol), whole video, raw scores, TAD's own definition. Arms: the 15 deployed checkpoints (A0 / A3 from E3,
+A3-ign from E4-0), **no retraining and nothing tuned on TAD** (T8). A3 / A3-ign inputs = V2-S on TAD + CRN with each
+video's own R2 median, baked with the T2 stats. **The probe never moves `B` (T1).** Integrity (T9): T0 re-scores at
+micro **0.7912** (Gate T0), 100 / 60 videos, Kaggle frames == `TAD_ncc` (CLIP cos ≥ 0.99999 on 5 videos), identical
+labels in every run.
+
+| Arm (seed-averaged) | macro (60 videos) [bootstrap] | per-seed macro | clip-level AUC | micro |
+|---|---|---|---|---|
+| A0 | 0.7268 [0.657, 0.793] | 0.720 / 0.738 / 0.725 / 0.709 / 0.730 | 0.578 | 0.493 |
+| A3 | 0.7696 [0.712, 0.823] | 0.730 / 0.772 / 0.788 / 0.755 / 0.739 | 0.500 | 0.685 |
+| **A3-ign** | **0.7594 [0.707, 0.808]** | 0.740 / 0.751 / 0.768 / 0.749 / 0.723 | 0.544 | 0.678 |
+| LaGoVAD released `best.ckpt` (T0) | 0.7579 [0.697, 0.814] | — | **0.769** | **0.791** |
+| `p_T2` (position only) | 0.6885 [0.615, 0.758] | | | |
+| middle ruler / `t/N` | 0.683 / 0.587 | | | |
+
+Micro rulers: clip oracle **0.9226**, length ruler **0.8968**. Micro on TAD measures clip classification (C14), so a TAD
+micro is never put beside the published 89.56.
+
+| Contrast (macro) | paired t95 (n = 5) | per-video bootstrap | Sentence (T5 / T6) |
+|---|---|---|---|
+| **A3-ign − A0** (endpoint) | +0.0218 [−0.003, +0.047] | +0.0327 [−0.049, +0.116] | **"no transfer gain of v2's components is shown on TAD at n = 5"** |
+| A3 − A0 (printed) | +0.0324 [+0.004, +0.061] | +0.0429 [−0.044, +0.131] | — (bootstrap contains 0) |
+| A3-ign − A3 (printed) | −0.0107 [−0.026, +0.005] | −0.0102 [−0.036, +0.016] | — |
+| A3-ign − LaGoVAD (printed) | — | +0.0015 [−0.063, +0.067] | **"not separated"** (not a matched comparison: LaGoVAD trained on PreVAD, A3-ign on ~800 T2 windows) |
+
+**Post-hoc (printed, not gated; computed from the saved score files):**
+- **v2 does not separate normal videos from accident videos.** Median max score on normal videos is **1.000** for A3-ign
+  (= accident videos); its mean score on normal videos (0.352) is above the non-accident frames of accident videos
+  (0.267). LaGoVAD keeps normals low (median max 0.013 vs 0.109). TAD normals are ~4× longer (median 139 vs 36 steps)
+  and T2 contains no stand-alone normal video (its negatives are cut from inside accident videos), and CRN references
+  each video to itself. This is the likely cause, **inferred, not tested**. Consequence: v2 ranks *within* a video as well as
+  LaGoVAD, but cannot be run with one global alarm threshold, and its micro (0.678) is below LaGoVAD's (0.791).
+- **Position does not explain TAD.** A3-ign − middle ruler +0.076 [−0.010, +0.163] (LaGoVAD +0.075); per-clip AUC
+  correlation of A3-ign with the ruler r = 0.01. Unlike DoTA-CAP, the position prior is below the model here.
+- The `ignore` gain of DoTA (+0.038) does not carry over to TAD (A3-ign − A3 −0.011, contains 0).
+
 ---
 
 ## 5. What may and may not be claimed
@@ -205,6 +251,8 @@ A3-ign 0.782 / 0.596, `p_T2` 0.802 / 0.607. A3-ign's precision is above `p_T2`'s
 | The gain is **≈ +0.02** after controlling for the T2 position prior, on both dev and eval | "+0.09" without `p_T2` beside it |
 | No selection optimism (dev ≤ eval for every arm) | "CRN improves transfer" (A1 − A0 contains 0) |
 | CRN removes the T2↔DoTA corpus shortcut in `V^t` (0.9998 → 0.57) | A2/A3 "pass O1". The required wording is "O1 FAIL as registered; not collapsed under O1′" |
+| "Zero-shot on fixed-camera TAD, A3-ign (0.759) is not separated from LaGoVAD's released checkpoint (0.758)", with the training-data caveat | "v2's components transfer to TAD" or "beat LaGoVAD on TAD"; a TAD micro beside 89.56 |
+| "v2 cannot separate normal from accident videos on TAD (clip-level AUC 0.544)", as a limitation | that the cause (no stand-alone normals in T2 + CRN) is established; it is inferred |
 | "Dropping the whole-anchor DVS label improves DoTA-CAP (n/1397) detection, on dev and on a second look at the opened eval set" (+0.038), "… beyond the position prior (second look)" (`f_2` +0.016) | A3-ign "beats the position prior" (0.8120 < `p_T2` 0.8256); an A3-ign eval number without "second look"; "the whole-anchor label causes Gap S" |
 
 ---
@@ -300,6 +348,7 @@ little normal context before the onset.
 | CRN (R2) | shortcut 0.9998 → 0.57; lets A3 survive position control (A2 does not) | A1 − A0 contains 0 on DoTA-dev and -eval; ≈ 0.013 macro in-domain cost on T2 (A3 vs A2) | kept inside A3; no stand-alone claim |
 | DVS anchor label `ignore` (A3-ign) | +0.040 dev, +0.038 eval (second look), `f_2` +0.010 / +0.016, T2-test +0.025; free (one training flag) | inside-span mean falls (−0.155): floor suppression, not coverage | **adopted after the Final** (v2's recipe) |
 | SG-NM (training-only normality branch, on A3-ign) | — | E4a gate: Δ −0.012 [−0.016, −0.008] on CAP-dev, −0.012 on T2-val, 5/5 seeds negative; `S̃` correlates 0.85 with `y^bin` per clip | **closed 2026-10-11**; code reverted |
+| Clip-level discrimination | LaGoVAD keeps normal videos low on TAD (clip AUC 0.769) | v2 arms 0.50–0.58 on TAD; max score 1.0 on normal videos (§4.6) | **open limitation**; not addressed by any v2 component |
 | V2-S vs V2-B | cheaper; wins by the tie rule | B is ahead beyond position in transfer (+0.037 vs +0.018, E2(d)) | candidate to revisit |
 
 ---
@@ -350,8 +399,9 @@ little normal context before the onset.
 | Pilot | `core/docs/v2/RESULTS_P6_PILOT.md` |
 | E3 | `core/docs/v2/RESULTS_E3.md` |
 | Final (raw) | `outputs/v2/v2_final/REPORTS/final_readout.{md,json}` (gitignored) |
-| Pre-registered rules | `core/docs/v2/PREREG_ADDENDUM.md` §1–§23 (§22 E4-0, §23 second look) |
+| Pre-registered rules | `core/docs/v2/PREREG_ADDENDUM.md` §1–§26 (§22 E4-0, §23 second look, §26 TAD zero-shot) |
 | E4-0 + second look | `core/docs/v2/RESULTS_E4_0.md`; raw `outputs/v2/v2_e4_0/REPORTS/`, `outputs/v2/v2_e4_0/second_look/REPORTS/` |
+| TAD zero-shot | `outputs/v2/v2_tadz/REPORTS/tadz_readout.{md,json}`, `tadz_frame_gate.json`; rule addendum §26; plan `.project/plans/katvad-v2-tad-zeroshot.md` |
 | E4a (SG-NM gate) | `outputs/v2/v2_e4b/REPORTS/e4a_readout.{md,json}` |
 | H1 / DF8 plan | `.project/plans/katvad-v2-df8-position-shift.md` (deferred) |
 | Figures | `core/docs/v2/figs/` (`core.tools.v2_plots`) |
