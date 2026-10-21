@@ -1,0 +1,74 @@
+{
+  "addendum": "PREREG_ADDENDUM.md \u00a727 (Amendment 16, G1-G10)",
+  "dev": {
+    "abnormal": 200,
+    "bar": 0.6,
+    "gate_clip_auc": 0.8050952380952381,
+    "length_ruler_clip_auc": 0.6540595238095238,
+    "passed": true,
+    "videos": 410
+  },
+  "endpoint": {
+    "paired_t95": {
+      "high": 0.13983332198211856,
+      "low": 0.13233402794467491,
+      "mean": 0.13608367496339674,
+      "n": 5,
+      "per_seed": {
+        "s2024": 0.13621852122986822,
+        "s2025": 0.14092825768667638,
+        "s2026": 0.13389659590043923,
+        "s2027": 0.13615714982918492,
+        "s2028": 0.133217850170815
+      },
+      "sd": 0.0030203406431885613
+    },
+    "video_bootstrap": {
+      "high": 0.20372942557059884,
+      "low": 0.10243960465596423,
+      "mean": 0.1568570034163006
+    }
+  },
+  "gate_test_clip_auc": 0.85125,
+  "levels": {
+    "A3ign": {
+      "clip_auc": 0.5439583333333334,
+      "micro": 0.6778623108833578
+    },
+    "T0 (LaGoVAD released)": {
+      "clip_auc": 0.7687499999999999,
+      "micro": 0.7912287091264031
+    },
+    "c x minmax(A3ign)": {
+      "clip_auc": 0.85125,
+      "micro": 0.8347193142996584,
+      "per_seed_micro": {
+        "s2024": 0.8157231576378721,
+        "s2025": 0.8044987188872621,
+        "s2026": 0.8265348950707663,
+        "s2027": 0.8097614690092728,
+        "s2028": 0.7935491703269888
+      }
+    },
+    "mean(T0) x minmax(A3ign) (form seen on this set)": {
+      "clip_auc": 0.7999999999999999,
+      "micro": 0.7524074548560274
+    }
+  },
+  "macro": 0.7594256424066986,
+  "msad_test_gate_clip_auc": 0.9483991943884993,
+  "seeds": [
+    "s2024",
+    "s2025",
+    "s2026",
+    "s2027",
+    "s2028"
+  ],
+  "sentence": "a clip-level gate trained on MSAD restores clip-level discrimination on TAD",
+  "test_length_ruler_clip_auc": 0.6939583333333333,
+  "vs_t0_micro_bootstrap": {
+    "high": 0.129379914308363,
+    "low": -0.031280381608757006,
+    "mean": 0.043490605173255314
+  }
+}
