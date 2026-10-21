@@ -2015,3 +2015,12 @@ fixed by `reset --soft` (local, unpushed).
 **Rule:** Start every commit batch from an empty index and count the staged files before committing.
 **Files:** CLAUDE.md §10 (Git)
 **Gates:** recurring? first seen; HIGH-impact? no (local, reversible) → pending.
+
+## (bp) [MEDIUM] Evaluation - macro and clip-level discrimination are separable; diagnose with the no-CRN control
+**Triggers:** clip-level AUC, micro on TAD, false alarms on normal videos, CRN blamed, fusion, gate
+**Problem:** On TAD A3-ign's clip-level AUC was 0.544 and it was first blamed on CRN; A0 (no CRN) scored 0.578, so the cause was the training data (no stand-alone normals in T2).
+**Bad:** "CRN references each video to itself, so it is blind at clip level" without reading A0's clip-level AUC.
+**Good:** read the arm without the component first; then repair clip level with a per-video positive gate `c(v)·minmax_v(y)`, which provably leaves macro unchanged (§27 G3).
+**Rule:** Attribute a clip-level failure only after reading the arm without the suspected component, and repair it with a per-video monotone rescale so macro cannot move.
+**Files:** core/tools/tad_clip_gate.py (fuse, G3 check in cmd_readout); core/docs/v2/REPORT_V2_RESULTS.md §4.6
+**Gates:** recurring? first seen; HIGH-impact? no (a mis-attribution caught in-session) → pending.

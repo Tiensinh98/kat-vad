@@ -692,6 +692,16 @@ V2_TADZ_ABNORMAL = 60
 V2_TADZ_FRAME_GATE_COS = 0.999  # T9(c): Kaggle-frame CLIP re-extraction vs Drive TAD_ncc rows
 V2_TADZ_FRAME_GATE_IDS = 5  # T9(c): test videos re-extracted for that gate
 
+# v2 TAD clip-level gate s = c(v) * minmax_v(y) (v2 addendum §27, Amendment 16, G1-G10)
+V2_TADG_C = 1.0  # G2: logistic regression inverse regularization, fixed
+V2_TADG_MAX_ITER = 2000  # G2
+V2_TADG_ARM = V2_TADZ_ARM  # G3: the scores the gate multiplies (A3-ign, §26's files)
+V2_TADG_DEV_MIN_AUC = 0.60  # G5: the gate's clip-level AUC on TAD-train must reach this
+V2_TADG_DEV_MIN_VIDEOS = 300  # G9(c)
+V2_TADG_MSAD_TRAIN = (120, 360)  # G9(b): abnormal / normal MSAD-train videos
+V2_TADG_MACRO_TOL = 1e-9  # G3: macro(s) == macro(A3-ign) per seed
+V2_TADG_NORMAL_PREFIX = "Normal"  # G5: TAD ids of the normal class (Normal_012, ...)
+
 # ---------------------------------------------------------------------------
 # Evaluation score pooling (lesson C12)
 #
