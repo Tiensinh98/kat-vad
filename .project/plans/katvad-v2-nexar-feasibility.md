@@ -19,7 +19,8 @@
 | N1 | addendum **§21 SIGNED 2026-10-10** (D-N1…D-N10), before any Nexar number; `nexar_test` opened once after the full seeds |
 | N2–N5 code | built 2026-10-10 (uncommitted): `nexar_extract`, `nexar_build`, `nexar_eval`, `build_v2_inputs fit-ids`, `test_nexar_pipeline.py` (16), `colab/v2/nexar_train.ipynb` |
 | Whole first (user, 2026-10-10) | train `whole` only; `window` iff the pilot trigger fires (D-N10: W1 edge drop > 0.05 · W2 ≤ E3-A3 zero-shot · W3 clip AUC ≥ 0.95 and A3 < A0). D-N9 split into (a) whole-only: `whole`/A3 − `whole`/A0, (b) both. Built: `nexar_trigger` (+5 tests), notebook step 5b (zero-shot) + trigger in step 7 |
-| Next | user uploads → runs `nexar_train.ipynb` pilot (s2099, `whole` × {A0, A3}, 2 runs + E3 zero-shot) → pastes `summary_pilot.md` (trigger verdict inside) |
+| Amendment 17 (user, 2026-10-22) | addendum **§28** (D-N11…D-N15), written during N2 extraction, before any Nexar score: **both arms `dvs_anchor_mode=ignore`** (A0-ign / A3-ign = `B`'s recipe), `is_egocentric=false` kept, W2's bar = **E4-0's A3-ign** zero-shot; outputs `v2_nexar_ign/`, `REPORTS/nexar_{val,dota_cap}_ignore/`. Constants `NEXAR_DVS_ANCHOR_MODE`, `NEXAR_RUNS_DIR`; notebook steps 0/1/4/5/5b/6/7 updated, N2 untouched |
+| Next | user finishes N2 → re-uploads code (needs §28) → runs `nexar_train.ipynb` pilot (s2099, `whole` × {A0-ign, A3-ign}, 2 runs + E4-0 A3-ign zero-shot) → pastes `summary_pilot.md` from `REPORTS/nexar_val_ignore/` |
 
 ## 1. Summary
 

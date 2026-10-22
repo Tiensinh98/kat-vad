@@ -66,7 +66,9 @@ passes. Seed 2024, position terciles at 0.4869 / 0.5055, median duration 40.13 s
 
 ## 2. N2–N5 — extract, build, train `whole` (then `window` iff triggered), read val (`colab/v2/nexar_train.ipynb`)
 
-Rules: `PREREG_ADDENDUM.md` §21 (D-N1…D-N10). One notebook, resumable at every step:
+Rules: `PREREG_ADDENDUM.md` §21 (D-N1…D-N10) + **§28 (Amendment 17, D-N11…D-N15): both arms train with
+`loss.dvs_anchor_mode=ignore` (A0-ign / A3-ign, `B`'s recipe), `is_egocentric=false` kept, W2's bar = E4-0's A3-ign.**
+N2 features, N4 corpora, the A3 bake and KNN are anchor-free and unchanged. One notebook, resumable at every step:
 
 | Step | Tool | Output (Drive) |
 |---|---|---|
@@ -75,11 +77,11 @@ Rules: `PREREG_ADDENDUM.md` §21 (D-N1…D-N10). One notebook, resumable at ever
 | A0 input | `core.tools.nexar_build subsample` (`s1[::8]`) | `Thesis-V2/cache/clip/Nexar_s8_ncc/` |
 | A3 input | `core.tools.build_v2_inputs fit-ids` — R2 + V2-S statistics on `nexar_train`, train + val baked at `s1[::8]` | `Thesis-V2/cache/v2/A3_R2_S/Nexar_s8/` |
 | KNN | `core.data.knn_cache --dataset Nexar` on `Nexar_s8_ncc` | `Thesis-V2/cache/knn/Nexar_{c}/` |
-| N5 train | `core.train`, E3 recipe (`data.is_egocentric=false` and `L_neg` off, as E3), `data.dataset=Nexar`; `whole` adds `dvs.syn_max_num_clips=3`; only the notebook's `CONSTRUCTIONS` (default `['whole']`) | `Thesis-V2/outputs/v2_nexar/<c>/<arm>/s<seed>/` |
-| val read | `core.tools.nexar_eval` — shifted 8 s crops (endpoint) + whole videos + middle ruler | `REPORTS/nexar_val/<tag>_<c>_<arm>/` |
-| zero-shot | `nexar_eval` on E3's five T2-trained A3 ckpts (`outputs/v2_e3/A3/s*`) with their T2 stats (`cache/v2/A3_R2_S/DADA2000_orig`) — W2's bar | `REPORTS/nexar_val/zeroshot_e3_A3/` |
-| trigger | `core.tools.nexar_trigger` (pilot only): W1 edge drop > 0.05, W2 endpoint ≤ zero-shot, W3 clip AUC ≥ 0.95 and A3 < A0 | `REPORTS/nexar_val/trigger_pilot/window_trigger.{json,md}` |
-| 2nd look | `build_v2_inputs apply` (Nexar stats on DoTA-CAP-dev) + `protocol_b_eval` | `REPORTS/nexar_dota_cap/<tag>_<c>_<arm>/` |
+| N5 train | `core.train`, E3 recipe + `loss.dvs_anchor_mode=ignore` on **both** arms (§28), `data.is_egocentric=false` (asserted in each run's `config.yaml`), `L_neg` off, `data.dataset=Nexar`; `whole` adds `dvs.syn_max_num_clips=3`; only the notebook's `CONSTRUCTIONS` (default `['whole']`) | `Thesis-V2/outputs/v2_nexar_ign/<c>/<arm>/s<seed>/` |
+| val read | `core.tools.nexar_eval` — shifted 8 s crops (endpoint) + whole videos + middle ruler | `REPORTS/nexar_val_ignore/<tag>_<c>_<arm>/` |
+| zero-shot | `nexar_eval` on E4-0's five T2-trained A3-ign ckpts (`outputs/v2_e4_0/A3ign/s*`, J10 + anchor asserted) with their T2 stats (`cache/v2/A3_R2_S/DADA2000_orig`) — W2's bar (§28 D-N13) | `REPORTS/nexar_val_ignore/zeroshot_e4_0_A3ign/` |
+| trigger | `core.tools.nexar_trigger` (pilot only): W1 edge drop > 0.05, W2 endpoint ≤ zero-shot, W3 clip AUC ≥ 0.95 and A3 < A0 | `REPORTS/nexar_val_ignore/trigger_pilot/window_trigger.{json,md}` |
+| 2nd look | `build_v2_inputs apply` (Nexar stats on DoTA-CAP-dev) + `protocol_b_eval` | `REPORTS/nexar_dota_cap_ignore/<tag>_<c>_<arm>/` |
 
 Pilot first (`SEEDS = [2099]`, `whole` × {A0, A3} = 2 runs) → trigger. Passes → `SEEDS = RUN_SEEDS` on `whole` (10 runs). Fires →
 add `'window'` to `CONSTRUCTIONS`, pilot it, then `RUN_SEEDS` for both (20 runs; D-N9(b)). `nexar_test` is opened only by

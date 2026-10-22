@@ -520,6 +520,10 @@ NEXAR_TRIGGER_CENTRE = 0.5  # W1: reference crop placement
 NEXAR_TRIGGER_EDGES = (0.1, 0.9)  # W1: placements compared to the centre
 NEXAR_TRIGGER_MAX_EDGE_DROP = 0.05  # W1: centre - edge crop macro above this fires
 NEXAR_TRIGGER_CLIP_AUC = 0.95  # W3: clip-level AUC at/above this (with crops < A0) fires
+# Amendment 17 (addendum §28): both Nexar arms train with B's DVS anchor (A0-ign, A3-ign);
+# W2's zero-shot bar is E4-0's T2-trained A3-ign. is_egocentric stays false (T2's recipe).
+NEXAR_DVS_ANCHOR_MODE = DVS_ANCHOR_MODE_IGNORE
+NEXAR_RUNS_DIR = "v2_nexar_ign"  # under OUTPUT_ROOT: <construction>/<arm>/s<seed>/
 
 # --- E2(d): encoder choice on DoTA-CAP-dev (addendum §12, N1-N12; proposal §10.2) ---
 V2_E2D_STRIDE = V2_E1_STRIDE_BC  # N1: protocol B rows of the stride-1 caches

@@ -794,3 +794,21 @@ than TAD, and its read.
 | G8 | **Banned.** Changing pooling, `C`, features, corpus or fusion after the dev gate or the test is read; fitting on any TAD video; a TAD micro beside 89.56 | lesson 14, C8b |
 | G9 | **Integrity.** (a) §26's T9 still holds (the readout re-runs `tadz_readout`'s label check and T0 micro 0.7912); (b) every MSAD-train id has a feature file, both classes present, counts 120 / 360; (c) TAD-train ∩ TAD-test = ∅, ≥ 300 dev videos, both classes; folder-derived labels reproduce the 100 test labels exactly; (d) gate features are 512-wide; (e) G3's macro identity | the gate must see what G4/G5 name and nothing else |
 | G10 | **Record.** The read-out goes to `core/docs/v2/RESULTS_TADZ.md` (a section after §26's) whatever it says. Whether it enters the thesis report is the user's call after reading it | report scope is not a statistic |
+
+## 28. Amendment 17 (2026-10-22) — Nexar trains `B`'s recipe: both arms `dvs_anchor_mode = ignore` (D-N11–D-N15)
+
+**Authorized by the user on 2026-10-22 ("A0 cũng dùng ignore. is_egocentric vẫn giữ false"), while N2 extraction was
+running and before any Nexar score, checkpoint or position read exists; not reviewed by the advisor.** It amends §21's
+D-N5 and D-N10 only. Runbook `colab/v2/nexar_train.ipynb`; plan `.project/plans/katvad-v2-nexar-feasibility.md`.
+
+**Why now.** §21 was signed on 2026-10-10; E4-0 adopted A3-ign as `B` on 2026-10-11 (§22). §21's "E3 recipe" therefore
+named a recipe `v2` no longer deploys. On `whole` the stale choice is also the C29 defect itself: the DVS anchor is a
+whole ~40 s positive video, and `span` mode supervises every pre-event frame of it as abnormal.
+
+| # | Choice | Why |
+|---|---|---|
+| D-N11 | **Both arms train with `loss.dvs_anchor_mode = ignore`** (`constants.NEXAR_DVS_ANCHOR_MODE`). §21's A0 / A3 now mean **A0-ign / A3-ign**: everything else is D-N5 unchanged (kernel 3, top-k 5 %, stage 2, KIP off, AMP, CRN R2 + V2-S fitted on `nexar_train`, step budget D-N6, `whole` DVS cap 3) | `B` = A3-ign (§22). A0 takes the same anchor so the A3 − A0 contrast of D-N9 stays one factor (CRN + motion) and is not confounded with the anchor |
+| D-N12 | **`data.is_egocentric = false`, kept** (θ 0.7, δ_m 5 → `min(3, 5) = 3` clips on `whole`) | Every T2-trained v2 arm used `false`; its effect was never measured (`DADA_SETUP.md` §9 scope note). Switching it here would make Nexar-trained vs T2 zero-shot differ in corpus *and* DVS recipe. An ego arm, if ever wanted, is its own amendment beside A3-ign, never folded into this recipe |
+| D-N13 | **W2's bar (D-N10) = E4-0's five T2-trained A3-ign checkpoints** (`outputs/v2_e4_0/A3ign/s2024–2028`, J10 at 1,740 steps) scored zero-shot on `nexar_val` with their T2 statistics (`cache/v2/A3_R2_S/DADA2000_orig`, the same bake E3's A3 used). D-N9(a)'s printed zero-shot endpoint is the same five checkpoints | The bar must be the deployed recipe trained on T2, so "Nexar training adds nothing" compares like with like |
+| D-N14 | **Outputs are new paths**: runs `outputs/v2_nexar_ign/<c>/<arm>/s<seed>/`, reads `REPORTS/nexar_val_ign/`, `REPORTS/nexar_dota_cap_ign/`, zero-shot `REPORTS/nexar_val_ign/zeroshot_e4_0_A3ign/`. N2 features, N4 corpora, the A3 bake and the KNN caches are anchor-free and reused unchanged | A `span` run (none exists at signing) can never be mistaken for, or resumed into, an `ignore` run |
+| D-N15 | **Nothing else changes.** D-N1–D-N4, D-N6–D-N8, D-N9's rules, D-N10's thresholds and the frozen split stand. No `span`-trained Nexar arm is run; a span vs ignore contrast on Nexar is not part of this step | One change, written before the number |
