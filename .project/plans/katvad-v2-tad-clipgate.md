@@ -10,8 +10,8 @@ tests), constants `V2_TADG_*`, runbook `colab/v2/tad_clipgate.ipynb`.
 |---|---|
 | Rule §27 | written + signed 2026-10-21 |
 | Tool + tests | built 2026-10-21; suite 1184 / 0 fail. Smoke on §26's real score files with a **fake** gate: G3 macro identity holds (0.7594), the LaGoVAD-form row reproduces the post-hoc 0.7524 / 0.8000, a random dev gate stops at G5, readout ≈ 80 s CPU |
-| Notebook | built 2026-10-21, **not run** |
-| Read-out | — |
+| Notebook | built 2026-10-21 (install cell fixed: `av` / `faiss` / `transformers` are pulled in by the readout helpers), run by the user 2026-10-21 on CPU |
+| Read-out | **done 2026-10-21** → `core/docs/v2/RESULTS_TADZ.md` §3 |
 
 ## Why this design
 
@@ -35,4 +35,10 @@ tests), constants `V2_TADG_*`, runbook `colab/v2/tad_clipgate.ipynb`.
 
 ## Appendix A — read-out
 
-(empty until the user pastes `v2_tadg/REPORTS/tadg_readout.md`)
+Read 2026-10-21 (`outputs/v2/v2_tadg/REPORTS/tadg_readout.md`). Gate fitted on MSAD-train 120/360 (train AUC 1.000),
+MSAD-test 0.948. **G5 PASS:** TAD-train (410, 200 abnormal, `TAD_ncc`, id-prefix labels) gate clip-level AUC 0.805 vs length
+ruler 0.654. **G6: "a clip-level gate trained on MSAD restores clip-level discrimination on TAD"** — micro 0.678 → 0.835,
+paired t95 +0.1361 [+0.1323, +0.1398] (5/5), video bootstrap +0.1569 [+0.1024, +0.2037]; clip-level AUC 0.544 → 0.851;
+macro 0.7594 unchanged. vs LaGoVAD micro +0.044 [−0.031, +0.129] (not separated). Post-hoc: Spearman(c, L) −0.53, but the
+gate residualized on log length still scores 0.798 (test) / 0.755 (dev); within length terciles 0.75 / 0.97 / 0.88.
+Recording-style confound not testable (no source metadata).

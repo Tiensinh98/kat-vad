@@ -1,11 +1,12 @@
 # KAT-VAD v2 — Summary of experimental results (P0 → Final) and directions for improvement
 
-*2026-10-07; updated 2026-10-11 (post-Final: E4-0, its second look, SG-NM closed, DF8 deferred, figures); 2026-10-21 (§4.6 TAD zero-shot) · branch `v2` · code `03d365e` · author: sinhpham (drafted with Claude)*
+*2026-10-07; updated 2026-10-11 (post-Final: E4-0, its second look, SG-NM closed, DF8 deferred, figures); 2026-10-21 (§4.6 TAD zero-shot, §4.7 TAD clip-level gate) · branch `v2` · code `03d365e` · author: sinhpham (drafted with Claude)*
 
 **Sources.** Every number here comes from an existing read-out: `MOTION_STREAM_K.md`, `RESULTS_E2_CRN.md`,
 `RESULTS_E1.md`, `RESULTS_E2D.md`, `RESULTS_P6_PILOT.md`, `RESULTS_E3.md` and
 `outputs/v2/v2_final/REPORTS/final_readout.{md,json}`; §4.5 from `RESULTS_E4_0.md`; §4.6 from
-`outputs/v2/v2_tadz/REPORTS/tadz_readout.{md,json}` (addendum §26). Score files (`*.npz`) under `outputs/`
+`outputs/v2/v2_tadz/REPORTS/tadz_readout.{md,json}` (addendum §26); §4.7 from
+`outputs/v2/v2_tadg/REPORTS/tadg_readout.{md,json}` (addendum §27). Both are recorded in `RESULTS_TADZ.md`. Score files (`*.npz`) under `outputs/`
 are gitignored; the small v2 read-outs (`REPORTS/**/*.{md,json}`) are tracked. This file is the summary record
 of the Final and of what came after it. **§6 is new.** It is a per-clip error analysis run **on DoTA-CAP-dev**. It is exploratory and
 **not pre-registered**: it points to directions, and nothing in it is a claim.
@@ -48,6 +49,10 @@ of the Final and of what came after it. **§6 is new.** It is a per-clip error a
    checkpoint (0.758) and above every position ruler (`p_T2` 0.689). But **no gain of v2's components over A0 is shown**
    (A3-ign − A0 +0.022, both intervals contain 0), and v2 **cannot tell a normal video from an accident video**
    (clip-level AUC 0.544 vs LaGoVAD 0.769): it raises false alarms on long normal footage.
+9. **A clip-level gate repairs that (§4.7, 2026-10-21):** a 513-parameter logistic gate on the mean raw CLIP feature,
+   fitted on MSAD-train (no TAD video), multiplied into A3-ign's per-video min-max curve. TAD micro **0.678 → 0.835**
+   (Δ **+0.136 [+0.132, +0.140]**, bootstrap +0.157 [+0.102, +0.204]), clip-level AUC 0.544 → 0.851, **macro unchanged
+   by construction**. Not separated from LaGoVAD's micro (+0.044, CI contains 0); offline only (needs the whole video).
 
 ---
 
@@ -118,6 +123,7 @@ CAP is about 0.01–0.02 harder than the dropped clips, and every interval overl
 | **E4a** (10-11) | Does an SG-NM normality score add ranking information to A3-ign? | Δ rank-avg − `y^bin` **−0.012 [−0.016, −0.008]**, `f_2` −0.003, T2-val −0.012 | **SG-NM closed**; code reverted |
 | **Second look** (10-11) | Does A3-ign's gain hold on the opened sets? | CAP-eval Δ **+0.0376 [+0.033, +0.043]**, `f_2` +0.016, T2-test +0.025 | **holds** (§4.5) |
 | **TAD zero-shot** (10-21, 15 evals) | Does v2 transfer to fixed traffic cameras? (TAD test, 60 two-class videos) | A3-ign − A0 **+0.022**, t95 [−0.003, +0.047], bootstrap [−0.049, +0.116]; A3-ign − LaGoVAD +0.002 [−0.063, +0.067]; clip-level AUC 0.544 | **no transfer gain shown**; parity with LaGoVAD; clip-level weakness (§4.6) |
+| **TAD clip-level gate** (10-21) | Can a gate fitted on MSAD repair the clip-level weakness? (dev gate TAD-train, endpoint TAD-test micro) | dev gate 0.805 PASS; micro Δ **+0.136 [+0.132, +0.140]**, bootstrap +0.157 [+0.102, +0.204]; macro unchanged | **restores clip-level discrimination** (§4.7) |
 
 ## 4. Final — sealed sets, opened exactly once
 
@@ -233,12 +239,46 @@ micro is never put beside the published 89.56.
 - **v2 does not separate normal videos from accident videos.** Median max score on normal videos is **1.000** for A3-ign
   (= accident videos); its mean score on normal videos (0.352) is above the non-accident frames of accident videos
   (0.267). LaGoVAD keeps normals low (median max 0.013 vs 0.109). TAD normals are ~4× longer (median 139 vs 36 steps)
-  and T2 contains no stand-alone normal video (its negatives are cut from inside accident videos), and CRN references
-  each video to itself. This is the likely cause, **inferred, not tested**. Consequence: v2 ranks *within* a video as well as
-  LaGoVAD, but cannot be run with one global alarm threshold, and its micro (0.678) is below LaGoVAD's (0.791).
+  and T2 contains no stand-alone normal video (its negatives are cut from inside accident videos). **The cause is the
+  training data, not CRN**: A0, which has no CRN, is blind too (clip-level 0.578). Consequence: v2 ranks *within* a video
+  as well as LaGoVAD, but cannot be run with one global alarm threshold, and its micro (0.678) is below LaGoVAD's
+  (0.791). §4.7 repairs this.
 - **Position does not explain TAD.** A3-ign − middle ruler +0.076 [−0.010, +0.163] (LaGoVAD +0.075); per-clip AUC
   correlation of A3-ign with the ruler r = 0.01. Unlike DoTA-CAP, the position prior is below the model here.
 - The `ignore` gain of DoTA (+0.038) does not carry over to TAD (A3-ign − A3 −0.011, contains 0).
+
+### 4.7 A clip-level gate for TAD (addendum §27, Amendment 16)
+
+**The gate.** `c(v) = σ(w · m̃(v) + b)`: logistic regression on the time-mean of a video's raw CLIP features
+(standardized, no CRN; 513 parameters). It is trained **separately** from v2 (A3-ign frozen) with class-balanced
+binary cross-entropy + L2 (`C = 1.0`, lbfgs), on **MSAD-train** (480 videos, 120 / 360): both classes from the same
+cameras (no C38 shortcut), same extractor as `TAD_ncc` (C2). No TAD video is fitted on; mean pooling keeps it
+length-blind by design. **Fusion:** `s(v, t) = c(v) · minmax_v(y_A3ign(v, t))`. `c > 0` rescales a whole video, so
+every within-video ranking and hence **macro is exactly A3-ign's** (checked per seed); only micro / clip level can move.
+A3-ign decides *when* in a video, the gate decides *which* video. The fusion form had been looked at post-hoc on
+TAD-test with LaGoVAD as `c` (disclosed in §27); the gate itself is new.
+
+| Read | gate clip-level AUC | length ruler |
+|---|---:|---:|
+| MSAD-test (in-domain sanity) | 0.948 | — |
+| **TAD-train** (410 videos; dev gate, bar 0.60) | **0.805 → PASS** | 0.654 |
+| TAD-test | 0.851 | 0.694 |
+
+| TAD-test | macro | micro | clip-level AUC |
+|---|---:|---:|---:|
+| A3-ign | 0.7594 | 0.678 | 0.544 |
+| **A3-ign × MSAD gate** | **0.7594** | **0.835** | **0.851** |
+| LaGoVAD released | 0.7579 | 0.791 | 0.769 |
+
+- Endpoint micro Δ: paired t95 **+0.1361 [+0.1323, +0.1398]** (5/5 seeds +0.133…+0.141); video bootstrap
+  **+0.1569 [+0.1024, +0.2037]** → **"a clip-level gate trained on MSAD restores clip-level discrimination on TAD"**.
+- vs LaGoVAD's micro (printed, not matched): +0.044 [−0.031, +0.129] → not separated. Micro 0.835 is still below the
+  length ruler 0.897 and the clip oracle 0.923.
+- Post-hoc length check: the gate correlates with length (Spearman −0.53), but **residualized on log length it still
+  scores 0.798** on TAD-test (0.755 on TAD-train), and 0.75 / 0.97 / 0.88 within length terciles → signal beyond
+  length. Not ruled out: recording style (compiled accident clips vs continuous normal footage).
+- Limits: two components (A3-ign + an offline gate; not streaming); `c` is not calibrated (train AUC 1.0, it sits near
+  0 or 1); the gate was trained on 11 mostly non-traffic MSAD classes, so it reads "anomalous content", not "accident".
 
 ---
 
@@ -252,7 +292,8 @@ micro is never put beside the published 89.56.
 | No selection optimism (dev ≤ eval for every arm) | "CRN improves transfer" (A1 − A0 contains 0) |
 | CRN removes the T2↔DoTA corpus shortcut in `V^t` (0.9998 → 0.57) | A2/A3 "pass O1". The required wording is "O1 FAIL as registered; not collapsed under O1′" |
 | "Zero-shot on fixed-camera TAD, A3-ign (0.759) is not separated from LaGoVAD's released checkpoint (0.758)", with the training-data caveat | "v2's components transfer to TAD" or "beat LaGoVAD on TAD"; a TAD micro beside 89.56 |
-| "v2 cannot separate normal from accident videos on TAD (clip-level AUC 0.544)", as a limitation | that the cause (no stand-alone normals in T2 + CRN) is established; it is inferred |
+| "Trained on T2 alone, v2 cannot separate normal from accident videos on TAD (clip-level AUC 0.544; A0 0.578)" | that CRN causes it (A0 is blind too) |
+| "A clip-level gate fitted on MSAD (no TAD video) restores clip-level discrimination on TAD: micro 0.678 → 0.835 (+0.136 [+0.132, +0.140]), macro unchanged"; "the gate carries signal beyond video length" | "the gate beats LaGoVAD" (contains 0); "the gate detects car accidents"; a streaming claim; micro 0.835 without the length ruler 0.897 beside it |
 | "Dropping the whole-anchor DVS label improves DoTA-CAP (n/1397) detection, on dev and on a second look at the opened eval set" (+0.038), "… beyond the position prior (second look)" (`f_2` +0.016) | A3-ign "beats the position prior" (0.8120 < `p_T2` 0.8256); an A3-ign eval number without "second look"; "the whole-anchor label causes Gap S" |
 
 ---
@@ -348,7 +389,7 @@ little normal context before the onset.
 | CRN (R2) | shortcut 0.9998 → 0.57; lets A3 survive position control (A2 does not) | A1 − A0 contains 0 on DoTA-dev and -eval; ≈ 0.013 macro in-domain cost on T2 (A3 vs A2) | kept inside A3; no stand-alone claim |
 | DVS anchor label `ignore` (A3-ign) | +0.040 dev, +0.038 eval (second look), `f_2` +0.010 / +0.016, T2-test +0.025; free (one training flag) | inside-span mean falls (−0.155): floor suppression, not coverage | **adopted after the Final** (v2's recipe) |
 | SG-NM (training-only normality branch, on A3-ign) | — | E4a gate: Δ −0.012 [−0.016, −0.008] on CAP-dev, −0.012 on T2-val, 5/5 seeds negative; `S̃` correlates 0.85 with `y^bin` per clip | **closed 2026-10-11**; code reverted |
-| Clip-level discrimination | LaGoVAD keeps normal videos low on TAD (clip AUC 0.769) | v2 arms 0.50–0.58 on TAD; max score 1.0 on normal videos (§4.6) | **open limitation**; not addressed by any v2 component |
+| Clip-level discrimination | MSAD-fitted gate (§4.7): TAD micro +0.136, clip-level AUC 0.544 → 0.851, macro unchanged | v2 arms alone 0.50–0.58 on TAD (§4.6); the gate is a second, offline component | **repaired by an inference-time gate**; not part of the v2 training recipe |
 | V2-S vs V2-B | cheaper; wins by the tie rule | B is ahead beyond position in transfer (+0.037 vs +0.018, E2(d)) | candidate to revisit |
 
 ---
@@ -399,9 +440,9 @@ little normal context before the onset.
 | Pilot | `core/docs/v2/RESULTS_P6_PILOT.md` |
 | E3 | `core/docs/v2/RESULTS_E3.md` |
 | Final (raw) | `outputs/v2/v2_final/REPORTS/final_readout.{md,json}` (gitignored) |
-| Pre-registered rules | `core/docs/v2/PREREG_ADDENDUM.md` §1–§26 (§22 E4-0, §23 second look, §26 TAD zero-shot) |
+| Pre-registered rules | `core/docs/v2/PREREG_ADDENDUM.md` §1–§27 (§22 E4-0, §23 second look, §26 TAD zero-shot, §27 TAD gate) |
 | E4-0 + second look | `core/docs/v2/RESULTS_E4_0.md`; raw `outputs/v2/v2_e4_0/REPORTS/`, `outputs/v2/v2_e4_0/second_look/REPORTS/` |
-| TAD zero-shot | `outputs/v2/v2_tadz/REPORTS/tadz_readout.{md,json}`, `tadz_frame_gate.json`; rule addendum §26; plan `.project/plans/katvad-v2-tad-zeroshot.md` |
+| TAD zero-shot + gate | `core/docs/v2/RESULTS_TADZ.md`; raw `outputs/v2/v2_tadz/REPORTS/`, `outputs/v2/v2_tadg/{REPORTS,gate}/`; rules addendum §26, §27; plans `.project/plans/katvad-v2-tad-{zeroshot,clipgate}.md` |
 | E4a (SG-NM gate) | `outputs/v2/v2_e4b/REPORTS/e4a_readout.{md,json}` |
 | H1 / DF8 plan | `.project/plans/katvad-v2-df8-position-shift.md` (deferred) |
 | Figures | `core/docs/v2/figs/` (`core.tools.v2_plots`) |
