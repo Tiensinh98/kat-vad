@@ -1,0 +1,67 @@
+{
+  "constructions": {
+    "whole": {
+      "dir": "/content/drive/MyDrive/Thesis-V2/data/Nexar_whole",
+      "train_abnormal": 451,
+      "train_items": 900,
+      "val_positive_without_positive_row": [],
+      "val_videos": 225
+    },
+    "window": {
+      "dir": "/content/drive/MyDrive/Thesis-V2/data/Nexar_window",
+      "train_abnormal": 1689,
+      "train_items": 7311,
+      "train_sources": 451,
+      "val_abnormal_windows": 434,
+      "val_two_class_windows": 434,
+      "val_windows": 1788
+    }
+  },
+  "fps_below_29": [
+    "00000",
+    "00096",
+    "00339",
+    "00392",
+    "00521",
+    "00776",
+    "00863",
+    "01002",
+    "01070",
+    "01089",
+    "01222",
+    "01377",
+    "01433",
+    "01590",
+    "01664",
+    "01690",
+    "01712",
+    "01739",
+    "01906",
+    "01954",
+    "02033",
+    "02049",
+    "02072",
+    "02134"
+  ],
+  "frames_vs_census_header_mismatch": [],
+  "plan": {
+    "whole": {
+      "epochs": 116,
+      "items_per_epoch": 902,
+      "steps": 1740,
+      "steps_per_epoch": 15
+    },
+    "window": {
+      "epochs": 33,
+      "items_per_epoch": 3378,
+      "steps": 1749,
+      "steps_per_epoch": 53
+    }
+  },
+  "rule": "addendum \u00a721 D-N1: abnormal = [t_alert, t_event + 1.4 s]",
+  "splits": {
+    "nexar_train": "6768538af32a76e560bb178875601dd211ddbb00",
+    "nexar_val": "cdbc0aafd3d658aed384c4d7cc97649db18e6ccb"
+  },
+  "val_middle_ruler_macro": 0.9735
+}

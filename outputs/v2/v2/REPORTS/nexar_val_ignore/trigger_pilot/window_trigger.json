@@ -1,0 +1,32 @@
+{
+  "build_window": true,
+  "checks": {
+    "W1_position": {
+      "edge_drop": 0.11474052450703026,
+      "fires": true,
+      "threshold": 0.05,
+      "zero_shot_edge_drop": 0.07129304772759926
+    },
+    "W2_no_gain": {
+      "fires": true,
+      "whole_A3_endpoint": 0.5818658695870087,
+      "zero_shot_A3_endpoint": 0.688848696176198
+    },
+    "W3_clip_classifier": {
+      "clip_auc_max": 0.6954408975979772,
+      "fires": false,
+      "threshold": 0.95,
+      "whole_A0_endpoint": 0.5876278214772986,
+      "whole_A3_endpoint": 0.5818658695870087
+    }
+  },
+  "fired": [
+    "W1_position",
+    "W2_no_gain"
+  ],
+  "sources": {
+    "whole_A0": "/content/drive/MyDrive/Thesis-V2/outputs/v2/REPORTS/nexar_val_ignore/pilot_whole_A0",
+    "whole_A3": "/content/drive/MyDrive/Thesis-V2/outputs/v2/REPORTS/nexar_val_ignore/pilot_whole_A3",
+    "zero_shot_A3": "/content/drive/MyDrive/Thesis-V2/outputs/v2/REPORTS/nexar_val_ignore/zeroshot_e4_0_A3ign"
+  }
+}

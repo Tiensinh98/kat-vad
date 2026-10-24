@@ -1,0 +1,39 @@
+{
+  "arm": {
+    "crn": "none",
+    "motion": "none"
+  },
+  "checkpoints": {
+    "s2099": "/content/drive/MyDrive/Thesis-V2/outputs/v2_nexar_ign/whole/A0/s2099/checkpoint_last.pt"
+  },
+  "clips": 569,
+  "excluded_featureless": [],
+  "global_steps": {
+    "s2099": 1740
+  },
+  "input_dir": "/content/nexar/stage/DoTA_s1_cap_dev",
+  "macro": {
+    "clips": 569,
+    "clusters": 91,
+    "high": 0.5899443097710058,
+    "low": 0.546308967252434,
+    "mean": 0.5680184520624358
+  },
+  "per_run_macro": {
+    "s2099": 0.5680184520624358
+  },
+  "position_ruler": {
+    "clips": 569,
+    "clusters": 91,
+    "high": 0.5764967326968747,
+    "low": 0.5379905922012269,
+    "mean": 0.5573060693077054
+  },
+  "protocol": "B: s1[::3], whole clip, native frames (addendum \u00a78.1 J1-J5)",
+  "runs": [
+    "s2099"
+  ],
+  "split": "dota_cap_dev",
+  "split_clips": 569,
+  "two_class": 569
+}

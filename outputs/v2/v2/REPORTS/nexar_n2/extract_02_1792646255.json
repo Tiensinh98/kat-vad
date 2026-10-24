@@ -1,0 +1,43 @@
+{
+  "census_sha1_inputs": {
+    "negative": {
+      "name": "negative/metadata.csv",
+      "sha1": "5cda2748517e5475fd759412d6334ea40bfadc55"
+    },
+    "positive": {
+      "name": "positive/metadata.csv",
+      "sha1": "57c4d24e05a1db8e52a78d25bae711bdce8812a5"
+    }
+  },
+  "summary": {
+    "clip_dir": "/content/drive/MyDrive/Thesis-V2/cache/clip/Nexar_s1_ncc",
+    "encoder": "vit_s_k710_dl_from_giant",
+    "extracted": 5,
+    "frames": 5427,
+    "frames_per_s": 9.0,
+    "header_mismatch": [],
+    "video_dir": "/content/drive/MyDrive/Thesis-V2/cache/video/vit_s_k710_dl_from_giant/Nexar_s1_squash"
+  },
+  "videos": {
+    "00410": {
+      "frames_decoded": 1249,
+      "frames_header": 1249
+    },
+    "00411": {
+      "frames_decoded": 1226,
+      "frames_header": 1226
+    },
+    "00413": {
+      "frames_decoded": 1208,
+      "frames_header": 1208
+    },
+    "00414": {
+      "frames_decoded": 540,
+      "frames_header": 540
+    },
+    "00415": {
+      "frames_decoded": 1204,
+      "frames_header": 1204
+    }
+  }
+}
