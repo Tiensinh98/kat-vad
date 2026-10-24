@@ -11,6 +11,8 @@ There are no new losses, and nothing is added to the trunk or heads.
 
 **Chosen configuration (updated 2026-10-10; training label 2026-10-11):** arm **A3**, with encoder **VideoMAE V2-S** (`d_v` = 384) and CRN reference **R2** (per-dimension median), **trained as A3-ign** (`loss.dvs_anchor_mode = ignore`, E4-0; same network, §9 and §11). DoTA is read at **stride 3 over the whole clip** (protocol B). Where the text below lists options, the chosen one is marked **Chosen:**.
 
+**Optional add-on (2026-10-21):** an offline **clip-level gate** `c(v)` that rescales each video's curve, for corpora with stand-alone normal videos (TAD). It sits outside the trained network and is described in §10.1; proposal §9.1 gives the reasons and the numbers.
+
 **Conventions:**
 - Shapes are written `batch × time × channels`.
 - Values marked **‹code›** are unchanged LaGoVAD / KIP-off settings: take them from the current implementation.
@@ -200,6 +202,24 @@ At initialization `H = X̃` exactly, so the model starts from the KIP-off functi
 - R2 needs the whole clip, so the chosen pipeline is not streamable.
 - The ATS → MLLM report is optional and asynchronous. It reads `y^bin` and the frames.
 
+### 10.1 Optional clip-level gate (inference add-on; `PREREG_ADDENDUM.md` §27)
+
+A separate video-level head. It is fitted once, offline, on **MSAD-train** (480 videos, 120 abnormal / 360 normal; class-balanced logistic regression, L2 `C = 1.0`, lbfgs) and then frozen. It is never trained with v2 and never sees a TAD video.
+
+| Step | Input | Output |
+|---|---|---|
+| Time-mean of the **raw** CLIP features (`*_ncc`, no CRN) | `X ∈ T × 512` | `m ∈ ℝ^512` |
+| Standardize with the MSAD-train channel mean / std (fixed) | `m` | `m̃ ∈ ℝ^512` |
+| Linear `w ∈ ℝ^512` + bias `b`, then sigmoid | `m̃` | **`c ∈ (0, 1)`** (one scalar per video) |
+| Per-video min-max of the detection curve | `y^bin ∈ T` | `ŷ ∈ [0, 1]^T` |
+| Rescale: `s_t = c · ŷ_t` | `c`, `ŷ` | **`s ∈ T`** (then interpolated to native frames) |
+
+- **Parameters:** 513 (`w`, `b`) plus the fixed standardization; none of them in the v2 network.
+- **Mean pooling, not max**, so `c` is blind to length by design.
+- **Macro AUC is unchanged by construction** (`c > 0` rescales the whole video). Only micro and clip-level AUC move: on TAD-test, micro 0.678 → 0.835 and clip-level AUC 0.544 → 0.851 (proposal §9.1).
+- **Off on DoTA:** DoTA has no all-normal clip, `c` saturates at 1.0 and micro moves by ≈ −0.001.
+- **Not streaming:** `c` needs the whole video's mean.
+
 ---
 
 ## 11. The four experimental arms (same network; switches only)
@@ -240,4 +260,5 @@ At initialization `H = X̃` exactly, so the model starts from the KIP-off functi
 | CLIP image and text towers; VideoMAE V2 | soft prompts; motion `W_u` (new; `σ_u` and `c` are fixed statistics); temporal encoder; co-attention; `H_bin`; `H_mul` | KIP (PMG flow head, integer-cast gate, 50 % shift, motion head, `L_KIP-rec/align`, `L_kin`), the stage-1 warm-up, RAFT |
 
 - **Deployed network:** two frozen encoders, plus LaGoVAD's trunk, plus ≈ 0.2–0.4 M new parameters. **Chosen (V2-S):** ≈ 0.20 M.
+- **Optional clip-level gate (§10.1):** 513 parameters, fitted separately on MSAD-train and frozen; not part of the network above, and not trained with it.
 - **Inference is RGB only.**

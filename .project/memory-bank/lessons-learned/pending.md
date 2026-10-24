@@ -2024,3 +2024,11 @@ fixed by `reset --soft` (local, unpushed).
 **Rule:** Attribute a clip-level failure only after reading the arm without the suspected component, and repair it with a per-video monotone rescale so macro cannot move.
 **Files:** core/tools/tad_clip_gate.py (fuse, G3 check in cmd_readout); core/docs/v2/REPORT_V2_RESULTS.md §4.6
 **Gates:** recurring? first seen; HIGH-impact? no (a mis-attribution caught in-session) → pending.
+
+## (bq) [MEDIUM] Colab - A resume check that opens every cached file on Drive stalls a fresh VM silently, on a paid GPU (2026-10-24)
+**Triggers:** resume, is_complete, np.load mmap, Drive, FUSE, cold cache, done(v), chunk skip, GPU units
+**Problem:** `nexar_train.ipynb` N2 skipped finished chunks with `is_complete()` (one `np.load` per file) over ~2,800 Drive files before printing anything; warm on the day of writing, but on a new VM each open is a Drive round trip, so the cell sat silent for a long time with idle CPU/RAM and burned ~5 GPU units.
+**Bad:** `todo = [v for v in chunk if not is_complete(CLIP / f'{v}.npy') and ...]` before the first print
+**Good:** one `os.scandir` listing (atomic `save_array` ⇒ final name = finished write), print the count first; header reads only in the gate, threaded (`ThreadPoolExecutor(32)`)
+**Rule:** Decide resume state on Drive from one directory listing and print it before any per-file work; never open every cache file serially in a notebook cell on a GPU runtime.
+**Files:** colab/v2/nexar_train.ipynb (cells 8–9)

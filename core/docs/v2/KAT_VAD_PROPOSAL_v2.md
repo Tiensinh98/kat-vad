@@ -6,7 +6,7 @@
 - Numbers quoted as "report §x" were measured in that study.
 - Numbers marked *derived* are computed from report numbers, with the arithmetic shown.
 **Companion:** `KAT_VAD_v2_ARCHITECTURE.md` (every component with its tensor shapes).
-**Date:** 2026-09-27 (design). **Updated 2026-10-10:** the options v2 chose are marked **Chosen:** in place. Everything else is the original design. The chosen options are also summarized in §S. **Updated 2026-10-11:** the post-Final training-label choice (E4-0, A3-ign; `PREREG_ADDENDUM.md` §22–§23) is added to §S, §8, §10.2 and §12. The deployed network is unchanged.
+**Date:** 2026-09-27 (design). **Updated 2026-10-10:** the options v2 chose are marked **Chosen:** in place. Everything else is the original design. The chosen options are also summarized in §S. **Updated 2026-10-11:** the post-Final training-label choice (E4-0, A3-ign; `PREREG_ADDENDUM.md` §22–§23) is added to §S, §8, §10.2 and §12. The deployed network is unchanged. **Updated 2026-10-24:** the optional **clip-level gate** (an inference-time add-on for corpora with stand-alone normal videos; `PREREG_ADDENDUM.md` §26–§27, `RESULTS_TADZ.md`) is added to §S, §9.1, §10.2, §11 and §12. It trains nothing in the v2 network and changes no DoTA number.
 
 > **Design rule for this version.** A component is in v2 only if (i) it fixes a failure the T2 study **measured**, (ii) a project paper supports the mechanism, and (iii) it can be checked cheaply **before** it is trained.
 > - That leaves **two architectural changes**, one **protocol fix**, and **no new loss terms**.
@@ -25,6 +25,7 @@
 | DoTA reading protocol (§7.3, §9) | A: stride 8, whole clip · B: stride 3, whole clip · C: stride 3, sliding W = 20 | **B**: stride 3, the whole clip in one pass, scores interpolated to native frames |
 | Model arm (§8, §10.3) | A0 · A1 · A2 · A3 | **A3 = CRN + video stream** |
 | DVS anchor label in `L_dvs-sup` (§8; added after the Final) | `span`: the whole anchor window of a spliced abnormal sequence is 1 (LaGoVAD default) · `ignore`: those anchor steps leave the dense BCE | **`ignore`** (A3-ign), by E4-0 on DoTA-CAP-dev (+0.040 [+0.035, +0.045]) and held on the second look (+0.038). A3's E3/Final runs used `span` |
+| Video-level decision on corpora with normal videos (§9.1; added 2026-10-21, after TAD zero-shot) | none (v2's `y^bin` alone) · an offline clip-level gate `c(v)` | **optional gate**, `s = c(v) · minmax_v(y^bin)`, `c` = logistic regression on the time-mean raw CLIP feature, fitted on **MSAD-train** (no TAD video). TAD micro 0.678 → **0.835**, Δ +0.136 [+0.132, +0.140]; macro unchanged by construction. Not part of the trained network; off by default (DoTA has no all-normal clip) |
 | Endpoint for arms with the video stream (§7.1) | DoTA-dev / DoTA-eval | **DoTA-CAP**, the DoTA clips whose pixels could be recovered, because DoTA's own frames are no longer available. CRN-only arms still use DoTA-dev / -eval |
 
 The adopted network is therefore (trained as A3-ign; the network is A3's):
@@ -33,6 +34,8 @@ The adopted network is therefore (trained as A3-ign; the network is A3's):
 frame ─► CLIP ViT-B/16 (frozen) ─► x ─► CRN (R2) ─► x̃ ─────────────────────────────┐
 causal 16-frame clip, 1.5 s ─► VideoMAE V2-S (frozen) ─► u ∈ ℝ^384 ─► CRN (R2) ─► c·(⊘σ_u) ─► W_u (0-init) ─(+)─► h
 h ─► LaGoVAD temporal encoder ─► V^t ─► CoAttn(V^t, z) ─► H_bin → y^bin, H_mul → y^mul      (DoTA: stride 3, whole clip)
+
+optional, offline, per video (§9.1):  mean_t x_t ─► logistic (MSAD-train, frozen) ─► c(v) ∈ (0, 1);   s(v, t) = c(v) · minmax_v(y^bin)
 ```
 
 ---
@@ -441,6 +444,36 @@ Holmes-VAU's **ATS** samples frames from `y^bin` for an MLLM incident report. It
 - At 3.75 steps/s the total is ≈ 280–740 GFLOPs/s: real-time on one GPU. SimpleTAD's VideoMAE-S runs at 95 windows/s. **Chosen (V2-S):** ≈ 75 GFLOPs/step, ≈ 280 GFLOPs/s.
 - RAFT is gone from training.
 
+### 9.1 Optional: the clip-level gate (inference add-on; added 2026-10-21)
+
+**Why it exists.** Zero-shot on TAD (fixed traffic cameras, 40 of 100 test videos all-normal; `PREREG_ADDENDUM.md` §26) A3-ign localizes as well as LaGoVAD (macro 0.759 vs 0.758) but **cannot tell a normal video from an accident video**: clip-level AUC 0.544 (A0 0.578, LaGoVAD 0.769), so micro falls to 0.678. A3-ign's median max score is 1.000 on normal videos too. The cause is the **training data, not CRN**: A0, which has no CRN, is blind as well. T2's negatives are cut from inside accident videos (§7.1), so the MIL objective learns *where* in a video the anomaly is, never *whether* a video has one. DoTA cannot show this, because it has no all-normal clip.
+
+**What it is.** A separate video-level classifier whose output rescales the whole curve:
+
+```
+m(v)    = mean_t x_t                      raw CLIP (*_ncc), no CRN, standardized   ∈ ℝ^512
+c(v)    = σ(w · m(v) + b)                 logistic regression, 513 parameters      ∈ (0, 1)
+s(v, t) = c(v) · minmax_v( y^bin(v, t) )
+```
+
+- **Fitted once, offline, on MSAD-train** (480 videos, 120 abnormal / 360 normal): class-balanced, L2 `C = 1.0`, lbfgs. MSAD is used because both classes come from the same cameras, so a source shortcut cannot predict the label (C38), and `MSAD_ncc` uses the same extractor, transform and stride as `TAD_ncc` (C2). **No TAD video is fitted on.** v2's network is frozen; the gate is not trained with it.
+- **Mean pooling, not max**, so the gate is blind to length by design (TAD normals are ≈ 4× longer, and a max over a longer video is larger by construction).
+- **Macro is invariant by construction.** `c > 0` rescales a whole video, so every within-video ranking is unchanged (checked per seed, |Δ| < 1e-9). Only the between-video order that micro reads can move: A3-ign localizes, the gate decides which video.
+
+**Measured (§27, rule written before the gate was fitted; `RESULTS_TADZ.md` §3).**
+
+| Read | Result |
+|---|---|
+| Dev gate (TAD-train, 410 videos, never fitted on) | gate clip-level AUC **0.805** ≥ 0.60 → PASS (length ruler 0.654) |
+| TAD-test micro, A3-ign → A3-ign × gate | **0.678 → 0.835**, paired t95 Δ **+0.136 [+0.132, +0.140]**, video bootstrap +0.157 [+0.102, +0.204] |
+| TAD-test clip-level AUC | 0.544 → **0.851** |
+| TAD-test macro | 0.7594 → 0.7594 (unchanged by construction) |
+| vs LaGoVAD's released checkpoint (micro 0.791) | +0.044 [−0.031, +0.129] → **not separated** (and not a matched comparison) |
+| Beyond length (post-hoc) | gate residualized on log length: clip-level 0.798 on TAD-test |
+| DoTA-CAP (printed, 2026-10-22) | micro −0.001 (dev) / −0.0006 (eval): `c` saturates at 1.0, since DoTA has no all-normal clip |
+
+**Status in v2.** Optional and off the trained network: `B` stays A3-ign, the recipe is unchanged and no DoTA number moves. The deployed system on a corpus with stand-alone normal videos is **two components**, A3-ign plus the offline gate. Limits: the gate needs the whole video's mean, so it is not streaming (as R2 is not); the fusion *form* was first looked at post-hoc on TAD-test with LaGoVAD's scores as `c` (disclosed in §27; that look fitted nothing); and the gate was trained on 11 mostly non-traffic MSAD classes, so it reads "anomalous content present", not "accident". Separation by recording style (compiled accident clips vs continuous normal recordings) is not ruled out, because TAD has no source metadata.
+
 ---
 
 ## 10. Evaluation and plan
@@ -479,6 +512,8 @@ Holmes-VAU's **ATS** samples frames from `y^bin` for an MLLM incident report. It
 | **Final** | Open T2-test and DoTA-eval once | no | reported numbers |
 | *E4-0* (added 2026-10-11) | A3 + `dvs_anchor_mode = ignore` (A3-ign) × 5 seeds, paired with E3's A3, on DoTA-CAP-dev (`PREREG_ADDENDUM.md` §22) | yes | adopt A3-ign (done) |
 | *Second look* (added 2026-10-11) | A3-ign once on the sets the Final opened, paired with the Final's A3 (§23) | no | reported, labelled a second look; re-decides nothing |
+| *TAD zero-shot* (added 2026-10-21) | A0 / A3 / A3-ign × 5 seeds scored on TAD's official 100 test videos, stride 8, no retraining (§26) | no | "no transfer gain shown"; A3-ign ≈ LaGoVAD on macro; v2 blind at clip level |
+| *Clip-level gate* (added 2026-10-21) | MSAD-trained gate × A3-ign on TAD-test; dev gate on TAD-train (§27, §9.1) | gate only | "restores clip-level discrimination on TAD"; never moves `B` |
 
 **Run order** (E0b and E1 already decide on DoTA-dev, so the splits must exist first):
 1. **Freeze and commit** the T2-val source list, the DoTA-dev / DoTA-eval clip lists and this proposal's rules. Record the commit hash in every read-out.
@@ -534,6 +569,7 @@ Holmes-VAU's **ATS** samples frames from `y^bin` for an MLLM incident report. It
 | DoTA-dev / eval split, T2-val | Decisions never touch the reported test sets | protocol hygiene |
 | Per-share-bin and source-shortcut reporting | Makes CRN's known risk and its intended effect visible | review points 3–4 |
 | ATS, off-path | Zero detection latency | Holmes-VAU |
+| Optional clip-level gate, outside the trained network | T2 has no stand-alone normals, so v2 cannot decide *whether* a video is anomalous (TAD clip-level 0.544, A0 0.578); a video-level head fitted on a same-camera two-class corpus (MSAD) repairs that without touching localization (macro invariant) | `PREREG_ADDENDUM.md` §26–§27; `RESULTS_TADZ.md` |
 
 ---
 
@@ -548,6 +584,7 @@ Holmes-VAU's **ATS** samples frames from `y^bin` for an MLLM incident report. It
 - **H7 — Train at DoTA's coarser rate**, if E1 shows DoTA rewards it.
 - **H8 — Pre-training-matched clip geometry** for the motion stream: short-side resize to 224 with 3 horizontal crops (≈ 3× the encoder cost), averaged or concatenated. Only if E3 shows the motion stream contributes.
   - **Limitation:** H8 can improve a stream that works, but it can never rescue one that fails. If E2 makes the stream eligible only through the transfer rule (between +0.03 and +0.10) and E3 then fails, clip geometry remains an **untested cause** of that failure, and the thesis says so.
+- **H9 — Clip-level gate follow-ups** (§9.1). A causal gate on a running mean (streaming); a gate fitted on traffic-only normals; a test of the recording-style confound on a corpus with source metadata. None is planned.
 
 ---
 
