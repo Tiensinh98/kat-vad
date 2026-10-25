@@ -73,7 +73,7 @@ N2 features, N4 corpora, the A3 bake and KNN are anchor-free and unchanged. One 
 | Step | Tool | Output (Drive) |
 |---|---|---|
 | N2 extract (GPU) | `core.tools.nexar_extract` — one PyAV decode per mp4, one resize, CLIP and V2-S normalizations (bit-exact to `preprocess_frames(center_crop=False)` / `squash_frames`) | `Thesis-V2/cache/clip/Nexar_s1_ncc/`, `Thesis-V2/cache/video/<V2-S>/Nexar_s1_squash/`, `REPORTS/nexar_n2/` |
-| N4 corpora | `core.tools.nexar_build corpus` — `Nexar_whole` (all `nexar_train`, video labels) and `Nexar_window` (20-row windows at s8, hop 8, positives only, no cap); epochs per construction for the 1,740-step budget | `Thesis-V2/data/Nexar_{whole,window}/`, `REPORTS/nexar_n4/build_report.json` |
+| N4 corpora | `core.tools.nexar_build corpus` — `Nexar_whole` (all `nexar_train`, video labels) and `Nexar_window` (20-row windows at s8, hop 8, positives only, no cap); epochs per construction for the 1,740-step budget, rounded to whole epochs (`whole` 116 × 15 = 1,740; `window` 33 × 53 = **1,749**, +0.5 %; the J10 step of a Nexar `window` checkpoint is 1,749) | `Thesis-V2/data/Nexar_{whole,window}/`, `REPORTS/nexar_n4/build_report.json` |
 | A0 input | `core.tools.nexar_build subsample` (`s1[::8]`) | `Thesis-V2/cache/clip/Nexar_s8_ncc/` |
 | A3 input | `core.tools.build_v2_inputs fit-ids` — R2 + V2-S statistics on `nexar_train`, train + val baked at `s1[::8]` | `Thesis-V2/cache/v2/A3_R2_S/Nexar_s8/` |
 | KNN | `core.data.knn_cache --dataset Nexar` on `Nexar_s8_ncc` | `Thesis-V2/cache/knn/Nexar_{c}/` |

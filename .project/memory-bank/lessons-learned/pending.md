@@ -1945,6 +1945,14 @@ and other v2 notebooks that copied it.
 (rewritten for §29) re-copied the OLD in-place helpers from an older notebook; a disconnect left a torn Drive
 checkpoint and `verified()` crashed with "failed finding central directory". Fixed by porting E4-0's helpers. →
 recurring; promote at the next lesson review. Copy helpers from the newest fixed notebook, never from an older one.
+**Third variant 2026-10-25 (same campaign, after the atomic fix):** `nexar A0 s2025` read on a fresh VM as ckpt step
+**1060** (epoch-20 chunk) beside `metrics.jsonl` at 1749 — readable, just old. Atomic `.partial` + `os.replace` +
+`fsync` only make the **VM-side** file consistent; Colab's Drive FUSE uploads in the background, the small metrics
+file landed and the final 1.4 GB checkpoint did not before the VM went, and the same session's `verified()` read
+its own cache and passed. Fix: `drive.flush_and_unmount()` + remount at the end of every writing cell, re-verify on
+the fresh mount; on the next session a ckpt older than its metrics resumes from its own epoch (metrics cut to that
+epoch, original kept as `.stale-<stamp>`). **Rule extension: a Drive write is durable only after
+`flush_and_unmount()`; never let a same-session check stand in for a fresh-mount check.**
 
 ## (bj) [MEDIUM] Experiments - Audit every inherited loss default against the corpus before calling a model "adopted" (2026-10-11)
 **Triggers:** default, LaGoVAD default, dvs_anchor_mode, span, inherited config, baseline parity, never chosen
@@ -2044,3 +2052,14 @@ fixed by `reset --soft` (local, unpushed).
 **Rule:** Emit, per run, exactly the statistic a pre-registered paired-seed rule names before the rule is read.
 **Files:** core/tools/nexar_eval.py (`crop_endpoint`, `per_run_crop_endpoint`), core/tools/nexar_transfer_readout.py
 **Gates:** recurrence unproven (first instance) → pending.
+
+## (br) [MEDIUM] Colab - A J10 step check must read the step the run was planned for, not a budget constant (2026-10-25)
+**Triggers:** J10, global_step, NEXAR_STEP_BUDGET, epochs = budget / steps per epoch, preflight, step assert
+**Problem:** Nexar `window` trains 33 x 53 = 1,749 steps (budget 1,740 rounded to whole epochs), and the zero-shot
+preflight asserted every checkpoint == 1,740, so 25 correct checkpoints failed the gate after a full training campaign.
+**Bad:** `assert step == constants.NEXAR_STEP_BUDGET` for runs whose epochs were derived from that budget.
+**Good:** read `steps` from the plan that set `num_epochs` (`build_report.json`), per checkpoint source; assert the plan
+is within half an epoch of the budget.
+**Rule:** Compare a checkpoint's step to the plan that produced its epoch count, never to the budget it was rounded from.
+**Files:** `colab/v2/nexar_zeroshot.ipynb` (cells 2, 6), `core/tools/nexar_build.py:186` (`epoch_plan`).
+**Gate status.** One occurrence (measured); candidate.
