@@ -524,6 +524,20 @@ NEXAR_TRIGGER_CLIP_AUC = 0.95  # W3: clip-level AUC at/above this (with crops < 
 # W2's zero-shot bar is E4-0's T2-trained A3-ign. is_egocentric stays false (T2's recipe).
 NEXAR_DVS_ANCHOR_MODE = DVS_ANCHOR_MODE_IGNORE
 NEXAR_RUNS_DIR = "v2_nexar_ign"  # under OUTPUT_ROOT: <construction>/<arm>/s<seed>/
+# Amendment 18 (addendum §29): `window` only, T2's five arms (E3's A0-A3 with `span` + E4-0's
+# A3-ign), 5 seeds; read on nexar_test once and zero-shot on TAD / DADA / DoTA whole videos.
+NEXAR_FULL_RUNS_DIR = "v2_nexar_window"  # under OUTPUT_ROOT: <arm>/s<seed>/ + eval/ + REPORTS/
+NEXAR_FULL_ARMS = ("A0", "A1", "A2", "A3", "A3ign")
+NEXAR_FULL_ANCHOR = {  # D-N16: each arm keeps its T2 recipe's DVS anchor
+    "A0": DVS_ANCHOR_MODE_SPAN, "A1": DVS_ANCHOR_MODE_SPAN, "A2": DVS_ANCHOR_MODE_SPAN,
+    "A3": DVS_ANCHOR_MODE_SPAN, "A3ign": DVS_ANCHOR_MODE_IGNORE,
+}
+NEXAR_FULL_PRIMARY = ("A3ign", "A0")  # D-N18: the one contrast that writes a sentence
+NEXAR_FULL_CONTRASTS = (  # D-N19: printed beside, never decided on
+    ("A1", "A0"), ("A2", "A0"), ("A3", "A0"), ("A3", "A1"), ("A3", "A2"), ("A3ign", "A3"),
+)
+NEXAR_TEST_MARKER = "NEXAR_TEST_OPENED.json"  # written once, before the first --final read
+NEXAR_ZS_DADA_STRIDE = FRAME_STRIDE  # D-N20: DADA whole sources at s8 = T2's and the training rows
 
 # --- E2(d): encoder choice on DoTA-CAP-dev (addendum §12, N1-N12; proposal §10.2) ---
 V2_E2D_STRIDE = V2_E1_STRIDE_BC  # N1: protocol B rows of the stride-1 caches

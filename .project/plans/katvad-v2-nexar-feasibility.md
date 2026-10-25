@@ -20,7 +20,9 @@
 | N2–N5 code | built 2026-10-10 (uncommitted): `nexar_extract`, `nexar_build`, `nexar_eval`, `build_v2_inputs fit-ids`, `test_nexar_pipeline.py` (16), `colab/v2/nexar_train.ipynb` |
 | Whole first (user, 2026-10-10) | train `whole` only; `window` iff the pilot trigger fires (D-N10: W1 edge drop > 0.05 · W2 ≤ E3-A3 zero-shot · W3 clip AUC ≥ 0.95 and A3 < A0). D-N9 split into (a) whole-only: `whole`/A3 − `whole`/A0, (b) both. Built: `nexar_trigger` (+5 tests), notebook step 5b (zero-shot) + trigger in step 7 |
 | Amendment 17 (user, 2026-10-22) | addendum **§28** (D-N11…D-N15), written during N2 extraction, before any Nexar score: **both arms `dvs_anchor_mode=ignore`** (A0-ign / A3-ign = `B`'s recipe), `is_egocentric=false` kept, W2's bar = **E4-0's A3-ign** zero-shot; outputs `v2_nexar_ign/`, `REPORTS/nexar_{val,dota_cap}_ignore/`. Constants `NEXAR_DVS_ANCHOR_MODE`, `NEXAR_RUNS_DIR`; notebook steps 0/1/4/5/5b/6/7 updated, N2 untouched |
-| Next | user finishes N2 → re-uploads code (needs §28) → runs `nexar_train.ipynb` pilot (s2099, `whole` × {A0-ign, A3-ign}, 2 runs + E4-0 A3-ign zero-shot) → pastes `summary_pilot.md` from `REPORTS/nexar_val_ignore/` |
+| Pilots (2026-10-22/24) | s2099 read on `nexar_val` (`0e8c8f7`): D-N10 FIRED (W1, W2); `window`/A3-ign 0.822 vs `window`/A0-ign 0.678 vs `whole`/A3-ign 0.582 vs T2 zero-shot A3-ign 0.689. Drive pilot outputs deleted by the user |
+| Amendment 18 (user, 2026-10-25) | addendum **§29** (D-N16…D-N22): `window` only, T2's five arms (A0–A3 `span`, A3-ign `ignore`) × 5 seeds → `outputs/v2_nexar_window/`; primary = A3-ign − A0 per-seed crop endpoint on `nexar_test` (once); printed: T2-trained arms on `nexar_test`, Nexar arms zero-shot on TAD (§26), DADA whole sources, DoTA-CAP dev+eval (protocol B); no clip gate. Built: `nexar_eval` per-seed endpoint, `core/tools/dada_whole_eval.py`, `core/tools/nexar_transfer_readout.py`, `test_nexar_transfer.py` (9); notebooks rewritten |
+| Next | user uploads code → `nexar_train.ipynb` (25 runs + val sanity) → `nexar_zeroshot.ipynb` → pastes `v2_nexar_window/REPORTS/transfer_readout.md` |
 
 ## 1. Summary
 

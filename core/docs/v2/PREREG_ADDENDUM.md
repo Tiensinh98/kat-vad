@@ -812,3 +812,32 @@ whole ~40 s positive video, and `span` mode supervises every pre-event frame of 
 | D-N13 | **W2's bar (D-N10) = E4-0's five T2-trained A3-ign checkpoints** (`outputs/v2_e4_0/A3ign/s2024–2028`, J10 at 1,740 steps) scored zero-shot on `nexar_val` with their T2 statistics (`cache/v2/A3_R2_S/DADA2000_orig`, the same bake E3's A3 used). D-N9(a)'s printed zero-shot endpoint is the same five checkpoints | The bar must be the deployed recipe trained on T2, so "Nexar training adds nothing" compares like with like |
 | D-N14 | **Outputs are new paths**: runs `outputs/v2_nexar_ign/<c>/<arm>/s<seed>/`, reads `REPORTS/nexar_val_ign/`, `REPORTS/nexar_dota_cap_ign/`, zero-shot `REPORTS/nexar_val_ign/zeroshot_e4_0_A3ign/`. N2 features, N4 corpora, the A3 bake and the KNN caches are anchor-free and reused unchanged | A `span` run (none exists at signing) can never be mistaken for, or resumed into, an `ignore` run |
 | D-N15 | **Nothing else changes.** D-N1–D-N4, D-N6–D-N8, D-N9's rules, D-N10's thresholds and the frozen split stand. No `span`-trained Nexar arm is run; a span vs ignore contrast on Nexar is not part of this step | One change, written before the number |
+
+## 29. Amendment 18 (2026-10-25) — Nexar: `window` only, T2's five arms, one read on `nexar_test` + zero-shot (D-N16–D-N22)
+
+**Authorized by the user on 2026-10-25 ("chạy chỉ window … trên các arm từ A0 -> A3-ign", "5 arm như T2",
+"Amendment 18 mới", "chỉ eval theo flow bình thường … nexar test, tad, dada2000 (full video), DoTA (cũng full
+video)"), before any 5-seed Nexar run and before `nexar_test` is opened; not reviewed by the advisor.** It amends
+§21's D-N5, D-N7, D-N9 and §28's D-N11, D-N14, D-N15. Runbooks `colab/v2/nexar_train.ipynb` (train + `nexar_val`)
+and `colab/v2/nexar_zeroshot.ipynb` (every read below); tools `core.tools.{nexar_eval, dada_whole_eval,
+nexar_transfer_readout}`.
+
+**Disclosure (read before the table).** The s2099 pilots were read on `nexar_val` (committed `0e8c8f7`,
+`outputs/v2/v2/REPORTS/nexar_val_ignore/summary_pilot.md`; the Drive copies are deleted by the user so this run's
+outputs are clean). D-N10 fired (W1, W2). On that single seed `window`/A3-ign 0.822 vs `window`/A0-ign 0.678 and
+`whole`/A3-ign 0.582: the direction of D-N18's contrast was **seen on val, at n = 1, with A0 trained `ignore`**.
+`nexar_test` has never been read by any arm. §21 D-N9(b)'s primary (`window` − `whole`) is **withdrawn**, not read:
+no 5-seed `whole` arm is trained, so "window is needed" is never written from the test set.
+
+| # | Choice | Why |
+|---|---|---|
+| D-N16 | **Arms = T2's five, `window` only**: A0 (CLIP), A1 (CRN R2), A2 (V2-S), A3 (CRN R2 + V2-S) with `loss.dvs_anchor_mode = span` (E3's recipe), and A3-ign (A3 + `ignore`, E4-0 = `B`'s recipe). Everything else is D-N5 / D-N6 / D-N12 (kernel 3, top-k 5 %, stage 2, KIP off, AMP, step budget 1,740, `is_egocentric = false`). A1 / A2 / A3 statistics are fitted on `nexar_train` by `build_v2_inputs fit-ids` (one bake per arm input; A3 and A3-ign share one). `constants.NEXAR_FULL_ARMS`, `NEXAR_FULL_ANCHOR`. Supersedes D-N11 and D-N15 | Row-for-row with the T2 ladder, so every Nexar-trained row has a T2-trained twin |
+| D-N17 | **Seeds 2024–2028**, 25 runs, J10 on every checkpoint. Runs `outputs/v2_nexar_window/<arm>/s<seed>/`, reads `outputs/v2_nexar_window/{val,eval}/`, read-out `outputs/v2_nexar_window/REPORTS/` (`NEXAR_FULL_RUNS_DIR`). Supersedes D-N7, D-N14 | A new root: no pilot or `ignore`-only run can be resumed into it |
+| D-N18 | **The one sentence (read on `nexar_test`, once).** Per-seed D-N2 crop endpoint (`nexar_eval`'s `per_run_crop_endpoint`) of `window`/A3-ign − `window`/A0, paired t95 over the 5 seeds (t = 2.776): **"A3-ign helps on Nexar"** iff the interval lies above 0, **"A3-ign hurts on Nexar"** iff below 0, otherwise **"no difference shown at n = 5"**. The video bootstrap is printed beside. No tie clause | D-N9(a)'s form, on the arms that exist |
+| D-N19 | **Printed, never decided on**: every other arm and contrast (A1 − A0, A2 − A0, A3 − A0, A3 − A1, A3 − A2, A3-ign − A3) on every set; whole-video macro / micro / clip AUC; the middle ruler per placement; the same five **T2-trained** arms on `nexar_test` (E3 / E4-0 checkpoints, their own T2 statistics) and Nexar-trained − T2-trained per arm (video bootstrap only — different runs cannot be paired by seed) | Lesson (aw): only the pre-registered contrast decides |
+| D-N20 | **Zero-shot sets (Nexar-trained arms, each input baked with the Nexar statistics, `build_v2_inputs apply`), read the ordinary way, no gate:** (a) **TAD** — §26's protocol unchanged (100 test videos, s8, `core.evaluate --set data.dataset=TAD`, raw scores); (b) **DADA-2000 whole videos** — the source videos behind T2-test's windows, every s8 row in one forward, labels = the original annotation's span at s8 (`kill_switch_probe.source_labels`), macro over two-class sources, micro; `core.tools.dada_whole_eval`; (c) **DoTA whole clips** — protocol B (`s1[::3]`, whole clip, native frames) on DoTA-CAP-dev **and** DoTA-CAP-eval, pooled to the 1,129 clips (macro = per-clip mean, bootstrap clusters = source video; per-seed macro = the two-class-count-weighted mean of the splits) | TAD / DoTA as the thesis already reads them; DADA whole because Nexar never saw a DADA window and a window set would re-cut the videos T2 was built from |
+| D-N21 | **No clip-level gate** (§27) on any of these reads | The user's choice, 2026-10-25: ordinary scores only |
+| D-N22 | **Once.** `nexar_test` is unsealed by `nexar_eval --final` only after all 25 Nexar checkpoints and the 25 T2 checkpoints pass J10 and their config check; `eval/nexar_test/NEXAR_TEST_OPENED.json` is written before the first read and every read skips an output already on disk. DoTA-CAP-eval was opened by §19 (a second look, descriptive). Nothing is re-scored with other settings after any number is seen | §21's "once" kept |
+
+**Signature:** signed by the user, 2026-10-25 (D-N16–D-N22 as written above; no 5-seed Nexar run and no `nexar_test`
+score existed).

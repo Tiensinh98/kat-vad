@@ -86,3 +86,21 @@ N2 features, N4 corpora, the A3 bake and KNN are anchor-free and unchanged. One 
 Pilot first (`SEEDS = [2099]`, `whole` × {A0, A3} = 2 runs) → trigger. Passes → `SEEDS = RUN_SEEDS` on `whole` (10 runs). Fires →
 add `'window'` to `CONSTRUCTIONS`, pilot it, then `RUN_SEEDS` for both (20 runs; D-N9(b)). `nexar_test` is opened only by
 `nexar_eval --split nexar_test --final`, once, after §21 is signed.
+
+## 3. Full run (Amendment 18, addendum §29) — `window` × 5 arms × 5 seeds, then one read
+
+Supersedes the `whole`-first order of §2 (the pilot fired D-N10; its Drive outputs are deleted).
+
+1. **`colab/v2/nexar_train.ipynb`** — N2 (skips: done), N4 (`Nexar_window` + `Nexar_s8_ncc` + **three** `fit-ids`
+   bakes on `nexar_train`: `A1_R2`, `A2_S`, `A3_R2_S` under `cache/v2/<tag>/Nexar_s8`), N5 = 25 runs
+   (`outputs/v2_nexar_window/<arm>/s<seed>/`; A0–A3 `span`, A3-ign `ignore`; J10 + config check), then a
+   `nexar_val` sanity read per arm (`val/<arm>/`, `val/val_summary.md`) — never a decision.
+2. **`colab/v2/nexar_zeroshot.ipynb`** — bakes A1/A2/A3 with the **Nexar** statistics on TAD (`TAD_s8_nexar`), the
+   DADA sources of T2-test (`DADA2000_orig_test_sources_nexar`) and DoTA-CAP dev/eval (`<split>_s3_from_s1_nexar`);
+   writes `eval/nexar_test/NEXAR_TEST_OPENED.json`; reads `nexar_test` (`nexar_eval --final`, Nexar + T2 arms), TAD
+   (`core.evaluate`, §26 protocol), DADA whole (`core.tools.dada_whole_eval`), DoTA (`protocol_b_eval`); then
+   `core.tools.nexar_transfer_readout --root outputs/v2_nexar_window` → `REPORTS/transfer_readout.md`.
+
+Inputs it expects on Drive besides Nexar's: `cache/video/<V2-S>/TAD_s8_squash` (from `tad_zeroshot.ipynb`), the T2
+V2-S s8 cache, `data/DADA2000_orig/counts/resolved_census.json`, `data/DADA2000Origin/.../dada标注.xlsx`,
+`cache/clip/DoTA_s1_ncc`, `cache/video/<V2-S>/DoTA_CAP_s1_squash`, and E3 / E4-0's checkpoints + T2 bakes.

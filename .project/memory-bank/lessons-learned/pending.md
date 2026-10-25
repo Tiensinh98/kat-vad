@@ -1941,7 +1941,10 @@ returns -1 and is renamed `*.corrupt-<stamp>` (never deleted) before the seed is
 **Rule:** Write every Drive artifact atomically and treat an unreadable checkpoint as "not trained", never as a crash.
 **Files:** `colab/v2/e4_0_a3ign.ipynb` (helpers override); same in-place `publish` in `colab/v2/e3_factorial.ipynb`
 and other v2 notebooks that copied it.
-**Gate status.** One occurrence (measured); candidate.
+**Gate status.** One occurrence (measured); candidate. **Second occurrence 2026-10-25:** `colab/v2/nexar_train.ipynb`
+(rewritten for §29) re-copied the OLD in-place helpers from an older notebook; a disconnect left a torn Drive
+checkpoint and `verified()` crashed with "failed finding central directory". Fixed by porting E4-0's helpers. →
+recurring; promote at the next lesson review. Copy helpers from the newest fixed notebook, never from an older one.
 
 ## (bj) [MEDIUM] Experiments - Audit every inherited loss default against the corpus before calling a model "adopted" (2026-10-11)
 **Triggers:** default, LaGoVAD default, dvs_anchor_mode, span, inherited config, baseline parity, never chosen
@@ -2032,3 +2035,12 @@ fixed by `reset --soft` (local, unpushed).
 **Good:** one `os.scandir` listing (atomic `save_array` ⇒ final name = finished write), print the count first; header reads only in the gate, threaded (`ThreadPoolExecutor(32)`)
 **Rule:** Decide resume state on Drive from one directory listing and print it before any per-file work; never open every cache file serially in a notebook cell on a GPU runtime.
 **Files:** colab/v2/nexar_train.ipynb (cells 8–9)
+
+## (bo) [MEDIUM] Stats — a paired seed interval needs each run's own endpoint, not the seed-averaged one
+**Triggers:** paired_interval, per_run, seed-averaged, crop endpoint, nexar_eval
+**Problem:** `nexar_eval` printed only the seed-averaged crop endpoint and a per-run *whole* macro, so D-N9 / §29's per-seed crop-endpoint t95 had no input; using per-run whole macro instead would silently swap the endpoint.
+**Bad:** `paired_interval(r_a["per_run_whole_macro"], r_b["per_run_whole_macro"], t95)` for a crop-endpoint rule
+**Good:** `per_run_crop_endpoint = {n: crop_endpoint(s, labels, items) for n, s in per_run.items()}` and read that
+**Rule:** Emit, per run, exactly the statistic a pre-registered paired-seed rule names before the rule is read.
+**Files:** core/tools/nexar_eval.py (`crop_endpoint`, `per_run_crop_endpoint`), core/tools/nexar_transfer_readout.py
+**Gates:** recurrence unproven (first instance) → pending.

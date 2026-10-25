@@ -152,6 +152,28 @@ def two_class_aucs(
     }
 
 
+def crop_video_means(aucs: dict[str, float]) -> dict[str, float]:
+    """Per positive video, the mean crop AUC -- only videos whose every placement fits (D-N2).
+
+    Crop items are named ``<video>@<placement>`` (``items_of``); whole-video items are ignored.
+    """
+    per_video: dict[str, list[float]] = {}
+    for name, auc in aucs.items():
+        if CROP_SEP in name:
+            per_video.setdefault(name.rsplit(CROP_SEP, 1)[0], []).append(auc)
+    return {v: float(np.mean(a)) for v, a in per_video.items()
+            if len(a) == len(constants.NEXAR_CROP_PLACEMENTS)}
+
+
+def crop_endpoint(
+    scores: dict[str, np.ndarray], labels: dict[str, np.ndarray],
+    items: dict[str, tuple[str, int, int]],
+) -> float:
+    """D-N2's endpoint of one score set: the mean over videos of their mean crop AUC."""
+    crops = sorted(n for n in items if CROP_SEP in n)
+    return float(np.mean(list(crop_video_means(two_class_aucs(scores, labels, crops)).values())))
+
+
 def summarize(
     scores: dict[str, np.ndarray], labels: dict[str, np.ndarray], ids: list[str],
     rows: dict[str, dict[str, Any]], items: dict[str, tuple[str, int, int]], seed: int,
@@ -182,19 +204,15 @@ def summarize(
         },
         "crops": {},
     }
-    per_video: dict[str, list[float]] = {}
     for p in constants.NEXAR_CROP_PLACEMENTS:
         names = [n for n in items if n.endswith(f"{CROP_SEP}{p}")]
-        aucs = two_class_aucs(scores, labels, names)
         out["crops"][str(p)] = {
             "items": len(names),
-            "macro": ci(aucs),
+            "macro": ci(two_class_aucs(scores, labels, names)),
             "middle_ruler_macro": ci(two_class_aucs(ruler, labels, names)),
         }
-        for n, a in aucs.items():
-            per_video.setdefault(items[n][0], []).append(a)
-    complete = {v: float(np.mean(a)) for v, a in per_video.items()
-                if len(a) == len(constants.NEXAR_CROP_PLACEMENTS)}
+    crops = sorted(n for n in items if CROP_SEP in n)
+    complete = crop_video_means(two_class_aucs(scores, labels, crops))
     out["crops"]["mean_over_placements"] = {
         "videos": len(complete),
         "macro": cluster_bootstrap_ci(complete, {v: v for v in complete},
@@ -245,6 +263,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "per_run_whole_macro": {
             n: float(np.mean(list(two_class_aucs(s, labels, ids).values())))
             for n, s in per_run.items()
+        },
+        # §29: the paired seed interval reads each run's own endpoint, not the seed average
+        "per_run_crop_endpoint": {
+            n: crop_endpoint(s, labels, items) for n, s in per_run.items()
         },
         **{k: v for k, v in summary.items() if k != "item_aucs"},
     }
@@ -298,6 +320,8 @@ def render_markdown(r: dict[str, Any]) -> str:
         f"* micro (all videos): {_num(w['micro'])} · clip oracle {_num(w['clip_oracle_micro'])}",
         f"* clip-level AUC (max score): {_num(w['clip_auc_max'])}",
         f"* per-run whole macro: { {k: round(v, 4) for k, v in r['per_run_whole_macro'].items()} }",
+        "* per-run crop endpoint: "
+        f"{ {k: round(v, 4) for k, v in r.get('per_run_crop_endpoint', {}).items()} }",
         "",
     ]
     return "\n".join(lines)
