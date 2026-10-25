@@ -1,0 +1,185 @@
+{
+  "arm": {
+    "crn": "R2",
+    "motion": "none"
+  },
+  "checkpoints": {
+    "s2024": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A1/s2024/checkpoint_last.pt",
+    "s2025": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A1/s2025/checkpoint_last.pt",
+    "s2026": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A1/s2026/checkpoint_last.pt",
+    "s2027": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A1/s2027/checkpoint_last.pt",
+    "s2028": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A1/s2028/checkpoint_last.pt"
+  },
+  "crop_s": 8.0,
+  "crops": {
+    "0.1": {
+      "items": 185,
+      "macro": {
+        "clips": 185,
+        "clusters": 185,
+        "high": 0.7082991066923573,
+        "low": 0.6243161826976719,
+        "mean": 0.6664127891477162
+      },
+      "middle_ruler_macro": {
+        "clips": 185,
+        "clusters": 185,
+        "high": 0.21718718696665387,
+        "low": 0.19933094590034428,
+        "mean": 0.20803593162303183
+      }
+    },
+    "0.3": {
+      "items": 186,
+      "macro": {
+        "clips": 186,
+        "clusters": 186,
+        "high": 0.7010959034001047,
+        "low": 0.6269205256722928,
+        "mean": 0.664852100410403
+      },
+      "middle_ruler_macro": {
+        "clips": 186,
+        "clusters": 186,
+        "high": 0.6618599467489631,
+        "low": 0.6560989312824197,
+        "mean": 0.6589129734120827
+      }
+    },
+    "0.5": {
+      "items": 186,
+      "macro": {
+        "clips": 186,
+        "clusters": 186,
+        "high": 0.6885180932955536,
+        "low": 0.6283891768729214,
+        "mean": 0.6584789649991991
+      },
+      "middle_ruler_macro": {
+        "clips": 186,
+        "clusters": 186,
+        "high": 0.9999870325940665,
+        "low": 0.9999795586404641,
+        "mean": 0.9999833780158474
+      }
+    },
+    "0.7": {
+      "items": 187,
+      "macro": {
+        "clips": 187,
+        "clusters": 187,
+        "high": 0.639604141243892,
+        "low": 0.5594678218564199,
+        "mean": 0.5996285160005667
+      },
+      "middle_ruler_macro": {
+        "clips": 187,
+        "clusters": 187,
+        "high": 0.6635008270629285,
+        "low": 0.6574268735018857,
+        "mean": 0.6604191276896045
+      }
+    },
+    "0.9": {
+      "items": 186,
+      "macro": {
+        "clips": 186,
+        "clusters": 186,
+        "high": 0.6258992601115448,
+        "low": 0.5301676249144173,
+        "mean": 0.5780740346708524
+      },
+      "middle_ruler_macro": {
+        "clips": 186,
+        "clusters": 186,
+        "high": 0.22546977013350855,
+        "low": 0.20775552980381198,
+        "mean": 0.216284099668321
+      }
+    },
+    "mean_over_placements": {
+      "macro": {
+        "clips": 184,
+        "clusters": 184,
+        "high": 0.6662226304519213,
+        "low": 0.6045265022604591,
+        "mean": 0.6361982639564602
+      },
+      "videos": 184
+    }
+  },
+  "crops_skipped": {
+    "0.1": 2,
+    "0.3": 1,
+    "0.5": 1,
+    "0.9": 1
+  },
+  "data_dir": "/content/nexar_full/stage/nexar_defs",
+  "global_steps": {
+    "s2024": 1740,
+    "s2025": 1740,
+    "s2026": 1740,
+    "s2027": 1740,
+    "s2028": 1740
+  },
+  "per_run_crop_endpoint": {
+    "s2024": 0.6261437100911743,
+    "s2025": 0.6401590851737546,
+    "s2026": 0.6386750238890216,
+    "s2027": 0.6132938841068942,
+    "s2028": 0.6251377540798844
+  },
+  "per_run_whole_macro": {
+    "s2024": 0.6501893508117507,
+    "s2025": 0.6581409027612679,
+    "s2026": 0.6663934759032007,
+    "s2027": 0.6296080859830826,
+    "s2028": 0.6501489638303999
+  },
+  "positives": 187,
+  "protocol": "N-B: s1[::3] per item, CRN per item, native frames, seed-averaged",
+  "split": "nexar_test",
+  "stats_dir": "/content/nexar_full/stage/stats_t2_A1",
+  "stats_manifest": {
+    "architecture": "core/docs/v2/KAT_VAD_v2_ARCHITECTURE.md \u00a74-\u00a75",
+    "arm": "A1",
+    "baked_ids": 1861,
+    "c": 0.43644750512836705,
+    "clip_dir": "/content/pilot/stage/clip",
+    "crn": "R2",
+    "crn_warmup": 8,
+    "fitted_on": "T2-train minus T2-val (core/splits/v2/t2_val_sources.txt)",
+    "mode": "fit",
+    "motion": "none",
+    "reference_unit": "source video (train and eval windows are slices of it)",
+    "s": 3.7907064770475563,
+    "stats_file": "v2_input_stats.npz",
+    "t2_dir": "/content/pilot/stage/corpus_v2",
+    "t2_val_sha1": "3508688f30222a763469e37589d8ee173ca7dc8b",
+    "t2_val_sources": 219,
+    "train_ids_sha1": "cf7537843d152bf3f2bfdf6130aaa4fa66b293d8",
+    "train_sources": 1272,
+    "video_dir": null,
+    "width": 512
+  },
+  "videos": 375,
+  "whole": {
+    "clip_auc_max": 0.5392962794402094,
+    "clip_oracle_micro": 0.7583854545808673,
+    "macro": {
+      "clips": 187,
+      "clusters": 187,
+      "high": 0.6916719320240623,
+      "low": 0.6262525750460379,
+      "mean": 0.6597076509454214
+    },
+    "micro": 0.6613811795291569,
+    "middle_ruler_macro": {
+      "clips": 187,
+      "clusters": 187,
+      "high": 0.9836313874330197,
+      "low": 0.9629671818795104,
+      "mean": 0.9751013555211437
+    }
+  }
+}

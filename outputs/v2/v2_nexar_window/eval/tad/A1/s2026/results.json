@@ -1,0 +1,516 @@
+{
+  "dataset": "TAD",
+  "num_videos": 100,
+  "num_videos_total": 100,
+  "score_norm": "none",
+  "num_frames": 11045,
+  "auc": 0.4977296852122987,
+  "ap": 0.07177928168594139,
+  "auc_raw": 0.4977296852122987,
+  "ap_raw": 0.07177928168594139,
+  "auc_macro": 0.5945910495195557,
+  "auc_macro_videos": 60,
+  "checkpoint": "/content/drive/MyDrive/Thesis-V2/outputs/v2_nexar_window/A1/s2026/checkpoint_last.pt",
+  "per_video": {
+    "01_Accident_004": {
+      "num_frames": 24.0,
+      "max_score": 0.3727765381336212,
+      "abnormal": 1.0
+    },
+    "01_Accident_011": {
+      "num_frames": 30.0,
+      "max_score": 0.6841463446617126,
+      "abnormal": 1.0
+    },
+    "01_Accident_015": {
+      "num_frames": 25.0,
+      "max_score": 0.011720803566277027,
+      "abnormal": 1.0
+    },
+    "01_Accident_017": {
+      "num_frames": 35.0,
+      "max_score": 0.9793096780776978,
+      "abnormal": 1.0
+    },
+    "01_Accident_019": {
+      "num_frames": 29.0,
+      "max_score": 0.9730537533760071,
+      "abnormal": 1.0
+    },
+    "01_Accident_021": {
+      "num_frames": 37.0,
+      "max_score": 0.6018323302268982,
+      "abnormal": 1.0
+    },
+    "01_Accident_025": {
+      "num_frames": 60.0,
+      "max_score": 0.990909993648529,
+      "abnormal": 1.0
+    },
+    "01_Accident_034": {
+      "num_frames": 21.0,
+      "max_score": 0.12314604222774506,
+      "abnormal": 1.0
+    },
+    "01_Accident_035": {
+      "num_frames": 15.0,
+      "max_score": 0.9692013263702393,
+      "abnormal": 1.0
+    },
+    "01_Accident_036": {
+      "num_frames": 50.0,
+      "max_score": 0.9394712448120117,
+      "abnormal": 1.0
+    },
+    "01_Accident_038": {
+      "num_frames": 27.0,
+      "max_score": 0.9950651526451111,
+      "abnormal": 1.0
+    },
+    "01_Accident_041": {
+      "num_frames": 34.0,
+      "max_score": 0.8528870344161987,
+      "abnormal": 1.0
+    },
+    "01_Accident_043": {
+      "num_frames": 37.0,
+      "max_score": 0.052384525537490845,
+      "abnormal": 1.0
+    },
+    "01_Accident_053": {
+      "num_frames": 46.0,
+      "max_score": 0.9563266038894653,
+      "abnormal": 1.0
+    },
+    "01_Accident_054": {
+      "num_frames": 31.0,
+      "max_score": 0.898556113243103,
+      "abnormal": 1.0
+    },
+    "01_Accident_063": {
+      "num_frames": 40.0,
+      "max_score": 0.14927484095096588,
+      "abnormal": 1.0
+    },
+    "01_Accident_067": {
+      "num_frames": 76.0,
+      "max_score": 0.6672417521476746,
+      "abnormal": 1.0
+    },
+    "01_Accident_069": {
+      "num_frames": 8.0,
+      "max_score": 0.530931293964386,
+      "abnormal": 1.0
+    },
+    "01_Accident_072": {
+      "num_frames": 5.0,
+      "max_score": 0.004958046600222588,
+      "abnormal": 1.0
+    },
+    "01_Accident_086": {
+      "num_frames": 24.0,
+      "max_score": 0.32572123408317566,
+      "abnormal": 1.0
+    },
+    "01_Accident_088": {
+      "num_frames": 56.0,
+      "max_score": 0.9704287052154541,
+      "abnormal": 1.0
+    },
+    "01_Accident_099": {
+      "num_frames": 22.0,
+      "max_score": 0.9477671980857849,
+      "abnormal": 1.0
+    },
+    "01_Accident_104": {
+      "num_frames": 16.0,
+      "max_score": 0.07973357290029526,
+      "abnormal": 1.0
+    },
+    "02_IllegalTurn_004": {
+      "num_frames": 35.0,
+      "max_score": 0.08180329203605652,
+      "abnormal": 1.0
+    },
+    "02_IllegalTurn_006": {
+      "num_frames": 48.0,
+      "max_score": 0.9884774088859558,
+      "abnormal": 1.0
+    },
+    "02_IllegalTurn_007": {
+      "num_frames": 47.0,
+      "max_score": 0.012721654027700424,
+      "abnormal": 1.0
+    },
+    "03_IllegalOccupation_002": {
+      "num_frames": 92.0,
+      "max_score": 0.9998182654380798,
+      "abnormal": 1.0
+    },
+    "03_IllegalOccupation_006": {
+      "num_frames": 32.0,
+      "max_score": 0.5794267654418945,
+      "abnormal": 1.0
+    },
+    "03_IllegalOccupation_007": {
+      "num_frames": 26.0,
+      "max_score": 0.9541082978248596,
+      "abnormal": 1.0
+    },
+    "04_Retrograde_001": {
+      "num_frames": 75.0,
+      "max_score": 0.9361351728439331,
+      "abnormal": 1.0
+    },
+    "04_Retrograde_003": {
+      "num_frames": 35.0,
+      "max_score": 0.9915579557418823,
+      "abnormal": 1.0
+    },
+    "04_Retrograde_005": {
+      "num_frames": 44.0,
+      "max_score": 0.05642975494265556,
+      "abnormal": 1.0
+    },
+    "05_else_002": {
+      "num_frames": 10.0,
+      "max_score": 0.8594425320625305,
+      "abnormal": 1.0
+    },
+    "05_else_006": {
+      "num_frames": 27.0,
+      "max_score": 0.2465079426765442,
+      "abnormal": 1.0
+    },
+    "05_else_012": {
+      "num_frames": 22.0,
+      "max_score": 0.3230707347393036,
+      "abnormal": 1.0
+    },
+    "05_else_013": {
+      "num_frames": 42.0,
+      "max_score": 0.4198956787586212,
+      "abnormal": 1.0
+    },
+    "05_else_017": {
+      "num_frames": 11.0,
+      "max_score": 0.8911696076393127,
+      "abnormal": 1.0
+    },
+    "05_else_023": {
+      "num_frames": 22.0,
+      "max_score": 0.9181144833564758,
+      "abnormal": 1.0
+    },
+    "05_else_024": {
+      "num_frames": 19.0,
+      "max_score": 0.7953410744667053,
+      "abnormal": 1.0
+    },
+    "05_else_038": {
+      "num_frames": 33.0,
+      "max_score": 0.9996583461761475,
+      "abnormal": 1.0
+    },
+    "05_else_039": {
+      "num_frames": 58.0,
+      "max_score": 0.9935529232025146,
+      "abnormal": 1.0
+    },
+    "05_else_042": {
+      "num_frames": 31.0,
+      "max_score": 0.6644315123558044,
+      "abnormal": 1.0
+    },
+    "05_else_043": {
+      "num_frames": 68.0,
+      "max_score": 0.6764304041862488,
+      "abnormal": 1.0
+    },
+    "05_else_045": {
+      "num_frames": 38.0,
+      "max_score": 0.7740663290023804,
+      "abnormal": 1.0
+    },
+    "05_else_046": {
+      "num_frames": 27.0,
+      "max_score": 0.1543702781200409,
+      "abnormal": 1.0
+    },
+    "05_else_047": {
+      "num_frames": 68.0,
+      "max_score": 0.6210743188858032,
+      "abnormal": 1.0
+    },
+    "06_PedestrianOnRoad_002": {
+      "num_frames": 58.0,
+      "max_score": 0.5389321446418762,
+      "abnormal": 1.0
+    },
+    "06_PedestrianOnRoad_005": {
+      "num_frames": 37.0,
+      "max_score": 0.040622591972351074,
+      "abnormal": 1.0
+    },
+    "06_PedestrianOnRoad_007": {
+      "num_frames": 99.0,
+      "max_score": 0.28292757272720337,
+      "abnormal": 1.0
+    },
+    "06_PedestrianOnRoad_013": {
+      "num_frames": 50.0,
+      "max_score": 0.3662944734096527,
+      "abnormal": 1.0
+    },
+    "06_PedestrianOnRoad_014": {
+      "num_frames": 76.0,
+      "max_score": 0.9421771168708801,
+      "abnormal": 1.0
+    },
+    "06_PedestrianOnRoad_017": {
+      "num_frames": 35.0,
+      "max_score": 0.9247434735298157,
+      "abnormal": 1.0
+    },
+    "06_PedestrianOnRoad_018": {
+      "num_frames": 51.0,
+      "max_score": 0.4439551830291748,
+      "abnormal": 1.0
+    },
+    "06_PedestrianOnRoad_020": {
+      "num_frames": 51.0,
+      "max_score": 0.9983252882957458,
+      "abnormal": 1.0
+    },
+    "06_PedestrianOnRoad_022": {
+      "num_frames": 52.0,
+      "max_score": 0.2485433965921402,
+      "abnormal": 1.0
+    },
+    "06_PedestrianOnRoad_027": {
+      "num_frames": 48.0,
+      "max_score": 0.6678193211555481,
+      "abnormal": 1.0
+    },
+    "07_RoadSpills_005": {
+      "num_frames": 47.0,
+      "max_score": 0.19663794338703156,
+      "abnormal": 1.0
+    },
+    "07_RoadSpills_008": {
+      "num_frames": 50.0,
+      "max_score": 0.052850838750600815,
+      "abnormal": 1.0
+    },
+    "07_RoadSpills_018": {
+      "num_frames": 34.0,
+      "max_score": 0.9540326595306396,
+      "abnormal": 1.0
+    },
+    "07_RoadSpills_020": {
+      "num_frames": 39.0,
+      "max_score": 0.15582998096942902,
+      "abnormal": 1.0
+    },
+    "Normal_012": {
+      "num_frames": 9.0,
+      "max_score": 0.5922881364822388,
+      "abnormal": 0.0
+    },
+    "Normal_020": {
+      "num_frames": 94.0,
+      "max_score": 0.9972665309906006,
+      "abnormal": 0.0
+    },
+    "Normal_031": {
+      "num_frames": 71.0,
+      "max_score": 0.34033432602882385,
+      "abnormal": 0.0
+    },
+    "Normal_035": {
+      "num_frames": 162.0,
+      "max_score": 0.9518353939056396,
+      "abnormal": 0.0
+    },
+    "Normal_046": {
+      "num_frames": 162.0,
+      "max_score": 0.951478123664856,
+      "abnormal": 0.0
+    },
+    "Normal_061": {
+      "num_frames": 17.0,
+      "max_score": 0.07762762159109116,
+      "abnormal": 0.0
+    },
+    "Normal_062": {
+      "num_frames": 3.0,
+      "max_score": 0.05449393019080162,
+      "abnormal": 0.0
+    },
+    "Normal_074": {
+      "num_frames": 19.0,
+      "max_score": 0.9863601326942444,
+      "abnormal": 0.0
+    },
+    "Normal_076": {
+      "num_frames": 4.0,
+      "max_score": 0.05233238264918327,
+      "abnormal": 0.0
+    },
+    "Normal_084": {
+      "num_frames": 12.0,
+      "max_score": 0.006994327064603567,
+      "abnormal": 0.0
+    },
+    "Normal_092": {
+      "num_frames": 21.0,
+      "max_score": 0.30182528495788574,
+      "abnormal": 0.0
+    },
+    "Normal_094": {
+      "num_frames": 18.0,
+      "max_score": 0.7747837901115417,
+      "abnormal": 0.0
+    },
+    "Normal_105": {
+      "num_frames": 7.0,
+      "max_score": 0.888888955116272,
+      "abnormal": 0.0
+    },
+    "Normal_111": {
+      "num_frames": 450.0,
+      "max_score": 0.989497184753418,
+      "abnormal": 0.0
+    },
+    "Normal_112": {
+      "num_frames": 711.0,
+      "max_score": 0.9982532858848572,
+      "abnormal": 0.0
+    },
+    "Normal_127": {
+      "num_frames": 65.0,
+      "max_score": 0.9704281687736511,
+      "abnormal": 0.0
+    },
+    "Normal_128": {
+      "num_frames": 282.0,
+      "max_score": 0.9991365075111389,
+      "abnormal": 0.0
+    },
+    "Normal_129": {
+      "num_frames": 53.0,
+      "max_score": 0.33626073598861694,
+      "abnormal": 0.0
+    },
+    "Normal_141": {
+      "num_frames": 1124.0,
+      "max_score": 0.9993280172348022,
+      "abnormal": 0.0
+    },
+    "Normal_149": {
+      "num_frames": 450.0,
+      "max_score": 0.9868018627166748,
+      "abnormal": 0.0
+    },
+    "Normal_156": {
+      "num_frames": 203.0,
+      "max_score": 0.9941984415054321,
+      "abnormal": 0.0
+    },
+    "Normal_158": {
+      "num_frames": 117.0,
+      "max_score": 0.9790672659873962,
+      "abnormal": 0.0
+    },
+    "Normal_166": {
+      "num_frames": 64.0,
+      "max_score": 0.991006076335907,
+      "abnormal": 0.0
+    },
+    "Normal_167": {
+      "num_frames": 188.0,
+      "max_score": 0.9375503659248352,
+      "abnormal": 0.0
+    },
+    "Normal_172": {
+      "num_frames": 23.0,
+      "max_score": 0.4818376302719116,
+      "abnormal": 0.0
+    },
+    "Normal_178": {
+      "num_frames": 30.0,
+      "max_score": 0.02454357221722603,
+      "abnormal": 0.0
+    },
+    "Normal_186": {
+      "num_frames": 283.0,
+      "max_score": 0.9993521571159363,
+      "abnormal": 0.0
+    },
+    "Normal_187": {
+      "num_frames": 308.0,
+      "max_score": 0.9825968146324158,
+      "abnormal": 0.0
+    },
+    "Normal_195": {
+      "num_frames": 227.0,
+      "max_score": 0.6315075755119324,
+      "abnormal": 0.0
+    },
+    "Normal_212": {
+      "num_frames": 15.0,
+      "max_score": 0.711434006690979,
+      "abnormal": 0.0
+    },
+    "Normal_214": {
+      "num_frames": 450.0,
+      "max_score": 0.990545392036438,
+      "abnormal": 0.0
+    },
+    "Normal_216": {
+      "num_frames": 188.0,
+      "max_score": 0.9807312488555908,
+      "abnormal": 0.0
+    },
+    "Normal_217": {
+      "num_frames": 29.0,
+      "max_score": 0.01106217596679926,
+      "abnormal": 0.0
+    },
+    "Normal_218": {
+      "num_frames": 161.0,
+      "max_score": 0.2549273669719696,
+      "abnormal": 0.0
+    },
+    "Normal_219": {
+      "num_frames": 57.0,
+      "max_score": 0.5809851288795471,
+      "abnormal": 0.0
+    },
+    "Normal_222": {
+      "num_frames": 255.0,
+      "max_score": 0.9946158528327942,
+      "abnormal": 0.0
+    },
+    "Normal_227": {
+      "num_frames": 189.0,
+      "max_score": 0.9756028652191162,
+      "abnormal": 0.0
+    },
+    "Normal_232": {
+      "num_frames": 225.0,
+      "max_score": 0.982150137424469,
+      "abnormal": 0.0
+    },
+    "Normal_252": {
+      "num_frames": 1362.0,
+      "max_score": 0.9997976422309875,
+      "abnormal": 0.0
+    },
+    "Normal_259": {
+      "num_frames": 552.0,
+      "max_score": 0.9995444416999817,
+      "abnormal": 0.0
+    }
+  }
+}

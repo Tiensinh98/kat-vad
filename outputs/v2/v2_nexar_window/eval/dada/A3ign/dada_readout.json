@@ -1,0 +1,63 @@
+{
+  "abnormal_videos": 370,
+  "arm": {
+    "crn": "R2",
+    "motion": "vit_s_k710_dl_from_giant"
+  },
+  "checkpoints": {
+    "s2024": "/content/drive/MyDrive/Thesis-V2/outputs/v2_nexar_window/A3ign/s2024/checkpoint_last.pt",
+    "s2025": "/content/drive/MyDrive/Thesis-V2/outputs/v2_nexar_window/A3ign/s2025/checkpoint_last.pt",
+    "s2026": "/content/drive/MyDrive/Thesis-V2/outputs/v2_nexar_window/A3ign/s2026/checkpoint_last.pt",
+    "s2027": "/content/drive/MyDrive/Thesis-V2/outputs/v2_nexar_window/A3ign/s2027/checkpoint_last.pt",
+    "s2028": "/content/drive/MyDrive/Thesis-V2/outputs/v2_nexar_window/A3ign/s2028/checkpoint_last.pt"
+  },
+  "global_steps": {
+    "s2024": 1749,
+    "s2025": 1749,
+    "s2026": 1749,
+    "s2027": 1749,
+    "s2028": 1749
+  },
+  "input_dir": "/content/nexar_full/stage/DADA_A3",
+  "macro": {
+    "clips": 370,
+    "clusters": 370,
+    "high": 0.7248094536453841,
+    "low": 0.6788379285377121,
+    "mean": 0.7020563529433995
+  },
+  "micro": 0.6957091030125994,
+  "middle_ruler_macro": {
+    "clips": 370,
+    "clusters": 370,
+    "high": 0.7593740793767018,
+    "low": 0.7076400644362505,
+    "mean": 0.7342313238639548
+  },
+  "monotone_ruler_macro": {
+    "clips": 370,
+    "clusters": 370,
+    "high": 0.578161971730551,
+    "low": 0.5246651404989134,
+    "mean": 0.5514242805926071
+  },
+  "per_run_macro": {
+    "s2024": 0.6888321427730815,
+    "s2025": 0.6991388375737102,
+    "s2026": 0.6968206909646181,
+    "s2027": 0.6950125696915679,
+    "s2028": 0.6901373228607902
+  },
+  "per_run_micro": {
+    "s2024": 0.6850442974861735,
+    "s2025": 0.6923796972978767,
+    "s2026": 0.6941598746263192,
+    "s2027": 0.688571062648904,
+    "s2028": 0.6820304542488884
+  },
+  "protocol": "whole source video, every s8 row, labels = annotation span",
+  "set": "DADA-2000 original: the sources of T2-test's windows",
+  "two_class": 370,
+  "video_auc": null,
+  "videos": 370
+}

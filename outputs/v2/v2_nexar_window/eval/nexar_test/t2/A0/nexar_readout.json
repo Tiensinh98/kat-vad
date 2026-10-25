@@ -1,0 +1,164 @@
+{
+  "arm": {
+    "crn": "none",
+    "motion": "none"
+  },
+  "checkpoints": {
+    "s2024": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A0/s2024/checkpoint_last.pt",
+    "s2025": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A0/s2025/checkpoint_last.pt",
+    "s2026": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A0/s2026/checkpoint_last.pt",
+    "s2027": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A0/s2027/checkpoint_last.pt",
+    "s2028": "/content/drive/MyDrive/Thesis-V2/outputs/v2_e3/A0/s2028/checkpoint_last.pt"
+  },
+  "crop_s": 8.0,
+  "crops": {
+    "0.1": {
+      "items": 185,
+      "macro": {
+        "clips": 185,
+        "clusters": 185,
+        "high": 0.747028704431703,
+        "low": 0.6692387871116715,
+        "mean": 0.7085320224329961
+      },
+      "middle_ruler_macro": {
+        "clips": 185,
+        "clusters": 185,
+        "high": 0.21718718696665387,
+        "low": 0.19933094590034428,
+        "mean": 0.20803593162303183
+      }
+    },
+    "0.3": {
+      "items": 186,
+      "macro": {
+        "clips": 186,
+        "clusters": 186,
+        "high": 0.7183231914536867,
+        "low": 0.6543679369698736,
+        "mean": 0.6862324500839674
+      },
+      "middle_ruler_macro": {
+        "clips": 186,
+        "clusters": 186,
+        "high": 0.6618599467489631,
+        "low": 0.6560989312824197,
+        "mean": 0.6589129734120827
+      }
+    },
+    "0.5": {
+      "items": 186,
+      "macro": {
+        "clips": 186,
+        "clusters": 186,
+        "high": 0.7173281663030762,
+        "low": 0.6581469159485891,
+        "mean": 0.6879094133375203
+      },
+      "middle_ruler_macro": {
+        "clips": 186,
+        "clusters": 186,
+        "high": 0.9999870325940665,
+        "low": 0.9999795586404641,
+        "mean": 0.9999833780158474
+      }
+    },
+    "0.7": {
+      "items": 187,
+      "macro": {
+        "clips": 187,
+        "clusters": 187,
+        "high": 0.7209972091832464,
+        "low": 0.6486026797698122,
+        "mean": 0.6850755997042011
+      },
+      "middle_ruler_macro": {
+        "clips": 187,
+        "clusters": 187,
+        "high": 0.6635008270629285,
+        "low": 0.6574268735018857,
+        "mean": 0.6604191276896045
+      }
+    },
+    "0.9": {
+      "items": 186,
+      "macro": {
+        "clips": 186,
+        "clusters": 186,
+        "high": 0.7438739824121903,
+        "low": 0.6585691827566713,
+        "mean": 0.7022274526474678
+      },
+      "middle_ruler_macro": {
+        "clips": 186,
+        "clusters": 186,
+        "high": 0.22546977013350855,
+        "low": 0.20775552980381198,
+        "mean": 0.216284099668321
+      }
+    },
+    "mean_over_placements": {
+      "macro": {
+        "clips": 184,
+        "clusters": 184,
+        "high": 0.7257725118404249,
+        "low": 0.6680346586359295,
+        "mean": 0.6974260774693112
+      },
+      "videos": 184
+    }
+  },
+  "crops_skipped": {
+    "0.1": 2,
+    "0.3": 1,
+    "0.5": 1,
+    "0.9": 1
+  },
+  "data_dir": "/content/nexar_full/stage/nexar_defs",
+  "global_steps": {
+    "s2024": 1740,
+    "s2025": 1740,
+    "s2026": 1740,
+    "s2027": 1740,
+    "s2028": 1740
+  },
+  "per_run_crop_endpoint": {
+    "s2024": 0.6766043524762868,
+    "s2025": 0.6651892878312066,
+    "s2026": 0.685454023265969,
+    "s2027": 0.6962200598995453,
+    "s2028": 0.6726663919541352
+  },
+  "per_run_whole_macro": {
+    "s2024": 0.6540580711609172,
+    "s2025": 0.6429572544142127,
+    "s2026": 0.6706429110526528,
+    "s2027": 0.6723740767770573,
+    "s2028": 0.64743749252954
+  },
+  "positives": 187,
+  "protocol": "N-B: s1[::3] per item, CRN per item, native frames, seed-averaged",
+  "split": "nexar_test",
+  "stats_dir": null,
+  "stats_manifest": null,
+  "videos": 375,
+  "whole": {
+    "clip_auc_max": 0.6141483672772783,
+    "clip_oracle_micro": 0.7583854545808673,
+    "macro": {
+      "clips": 187,
+      "clusters": 187,
+      "high": 0.7025660526506535,
+      "low": 0.6375460202596919,
+      "mean": 0.6705825105411091
+    },
+    "micro": 0.6637022452112403,
+    "middle_ruler_macro": {
+      "clips": 187,
+      "clusters": 187,
+      "high": 0.9836313874330197,
+      "low": 0.9629671818795104,
+      "mean": 0.9751013555211437
+    }
+  }
+}

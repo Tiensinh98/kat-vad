@@ -1,0 +1,162 @@
+{
+  "arm": {
+    "crn": "none",
+    "motion": "none"
+  },
+  "checkpoints": {
+    "s2024": "/content/drive/MyDrive/Thesis-V2/outputs/v2_nexar_window/A0/s2024/checkpoint_last.pt",
+    "s2025": "/content/drive/MyDrive/Thesis-V2/outputs/v2_nexar_window/A0/s2025/checkpoint_last.pt",
+    "s2026": "/content/drive/MyDrive/Thesis-V2/outputs/v2_nexar_window/A0/s2026/checkpoint_last.pt",
+    "s2027": "/content/drive/MyDrive/Thesis-V2/outputs/v2_nexar_window/A0/s2027/checkpoint_last.pt",
+    "s2028": "/content/drive/MyDrive/Thesis-V2/outputs/v2_nexar_window/A0/s2028/checkpoint_last.pt"
+  },
+  "crop_s": 8.0,
+  "crops": {
+    "0.1": {
+      "items": 111,
+      "macro": {
+        "clips": 111,
+        "clusters": 111,
+        "high": 0.8680006839409616,
+        "low": 0.7905710328910855,
+        "mean": 0.8302095984290982
+      },
+      "middle_ruler_macro": {
+        "clips": 111,
+        "clusters": 111,
+        "high": 0.21172554309940883,
+        "low": 0.19284316392693832,
+        "mean": 0.20199256522357173
+      }
+    },
+    "0.3": {
+      "items": 112,
+      "macro": {
+        "clips": 112,
+        "clusters": 112,
+        "high": 0.8277748733740304,
+        "low": 0.7538336197771874,
+        "mean": 0.7926374113903613
+      },
+      "middle_ruler_macro": {
+        "clips": 112,
+        "clusters": 112,
+        "high": 0.6593601395792357,
+        "low": 0.653129621070607,
+        "mean": 0.656244316077735
+      }
+    },
+    "0.5": {
+      "items": 112,
+      "macro": {
+        "clips": 112,
+        "clusters": 112,
+        "high": 0.8145712720744994,
+        "low": 0.7479416134485074,
+        "mean": 0.7823568958768259
+      },
+      "middle_ruler_macro": {
+        "clips": 112,
+        "clusters": 112,
+        "high": 0.9999809336286272,
+        "low": 0.9999696965468692,
+        "mean": 0.99997543878675
+      }
+    },
+    "0.7": {
+      "items": 112,
+      "macro": {
+        "clips": 112,
+        "clusters": 112,
+        "high": 0.8175342444838248,
+        "low": 0.744937273288964,
+        "mean": 0.7821988951304587
+      },
+      "middle_ruler_macro": {
+        "clips": 112,
+        "clusters": 112,
+        "high": 0.6611218448882403,
+        "low": 0.6549781546818333,
+        "mean": 0.6580238399291017
+      }
+    },
+    "0.9": {
+      "items": 111,
+      "macro": {
+        "clips": 111,
+        "clusters": 111,
+        "high": 0.8238166822832024,
+        "low": 0.7357948268551243,
+        "mean": 0.7816090839993833
+      },
+      "middle_ruler_macro": {
+        "clips": 111,
+        "clusters": 111,
+        "high": 0.22045715159110407,
+        "low": 0.20147482000528955,
+        "mean": 0.2106463757327022
+      }
+    },
+    "mean_over_placements": {
+      "macro": {
+        "clips": 110,
+        "clusters": 110,
+        "high": 0.8229880355726636,
+        "low": 0.7589352886039604,
+        "mean": 0.7918725173110202
+      },
+      "videos": 110
+    }
+  },
+  "crops_skipped": {
+    "0.1": 1,
+    "0.9": 1
+  },
+  "data_dir": "/content/nexar/stage/data_window",
+  "global_steps": {
+    "s2024": 1749,
+    "s2025": 1749,
+    "s2026": 1749,
+    "s2027": 1749,
+    "s2028": 1749
+  },
+  "per_run_crop_endpoint": {
+    "s2024": 0.7873094767425076,
+    "s2025": 0.7839184590800369,
+    "s2026": 0.7946900864064792,
+    "s2027": 0.7260967688284555,
+    "s2028": 0.7869596800438188
+  },
+  "per_run_whole_macro": {
+    "s2024": 0.8147791517658555,
+    "s2025": 0.8091093207290209,
+    "s2026": 0.8099431970200884,
+    "s2027": 0.7509946127835636,
+    "s2028": 0.8150367833700768
+  },
+  "positives": 112,
+  "protocol": "N-B: s1[::3] per item, CRN per item, native frames, seed-averaged",
+  "split": "nexar_val",
+  "stats_dir": null,
+  "stats_manifest": null,
+  "videos": 225,
+  "whole": {
+    "clip_auc_max": 0.6881321112515801,
+    "clip_oracle_micro": 0.7611150688923789,
+    "macro": {
+      "clips": 112,
+      "clusters": 112,
+      "high": 0.8468939862763151,
+      "low": 0.7820503565860337,
+      "mean": 0.8158944585606651
+    },
+    "micro": 0.7918804034761496,
+    "middle_ruler_macro": {
+      "clips": 112,
+      "clusters": 112,
+      "high": 0.9837907700032339,
+      "low": 0.9608286967655435,
+      "mean": 0.9735204951160077
+    }
+  }
+}

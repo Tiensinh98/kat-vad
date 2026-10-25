@@ -1,0 +1,184 @@
+{
+  "arm": {
+    "crn": "R2",
+    "motion": "vit_s_k710_dl_from_giant"
+  },
+  "checkpoints": {
+    "s2024": "/content/drive/MyDrive/Thesis-V2/outputs/v2_nexar_window/A3/s2024/checkpoint_last.pt",
+    "s2025": "/content/drive/MyDrive/Thesis-V2/outputs/v2_nexar_window/A3/s2025/checkpoint_last.pt",
+    "s2026": "/content/drive/MyDrive/Thesis-V2/outputs/v2_nexar_window/A3/s2026/checkpoint_last.pt",
+    "s2027": "/content/drive/MyDrive/Thesis-V2/outputs/v2_nexar_window/A3/s2027/checkpoint_last.pt",
+    "s2028": "/content/drive/MyDrive/Thesis-V2/outputs/v2_nexar_window/A3/s2028/checkpoint_last.pt"
+  },
+  "crop_s": 8.0,
+  "crops": {
+    "0.1": {
+      "items": 185,
+      "macro": {
+        "clips": 185,
+        "clusters": 185,
+        "high": 0.8732051843282822,
+        "low": 0.8262616605097822,
+        "mean": 0.8504611223806328
+      },
+      "middle_ruler_macro": {
+        "clips": 185,
+        "clusters": 185,
+        "high": 0.21718718696665387,
+        "low": 0.19933094590034428,
+        "mean": 0.20803593162303183
+      }
+    },
+    "0.3": {
+      "items": 186,
+      "macro": {
+        "clips": 186,
+        "clusters": 186,
+        "high": 0.8277366441239797,
+        "low": 0.7787549423364799,
+        "mean": 0.8035495853318
+      },
+      "middle_ruler_macro": {
+        "clips": 186,
+        "clusters": 186,
+        "high": 0.6618599467489631,
+        "low": 0.6560989312824197,
+        "mean": 0.6589129734120827
+      }
+    },
+    "0.5": {
+      "items": 186,
+      "macro": {
+        "clips": 186,
+        "clusters": 186,
+        "high": 0.8488542184122313,
+        "low": 0.8040401353708458,
+        "mean": 0.8269113545264778
+      },
+      "middle_ruler_macro": {
+        "clips": 186,
+        "clusters": 186,
+        "high": 0.9999870325940665,
+        "low": 0.9999795586404641,
+        "mean": 0.9999833780158474
+      }
+    },
+    "0.7": {
+      "items": 187,
+      "macro": {
+        "clips": 187,
+        "clusters": 187,
+        "high": 0.8412914245737908,
+        "low": 0.7866745260343386,
+        "mean": 0.8149011523540884
+      },
+      "middle_ruler_macro": {
+        "clips": 187,
+        "clusters": 187,
+        "high": 0.6635008270629285,
+        "low": 0.6574268735018857,
+        "mean": 0.6604191276896045
+      }
+    },
+    "0.9": {
+      "items": 186,
+      "macro": {
+        "clips": 186,
+        "clusters": 186,
+        "high": 0.8431102835343119,
+        "low": 0.7722576180169084,
+        "mean": 0.8082060572821091
+      },
+      "middle_ruler_macro": {
+        "clips": 186,
+        "clusters": 186,
+        "high": 0.22546977013350855,
+        "low": 0.20775552980381198,
+        "mean": 0.216284099668321
+      }
+    },
+    "mean_over_placements": {
+      "macro": {
+        "clips": 184,
+        "clusters": 184,
+        "high": 0.8415263714064762,
+        "low": 0.7981473300329436,
+        "mean": 0.8207002564996582
+      },
+      "videos": 184
+    }
+  },
+  "crops_skipped": {
+    "0.1": 2,
+    "0.3": 1,
+    "0.5": 1,
+    "0.9": 1
+  },
+  "data_dir": "/content/nexar_full/stage/nexar_defs",
+  "global_steps": {
+    "s2024": 1749,
+    "s2025": 1749,
+    "s2026": 1749,
+    "s2027": 1749,
+    "s2028": 1749
+  },
+  "per_run_crop_endpoint": {
+    "s2024": 0.8204651553469245,
+    "s2025": 0.8115264250201646,
+    "s2026": 0.8111595456383812,
+    "s2027": 0.8086954788752074,
+    "s2028": 0.8078299506077309
+  },
+  "per_run_whole_macro": {
+    "s2024": 0.89744026655227,
+    "s2025": 0.8940072310856236,
+    "s2026": 0.8831491496399223,
+    "s2027": 0.881422784750192,
+    "s2028": 0.8826178325723607
+  },
+  "positives": 187,
+  "protocol": "N-B: s1[::3] per item, CRN per item, native frames, seed-averaged",
+  "split": "nexar_test",
+  "stats_dir": "/content/nexar_full/stage/stats_nexar_A3",
+  "stats_manifest": {
+    "architecture": "core/docs/v2/KAT_VAD_v2_ARCHITECTURE.md \u00a74-\u00a75",
+    "arm": "A3",
+    "baked_ids": 1125,
+    "baked_ids_sha1": "c508de3af79faf0f99762756e12e900e1c8d42f1",
+    "c": 0.4292864112840989,
+    "clip_dir": "/content/drive/MyDrive/Thesis-V2/cache/clip/Nexar_s1_ncc",
+    "crn": "R2",
+    "crn_warmup": 8,
+    "fitted_on": "nexar_train.txt",
+    "mode": "fit-ids",
+    "motion": "vit_s_k710_dl_from_giant",
+    "reference_unit": "source video at the baked stride (windows are slices of it)",
+    "s": 3.5633679339756954,
+    "stats_file": "v2_input_stats.npz",
+    "stride_over_clip_dir": 8,
+    "train_ids_sha1": "6768538af32a76e560bb178875601dd211ddbb00",
+    "train_sources": 900,
+    "video_dir": "/content/drive/MyDrive/Thesis-V2/cache/video/vit_s_k710_dl_from_giant/Nexar_s1_squash",
+    "width": 896
+  },
+  "videos": 375,
+  "whole": {
+    "clip_auc_max": 0.7625156445556946,
+    "clip_oracle_micro": 0.7583854545808673,
+    "macro": {
+      "clips": 187,
+      "clusters": 187,
+      "high": 0.9134435660660364,
+      "low": 0.8771365213916604,
+      "mean": 0.8958582056522167
+    },
+    "micro": 0.8767506745960867,
+    "middle_ruler_macro": {
+      "clips": 187,
+      "clusters": 187,
+      "high": 0.9836313874330197,
+      "low": 0.9629671818795104,
+      "mean": 0.9751013555211437
+    }
+  }
+}
