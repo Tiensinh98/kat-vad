@@ -2063,3 +2063,14 @@ is within half an epoch of the budget.
 **Rule:** Compare a checkpoint's step to the plan that produced its epoch count, never to the budget it was rounded from.
 **Files:** `colab/v2/nexar_zeroshot.ipynb` (cells 2, 6), `core/tools/nexar_build.py:186` (`epoch_plan`).
 **Gate status.** One occurrence (measured); candidate.
+
+## (bs) [MEDIUM] Experiment design - A component adopted by an order-of-preference tie-break is untested, and can cost on the next corpus (2026-10-25)
+**Triggers:** A3 vs A2, CRN, §10.3 order, tie, interaction ≈ 0, adopt, new training corpus, Nexar
+**Problem:** E3 adopted A3 (CRN + V2-S) over A2 (V2-S) by §10.3's order although A3 − A2 ≈ 0 and A1 − A0 ≈ 0 on T2;
+trained on Nexar the same CRN cost −0.06 … −0.08 on every set (§29, `RESULTS_NEXAR.md` §3), and `B` = A3-ign carries it.
+**Bad:** "A2 ≈ A3, the order takes A3 first" → the component ships with no measured benefit.
+**Good:** on a tie, prefer the arm with fewer components (or pre-register the tie as "not adopted"), and re-test every
+adopted-by-tie component on each new training corpus before quoting it as part of the method.
+**Rule:** Break an adoption tie toward the simpler arm; never carry a component whose own contrast was never > 0.
+**Files:** `core/docs/v2/RESULTS_E3.md` §2, `core/docs/v2/RESULTS_NEXAR.md` §4, `PREREG_ADDENDUM.md` §30.
+**Gate status.** One occurrence (measured); candidate.

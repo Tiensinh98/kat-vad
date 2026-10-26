@@ -841,3 +841,33 @@ no 5-seed `whole` arm is trained, so "window is needed" is never written from th
 
 **Signature:** signed by the user, 2026-10-25 (D-N16–D-N22 as written above; no 5-seed Nexar run and no `nexar_test`
 score existed).
+
+## 30. Amendment 19 (2026-10-25) — Nexar: is CRN's crop cost the CRN reference unit? (C1–C9)
+
+**Authorized by the user on 2026-10-25 ("làm 0, 1 trước đi": step 1 = the CRN diagnostic), after §29's read-out and
+before any number of this section exists; not reviewed by the advisor.** A diagnostic: it decides no arm, never moves
+`B`, and reads `nexar_val` only. Tools `core.tools.nexar_eval --crn-reference source`, `core.tools.crn_cost_diag`;
+runbook `colab/v2/nexar_crn_ref.ipynb`. Results go to `core/docs/v2/RESULTS_NEXAR.md` §5.
+
+**Disclosure (read before the table).** §29's read-out (`outputs/v2/v2_nexar_window/REPORTS/transfer_readout.md`)
+showed the CRN arms losing on every set (A3 − A2 −0.061 … −0.084, A1 − A0 −0.024 … −0.054) and fitting their training
+bags ~10× tighter (last-step `mil` A1 / A3 0.02–0.09 vs A0 0.35–0.49, A2 0.18–0.29). The hypothesis tested here (H1)
+was written after that. Before this section was written, C7's share table was also run exploratorily on the saved
+scores: on `nexar_val`, A3 − A2 is **−0.043 on whole videos** (event share of the reference ≈ 0.07, as in training)
+and **−0.066 on crops** (≈ 0.35); on DoTA / DADA / TAD the per-clip cost does **not** grow with the event share
+(Spearman +0.02 … +0.13, the cheapest quartile is the highest share). Those reads predict C6's fraction `f` ≤ ≈ ⅓.
+They are printed in C7 as seen, not re-chosen.
+
+| # | Choice | Why |
+|---|---|---|
+| C1 | **Question (H1).** Training bakes each window's CRN reference (R2, per-dimension median) over its **source video** (~40 s, event ≈ 2–5 % of the rows); `nexar_eval` re-references each 8 s **crop** by itself (event ≈ 35 %). Does that train / eval mismatch of the reference unit explain the CRN arms' crop cost? | The one mechanism that §29's protocol creates and T2 does not (T2 sources are short, so a T2 reference already carries the event) |
+| C2 | **Set and checkpoints.** `nexar_val` only (`nexar_test` stays read once, D-N22). §29's Nexar-trained checkpoints, 5 seeds each, J10 = 1,749. Primary arm **A3**; A1 and A3-ign printed. Statistics = each arm's §29 `fit-ids` cache, unchanged. No retraining | The test set's one read is spent; val is unsealed and already read with the item reference |
+| C3 | **Manipulation.** `--crn-reference source`: an item `[start, end)` is cut from its source baked whole on the item's own stride grid, `bake_rows(x1[start % 3 :: 3], u1[start % 3 :: 3])[start // 3 : …]` — the reference (CLIP and, for A3, the motion stream) is the whole video's R2 at the eval stride; every other row of the input is unchanged. `--crn-reference item` (the default) is §29's path. A no-CRN arm refuses `source` | The training reference at the eval stride; no new formula (one `bake_rows`) |
+| C4 | **Gate (before any number is printed).** (a) every checkpoint's `global_step` = the `window` plan's 1,749 (notebook, from `build_report.json`) and both reads name the same checkpoints and steps; (b) whole-video items are phase-0 slices of the whole source, so their per-item AUCs under `source` must equal the saved §29 `val/<arm>/item_aucs.json` within **1e-3** (`CRN_DIAG_PARITY_TOL`) on every item; (c) the crop item set is identical. Any failure stops the read | The `source` path must be the `item` path wherever the two coincide |
+| C5 | **Primary.** `Δ_ref` = per-seed crop endpoint (`per_run_crop_endpoint`) under `source` − under `item`, A3, paired t95 over the 5 seeds (t = 2.776). Fraction closed `f = mean Δ_ref / (E(A2) − E(A3, item))`, seed means of the per-seed endpoints, all `nexar_val` | Same endpoint as D-N2 / D-N18 |
+| C6 | **Sentences (checked in order).** (1) t95 low > 0 and `f` ≥ **0.5** (`CRN_DIAG_MOST`) → **"the reference unit explains most of CRN's crop cost on Nexar"**; (2) low > 0 and `f` < 0.5 → **"the reference unit explains part of it"**; (3) high < 0 → **"the training reference costs more on crops; the reference unit does not explain the cost"**; (4) otherwise **"the reference unit does not explain CRN's crop cost (no change shown at n = 5)"**. No tie clause | Fixed before the read; C-disclosure predicts (2) or (4) |
+| C7 | **Printed only.** A1 (`f` against A0) and A3-ign (`f` against A2) under the same rule's numbers; per placement (0.1 … 0.9) for every arm; `crn_cost_diag share`: per-clip CRN cost (A3 − A2, A1 − A0, A3-ign − A2; Nexar-trained) against the clip's event share on DoTA-CAP dev / eval, DADA whole, TAD, and Nexar whole vs crops (val and the already-read test) — quartile bins and Spearman | The share table is the exploratory read disclosed above |
+| C8 | **Reading.** Whatever C6 writes, CRN is not rescued: a deployed model scores a clip without its source video. (1)/(2) explain the cost and say which half of it is protocol; (3)/(4) leave the cost with CRN itself (H2: centring removes absolute scene content the Nexar task needs; untested here) | So the result cannot be read as "fix the eval and keep CRN" |
+| C9 | **Nothing moves.** `B` stays A3-ign; §29's sentence stands. A2-ign (proposal for the next amendment) is not authorized by this section | One question per amendment |
+
+**Signature:** authorized by the user, 2026-10-25 (C1–C9 as written above; no `--crn-reference source` score existed).

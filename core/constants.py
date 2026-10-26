@@ -538,6 +538,15 @@ NEXAR_FULL_CONTRASTS = (  # D-N19: printed beside, never decided on
 )
 NEXAR_TEST_MARKER = "NEXAR_TEST_OPENED.json"  # written once, before the first --final read
 NEXAR_ZS_DADA_STRIDE = FRAME_STRIDE  # D-N20: DADA whole sources at s8 = T2's and the training rows
+# Amendment 19 (addendum §30): is the CRN arms' crop cost the reference unit? (nexar_val only)
+CRN_REFERENCE_ITEM = "item"  # §29: each scored item is its own CRN reference
+CRN_REFERENCE_SOURCE = "source"  # C3: the whole source video at the eval stride (training's unit)
+CRN_REFERENCES = (CRN_REFERENCE_ITEM, CRN_REFERENCE_SOURCE)
+CRN_DIAG_PRIMARY = ("A3", "A2")  # C5: the arm whose Δ_ref decides, and the no-CRN arm of its gap
+CRN_DIAG_PRINTED = (("A1", "A0"), ("A3ign", "A2"))  # C7: same numbers, printed only
+CRN_DIAG_MOST = 0.5  # C6: fraction of the CRN crop cost closed for "explains most"
+CRN_DIAG_PARITY_TOL = 1e-3  # C4(b): whole-item AUC, source vs item path
+CRN_DIAG_SHARE_QUARTILES = 4  # C7: event-share bins of the per-clip cost table
 
 # --- E2(d): encoder choice on DoTA-CAP-dev (addendum §12, N1-N12; proposal §10.2) ---
 V2_E2D_STRIDE = V2_E1_STRIDE_BC  # N1: protocol B rows of the stride-1 caches

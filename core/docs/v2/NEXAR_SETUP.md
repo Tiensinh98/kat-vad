@@ -104,3 +104,12 @@ Supersedes the `whole`-first order of §2 (the pilot fired D-N10; its Drive outp
 Inputs it expects on Drive besides Nexar's: `cache/video/<V2-S>/TAD_s8_squash` (from `tad_zeroshot.ipynb`), the T2
 V2-S s8 cache, `data/DADA2000_orig/counts/resolved_census.json`, `data/DADA2000Origin/.../dada标注.xlsx`,
 `cache/clip/DoTA_s1_ncc`, `cache/video/<V2-S>/DoTA_CAP_s1_squash`, and E3 / E4-0's checkpoints + T2 bakes.
+
+**Read out 2026-10-25: `core/docs/v2/RESULTS_NEXAR.md`** (D-N18: "no difference shown at n = 5").
+
+## 4. CRN reference diagnostic (Amendment 19, addendum §30) — `nexar_val` only
+
+3. **`colab/v2/nexar_crn_ref.ipynb`** — re-scores the Nexar-trained CRN arms (A1, A3, A3-ign; §29's checkpoints and
+   bakes) on `nexar_val` with `nexar_eval --crn-reference source` (each item's CRN reference = its whole source video
+   at the eval stride, the unit training baked) → `val_crnref/<arm>/`; then `core.tools.crn_cost_diag ref` (C4 parity
+   gate → C6 sentence) and `share` (C7) → `REPORTS/crn_diag/crn_{ref,share}.md`. No training; `nexar_test` untouched.

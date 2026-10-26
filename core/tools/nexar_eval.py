@@ -16,6 +16,9 @@ Two reads, both printed beside what position alone scores (G6 mirror):
   placement and the mean over the videos that fit all placements; the middle ruler per placement
   shows the position prior losing everywhere but 0.5.
 
+``--crn-reference source`` (addendum §30, a diagnostic) takes each item's CRN reference over its
+whole source video at the eval stride -- the unit training baked -- instead of the item itself.
+
 ``nexar_test`` is sealed: refused without ``--final``. Checkpoints must be finished (J10) and of
 one arm; the stats cache must name that arm (K4).
 
@@ -96,6 +99,24 @@ def item_rows(
     return bake_rows(x, u, stats)
 
 
+def source_item_rows(
+    x1: np.ndarray, u1: np.ndarray | None, stats: V2Stats, start: int, end: int,
+    stride: int = constants.NEXAR_EVAL_STRIDE,
+) -> np.ndarray:
+    """§30 C3: the rows of ``item_rows`` with the CRN reference taken over the whole source.
+
+    The source is baked on the item's own stride grid (phase ``start % stride``), then sliced, so
+    the rows are ``x1[start:end:stride]`` and only the reference differs. A whole item (phase 0)
+    is ``item_rows`` exactly.
+    """
+    if not stats.has_crn:
+        raise ValueError("a source CRN reference needs a CRN arm (A1 / A3)")
+    phase, first = start % stride, start // stride
+    count = len(range(start, end, stride))
+    u = None if u1 is None else u1[phase::stride]
+    return bake_rows(x1[phase::stride], u, stats)[first : first + count]
+
+
 def items_of(
     ids: list[str], rows: dict[str, dict[str, Any]], frames: dict[str, int]
 ) -> tuple[dict[str, tuple[str, int, int]], dict[str, list[str]]]:
@@ -135,7 +156,10 @@ def score_run(
             args.video_s1_dir / f"{video}.npy")
         for item in names:
             _, start, end = items[item]
-            feats = torch.from_numpy(item_rows(x1, u1, stats, start, end))
+            rows = (source_item_rows(x1, u1, stats, start, end)
+                    if stats is not None and args.crn_reference == constants.CRN_REFERENCE_SOURCE
+                    else item_rows(x1, u1, stats, start, end))
+            feats = torch.from_numpy(rows)
             steps = score_steps(model, feats, text_encode_fn, class_names, video, protocol)
             native[item] = to_native(steps, constants.NEXAR_EVAL_STRIDE, end - start)
     LOGGER.info("%s (step %d): scored %d items", run.name, step, len(native))
@@ -233,6 +257,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     stats = load_stats(args.stats_dir) if args.stats_dir is not None else None
     if stats is not None and stats.has_motion and args.video_s1_dir is None:
         raise SystemExit("a motion arm needs --video-s1-dir")
+    source_ref = args.crn_reference == constants.CRN_REFERENCE_SOURCE
+    if source_ref and (stats is None or not stats.has_crn):
+        raise SystemExit("--crn-reference source needs a CRN arm's --stats-dir (§30 C3)")
     items, skipped = items_of(ids, rows, frames)
     labels: dict[str, np.ndarray] = {}
     for name, (video, start, end) in items.items():
@@ -248,7 +275,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     averaged = seed_average([per_run[n] for n in sorted(per_run)])
     summary = summarize(averaged, labels, ids, rows, items, args.seed)
     readout: dict[str, Any] = {
-        "protocol": "N-B: s1[::3] per item, CRN per item, native frames, seed-averaged",
+        "protocol": "N-B: s1[::3] per item, CRN per item, native frames, seed-averaged"
+        if args.crn_reference == constants.CRN_REFERENCE_ITEM
+        else "N-B: s1[::3] per item, CRN over the source video (§30), native frames, seed-averaged",
+        "crn_reference": args.crn_reference,
         "split": args.split,
         "videos": len(ids),
         "positives": sum(rows[v]["label"] for v in ids),
@@ -341,6 +371,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         choices=(constants.V2_SPLIT_NEXAR_VAL, constants.V2_SPLIT_NEXAR_TEST))
     parser.add_argument("--split-dir", type=Path, default=constants.V2_SPLITS_DIR)
     parser.add_argument("--final", action="store_true", help="unseal nexar_test (§21, once)")
+    parser.add_argument("--crn-reference", choices=constants.CRN_REFERENCES,
+                        default=constants.CRN_REFERENCE_ITEM,
+                        help="CRN reference unit: the scored item (§29) or its source video (§30)")
     parser.add_argument("--seed", type=int, default=constants.SEED, help="bootstrap seed")
     parser.add_argument("--device", default="auto")
     parser.add_argument("--out-dir", type=Path, required=True)
