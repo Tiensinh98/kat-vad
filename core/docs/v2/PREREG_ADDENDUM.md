@@ -872,6 +872,9 @@ They are printed in C7 as seen, not re-chosen.
 
 **Signature:** authorized by the user, 2026-10-25 (C1–C9 as written above; no `--crn-reference source` score existed).
 
+**Read out 2026-10-26** (`RESULTS_NEXAR.md` §5.2): gate C4 pass; sentence (2) **"the reference unit explains part of
+it"** — A3 Δ\_ref +0.0113 [+0.0035, +0.0192], `f` = 0.17 (A1 0.26, A3-ign 0.03, printed). Per C8, CRN is not rescued.
+
 ## 31. Amendment 20 (2026-10-26) — can `B` drop CRN? A2-ign vs A3-ign on T2, non-inferiority (Z1–Z10)
 
 **Authorized by the user on 2026-10-26 ("ghi kết quả crn_ref rồi viết luôn amendment 20 kèm notebook"), after §30's
@@ -903,3 +906,7 @@ T2) exists.
 Sets: DoTA-CAP-dev decides; T2-val is the guardrail. DoTA-CAP-eval, DoTA-eval and T2-test are not read.
 
 **Signature:** authorized by the user, 2026-10-26 (Z1–Z10 as written above; no A2-ign run existed).
+
+**Read out 2026-10-26** (`RESULTS_CRN_DROP.md`): Z7 → **A3-ign stays**, "Removing CRN is not shown to be harmless on
+DoTA-CAP-dev at n = 5." All four checks fail: Z4 on width (macro Δ ≈ 0, intervals reach −0.015 / −0.017), Z5 on a
+whole interval below 0 (`f_2` −0.0119 [−0.0204, −0.0033]), Z6 on T2-val macro (−0.027).

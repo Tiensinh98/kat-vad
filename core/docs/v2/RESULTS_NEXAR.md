@@ -99,7 +99,40 @@ on whole videos** (−0.043 of −0.066 on val), where the reference matches tra
 explain at most ≈ ⅓ of the crop cost; the rest belongs to CRN itself. Per-placement, A3 − A2 on val crops is
 −0.050 / −0.066 / −0.039 / −0.069 / −0.106 (0.1 … 0.9): smallest at 0.5, largest at the edges.
 
-### 5.2 C4–C6 — the source-video reference on `nexar_val` (pending)
+### 5.2 C4–C6 — the source-video reference on `nexar_val` (read out 2026-10-26)
 
-`colab/v2/nexar_crn_ref.ipynb` → `REPORTS/crn_diag/crn_ref.md`. Not run yet. C7 predicts sentence (2) or (4).
-Whatever it writes, CRN is not rescued (C8): a deployed model scores a clip without its source video.
+`colab/v2/nexar_crn_ref.ipynb` → `REPORTS/crn_diag/crn_ref.md`. **Gate C4: pass.** Primary arm A3.
+
+**Sentence (C6): "the reference unit explains part of it."**
+
+| arm | endpoint, item ref | endpoint, source ref | twin (no CRN) | Δ\_ref paired t95 | f (share of twin gap) |
+|---|---:|---:|---:|---|---:|
+| **A3** (twin A2) | 0.8136 | 0.8249 | 0.8789 | **+0.0113 [+0.0035, +0.0192]** | **0.17** |
+| A1 (twin A0, printed) | 0.7033 | 0.7221 | 0.7758 | +0.0188 [+0.0126, +0.0249] | 0.26 |
+| A3-ign (twin A2, printed) | 0.8025 | 0.8045 | 0.8789 | +0.0020 [−0.0031, +0.0071] | 0.03 |
+
+Crop macro per placement (C7, printed; seed-averaged scores):
+
+| arm | path | 0.1 | 0.3 | 0.5 | 0.7 | 0.9 |
+|---|---|---:|---:|---:|---:|---:|
+| A3 | item | 0.8656 | 0.8081 | 0.8252 | 0.8238 | 0.7963 |
+| A3 | source | 0.8738 | 0.8134 | 0.8121 | 0.8236 | 0.8573 |
+| A1 | item | 0.7165 | 0.7049 | 0.7532 | 0.7206 | 0.6768 |
+| A1 | source | 0.7495 | 0.7161 | 0.7295 | 0.7279 | 0.7540 |
+| A3-ign | item | 0.8455 | 0.8210 | 0.8138 | 0.8064 | 0.7718 |
+| A3-ign | source | 0.8507 | 0.8110 | 0.7983 | 0.8029 | 0.8150 |
+| twin A2 | — | 0.9160 | 0.8741 | 0.8645 | 0.8930 | 0.9020 |
+| twin A0 | — | 0.8302 | 0.7926 | 0.7824 | 0.7822 | 0.7816 |
+
+**Readings.**
+
+1. **The protocol explains ≈ ⅙ of CRN's crop cost; the rest is CRN.** Giving A3 the reference it was trained with
+   lifts it by +0.011 (interval > 0), but it still sits **0.054 below A2** (0.825 vs 0.879). C7 predicted `f` ≤ ⅓.
+2. **The protocol share sits where the event ends the crop** (placement 0.9: A3 0.796 → 0.857, A1 0.677 → 0.754): a
+   self-referenced 8 s crop whose last third is the event has its median pulled toward the event. In the middle
+   (0.5) the source reference is slightly *worse*.
+3. **With `ignore`, the reference unit does not matter** (A3-ign `f` 0.03, interval ∋ 0).
+4. **Per C8 CRN is not rescued:** a deployed model scores a clip without its source video, and even the most
+   favourable reference leaves the cost. H2 (centring removes absolute scene content the task needs) is untested.
+5. **What it does not license:** dropping CRN from `B`, which is T2-trained. That is a T2 question, tested by
+   Amendment 20 (§31): **A3-ign stays** (`RESULTS_CRN_DROP.md`).

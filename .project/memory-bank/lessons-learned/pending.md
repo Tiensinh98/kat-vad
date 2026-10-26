@@ -2076,4 +2076,8 @@ adopted-by-tie component on each new training corpus before quoting it as part o
 **Nuance (2026-10-26).** CRN's *detection* contrast was never > 0, but its beyond-position read on T2 was (E3 w = 2:
 A3 − A0 +0.023 vs A2 − A0 +0.007 ∋ 0, replicated on CAP-eval). So "never carry" is tested, not declared: §31 asks
 whether removal is non-inferior on both reads. §30 showed the Nexar cost is 83 % CRN, 17 % eval protocol.
+**Outcome (2026-10-26, §31).** Removal not shown harmless: macro Δ ≈ 0 but `f_2` −0.012 (interval < 0) and T2-val
+−0.027. Corrected reading: the tie-break shipped a component with **no detection benefit but real secondary effects**
+(position separation, shortcut 0.9997 → 0.58) that turn into a cost on another corpus. Rule stays: on a tie, test the
+simpler arm before adopting the richer one; report the component as corpus-dependent.
 **Gate status.** One occurrence (measured); candidate.

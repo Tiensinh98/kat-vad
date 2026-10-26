@@ -7,12 +7,12 @@ Tool `core/tools/crn_drop_readout.py`; runbook `colab/v2/crn_drop_a2ign.ipynb`.
 
 | step | state |
 |---|---|
-| §30 crn_ref seen (sentence (2), `f` = 0.17) | seen 2026-10-26; **not yet written** to `RESULTS_NEXAR.md` §5.2 (user's call) |
+| §30 crn_ref read out (sentence (2), `f` = 0.17) | done 2026-10-26, `RESULTS_NEXAR.md` §5.2 |
 | §31 written + signed | done 2026-10-26 |
 | tool + tests (`crn_drop_readout`, `sc2_readout.paired_reads` shared) | done |
-| notebook | built, not run |
-| user uploads code + runs notebook → pastes `crn_drop_readout.md` | **next** |
-| `RESULTS_CRN_DROP.md` | after the read-out |
+| notebook | built, run 2026-10-26 |
+| read-out | **done 2026-10-26: A3-ign stays** (App. A) |
+| `RESULTS_CRN_DROP.md` | written |
 
 ## 1. Why
 
@@ -43,4 +43,8 @@ cluster-bootstrap low > −M, T2-val macro ≥ A3-ign − M, O1′ every seed. E
 
 ## Appendix A — read-outs
 
-(empty)
+**2026-10-26 — Z7: A3-ign stays** ("Removing CRN is not shown to be harmless on DoTA-CAP-dev at n = 5").
+Z4 macro Δ +0.0023 [−0.0151, +0.0197] paired / −0.0014 [−0.0165, +0.0135] cluster (fails on width, not on a loss);
+Z5 `f_2` −0.0119 [−0.0204, −0.0033] (whole interval < 0, as E3 predicted); Z6 T2-val 0.7068 vs 0.7338 (fail), O1′ 5/5.
+Printed: shortcut AUC 0.9997 (no CRN) vs 0.584; `ignore` without CRN +0.036 (E3 A2 0.7536 → 0.7898).
+Record: `core/docs/v2/RESULTS_CRN_DROP.md`.
