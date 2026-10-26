@@ -94,10 +94,13 @@ def read_tad(arm_dir: Path, seeds: tuple[int, ...]) -> ClipRead:
     out: ClipRead = {}
     first = arm_dir / f"s{seeds[0]}" / "scores"
     for path in sorted(first.glob("*.npz")):
-        with np.load(path) as data:
-            gt = data["gt"]
-        score = np.mean([np.load(arm_dir / f"s{s}" / "scores" / path.name)["score"]
-                         for s in seeds], axis=0)
+        scores: list[np.ndarray] = []
+        gts: list[np.ndarray] = []
+        for s in seeds:  # one open per file: on Drive FUSE each open is a round trip
+            with np.load(arm_dir / f"s{s}" / "scores" / path.name) as data:
+                scores.append(data["score"])
+                gts.append(data["gt"])
+        gt, score = gts[0], np.mean(scores, axis=0)
         read = two_class(score, gt)
         if read is not None:
             out[path.stem] = read
