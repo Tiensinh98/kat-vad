@@ -798,3 +798,29 @@ EDA_SECTIONS = (
 # ---------------------------------------------------------------------------
 TAD_ZERO_SHOT_AUC = 89.56
 GATE_A_TOLERANCE = 0.5
+
+# ---------------------------------------------------------------------------
+# KAT-VAD v5 Stage 0 (core/docs/v5/PREREG_V5.md §1, S0-1 ... S0-12)
+# ---------------------------------------------------------------------------
+V5_OUTPUT_DIRNAME = "v5"
+V5_STAGE0_DIRNAME = "v5_stage0"
+V5_STAGE0_ENCODER = VIDEOMAE_ENCODER_S  # S0-3: the encoder v2 adopted (E2(d))
+V5_STAGE0_STRIDE = V2_E1_STRIDE_BC  # S0-3: rows s1[::3], protocol B
+V5_GRID_FINE = 14  # S0-4: V14 = temporal mean of the 14 x 14 token grid
+V5_GRID_COARSE = 7  # S0-4: V7 = 2 x 2 average of V14 (proposal §3.2)
+V5_GRID_CACHE_DIRNAME = "video_grid"
+V5_GRID_DATASET_TAG = f"{DOTA_CAP_DATASET}_s{V5_STAGE0_STRIDE}_grid{V5_GRID_COARSE}"
+V5_TOPK = {V5_GRID_COARSE: 5, V5_GRID_FINE: 20}  # S0-8: top-k tiles per grid size
+V5_MIN_STEPS = 2  # S0-6: |A_c| and |P_c| needed for e_c
+V5_BOX_FRAME_SIZE = (1280, 720)  # S0-2: DoTA annotation geometry (stauc.py image_size)
+V5_ASPECT_TOLERANCE = 0.02  # S0-10 G2: CAP frame aspect vs 16:9
+V5_G0_MIN_COS = 0.9999  # S0-10 G0: fc_norm(mean tokens) vs DoTA_CAP_s1_squash
+V5_G1_MAX_ABS = 1e-5  # S0-10 G1: projected CLS vs image_embeds
+V5_BOOTSTRAP = V2_E1_BOOTSTRAP  # S0-9
+V5_BOOTSTRAP_SEED = 2026  # S0-9
+V5_BOOTSTRAP_LEVEL = 0.95  # S0-9
+V5_BOX_SHARE_BINS = (0.005, 0.02, 0.08)  # S0-12: < 0.5 %, 0.5-2 %, 2-8 %, > 8 %
+V5_P_T2_CAP_DEV = 0.8220  # S0-12: v2's cubic position prior on CAP-dev (RESULTS_E3.md), printed
+V5_D0_LAG = 8  # S0-12: CLIP frames apart for D0
+V5_LAG_ROWS = (1, 3, 6)  # PREREG_V5 §1.3 L-1: row lags; 6 rows = 18 frames, no shared frame
+V5_SHIFT_ROWS = (0, 2, 3)  # PREREG_V5 §1.3 L-3: grid row k + s read against step k's box (centre shift)

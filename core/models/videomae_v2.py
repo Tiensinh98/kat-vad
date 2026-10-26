@@ -145,6 +145,15 @@ class VideoMAEv2Encoder(nn.Module):
         self.fc_norm = nn.LayerNorm(dim, eps=constants.VIDEOMAE_LN_EPS)
 
     def forward(self, x: Tensor) -> Tensor:
+        pooled: Tensor = self.fc_norm(self.forward_tokens(x).mean(1))
+        return pooled
+
+    def forward_tokens(self, x: Tensor) -> Tensor:
+        """Last-layer tokens before ``fc_norm``: ``(B, 8 * 14 * 14, D)``, ordered (T', H, W).
+
+        v5 Stage 0 (``core/docs/v5/PREREG_V5.md`` S0-4) reads these as a spatial grid;
+        :meth:`forward` is their mean through ``fc_norm`` (G0 checks the two agree).
+        """
         tokens = self.patch_embed(x)
         if tokens.shape[1] != self.pos_embed.shape[1]:
             raise ValueError(
@@ -155,8 +164,8 @@ class VideoMAEv2Encoder(nn.Module):
         tokens = tokens + self.pos_embed.to(tokens.dtype)
         for block in self.blocks:
             tokens = block(tokens)
-        pooled: Tensor = self.fc_norm(tokens.mean(1))
-        return pooled
+        out: Tensor = tokens
+        return out
 
 
 def build_encoder(name: str) -> VideoMAEv2Encoder:

@@ -2081,3 +2081,23 @@ whether removal is non-inferior on both reads. §30 showed the Nexar cost is 83 
 (position separation, shortcut 0.9997 → 0.58) that turn into a cost on another corpus. Rule stays: on a tie, test the
 simpler arm before adopting the richer one; report the component as corpus-dependent.
 **Gate status.** One occurrence (measured); candidate.
+
+## (bt) [MEDIUM] Stats - Dry-run a pre-registered read-out on noise and on planted signal before the real run (2026-10-26)
+**Triggers:** pre-registration, gate, control, pointing game, chance level, null simulation, box mask
+**Problem:** v5 Stage 0's G-B compared a hit rate during the anomaly with one before it under a fixed mask; on pure
+noise it read +0.052 [+0.034, +0.070] because boxes grow through the anomaly, so the gate would pass on box growth.
+**Bad:** `hit - hit_pre` (each against a different chance level).
+**Good:** `(hit - chance) - (hit_pre - chance_pre)`; then run the read-out on random maps (expect KILL) and on maps with
+a planted in-box signal (expect GO) before any real number exists.
+**Rule:** Run every new gate on a null and a planted-signal input before signing it; a gate that passes on noise is a defect.
+**Files:** `core/tools/v5_stage0.py` (`_vs_pre`), `core/docs/v5/PREREG_V5.md` §1.1, `core/tests/test_v5_stage0.py::TestAmendment1`.
+**Gate status.** One occurrence (caught pre-run); candidate.
+
+## (bu) [MEDIUM] Gates - A clip-level aggregate gate re-taken on a row subset fails by sampling (2026-10-27)
+**Triggers:** passes_frame_gate, mean cos, subset rows, s1[::3], re-gate, pixel gate, threshold reuse
+**Problem:** v5 Stage 0 re-applied v2's pixel gate (clip **mean** cos ≥ 0.99 over all frames) to a third of the rows; 15 / 569 clips whose all-frame mean sat at 0.9901–0.9918 fell under 0.99 by sampling and made the whole pre-registered read-out INVALID.
+**Bad:** `passes_frame_gate(frame_cosines(embeds, s1[steps]))` — an all-frame verdict re-taken on `steps`.
+**Good:** reuse the upstream verdict for the aggregate (`alignment[id]["reason"] == "ok"`) and gate the subset only on a per-row bound that cannot be looser on a subset (`cos.min() >= DOTA_CAP_MIN_COS`).
+**Rule:** Re-gate a subset only with per-item bounds; never re-take a mean/share threshold calibrated on the full set.
+**Files:** `core/tools/v5_stage0.py` (`passes_row_gate`), `core/docs/v5/PREREG_V5.md` §1.2.
+**Gate status.** One occurrence; candidate.
