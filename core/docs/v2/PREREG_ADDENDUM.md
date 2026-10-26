@@ -871,3 +871,35 @@ They are printed in C7 as seen, not re-chosen.
 | C9 | **Nothing moves.** `B` stays A3-ign; §29's sentence stands. A2-ign (proposal for the next amendment) is not authorized by this section | One question per amendment |
 
 **Signature:** authorized by the user, 2026-10-25 (C1–C9 as written above; no `--crn-reference source` score existed).
+
+## 31. Amendment 20 (2026-10-26) — can `B` drop CRN? A2-ign vs A3-ign on T2, non-inferiority (Z1–Z10)
+
+**Authorized by the user on 2026-10-26 ("ghi kết quả crn_ref rồi viết luôn amendment 20 kèm notebook"), after §30's
+read-out and before any A2-ign run; not reviewed by the advisor.** Tool `core.tools.crn_drop_readout`; runbook
+`colab/v2/crn_drop_a2ign.ipynb`; plan `.project/plans/katvad-v2-crn-drop.md`. Results go to
+`core/docs/v2/RESULTS_CRN_DROP.md`.
+
+**Disclosure (read before the table).** This rule is written knowing: (i) E3 on T2 — A3 − A2 ≈ −0.007 by seed / +0.004
+by clip on DoTA-CAP-dev macro (E3 §2), but beyond position (w = 2) A3 − A0 **+0.023 [+0.013, +0.032]** vs A2 − A0
+**+0.007 ∋ 0** on dev and **+0.004 ∋ 0** on CAP-eval (Final); CRN's one mechanical effect, `V^t` source-shortcut AUC
+0.9998 → 0.569; (ii) Nexar §29: CRN costs on every set when trained on Nexar (A3 − A2 −0.06 … −0.08); (iii) §30: the
+CRN reference unit explains only `f` = 0.17 of that cost. (i) predicts that Z4 passes and Z5 fails, i.e. **A3-ign
+stays**; the rule is not chosen to avoid that. No A2-ign number (any `dvs_anchor_mode = ignore` arm without CRN on
+T2) exists.
+
+| # | Choice | Why |
+|---|---|---|
+| Z1 | **Arm.** A2-ign = E4-0's A3-ign (`loss.dvs_anchor_mode = ignore`) with `v2.crn = none`. Its config differs from E4-0's A3-ign of the same seed in **exactly** `{v2.crn}` (asserted before any GPU time). Inputs = E3's **A2** caches as baked (`A2_S`: T2 and `DoTA_CAP_s3_from_s1`); their manifest must read `crn = none`, `motion = V2-S`, width 512 + 384 and the same `train_ids_sha1` as A3's. No extraction, no new bake | one change: CRN. A2's input is the A3 input without the centring |
+| Z2 | **Control.** E4-0's five A3-ign runs (seeds 2024–2028), their protocol-B read and diags, read from `v2_e4_0/`, **never retrained**. Pairing by seed | the deployed `B` |
+| Z3 | **Primary set and endpoint.** DoTA-CAP-dev macro, protocol B (`s1[::3]`, whole clip, native frames), 569 clips. Δ = A2-ign − A3-ign | the set every `B` decision was taken on (E3, E4-0, §25) |
+| Z4 | **Detection, non-inferiority.** (a) paired t95 over the 5 per-seed macro Δ: lower bound **> −0.01**; (b) cluster bootstrap (source videos, B = 10,000, 95 %) of the per-clip Δ on seed-averaged scores: lower bound **> −0.01** | margin = proposal §7.1's bar (as §25 Y5(c), Y7); a removal must show it costs < the smallest gain this project would adopt |
+| Z5 | **Beyond position, non-inferiority.** `f_2 = z(score) + 2 z(p_T2)` per clip (E3's `p_T2`), Δ cluster bootstrap lower bound **> −0.01**. Qualified by DF8: it holds for DoTA-CAP's placement only (pending (bn)) | the one claim CRN carries on T2 (E3 §3, Final); stricter than §25 Y6's point because here the burden is on the removal |
+| Z6 | **Guardrails.** Seed-mean T2-val macro(A2-ign) ≥ A3-ign's − 0.01; **O1′** (§17 Q2) on every A2-ign seed against E3's A0 of the same seed. The normal-window peak is printed, not gated | as §25 Y7 |
+| Z7 | **Decision, mechanical.** Z4 (a)(b) + Z5 + Z6 all hold → **drop CRN**: A2-ign becomes `B`, the deployed model and the base of any later arm; sentence "Removing CRN does not cost DoTA-CAP-dev detection, in total or beyond position (non-inferiority margin 0.01, n = 5)." Otherwise **A3-ign stays**; sentence "Removing CRN is not shown to be harmless on DoTA-CAP-dev at n = 5." The failing checks are listed. A failure never licenses "CRN helps" (that would need A3-ign − A2-ign > 0, which this rule does not test). No tie clause | lesson 14; a simplification is adopted on proof of no harm, not on no proof of harm |
+| Z8 | **Printed, never decided on.** Macros with `p_T2` beside them; clip-level raw Δ; `f_2` macros; per native-fps group (`r1` / `r3`, D7); E3's A2 (`span`) macro beside A2-ign (the `ignore` effect without CRN); T2-val span profile; source-shortcut AUC and position R² of `v^t` (CRN's mechanical effect); final-epoch losses | context |
+| Z9 | **Forward.** If Z7 drops CRN: every A3-ign read on an opened set (E4-0 second look, DF8, TAD §26–§27, Nexar) describes A3-ign, not the new `B`; reading A2-ign on CAP-eval, T2-test, TAD or Nexar is a new amendment. If A3-ign stays: nothing moves; Nexar's "CRN costs when trained on Nexar" and §30 stay as recorded | one question per amendment; nothing sealed is opened |
+| Z10 | **Integrity, before any number.** (a) J10 on every A2-ign checkpoint (1,740 steps); (b) Z1's config diff on the planned and the written config; (c) Z1's cache manifests; (d) protocol B covers the 569 clips for both arms with identical labels; (e) every diag reads the same `global_step` as protocol B. Any failure stops the read-out | the arm must differ from the control only by CRN |
+
+Sets: DoTA-CAP-dev decides; T2-val is the guardrail. DoTA-CAP-eval, DoTA-eval and T2-test are not read.
+
+**Signature:** authorized by the user, 2026-10-26 (Z1–Z10 as written above; no A2-ign run existed).

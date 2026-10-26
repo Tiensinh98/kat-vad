@@ -2073,4 +2073,7 @@ trained on Nexar the same CRN cost −0.06 … −0.08 on every set (§29, `RESU
 adopted-by-tie component on each new training corpus before quoting it as part of the method.
 **Rule:** Break an adoption tie toward the simpler arm; never carry a component whose own contrast was never > 0.
 **Files:** `core/docs/v2/RESULTS_E3.md` §2, `core/docs/v2/RESULTS_NEXAR.md` §4, `PREREG_ADDENDUM.md` §30.
+**Nuance (2026-10-26).** CRN's *detection* contrast was never > 0, but its beyond-position read on T2 was (E3 w = 2:
+A3 − A0 +0.023 vs A2 − A0 +0.007 ∋ 0, replicated on CAP-eval). So "never carry" is tested, not declared: §31 asks
+whether removal is non-inferior on both reads. §30 showed the Nexar cost is 83 % CRN, 17 % eval protocol.
 **Gate status.** One occurrence (measured); candidate.

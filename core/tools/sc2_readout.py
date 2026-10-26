@@ -69,20 +69,24 @@ def seed_mean(diags: dict[str, Any], get: Any) -> float | None:
     return None if any(v is None for v in values) else float(np.mean(values))
 
 
-def guardrails(control: dict[str, Any], arm: dict[str, Any]) -> dict[str, Any]:
-    """Y7: T2-val macro (seed means) and O1' on every A3-B seed; the peak is printed only."""
+def guardrails(
+    control: dict[str, Any], arm: dict[str, Any], *, control_name: str = CONTROL,
+    arm_name: str = ARM, margin: float = constants.V22_SC2_T2_MACRO_MARGIN,
+) -> dict[str, Any]:
+    """Y7: T2-val macro (seed means) and O1' on every arm seed; the peak is printed only."""
     missing = [s for s, d in arm.items() if "o1_prime" not in d["guardrails"]]
     if missing:
-        raise ValueError(f"{ARM}: no O1' in diags of {missing} -- run v2_diagnostics --a0-diag")
+        raise ValueError(
+            f"{arm_name}: no O1' in diags of {missing} -- run v2_diagnostics --a0-diag"
+        )
     macro = {name: seed_mean(ds, lambda d: float(d["guardrails"]["macro"]))
-             for name, ds in ((CONTROL, control), (ARM, arm))}
+             for name, ds in ((control_name, control), (arm_name, arm))}
     peak = {name: seed_mean(ds, lambda d: d["t2_val_reads"]["normal_window_peak"])
-            for name, ds in ((CONTROL, control), (ARM, arm))}
+            for name, ds in ((control_name, control), (arm_name, arm))}
     o1p = {s: bool(d["guardrails"]["o1_prime"]["pass"]) for s, d in arm.items()}
-    a, c = macro[ARM], macro[CONTROL]
+    a, c = macro[arm_name], macro[control_name]
     checks = {
-        "t2_val_macro": a is not None and c is not None
-        and a >= c - constants.V22_SC2_T2_MACRO_MARGIN,
+        "t2_val_macro": a is not None and c is not None and a >= c - margin,
         "o1_prime_every_seed": all(o1p.values()),
     }
     return {"t2_val_macro": macro, "normal_window_peak": peak, "o1_prime": o1p,
@@ -114,48 +118,50 @@ def by_group(
             for g in sorted(set(groups.values()))}
 
 
-def run(args: argparse.Namespace) -> dict[str, Any]:
-    seeds = [seed_name(s) for s in args.seeds]
-    pbs = {CONTROL: load_pb(args.e4_dir, CONTROL, seeds), ARM: load_pb(args.sc2_dir, ARM, seeds)}
-    labels = pbs[CONTROL]["labels"]
-    if set(pbs[ARM]["labels"]) != set(labels):  # Y11(e)
-        raise ValueError(f"{CONTROL} and {ARM} protocol B reads cover different clips")
+def paired_reads(
+    control_root: Path, control: str, arm_root: Path, arm: str, e3_dir: Path, seeds: list[str],
+    seed: int, alignment: Path | None, margin: float,
+) -> dict[str, Any]:
+    """Every read shared by a one-arm-vs-control rule on DoTA-CAP-dev (§25; reused by §31).
+
+    Refuses two protocol B reads on different clips or labels, and a diag that read another
+    checkpoint step than protocol B (Y11(e)(f) / Z10(d)(e)).
+    """
+    pbs = {control: load_pb(control_root, control, seeds), arm: load_pb(arm_root, arm, seeds)}
+    labels = pbs[control]["labels"]
+    if set(pbs[arm]["labels"]) != set(labels):
+        raise ValueError(f"{control} and {arm} protocol B reads cover different clips")
     for v, y in labels.items():
-        if not np.array_equal(y, pbs[ARM]["labels"][v]):
-            raise ValueError(f"{v}: {CONTROL} and {ARM} protocol B labels differ")
-    diags = {CONTROL: load_diags(args.e4_dir, CONTROL, seeds, pbs[CONTROL]),
-             ARM: load_diags(args.sc2_dir, ARM, seeds, pbs[ARM])}  # Y11(f)
-    prior, _ = read_clip_scores(args.e3_dir / REPORTS / PRIOR_DIR / CAP / PRIOR_NPZ)
+        if not np.array_equal(y, pbs[arm]["labels"][v]):
+            raise ValueError(f"{v}: {control} and {arm} protocol B labels differ")
+    diags = {control: load_diags(control_root, control, seeds, pbs[control]),
+             arm: load_diags(arm_root, arm, seeds, pbs[arm])}
+    prior, _ = read_clip_scores(e3_dir / REPORTS / PRIOR_DIR / CAP / PRIOR_NPZ)
 
     per_seed = {name: pb["readout"]["per_run_macro"] for name, pb in pbs.items()}
-    interval = paired_interval(per_seed[ARM], per_seed[CONTROL], constants.V2_E3_T95)
+    interval = paired_interval(per_seed[arm], per_seed[control], constants.V2_E3_T95)
     scores = {name: pb["scores"] for name, pb in pbs.items()}
     raw = {name: clip_aucs(s, labels) for name, s in scores.items()}
-    raw_delta = clip_delta(raw[ARM], raw[CONTROL])
-    clip = bootstrap(raw_delta, args.seed)
+    raw_delta = clip_delta(raw[arm], raw[control])
     weight = constants.V2_FINAL_FUSION_PRIMARY
     f2_aucs = {name: fused_clip_aucs(s, prior, labels, weight) for name, s in scores.items()}
-    f2 = bootstrap(clip_delta(f2_aucs[ARM], f2_aucs[CONTROL]), args.seed)
-    guards = guardrails(diags[CONTROL], diags[ARM])
-    decision = decide(interval, clip, f2, guards)
-
     groups = None
-    if args.alignment is not None:
-        alignment = json.loads(args.alignment.read_text(encoding="utf-8"))
-        groups = by_group(raw_delta, rate_groups(alignment, sorted(raw_delta)), args.seed)
-    result: dict[str, Any] = {
-        "rule": "core/docs/v2/PREREG_ADDENDUM.md §25 (fixed before any A3-B number)",
+    if alignment is not None:
+        align = json.loads(alignment.read_text(encoding="utf-8"))
+        groups = by_group(raw_delta, rate_groups(align, sorted(raw_delta)), seed)
+    return {
         "set": "DoTA-CAP (n/1397) dev",
         "seeds": seeds,
         "macro": {name: float(np.mean(list(a.values()))) for name, a in raw.items()},
         "p_t2_macro": float(np.mean(list(clip_aucs(prior, labels).values()))),
         "per_seed_macro": per_seed,
         "decision_interval": interval,
-        "clip_delta": clip,
+        "clip_delta": bootstrap(raw_delta, seed),
         "f2": {"weight": weight,
                "macro": {name: float(np.mean(list(a.values()))) for name, a in f2_aucs.items()},
-               "delta": f2},
-        "guardrails": guards,
+               "delta": bootstrap(clip_delta(f2_aucs[arm], f2_aucs[control]), seed)},
+        "guardrails": guardrails(diags[control], diags[arm], control_name=control,
+                                 arm_name=arm, margin=margin),
         "rate_groups": groups,
         "t2_val_span_profile": {
             name: {s: d["t2_val_reads"]["span_profile"] for s, d in ds.items()}
@@ -170,6 +176,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             }
             for name, ds in diags.items()
         },
+    }
+
+
+def run(args: argparse.Namespace) -> dict[str, Any]:
+    reads = paired_reads(args.e4_dir, CONTROL, args.sc2_dir, ARM, args.e3_dir,
+                         [seed_name(s) for s in args.seeds], args.seed, args.alignment,
+                         constants.V22_SC2_T2_MACRO_MARGIN)
+    decision = decide(reads["decision_interval"], reads["clip_delta"], reads["f2"]["delta"],
+                      reads["guardrails"])
+    result: dict[str, Any] = {
+        "rule": "core/docs/v2/PREREG_ADDENDUM.md §25 (fixed before any A3-B number)",
+        **reads,
         "decision": decision,
     }
     out = args.sc2_dir / REPORTS

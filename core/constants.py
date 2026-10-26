@@ -705,6 +705,12 @@ V22_SC2_ENCODER = VIDEOMAE_ENCODER_B
 V22_SC2_MIN_GAIN = 0.01  # Y5(c): the paired mean must reach this (proposal §7.1 trained-arm bar)
 V22_SC2_T2_MACRO_MARGIN = 0.01  # Y7: T2-val macro at most this far below A3-ign's
 
+# Amendment 20 (addendum §31): can `B` drop CRN? A2-ign vs A3-ign on T2, non-inferiority (Z1-Z10)
+V2_CRNDROP_CONTROL = V2_E4_0_ARM  # Z2: E4-0's A3-ign runs, never retrained
+V2_CRNDROP_ARM = "A2ign"  # Z1: A3-ign with v2.crn = none, nothing else
+V2_CRNDROP_CACHE_TAG = "A2_S"  # Z1: E3's A2 input caches (T2 + DoTA-CAP), reused as baked
+V2_CRNDROP_MARGIN = 0.01  # Z4-Z6: non-inferiority margin (proposal §7.1 bar, as Y5(c) / Y7)
+
 # v2 TAD zero-shot generalization probe (v2 addendum §26, Amendment 15, T1-T10)
 V2_TADZ_STRIDE = 8  # T2: TAD read at s8 = Gate T0's protocol and T2's seconds/step (assumed 30 fps)
 V2_TADZ_ARM = "A3ign"  # T3: the deployed B
