@@ -1,12 +1,13 @@
 # KAT-VAD v2 — Summary of experimental results (P0 → Final) and directions for improvement
 
-*2026-10-07; updated 2026-10-11 (post-Final: E4-0, its second look, SG-NM closed, DF8 deferred, figures); 2026-10-21 (§4.6 TAD zero-shot, §4.7 TAD clip-level gate) · branch `v2` · code `03d365e` · author: sinhpham (drafted with Claude)*
+*2026-10-07; updated 2026-10-11 (post-Final: E4-0, its second look, SG-NM closed, DF8 deferred, figures); 2026-10-21 (§4.6 TAD zero-shot, §4.7 TAD clip-level gate); 2026-10-26 (§4.8 Nexar training + CRN diagnostic, §4.9 drop-CRN test) · branch `v2` · code `03d365e` · author: sinhpham (drafted with Claude)*
 
 **Sources.** Every number here comes from an existing read-out: `MOTION_STREAM_K.md`, `RESULTS_E2_CRN.md`,
 `RESULTS_E1.md`, `RESULTS_E2D.md`, `RESULTS_P6_PILOT.md`, `RESULTS_E3.md` and
 `outputs/v2/v2_final/REPORTS/final_readout.{md,json}`; §4.5 from `RESULTS_E4_0.md`; §4.6 from
 `outputs/v2/v2_tadz/REPORTS/tadz_readout.{md,json}` (addendum §26); §4.7 from
-`outputs/v2/v2_tadg/REPORTS/tadg_readout.{md,json}` (addendum §27). Both are recorded in `RESULTS_TADZ.md`. Score files (`*.npz`) under `outputs/`
+`outputs/v2/v2_tadg/REPORTS/tadg_readout.{md,json}` (addendum §27). Both are recorded in `RESULTS_TADZ.md`. §4.8 from
+`RESULTS_NEXAR.md` (addendum §29, §30); §4.9 from `RESULTS_CRN_DROP.md` / `outputs/v2/v2_crndrop/REPORTS/` (addendum §31). Score files (`*.npz`) under `outputs/`
 are gitignored; the small v2 read-outs (`REPORTS/**/*.{md,json}`) are tracked. This file is the summary record
 of the Final and of what came after it. **§6 is new.** It is a per-clip error analysis run **on DoTA-CAP-dev**. It is exploratory and
 **not pre-registered**: it points to directions, and nothing in it is a claim.
@@ -53,6 +54,13 @@ of the Final and of what came after it. **§6 is new.** It is a per-clip error a
    fitted on MSAD-train (no TAD video), multiplied into A3-ign's per-video min-max curve. TAD micro **0.678 → 0.835**
    (Δ **+0.136 [+0.132, +0.140]**, bootstrap +0.157 [+0.102, +0.204]), clip-level AUC 0.544 → 0.851, **macro unchanged
    by construction**. Not separated from LaGoVAD's micro (+0.044, CI contains 0); offline only (needs the whole video).
+10. **Training on Nexar instead of T2 (§4.8, 2026-10-25/26):** A3-ign − A0 on `nexar_test` **+0.015 [−0.018, +0.049]**
+    → "no difference shown at n = 5". Trained on Nexar, **CRN costs on every set** (A3 − A2 −0.06 … −0.08, all
+    intervals < 0) and A2 (V2-S, no CRN) is the best arm everywhere. Only ≈ ⅙ of that cost is the eval protocol's CRN
+    reference unit (`f` = 0.17); the rest is CRN itself.
+11. **CRN stays in `B` (§4.9, 2026-10-26):** removing it from A3-ign (A2-ign, T2-trained) is **not shown to be
+    harmless** on DoTA-CAP-dev — macro Δ ≈ 0 (+0.002 [−0.015, +0.020]) but `f_2` **−0.012 [−0.020, −0.003]** and
+    T2-val −0.027. CRN's effect is corpus-dependent; it is never written as "improves detection".
 
 ---
 
@@ -280,6 +288,52 @@ TAD-test with LaGoVAD as `c` (disclosed in §27); the gate itself is new.
 - Limits: two components (A3-ign + an offline gate; not streaming); `c` is not calibrated (train AUC 1.0, it sits near
   0 or 1); the gate was trained on 11 mostly non-traffic MSAD classes, so it reads "anomalous content", not "accident".
 
+### 4.8 Training on Nexar, and why CRN costs there (addendum §29, §30)
+
+**Setup.** Nexar dashcam collisions, `window` construction, the five T2 arms (A0–A3 `span`, A3-ign `ignore`) × 5
+seeds, every checkpoint at `global_step` 1,749 (T2: 1,740, +0.5 %; three seeds resumed from their own Drive
+checkpoint, disclosed). Endpoint = per-seed shifted-crop mean on `nexar_test` (opened once). Zero-shot reads on TAD,
+DADA whole videos and DoTA-CAP dev+eval.
+
+**Decision (D-N18).** A3-ign − A0 on `nexar_test`: **+0.0151 [−0.0184, +0.0487]** (video bootstrap +0.0028
+[−0.0196, +0.0255]) → **"no difference shown at n = 5"**. `B` stays the T2-trained A3-ign.
+
+| Nexar-trained, paired t95 | Nexar test | TAD | DADA whole | DoTA-CAP dev+eval |
+|---|---|---|---|---|
+| A1 − A0 (CRN alone) | **−0.054** | −0.024 (ns) | **−0.029** | **−0.054** |
+| A2 − A0 (V2-S alone) | **+0.081** | **+0.117** | **+0.151** | **+0.103** |
+| A3 − A2 (CRN on top of V2-S) | **−0.061** | **−0.084** | **−0.082** | **−0.074** |
+| A3-ign − A3 (`ignore`) | −0.006 (ns) | **+0.034** | **+0.018** | **+0.041** |
+
+- **A2 is the best arm on every set.** On DoTA-CAP-dev it reads 0.8171 — the highest v2 number there, and still
+  ≤ `p_T2` 0.8220: it ties the position prior, it does not beat it.
+- CRN arms fit Nexar's training bags ~10× tighter (last-step `mil` 0.02–0.11 vs A0 0.35–0.49) and transfer worse.
+- **§30, the reference-unit test** (`nexar_val`, Gate C4 pass). Training references each window by its 40 s source;
+  eval references each 8 s crop by itself. Giving A3 the source reference lifts it **+0.0113 [+0.0035, +0.0192]**,
+  but it stays 0.054 below A2 (0.825 vs 0.879): **`f` = 0.17** → sentence "the reference unit explains part of it".
+  A1 `f` 0.26; A3-ign 0.03 (∋ 0). The protocol share sits at placement 0.9 (event ends the crop). Per C8 CRN is not
+  rescued: a deployed model has no source video.
+
+### 4.9 Can `B` drop CRN? A2-ign vs A3-ign on T2 (addendum §31, Amendment 20)
+
+A2-ign = A3-ign with `v2.crn = none` (E3's `A2_S` caches, config diff `{v2.crn}` asserted), 5 seeds, all at step
+1,740; control = E4-0's A3-ign runs (not retrained). DoTA-CAP-dev, protocol B, non-inferiority margin M = 0.01.
+
+| check (all must pass to drop CRN) | read | result |
+|---|---|---|
+| Z4a per-seed macro Δ (A2-ign − A3-ign), paired t95 low > −M | +0.0023 [−0.0151, +0.0197] | FAIL (width; s2026 +0.027) |
+| Z4b per-clip Δ, cluster bootstrap low > −M | −0.0014 [−0.0165, +0.0135] | FAIL |
+| Z5 `f_2` Δ low > −M | **−0.0119 [−0.0204, −0.0033]** | FAIL (whole interval < 0) |
+| Z6 T2-val macro ≥ A3-ign − M; O1′ | 0.7068 vs 0.7338; O1′ 5/5 | FAIL |
+
+**Decision: "Removing CRN is not shown to be harmless on DoTA-CAP-dev at n = 5." `B` = A3-ign, nothing moves.**
+Levels: macro A3-ign 0.7912 · A2-ign 0.7898 (seed-averaged curve; mean of per-seed macros 0.7810 · 0.7834) · `p_T2`
+0.8220; `f_2` 0.8526 · 0.8407. Printed: without CRN `V^t` identifies the source corpus again (shortcut AUC 0.9997 vs
+0.584); `ignore` lifts the no-CRN arm by the same amount it lifts A3 (+0.036 vs +0.034).
+
+**Thesis line.** CRN is corpus-dependent: trained on T2 it keeps the beyond-position signal (`f_2`) and blocks the
+source shortcut at no measurable detection cost; trained on Nexar it costs 0.06–0.08. Never "CRN improves detection".
+
 ---
 
 ## 5. What may and may not be claimed
@@ -294,6 +348,8 @@ TAD-test with LaGoVAD as `c` (disclosed in §27); the gate itself is new.
 | "Zero-shot on fixed-camera TAD, A3-ign (0.759) is not separated from LaGoVAD's released checkpoint (0.758)", with the training-data caveat | "v2's components transfer to TAD" or "beat LaGoVAD on TAD"; a TAD micro beside 89.56 |
 | "Trained on T2 alone, v2 cannot separate normal from accident videos on TAD (clip-level AUC 0.544; A0 0.578)" | that CRN causes it (A0 is blind too) |
 | "A clip-level gate fitted on MSAD (no TAD video) restores clip-level discrimination on TAD: micro 0.678 → 0.835 (+0.136 [+0.132, +0.140]), macro unchanged"; "the gate carries signal beyond video length" | "the gate beats LaGoVAD" (contains 0); "the gate detects car accidents"; a streaming claim; micro 0.835 without the length ruler 0.897 beside it |
+| "Trained on Nexar, A3-ign is not shown to differ from A0 on Nexar test at n = 5"; "trained on Nexar, CRN costs 0.06–0.08 on every set; ≈ ⅙ of it is the eval protocol's reference unit" | "v2 transfers to Nexar"; any `nexar_test` re-score |
+| "Removing CRN from A3-ign is not shown to be harmless on DoTA-CAP-dev at n = 5" (`f_2` −0.012, T2-val −0.027); "CRN's effect depends on the training corpus" | "CRN improves detection" (macro Δ ≈ 0); "CRN is useless"; any A2-ign number on CAP-eval, T2-test, TAD or Nexar (Z9) |
 | "Dropping the whole-anchor DVS label improves DoTA-CAP (n/1397) detection, on dev and on a second look at the opened eval set" (+0.038), "… beyond the position prior (second look)" (`f_2` +0.016) | A3-ign "beats the position prior" (0.8120 < `p_T2` 0.8256); an A3-ign eval number without "second look"; "the whole-anchor label causes Gap S" |
 
 ---
@@ -386,7 +442,7 @@ little normal context before the onset.
 |---|---|---|---|
 | Protocol B (s3) | +0.033 on the same checkpoints, 3/3 seeds (E1) | — | kept; it is protocol |
 | V2-S video stream | +0.098 over CRN (eval), 5/5 seeds; T2-test +0.077 | D6: not temporal order; most of it co-moves with position (G6) | kept, named "video appearance encoder" |
-| CRN (R2) | shortcut 0.9998 → 0.57; lets A3 survive position control (A2 does not) | A1 − A0 contains 0 on DoTA-dev and -eval; ≈ 0.013 macro in-domain cost on T2 (A3 vs A2) | kept inside A3; no stand-alone claim |
+| CRN (R2) | shortcut 0.9998 → 0.57; lets A3 survive position control (A2 does not); dropping it from A3-ign costs `f_2` −0.012 and T2-val −0.027 (§4.9) | A1 − A0 contains 0 on DoTA-dev and -eval; ≈ 0.013 macro in-domain cost on T2 (A3 vs A2); **trained on Nexar it costs 0.06–0.08 on every set** (§4.8; ⅚ CRN itself) | kept inside A3 / A3-ign (§31: drop not shown harmless); corpus-dependent, no stand-alone claim |
 | DVS anchor label `ignore` (A3-ign) | +0.040 dev, +0.038 eval (second look), `f_2` +0.010 / +0.016, T2-test +0.025; free (one training flag) | inside-span mean falls (−0.155): floor suppression, not coverage | **adopted after the Final** (v2's recipe) |
 | SG-NM (training-only normality branch, on A3-ign) | — | E4a gate: Δ −0.012 [−0.016, −0.008] on CAP-dev, −0.012 on T2-val, 5/5 seeds negative; `S̃` correlates 0.85 with `y^bin` per clip | **closed 2026-10-11**; code reverted |
 | Clip-level discrimination | MSAD-fitted gate (§4.7): TAD micro +0.136, clip-level AUC 0.544 → 0.851, macro unchanged | v2 arms alone 0.50–0.58 on TAD (§4.6); the gate is a second, offline component | **repaired by an inference-time gate**; not part of the v2 training recipe |
@@ -440,9 +496,11 @@ little normal context before the onset.
 | Pilot | `core/docs/v2/RESULTS_P6_PILOT.md` |
 | E3 | `core/docs/v2/RESULTS_E3.md` |
 | Final (raw) | `outputs/v2/v2_final/REPORTS/final_readout.{md,json}` (gitignored) |
-| Pre-registered rules | `core/docs/v2/PREREG_ADDENDUM.md` §1–§27 (§22 E4-0, §23 second look, §26 TAD zero-shot, §27 TAD gate) |
+| Pre-registered rules | `core/docs/v2/PREREG_ADDENDUM.md` §1–§31 (§22 E4-0, §23 second look, §26 TAD zero-shot, §27 TAD gate, §29 Nexar, §30 CRN reference unit, §31 drop CRN) |
 | E4-0 + second look | `core/docs/v2/RESULTS_E4_0.md`; raw `outputs/v2/v2_e4_0/REPORTS/`, `outputs/v2/v2_e4_0/second_look/REPORTS/` |
 | TAD zero-shot + gate | `core/docs/v2/RESULTS_TADZ.md`; raw `outputs/v2/v2_tadz/REPORTS/`, `outputs/v2/v2_tadg/{REPORTS,gate}/`; rules addendum §26, §27; plans `.project/plans/katvad-v2-tad-{zeroshot,clipgate}.md` |
+| Nexar + CRN reference unit | `core/docs/v2/RESULTS_NEXAR.md`; raw `outputs/v2/v2_nexar_window/{REPORTS,val,val_crnref}/` |
+| Drop CRN (A2-ign) | `core/docs/v2/RESULTS_CRN_DROP.md`; raw `outputs/v2/v2_crndrop/REPORTS/`; plan `.project/plans/katvad-v2-crn-drop.md` |
 | E4a (SG-NM gate) | `outputs/v2/v2_e4b/REPORTS/e4a_readout.{md,json}` |
 | H1 / DF8 plan | `.project/plans/katvad-v2-df8-position-shift.md` (deferred) |
 | Figures | `core/docs/v2/figs/` (`core.tools.v2_plots`) |

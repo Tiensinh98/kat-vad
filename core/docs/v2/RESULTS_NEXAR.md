@@ -3,7 +3,8 @@
 Pre-registration: `PREREG_ADDENDUM.md` §21 (D-N1…D-N10), §28, **§29 (D-N16…D-N22)**, **§30 (C1…C9)**. Setup and
 runbooks: `NEXAR_SETUP.md` §3; `colab/v2/nexar_train.ipynb`, `colab/v2/nexar_zeroshot.ipynb`,
 `colab/v2/nexar_crn_ref.ipynb`. Raw outputs (gitignored; this file is the durable record):
-`outputs/v2/v2_nexar_window/{REPORTS/transfer_readout.{md,json}, val/val_summary.md, eval/, REPORTS/crn_diag/}`.
+`outputs/v2/v2_nexar_window/{REPORTS/transfer_readout.{md,json}, val/val_summary.md, eval/, REPORTS/crn_diag/,
+val_crnref/{A1,A3,A3ign}/}` (`val_crnref/` = §30's source-reference read-outs, committed `607e4d9`).
 Colab read-outs carry `commit: UNKNOWN` by design.
 
 **Provenance.** 25 Nexar-trained runs (`window` × {A0, A1, A2, A3, A3-ign} × seeds 2024–2028), every checkpoint at
@@ -102,6 +103,10 @@ explain at most ≈ ⅓ of the crop cost; the rest belongs to CRN itself. Per-pl
 ### 5.2 C4–C6 — the source-video reference on `nexar_val` (read out 2026-10-26)
 
 `colab/v2/nexar_crn_ref.ipynb` → `REPORTS/crn_diag/crn_ref.md`. **Gate C4: pass.** Primary arm A3.
+
+*Sync 2026-10-26:* `crn_ref.md` itself is not in the tree (only `crn_share.md`); every row below was re-derived from
+`val/*/nexar_readout.md` (item ref) and `val_crnref/*/nexar_readout.md` (source ref) — per-run crop endpoints, `f`,
+and A3's Δ\_ref t95 [+0.0036, +0.0192] reproduce to rounding.
 
 **Sentence (C6): "the reference unit explains part of it."**
 

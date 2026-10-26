@@ -13,6 +13,7 @@ Tool `core/tools/crn_drop_readout.py`; runbook `colab/v2/crn_drop_a2ign.ipynb`.
 | notebook | built, run 2026-10-26 |
 | read-out | **done 2026-10-26: A3-ign stays** (App. A) |
 | `RESULTS_CRN_DROP.md` | written |
+| raw outputs committed (`607e4d9`, user) + docs synced (`RESULTS_CRN_DROP.md`, `RESULTS_NEXAR.md` §5.2, `REPORT_V2_RESULTS.md` §4.8–§4.9) | done 2026-10-26, every number re-checked against the files |
 
 ## 1. Why
 

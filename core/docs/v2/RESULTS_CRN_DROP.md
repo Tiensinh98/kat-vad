@@ -2,8 +2,9 @@
 
 Pre-registration: `PREREG_ADDENDUM.md` **§31 (Z1–Z10)**, signed 2026-10-26 before any A2-ign run. Runbook
 `colab/v2/crn_drop_a2ign.ipynb`; tool `core/tools/crn_drop_readout.py`; plan `.project/plans/katvad-v2-crn-drop.md`.
-Raw outputs (gitignored; this file is the durable record): `outputs/v2_crndrop/{A2ign/s*, REPORTS/}`. Colab read-outs
-carry `commit: UNKNOWN` by design.
+Raw outputs (tracked, committed `607e4d9`; checkpoints and `*.npz` stay on Drive): `outputs/v2/v2_crndrop/{A2ign/s*/{config.yaml,
+metrics.jsonl,diag/}, REPORTS/{crn_drop_readout.{md,json}, pb/A2ign/dota_cap_dev/}}`. Colab read-outs carry
+`commit: UNKNOWN` by design. **Synced 2026-10-26** against those files: every number below matches them.
 
 **Provenance.** A2-ign = E4-0's A3-ign with `v2.crn = none` (config diff `{v2.crn}` asserted per seed, planned and
 written); inputs = E3's `A2_S` caches (manifest `crn = none`, V2-S, width 896, A3's `train_ids_sha1`). Five runs, seeds
@@ -28,11 +29,17 @@ Per seed (Z4a): s2024 −0.0057, s2025 −0.0003, s2026 +0.0267, s2027 −0.0015
 | read | A3-ign | A2-ign | E3 A2 (`span`) | `p_T2` |
 |---|---:|---:|---:|---:|
 | DoTA-CAP-dev macro | 0.7912 | 0.7898 | 0.7536 | 0.8220 |
+| DoTA-CAP-dev macro, mean of per-seed macros | 0.7810 | 0.7834 | — | — |
 | `f_2` macro | 0.8526 | 0.8407 | — | — |
 | T2-val macro (seed mean) | 0.7338 | 0.7068 | — | — |
 | T2-val normal-window peak (printed) | 0.6151 | 0.4271 | — | — |
 | source-shortcut AUC, `v^t` (printed) | 0.5838 | 0.9997 | — | — |
 | position R², `v^t` (printed) | −0.0070 | −0.0820 | — | — |
+
+The first macro row scores the seed-averaged curve (the protocol-B headline); the second averages the five per-seed
+macros (Z4a's unit). They disagree in sign (−0.0014 vs +0.0023) and both are inside ±0.01 — the same "≈ 0".
+Per-seed A2-ign: s2024 0.7762 · s2025 0.7795 · s2026 0.8115 · s2027 0.7802 · s2028 0.7695 (all `global_step` 1740);
+A3-ign (E4-0): 0.7819 · 0.7797 · 0.7847 · 0.7816 · 0.7773.
 
 Per-clip Δ by native-fps group (printed): `r1` +0.0012 [−0.0168, +0.0188]; `r3` −0.0079 [−0.0293, +0.0128]; other
 +0.0255 [−0.1134, +0.1664].
