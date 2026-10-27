@@ -2101,3 +2101,12 @@ a planted in-box signal (expect GO) before any real number exists.
 **Rule:** Re-gate a subset only with per-item bounds; never re-take a mean/share threshold calibrated on the full set.
 **Files:** `core/tools/v5_stage0.py` (`passes_row_gate`), `core/docs/v5/PREREG_V5.md` §1.2.
 **Gate status.** One occurrence; candidate.
+
+## (bv) [MEDIUM] Measurement - A change read on a sliding-window encoder must compare non-overlapping windows (2026-10-27)
+**Triggers:** token change, 1 - cos, VideoMAE window, row lag, overlap, pointing game, change map, sliding window, stride
+**Problem:** v5 Stage 0 measured VideoMAE V2-S token change between consecutive rows (3 frames apart) whose 16-frame windows share 13 frames; pointing read at chance (+0.003) and the pre-registered gate failed, while the same grids compared at lag 6 (no shared frame) pointed at +0.076…+0.106 and non-ego `e` rose +0.03 → +0.17.
+**Bad:** `delta = 1 - cos(G[k], G[k-1])` with the row stride smaller than the encoder's window span.
+**Good:** `lag = ceil(span / stride)`; `delta = 1 - cos(G[k], G[k-lag])` — and compare a single-frame encoder (CLIP) with a window encoder only at matched time separation.
+**Rule:** Derive the lag of any change measure from the encoder's window span, never from the sampling stride.
+**Files:** `core/tools/v5_stage0.py` (`lag`), `core/docs/v5/PREREG_V5.md` §1.3, `core/docs/v5/RESULTS_V5_STAGE0.md` §4.
+**Gate status.** One occurrence (measured; post-hoc check L); candidate.

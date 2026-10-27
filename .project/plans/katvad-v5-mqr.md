@@ -13,9 +13,10 @@ Rules: `core/docs/v5/PREREG_V5.md`. User decisions 2026-10-26: plan B (staged, e
 | 0c | tool `core/tools/v5_stage0.py` (+ `forward_tokens`, tests) + notebook `colab/v5/stage0_dota_cap_tokens.ipynb` | built |
 | 0d | run (Colab: one CAP-DATA stream, V7 grids 1,129 clips + dev change maps) | done 2026-10-26 |
 | 0e | readout → GO-7 / GO-14 / PARTIAL / KILL | **INVALID** 2026-10-26: 15 dev clips failed `g1_pixel` (gate re-taken on `s1[::3]`, tool defect). On the 554 valid: G-A ✓ G-B ✗ G-C ✓ on V7 and V14 (≈ PARTIAL); CLIP patches point (+0.29), VideoMAE does not (+0.002). `core/docs/v5/RESULTS_V5_STAGE0.md` |
-| 0f | Amendment 2 (§1.2) + check L (§1.3, lag × centre shift; L-3 picks Stage 1's window): re-extract the 15, re-read, lagged/shifted V7 change; `colab/v5/stage0b_amend2_lag.ipynb` | built 2026-10-27, **user** runs |
-| 1 | MQR module + sMIL loss; Nexar token-grid extraction; regression gate (row 1 on the new cache ≈ v2's Nexar A2) | only on GO |
-| 2 | Nexar-only ladder rows 1 → 3 → 5 × 3 seeds; zero-shot DoTA-CAP / TAD / DADA; STAUC on CAP | prereg §2 first |
+| 0f | Amendment 2 (§1.2) + check L (§1.3, lag × centre shift; L-3 picks Stage 1's window): re-extract the 15, re-read, lagged/shifted V7 change; `colab/v5/stage0b_amend2_lag.ipynb` | **done 2026-10-27: PARTIAL** (569/569 valid; G-A ✓ G-B ✗ G-C ✓, V7 and V14). Check L: **L-2 fires** (ℓ = 6, no shared frame: hit − chance +0.076…+0.106, non-ego `e` +0.17…+0.22) → pointing failure = window overlap; **L-3 = causal**. Lagged change times the anomaly badly (top-k macro 0.391 at ℓ = 6). `RESULTS_V5_STAGE0.md` §3–§5 |
+| 0g | user decision after PARTIAL: go to Stage 1/2 under a new pre-registration (option a′) | done 2026-10-27 |
+| 1 | MQR module (content-keyed + change-keyed) + sMIL loss; Nexar token-grid extraction; STAUC/pointing tool; gates S1-G1…S1-G5 (`PREREG_V5.md` §2.1) | prereg §2 **drafted 2026-10-27, not signed**; build after the user signs |
+| 2 | Nexar-only rows R0/R1 (borrowed from v2 Nexar A0/A2) + R3, R5, R5Δ (+ R7 CLIP patches, if the user approves its cache) × 3 seeds; DoTA-CAP-dev protocol B; pointing/STAUC on CAP-dev boxes; decision table S2-9 | prereg §2.2 drafted with §2.1 |
 | 3 | MSAD / TAD / CCD protocols | only if stage 2 is positive |
 
 ## 1. Why staged
