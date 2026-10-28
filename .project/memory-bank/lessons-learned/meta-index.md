@@ -273,6 +273,14 @@ inside the positive videos (T2). **Fourth failure 2026-09-26, BDD-A (US, calm ar
 normals (0.374). A separable pool ends at shortcut 1.0 whichever side it starts on.
 → `core/docs/D2CITY_EDA.md`, `core/docs/BDDA_EDA.md`, `colab/{D2City,BDDA}/eda_normal_bags.ipynb` §4
 
+### C39 [MEDIUM] Notebooks — a re-run of a finished GPU step must cost seconds
+Stage 1's notebook re-did finished work every session: no skip guard on extract
+(per-video `np.load` of ≈ 12.5 GB of grids over Drive FUSE), unconditional 2.5 GB
+staging, `torch.load` of a 1.4 GB checkpoint to learn "trained". Verify once at
+write time (C11), write a small record (report json / `verified.json` + `stat`),
+skip on it; stage to VM only inside a branch that runs.
+→ `colab/v5/stage1_nexar_grids_gates.ipynb` steps 2/4/5/6
+
 ### C7 [MEDIUM] Deps — don't call library internals that drift
 The LR schedule is an in-house `LambdaLR` rather than
 `transformers.get_scheduler`, to avoid HF internal-API churn across versions.
@@ -298,6 +306,7 @@ The LR schedule is an in-house `LambdaLR` rather than
 | launch a training run with `--init-weights` or any non-default path | **C17** |
 | set `checkpoint_every_steps`, or plot a metric against train loss | C16 |
 | write an extractor that reads frame folders | C9, **C25** |
+| write or edit a Colab cell that extracts, stages, trains or verifies | **C39** — what does it still do when its outputs already exist? Must be: read a small json / `stat`, print the gate |
 | add a second source path (frames vs videos) to an existing cache | **C25** |
 | use a frame folder's bare name as `video_id`, or point `--frames-dir` at a multi-category root | **C26** |
 | hand a numpy array straight to a torch model | **C25** |
@@ -358,7 +367,7 @@ The LR schedule is an in-house `LambdaLR` rather than
 
 - **Experiment discipline:** C14, C16, C17, **C30**, **C33**, **C35**
 - **Env / platform:** C1, C3, **C21**
-- **Data & caches:** C2, C9, C10, C11, C13, **C18**, **C20**, **C23**, **C25**, **C26**, **C28**, **C32**, **C38**
+- **Data & caches:** C2, C9, C10, C11, **C39**, C13, **C18**, **C20**, **C23**, **C25**, **C26**, **C28**, **C32**, **C38**
 - **Comparability / protocol:** C8, C8b, C12, C13
 - **Metrics:** C12, **C22**, **C27**, **C28**, **C31**
 - **Supply chain:** C4

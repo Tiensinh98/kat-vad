@@ -36,6 +36,9 @@
 all six core files + CLAUDE.md reviewed; counts re-measured: **109 Python files (73 source + 36 test), 17,520 source LOC,
 754 tests, 35 docs**.)
 
+> **2026-10-28, later (branch `v5`) — Stage 1 notebook: `N_SEEDS = 1` (R1 s2024 only) for a fast report; user asked. `constants.V5_RUN_SEEDS` untouched (3). Set `N_SEEDS = 3` + re-run step 6 before any Stage 2 §2 read.**
+> Same day: notebook steps 2/4/5/6 now skip finished work on a small record (report json, `verified.json` + `stat`) instead of re-reading Drive (12.5 GB grids, 1.4 GB ckpt) every session; lesson **39 / C39**.
+>
 > **2026-10-28 (branch `v5`) — `nexar_val` S1-G1 FAIL 181/225 (44 `g1_cos`, min 0.99946) with TF32 off; diagnosed as decode drift vs v2 (isolated rows, deterministic today). User: "bỏ đi" → PREREG §2.4 **B9**: R1 retrained s2024–2026 via v5 (S1-G3 + `g3` tool + `V5_G3_*` removed), S1-G1 gates length only (cos printed), S1-G2(b) vs R1. Notebook updated (17 cells). Next: user re-uploads `core/tools/v5_stage1.py`, `core/constants.py`, `core/docs/v5/PREREG_V5.md`, notebook; reruns from step 2 (val re-extracts the 44).**
 >
 > **2026-10-27, latest+1 (branch `v5`) — Stage 1 step 2 run: S1-G1 FAIL on `nexar_train` (552/563, 11 `g1_cos`, IDs 413–593, 87 min A100) → diagnosed as cuDNN TF32 (off → cos 1.00000000); fix `exact_fp32` + GPU window gather, PREREG §2.4 B8 (post-hoc, gate unchanged), lesson (by). Next: user re-uploads, reruns step 2 (retries the 11, then val).**

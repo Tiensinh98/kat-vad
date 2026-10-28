@@ -867,3 +867,11 @@ V5_G6_ENTROPY_FRACTION = 0.999  # S1-G6: every query >= 0.999 log 49 = "did not 
 V5_STAUC_MAP_SIZE = CROP_SIZE  # §2.4 B3: E_t bilinearly upsampled to 224 x 224 before get_tarr
 V5_CENTRE_SIGMA_FRACTION = 0.25  # S2-8: centre prior sigma = 1/4 grid width
 V5_PRIMARY_LEVEL = 0.975  # S2-7: Bonferroni over P1, P2
+V5_STAGE2_DIRNAME = "v5_stage2"  # under OUTPUT_ROOT/V5_OUTPUT_DIRNAME: <row>/s<seed>/ + REPORTS/
+V5_CONTROL_ROW = "R1"  # S2-7: every contrast is R - R1 (mean pooling)
+V5_PRIMARY_ROWS = ("R5", "R5d")  # S2-7: P1 = R5 - R1, P2 = R5Δ - R1
+V5_STAGE2_ROWS = ("R3", "R5", "R5d")  # S2-3: rows Stage 2 trains (R1 was trained in Stage 1)
+V5_MIN_GAIN = 0.01  # S2-7 (iii): point >= +0.01
+V5_T95_N3 = 4.303  # S2-7: t(0.975, df = 2), the paired seed t (printed, never gates)
+V5_NEXAR_GUARD_MARGIN = 0.01  # S2-9: nexar_val crop endpoint R - R1 >= -0.01 (seed mean)
+V5_F2_WEIGHT = V2_FINAL_FUSION_PRIMARY  # S2-14: v2's beyond-position f_2 = z(y) + 2 z(p_T2)

@@ -1403,3 +1403,43 @@ flipped it to 1.000 anyway. **The direction of the prior gap does not predict ad
 separability does, and on frozen CLIP every foreign dashcam corpus is separable.** G-M
 passed only because Δ(M−R0) ≈ −0.003. It is not a gain. `core/docs/BDDA_EDA.md`.
 
+
+
+## 39 — A re-run of a finished GPU step must cost seconds, not the step
+
+**What happened (2026-10-28, branch `v5`).** The Stage 1 notebook was run several times while
+gates were being fixed (TF32, B9). Each new Colab session waited nearly as long as the first one,
+even though extraction was complete and R1 had trained. The user called it out directly.
+
+**Root causes, one per step.**
+- *Step 2 (extract):* the only step with no `if report exists` guard. It started two subprocesses
+  (torch + transformers import), checked `is_file()` on every mp4, then ran the tool's resume check,
+  `grid_complete()`, which does `np.load(mmap_mode="r")` on every grid. On a fresh VM Drive FUSE pulls
+  a file's contents on first read, so "is it done?" meant pulling ≈ 2.5 GB (train) + ≈ 10 GB (val).
+  The cell then ran `flush_drive()` (unmount + remount) with nothing to flush.
+- *Step 4 (init-check):* `stage()` copied `Nexar_window`, the A2 bake, the 2.5 GB grid cache and
+  the KNN to VM disk unconditionally. Only the `run` was guarded.
+- *Step 5 (maps):* the DoTA annotation download ran before the `g5_maps.json` guard.
+- *Step 6 (train):* the "already trained" test was `ckpt_step(drive_dir / 'checkpoint_last.pt')`, a
+  full `torch.load` of a 1.4 GB checkpoint per seed. `provenance` (S1-G4) then loaded it again.
+
+**Why it is not obvious.** Each check is individually correct and follows C11 (count an output as
+done only after reading it back). The defect is *where* and *how often* the check runs. Reading back
+is cheap on local disk at write time, but over a network mount it costs about as much as the work,
+and it is repeated on every session. Nothing fails, so no test or linter can catch it. It just
+burns GPU-billed minutes.
+
+**Fix (notebook only; the tool keeps its C11 check for the case where it actually extracts).**
+- step 2: `extracted(stride, ids)` skips a set whose `g1_extract_s{stride}.json` PASSes with
+  `ok == len(ids)`; `flush_drive()` only if something was written.
+- step 4: `staged()` is a function called by the branches that run (`init-check`, `train_cmd`).
+- step 5: the whole preparation moved under the guard.
+- step 6: after the existing J10 re-read on Drive, `mark_verified` writes `verified.json`
+  `{step, ckpt_bytes}`; later sessions skip on `is_verified` (a `stat`, no download). Runs that predate
+  the file pay the full read once and get the record. `provenance` is skipped when
+  `g4_provenance.json` PASSes over exactly the requested runs.
+
+**How to apply.** When writing or reviewing a Colab cell, ask: "if everything this cell produces
+already exists on Drive, what does it still do?" The answer must be: read one small json (or `stat`)
+and print the gate. Pay for verification once, when the output is written, and leave a record
+that is cheap to read.

@@ -811,8 +811,10 @@ def build_trainer(
 
 
 def main(argv: list[str] | None = None) -> None:
+    # force: an absl handler (transformers -> TensorFlow) on the root logger would
+    # otherwise make this a no-op and hide every INFO line, progress included.
     logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", force=True
     )
     parser = build_arg_parser()
     args = parser.parse_args(argv)

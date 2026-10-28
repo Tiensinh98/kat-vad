@@ -379,3 +379,24 @@ admit = x.auc_macro >= 0.60 and paired_delta(x, r0).mean >= -0.03   # and report
 **Rule:** Admit an imported normal pool only after a frozen-feature probe that uses it as the sole negatives keeps within-video `auc_macro` within 0.03 of the in-video-negatives reference on paired folds; otherwise cut negatives from inside the positive videos.
 **Files:** colab/D2City/eda_normal_bags.ipynb (§4), core/docs/D2CITY_EDA.md, .project/plans/katvad-d2city-normal-bag-eda.md §6 P5, outputs/EDA/D2City/, colab/BDDA/eda_normal_bags.ipynb, core/docs/BDDA_EDA.md, .project/plans/katvad-bdda-normal-bag-eda.md App. A, outputs/EDA/BDDA/
 
+
+## 39. [MEDIUM] Notebooks — a re-run of a finished GPU step must cost seconds, not the step
+**Triggers:** colab, notebook, re-run, rerun, skip, already done, resume, drive, fuse, stage, staging, copy to vm, checkpoint_last.pt, torch.load, grid_complete, np.load, gpu time, verified
+**Problem:** `colab/v5/stage1_nexar_grids_gates.ipynb` re-did finished work on every session (user, 2026-10-28: "extract xong rồi hay train xong rồi mà mỗi lần vào chạy lại đợi gần như y chang lúc chưa train"). Step 2 had no skip guard, so it relaunched the extractor, whose per-video C11 check `np.load`s every grid on Drive FUSE (≈ 12.5 GB pulled to learn "done"), then flushed/remounted Drive. Step 4 copied 2.5 GB grids + the A2 bake to the VM even when g2 had passed and training was over. Step 6 decided "seed already trained" by `torch.load`ing the 1.4 GB Drive checkpoint, and `provenance` loaded it again. C11's "verify by reading" is right at write time; repeated on every session over a network mount, it is a whole step's worth of GPU-billed waiting.
+**Bad:**
+```python
+for stride, ids, grid_dir, tag in ...:            # no guard: always relaunches, re-opens every output
+    run([... 'extract' ...]); gate(...)
+L_GRID = stage(TRAIN_GRID, ...)                    # 2.5 GB copy whether or not anything trains
+if ckpt_step(drive_dir / 'checkpoint_last.pt') == STEPS:   # 1.4 GB download to learn "done"
+```
+**Good:** verify once when the output is written (C11), record it in a small file, and skip on that record.
+```python
+if extracted(stride, ids):                         # PASSing report json over exactly these ids
+    gate(...); continue
+def staged(): return (stage(DATA, ...), stage(TRAIN_GRID, ...))   # called only by a step that runs
+if is_verified(drive_dir):                          # verified.json {step, ckpt_bytes} vs a stat()
+    return drive_dir
+```
+**Rule:** Guard every notebook step that costs GPU, network or Drive reads with a check on a small completion record it wrote after its own verification (report json, `verified.json` + `stat`), and stage inputs to VM disk only inside the branch that actually runs.
+**Files:** colab/v5/stage1_nexar_grids_gates.ipynb (steps 2, 4, 5, 6), core/tools/v5_stage1.py:160 (`grid_complete`), :196 (extract todo loop)

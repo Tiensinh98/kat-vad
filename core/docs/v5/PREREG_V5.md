@@ -250,6 +250,18 @@ Where the code had to choose something §2.1–§2.2 did not fix. None changes a
   other grid; the per-row cosine against v2 is printed (extraction is shown correct where environments agree:
   1.00000000); (iii) **S1-G2(b)** compares every row's motion term at init with R1's on the same grid instead of the
   baked A2 columns. S2-7's P1 = R5 − R1, P2 = R5Δ − R1 are unchanged; R0 stays v2 Nexar A0 (no grid involved).
+- **B10 (written with the Stage 2 code, 2026-10-28, before any Stage 2 number) — read-out choices.** Where
+  `core/tools/v5_stage2.py` had to choose something §2.3 did not fix. None changes a rule.
+  (i) S2-7's "point" in (iii) is the mean of the per-clip Δ on seed-averaged curves (the bootstrap's own mean).
+  (ii) R3 − R1 is read with S2-7's statistic and printed; it is never P1/P2 and never enters S2-10.
+  (iii) S2-9 is checked on the S2-10 candidate only. A candidate with a sentence that fails S2-9 gets the
+  outcome **NOT-ADOPTED (S2-9)**, which S2-10's table does not cover: it goes to the user, and R5Δ does **not**
+  step in (S2-10's replacement depends on sentences only). Under NULL nothing is adopted, so S2-9 is printed.
+  (iv) R0 (v2 Nexar A0) is printed as its per-seed macro on s2024–2026 beside its 5-seed seed-averaged macro;
+  v2 Nexar A2 the same. (v) `f_2` = `z(y) + 2·z(p_T2)` with E3's `position_prior.npz`, Δ vs R1 at 95 %,
+  printed. (vi) S2-11's `nexar_test` grids are extracted by `v5_stage1 extract` at `s1` (length gate only, B9)
+  into their own cache (no score is read), then the open marker is written before the first `--final` read;
+  the notebook leaves this step off until the read-out exists.
 
 ### §2.3 Stage 2 reads and decisions
 
