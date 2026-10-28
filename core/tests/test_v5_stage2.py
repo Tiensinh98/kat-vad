@@ -105,8 +105,12 @@ class TestSentences:
 
     def test_paired_t_uses_n3_quantile(self) -> None:
         t = v5_stage2.paired_t({"a": 0.0, "b": 0.01, "c": 0.02})
+        assert t is not None
         assert t["mean"] == pytest.approx(0.01)
         assert t["high"] - t["mean"] == pytest.approx(constants.V5_T95_N3 * 0.01 / np.sqrt(3))
+
+    def test_paired_t_undefined_on_one_seed(self) -> None:
+        assert v5_stage2.paired_t({"a": 0.01}) is None
 
 
 class TestDecide:
@@ -141,6 +145,13 @@ class TestDecide:
         d = v5_stage2.decide(det, {"R5": True, "R5d": False},
                              {"R5": self._guard(False), "R5d": self._guard()})
         assert d["outcome"] == v5_stage2.GUARD_FAIL[0] and d["adopted"] is None
+
+    def test_fewer_seeds_is_preliminary_and_adopts_nothing(self) -> None:
+        det = {"R5": self._det(v5_stage2.IMPROVES), "R5d": self._det(v5_stage2.NO_DIFF)}
+        d = v5_stage2.decide(det, {"R5": True, "R5d": False},
+                             {"R5": self._guard(), "R5d": self._guard()}, n_seeds=1)
+        assert d["outcome"].startswith("PRELIMINARY GO-MQR") and d["preliminary"]
+        assert d["adopted"] is None
 
 
 class TestRun:
@@ -211,3 +222,43 @@ class TestRun:
         assert set(p["f2"]["delta_vs_r1"]) == {"R3", "R5", "R5d"}
         assert p["r0_v2_nexar_a0"]["per_seed_mean"] == pytest.approx(0.70)
         assert r["decision"]["outcome"] == "NULL"  # printed reads never move the decision
+
+
+class TestAP:
+    """§2.4 B12: AP is printed beside AUC and never moves the decision."""
+
+    def test_perfect_scores_and_minmax_pooling(self) -> None:
+        labels = _labels()
+        perfect = {v: y.astype(float) for v, y in labels.items()}
+        assert set(v5_stage2.clip_aps(perfect, labels).values()) == {1.0}
+        # per-clip offsets and scales vanish under min-max pooling, not under raw pooling
+        shifted = {v: (i + 1.0) * s + 10.0 * i for i, (v, s) in
+                   enumerate(_scores(labels, 0.5, 0).items())}
+        base = _scores(labels, 0.5, 0)
+        assert v5_stage2.pooled_minmax_ap(shifted, labels) == pytest.approx(
+            v5_stage2.pooled_minmax_ap(base, labels))
+
+    def test_run_prints_ap(self, tmp_path: Path) -> None:
+        argv = _layout(tmp_path, {"R1": 0.3, "R3": 0.3, "R5": 0.9, "R5d": 0.3},
+                       {"R3": False, "R5": False, "R5d": False})
+        ap = _run(argv)["printed"]["ap"]
+        assert set(ap["clip_delta_vs_r1"]) == {"R3", "R5", "R5d"}
+        assert ap["clip_delta_vs_r1"]["R5"]["low"] > 0
+        assert ap["pooled_minmax"]["R5"] > ap["pooled_minmax"]["R1"]
+        assert 0 < ap["positive_frame_share"] < 1
+        md = (tmp_path / "out" / v5_stage2.READOUT_MD).read_text()
+        assert "AP (§2.4 B12)" in md
+
+
+class TestPreliminary:
+    def test_one_seed_without_r3(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """§2.4 B11: one seed, R5 / R5Δ only -> outcome PRELIMINARY, nothing adopted."""
+        monkeypatch.setitem(globals(), "SEEDS", ["s2024"])
+        argv = _layout(tmp_path, {"R1": 0.3, "R5": 0.3, "R5d": 0.3}, {"R5": False, "R5d": False})
+        r = _run([*argv, "--seeds", "2024", "--rows", "R5", "R5d"])
+        assert r["decision"]["outcome"] == "PRELIMINARY NULL (n = 1 seed)"
+        assert r["decision"]["adopted"] is None
+        assert r["detection"]["R5"]["paired_t_printed"] is None
+        assert r["detection"]["R5"]["sentence"] in (v5_stage2.IMPROVES, v5_stage2.COSTS,
+                                                    "no difference shown at n = 1")
+        assert "PRELIMINARY" in (tmp_path / "out" / v5_stage2.READOUT_MD).read_text()

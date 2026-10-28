@@ -263,6 +263,22 @@ Where the code had to choose something §2.1–§2.2 did not fix. None changes a
   into their own cache (no score is read), then the open marker is written before the first `--final` read;
   the notebook leaves this step off until the read-out exists.
 
+- **B11 (decided by the user 2026-10-28, AFTER Stage 1 PASS and BEFORE any Stage 2 number) — a one-seed
+  preliminary read for an urgent report.** The notebook trains and reads seed **2024 only** (`N_SEEDS = 1`) and
+  skips **R3** (`SKIP_R3 = True`; R3 is printed only, never P1/P2, never S2-10). Every statistic is computed
+  exactly as S2-7/S2-8/S2-9 say, on that seed. The one-seed outcome is written
+  **`PRELIMINARY <outcome> (n = 1 seed)`**, adopts no row, and does not open S2-11. A report may quote it only
+  with that label. **No rule changes.** The S2-10 decision is the read on all of 2024–2026 (+ R3), produced by
+  setting `N_SEEDS = 3`, `SKIP_R3 = False` and re-running. The seed-2024 runs are reused, not retrained. The
+  one-seed number never changes the rules, the rows or the seeds of that read (lesson 14).
+- **B12 (decided by the user 2026-10-28, BEFORE any Stage 2 number) — AP printed (S2-14).** The proposal (§4.4)
+  reports AP beside AUC; Stage 2 adds it as a print, **never gating**: S2-7/S2-8/S2-9/S2-10 are unchanged.
+  On DoTA-CAP-dev, from the same seed-averaged native scores as S2-7, per row (and `p_T2`): (a) **per-clip AP
+  macro** over the two-class clips, with R − R1 by S2-7's cluster bootstrap at **95 %**; (b) **pooled frame AP
+  after per-clip min-max** (LaGoVAD's DoTA pooling), beside the positive-frame share (an all-equal score's AP).
+  On `nexar_val`: pooled frame AP over whole videos, raw scores (Nexar has normal videos), beside its
+  positive-frame share. No AP read moves a sentence, a guardrail or the decision.
+
 ### §2.3 Stage 2 reads and decisions
 
 **S2-7 Detection (H1) — primary.** Set: DoTA-CAP-dev, protocol B (`s1[::3]`, whole clip, per-clip min-max, scores

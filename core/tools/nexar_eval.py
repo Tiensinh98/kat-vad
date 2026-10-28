@@ -47,7 +47,7 @@ from core.data.v2_inputs import V2Stats, bake_rows, load_stats, read_input_manif
 from core.data.v2_splits import load_split
 from core.data.v5_grids import eval_grid, v5_arm
 from core.device import resolve_device
-from core.metrics import cluster_bootstrap_ci, frame_auc
+from core.metrics import cluster_bootstrap_ci, frame_ap, frame_auc
 from core.tools.kill_switch_probe import write_json_atomic, write_text_atomic
 from core.tools.nexar_build import native_labels, span_seconds
 from core.tools.rate_matched_eval import (
@@ -217,12 +217,15 @@ def summarize(
     ruler = {n: middle_ruler(len(labels[n])) for n in items}
     whole_aucs = two_class_aucs(scores, labels, ids)
     video_label = np.array([rows[v]["label"] for v in ids])
+    pooled = np.concatenate([scores[v] for v in ids])
+    pooled_labels = np.concatenate([labels[v] for v in ids])
     out: dict[str, Any] = {
         "whole": {
             "macro": ci(whole_aucs),
             "middle_ruler_macro": ci(two_class_aucs(ruler, labels, ids)),
-            "micro": frame_auc(np.concatenate([scores[v] for v in ids]),
-                               np.concatenate([labels[v] for v in ids])),
+            "micro": frame_auc(pooled, pooled_labels),
+            "micro_ap": frame_ap(pooled, pooled_labels),
+            "positive_frame_share": float(pooled_labels.mean()),
             "clip_oracle_micro": frame_auc(
                 np.concatenate([np.full(len(labels[v]), rows[v]["label"], float) for v in ids]),
                 np.concatenate([labels[v] for v in ids]),
@@ -352,6 +355,8 @@ def render_markdown(r: dict[str, Any]) -> str:
         "",
         f"* macro (positives): {_fmt(w['macro'])} · middle ruler {_fmt(w['middle_ruler_macro'])}",
         f"* micro (all videos): {_num(w['micro'])} · clip oracle {_num(w['clip_oracle_micro'])}",
+        f"* micro AP (all videos, raw): {_num(w.get('micro_ap'))} · positive-frame share "
+        f"{_num(w.get('positive_frame_share'))}",
         f"* clip-level AUC (max score): {_num(w['clip_auc_max'])}",
         f"* per-run whole macro: { {k: round(v, 4) for k, v in r['per_run_whole_macro'].items()} }",
         "* per-run crop endpoint: "

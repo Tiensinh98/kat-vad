@@ -24,6 +24,13 @@ every one of its runs passed S1-G4.
 "improves", maps "point") and R5Δ has one. The candidate's two sentences pick the outcome. A
 candidate that fails S2-9 is not adopted: outcome ``NOT-ADOPTED (S2-9)``, which the table does
 not cover, so it goes to the user (§2.4 B10).
+
+**Preliminary read (§2.4 B11).** With fewer seeds than ``V5_RUN_SEEDS`` the same statistics are
+computed, but S2-7 (ii) cannot be met as signed, so the outcome is labelled ``PRELIMINARY``, no row
+is adopted, and S2-11 stays closed.
+
+**AP (§2.4 B12, printed only).** Per-clip AP macro (R - R1 at 95 %) and pooled frame AP after
+per-clip min-max on DoTA-CAP-dev; pooled raw frame AP on ``nexar_val``. Never gating.
 """
 
 from __future__ import annotations
@@ -39,7 +46,7 @@ import numpy as np
 
 from core import constants
 from core.data.v2_splits import dota_group
-from core.metrics import cluster_bootstrap_ci
+from core.metrics import cluster_bootstrap_ci, frame_ap, normalize_scores
 from core.tools import nexar_eval
 from core.tools import protocol_b_eval as pb
 from core.tools.final_readout import fused_clip_aucs
@@ -114,6 +121,8 @@ def load_nexar_row(nexar_dir: Path, row: str, seeds: list[str]) -> dict[str, Any
         "crop_endpoint_per_seed": {s: float(endpoint[s]) for s in seeds},
         "crop_endpoint_mean": float(np.mean([endpoint[s] for s in seeds])),
         "whole_macro": readout["whole"]["macro"],
+        "whole_micro_ap": readout["whole"].get("micro_ap"),
+        "positive_frame_share": readout["whole"].get("positive_frame_share"),
     }
 
 
@@ -144,8 +153,10 @@ def bootstrap(values: dict[str, float], level: float) -> dict[str, float] | None
     )
 
 
-def paired_t(per_seed: dict[str, float]) -> dict[str, float]:
-    """Mean ± t(0.975, 2) · SD / √n of the per-seed Δ (printed only, S2-7)."""
+def paired_t(per_seed: dict[str, float]) -> dict[str, float] | None:
+    """Mean ± t(0.975, 2) · SD / √n of the per-seed Δ (printed only, S2-7); None below 2 seeds."""
+    if len(per_seed) < 2:
+        return None
     deltas = np.array([per_seed[s] for s in sorted(per_seed)], dtype=np.float64)
     mean = float(deltas.mean())
     half = constants.V5_T95_N3 * float(deltas.std(ddof=1)) / math.sqrt(len(deltas))
@@ -202,9 +213,12 @@ def has_sentence(det: dict[str, Any], points: bool) -> bool:
 
 
 def decide(
-    det: dict[str, dict[str, Any]], points: dict[str, bool], guards: dict[str, dict[str, Any]]
+    det: dict[str, dict[str, Any]],
+    points: dict[str, bool],
+    guards: dict[str, dict[str, Any]],
+    n_seeds: int = len(constants.V5_RUN_SEEDS),
 ) -> dict[str, Any]:
-    """S2-10: the candidate row, its outcome and the next step."""
+    """S2-10: the candidate row, its outcome and the next step (``PRELIMINARY`` below 3 seeds)."""
     first, second = constants.V5_PRIMARY_ROWS
     replaced = (not has_sentence(det[first], points[first])
                 and has_sentence(det[second], points[second]))
@@ -214,6 +228,11 @@ def decide(
     adoptable = guards[candidate]["hold"]
     if outcome != "NULL" and not adoptable:
         outcome, step = GUARD_FAIL
+    preliminary = n_seeds < len(constants.V5_RUN_SEEDS)
+    if preliminary:
+        outcome = f"PRELIMINARY {outcome} (n = {n_seeds} seed{'s' if n_seeds > 1 else ''})"
+        step = ("not the S2-10 decision (§2.4 B11): train the remaining seeds of "
+                f"{', '.join(map(str, constants.V5_RUN_SEEDS))} and re-read")
     return {
         "candidate": candidate,
         "r5d_replaced_r5": replaced,
@@ -223,6 +242,7 @@ def decide(
         "outcome": outcome,
         "next": step,
         "adopted": candidate if outcome in ("GO-MQR", "DETECT-ONLY", "MAPS-ONLY") else None,
+        "preliminary": preliminary,
     }
 
 
@@ -241,6 +261,36 @@ def f2_reads(
         "delta_vs_r1": {r: bootstrap(clip_delta(aucs[r], aucs[CONTROL]),
                                      constants.V5_BOOTSTRAP_LEVEL)
                         for r in aucs if r != CONTROL},
+    }
+
+
+def clip_aps(scores: dict[str, np.ndarray], labels: dict[str, np.ndarray]) -> dict[str, float]:
+    """Per-clip frame AP over the two-class clips (the clips S2-7's macro AUC reads)."""
+    return {v: frame_ap(scores[v], labels[v]) for v in sorted(scores)
+            if 0 < int(labels[v].sum()) < len(labels[v])}
+
+
+def pooled_minmax_ap(scores: dict[str, np.ndarray], labels: dict[str, np.ndarray]) -> float:
+    """Frame AP pooled over every clip after per-clip min-max (LaGoVAD's DoTA pooling)."""
+    ids = sorted(scores)
+    return frame_ap(
+        np.concatenate([normalize_scores(scores[v], constants.SCORE_NORM_MINMAX) for v in ids]),
+        np.concatenate([labels[v] for v in ids]),
+    )
+
+
+def ap_reads(
+    curves: dict[str, dict[str, np.ndarray]], labels: dict[str, np.ndarray]
+) -> dict[str, Any]:
+    """§2.4 B12: AP beside AUC on DoTA-CAP-dev (printed). ``curves`` must hold ``CONTROL``."""
+    aps = {r: clip_aps(c, labels) for r, c in curves.items()}
+    return {
+        "clip_macro": {r: float(np.mean(list(a.values()))) for r, a in aps.items()},
+        "clip_delta_vs_r1": {r: bootstrap(clip_delta(aps[r], aps[CONTROL]),
+                                          constants.V5_BOOTSTRAP_LEVEL)
+                             for r in aps if r != CONTROL},
+        "pooled_minmax": {r: pooled_minmax_ap(c, labels) for r, c in curves.items()},
+        "positive_frame_share": float(np.concatenate(list(labels.values())).mean()),
     }
 
 
@@ -283,12 +333,16 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     collapse = _json(args.collapse)["runs"] if args.collapse else {}
 
     det = {r: detection(pbs[r], pbs[CONTROL], seeds) for r in args.rows}
+    if len(seeds) < len(constants.V5_RUN_SEEDS):
+        for d in det.values():
+            if d["sentence"] == NO_DIFF:
+                d["sentence"] = f"no difference shown at n = {len(seeds)}"
     points = {r: bool(maps[r]["points"]) for r in args.rows if r in maps}
     missing_maps = [r for r in constants.V5_PRIMARY_ROWS if r not in points]
     if missing_maps:
         raise ValueError(f"no S2-8 maps read for {missing_maps}")
     guards = {r: guardrails(r, nexar, prov, seeds) for r in args.rows}
-    decision = decide(det, points, guards)
+    decision = decide(det, points, guards, len(seeds))
 
     prior = None
     if args.prior is not None:
@@ -312,6 +366,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                            float(np.mean(list(pb.clip_aucs(prior, labels).values())))),
             "p_t2_recorded": constants.V5_P_T2_CAP_DEV,
             "f2": None if prior is None else f2_reads(pbs, prior, labels),
+            "ap": ap_reads({r: d["scores"] for r, d in pbs.items()}, labels),
+            "ap_p_t2": (None if prior is None else
+                        {"clip_macro": float(np.mean(list(clip_aps(prior, labels).values()))),
+                         "pooled_minmax": pooled_minmax_ap(prior, labels)}),
             "r0_v2_nexar_a0": borrowed_macro(args.r0_pb, seeds),
             "v2_nexar_a2": borrowed_macro(args.a2_pb, seeds),
             "collapse": collapse,
@@ -348,6 +406,9 @@ def render_markdown(r: dict[str, Any]) -> str:
         "",
         f"## Decision (S2-10): **{d['outcome']}**",
         "",
+        *(["> **PRELIMINARY (§2.4 B11):** fewer seeds than signed; S2-7 (ii) is read on these "
+           "seeds only and the paired t is not defined at n = 1. Report it as preliminary; "
+           "the S2-10 decision needs every seed.", ""] if d.get("preliminary") else []),
         f"- candidate **{d['candidate']}**" + (" (R5Δ replaced R5: R5 had no sentence)"
                                                if d["r5d_replaced_r5"] else ""),
         f"- detection: {d['detection']}; maps point: {'yes' if d['maps_point'] else 'no'}; "
@@ -396,7 +457,32 @@ def render_markdown(r: dict[str, Any]) -> str:
             f"{'yes' if g['hold'] else '**no**'} |"
         )
     p = r["printed"]
-    lines += ["", "## Printed, never gating (S2-14)", ""]
+    ap = p["ap"]
+    lines += [
+        "",
+        "## AP (§2.4 B12) — printed, never gating",
+        "",
+        "| row | DoTA per-clip AP macro | Δ vs R1 [95 %] | DoTA pooled AP (min-max) | "
+        "nexar_val pooled AP (raw) |",
+        "|---|---|---|---|---|",
+    ]
+    for row in ap["clip_macro"]:
+        lines.append(
+            f"| {row} | {ap['clip_macro'][row]:.4f} | {_ci(ap['clip_delta_vs_r1'].get(row))} | "
+            f"{ap['pooled_minmax'][row]:.4f} | {_num(r['nexar_val'][row]['whole_micro_ap'])} |"
+        )
+    if p["ap_p_t2"] is not None:
+        lines.append(f"| `p_T2` (printed) | {p['ap_p_t2']['clip_macro']:.4f} | — | "
+                     f"{p['ap_p_t2']['pooled_minmax']:.4f} | — |")
+    lines += [
+        "",
+        f"Positive-frame share (an all-equal score's pooled AP): DoTA-CAP-dev "
+        f"{ap['positive_frame_share']:.4f}, nexar_val "
+        f"{_num(r['nexar_val'][CONTROL]['positive_frame_share'])}.",
+        "",
+        "## Printed, never gating (S2-14)",
+        "",
+    ]
     lines.append(f"- `p_T2` on these clips: {_num(p['p_t2_macro'])} "
                  f"(recorded {p['p_t2_recorded']:.4f})")
     for name, label in (("v2_nexar_a2", "v2 Nexar A2"), ("r0_v2_nexar_a0", "R0 = v2 Nexar A0")):

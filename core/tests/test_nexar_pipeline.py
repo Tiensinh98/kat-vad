@@ -302,6 +302,8 @@ def test_summarize_reads_perfect_scores_and_the_middle_ruler() -> None:
     scores = {i: lab.astype(float) for i, lab in labels.items()}
     out = nexar_eval.summarize(scores, labels, sorted(rows), rows, items, SEED)
     assert out["whole"]["macro"]["mean"] == 1.0 and out["whole"]["clip_auc_max"] == 1.0
+    assert out["whole"]["micro_ap"] == 1.0  # PREREG_V5 §2.4 B12
+    assert 0 < out["whole"]["positive_frame_share"] < 1
     assert out["crops"]["mean_over_placements"]["macro"]["mean"] == 1.0
     ruler = {p: out["crops"][str(p)]["middle_ruler_macro"]["mean"]
              for p in constants.NEXAR_CROP_PLACEMENTS}

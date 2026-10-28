@@ -98,7 +98,104 @@ Five challenges remain open for traffic video:
 4. **Domain shift and ego-motion.** Training data are mostly surveillance or web video, test data are dashcam video, and camera motion masks agent motion.
 5. **Inconsistent evaluation.** TAD has two incompatible test lists in use (76 of LaGoVAD's 100 TAD test videos belong to UMIL's training list). DoTA contains only abnormal clips and is scored after per-video min-max normalisation. Most traffic tables report AUC only.
 
-### 2.3 Research gaps
+### 2.3 Key works behind the proposed model
+
+The proposed model is assembled from a small set of prior works: one baseline, one encoder, one readout, and the methods whose evidence justifies each choice. This subsection reviews each of them: what it does, its strengths, its weaknesses, and exactly what the thesis takes from it and changes. The table shows where each part of LaGoVAD-MQR comes from; the reviews follow, and the last table covers the methods used only as comparison rows.
+
+| Part of LaGoVAD-MQR | Source work (venue) | What is taken | What the thesis changes |
+| --- | --- | --- | --- |
+| Host detector: CLIP stream, RoFormer, text co-attention, heads and losses | LaGoVAD (ICLR 2026), which inherits the frozen-CLIP + MIL design of VadCLIP (AAAI 2024) | Architecture, losses and schedule as released | Nothing inside the detector; checkpoints are taken at the last epoch, and captions are hand-written templates |
+| Motion stream (backbone change) | VideoMAE V2 (CVPR 2023), chosen on the evidence of Simple-TAD (ICCV 2025 Workshops) | The frozen distilled ViT-S, and Simple-TAD's 16-frame, 10 fps clip input | Used frozen under video-level labels and fused through a zero-initialised gate, instead of fine-tuned with frame labels |
+| Motion Query Readout (novel component) | Efficient Probing (ICLR 2026); rationale from Beyond \[cls\] (ICCV 2025) and V-JEPA's frozen-probe tables | Key-free multi-query attention in which each query pools its own slice of the projected values | Layer-normalised logits, zero queries and an identity value projection, so it starts as mean pooling; run at every step inside a weakly supervised detector |
+| Spatial MIL loss | The top-k MIL loss of LaGoVAD and VadCLIP; motivated by the local-evidence results of PromptTAD (IEEE RA-L 2025), Alert-CLIP (CVPR 2026) and STPrompt (ACM MM 2024) | Top-k pooling of scores over time | A max over queries, so MIL acts in space as well as time, with no detector, boxes, region captions or LLM |
+| Evidence-map evaluation | DoTA (IEEE TPAMI 2022) | STAUC code, anomalous-agent boxes and the ego-involved flag | Maps built from per-query scores and attention, scored under weak supervision |
+| Exploratory definition-conditioned queries | Grounding DINO (ECCV 2024) | The idea that text decides where queries look | Additive, zero-initialised conditioning; outside the main claim |
+
+#### 2.3.1 LaGoVAD (ICLR 2026): the baseline
+
+Liu et al. define open-world VAD as a mapping Φ: (V, Z) → frame scores, where the anomaly definition Z is given as text at test time. Frozen CLIP ViT-B/16 frame embeddings pass through a 2-layer RoFormer and are fused with the CLIP text encoding of Z by co-attention. Training uses video-level labels on PreVAD (35,279 videos, 11,979 abnormal) with MIL and MIL-alignment losses, dynamic video synthesis and a caption contrastive loss with hard negatives.
+
+- **Strengths.** It has the best zero-shot traffic results in its comparison: 89.56 AUC on TAD, 62.60 on DoTA and 90.41 on MSAD, ahead of VadCLIP and PEL. It stays robust when the definition changes (MSAD drift@5: 85.6 AUC / 40.1 AP, against 84.3 / 34.3 for Holmes-VAU). The detector runs no LLM, trains on one RTX 4090, and its code, checkpoint and predictions are public.
+- **Weaknesses.** Its only visual input is one global CLIP embedding per sampled frame, so it sees neither motion nor where in the frame something happens: DoTA AUC is 62.60 against 89.56 on TAD, and language guidance adds only 1.20 AUC on DoTA against 5.60 on TAD. It outputs no spatial evidence. Its traffic test sets are prompted with a generic "car accident" definition, although 37 of the 60 abnormal TAD test videos on its list are not accidents. Its released configuration selects checkpoints on test scores, PreVAD's captions were written by Qwen models, and the authors call the design "simplified".
+- **Taken into this thesis.** The whole detector, unchanged. The thesis adds a motion input and a spatial readout, and replaces test-score checkpoint selection with the last epoch.
+
+#### 2.3.2 VadCLIP (AAAI 2024): the CLIP-based weakly supervised template
+
+Wu et al. adapt frozen CLIP to weakly supervised VAD. Frame embeddings pass through a local Transformer and a graph convolution (the LGT-Adapter). A classification branch gives binary frame scores, and an alignment branch matches frames to class-name embeddings built with learnable prompts (MIL-Align).
+
+- **Strengths.** It established the CLIP-plus-text-prompt design that LaGoVAD, DSANet and Alert-CLIP build on, reaching 88.02 AUC on UCF-Crime and 84.51 AP on XD-Violence on a single RTX 3090, with public code and features.
+- **Weaknesses.** It reads appearance only, and most of its gain comes from the temporal adapter (XD-Violence AP 72.22 without it, 84.51 with it). Zero-shot, it sits near chance on DoTA (49.00–50.93 AUC). In DSANet's analysis, its prototypes assign 84.0% of UCF-Crime road-accident videos to "Normal". Its classes are fixed at training time.
+- **Taken into this thesis.** Its design reaches the thesis through LaGoVAD, and it is retrained as the same-feature weakly supervised competitor (Group C, Section 4.3).
+
+#### 2.3.3 VideoMAE V2 (CVPR 2023): the motion encoder
+
+Wang et al. scale masked video autoencoding with dual masking: the encoder sees only about 10% of the video tokens (tube masking), and the decoder reconstructs only part of the masked cubes (running-cell masking at 50%). Training is progressive: self-supervised pre-training on 1.35M unlabelled clips, then supervised post-pre-training on Kinetics-710 (0.66M clips, 710 classes). The resulting billion-parameter ViT-g is distilled into smaller ViT-S and ViT-B models.
+
+- **Strengths.** Dual masking made a 1B-parameter video ViT trainable, reaching 90.0% top-1 on Kinetics-400 and 77.0% on Something-Something V2. The distilled ViT-S is small (about 22M parameters) and public. In Simple-TAD's comparison it is the strongest small encoder for traffic anomalies after fine-tuning: AUC-MCC 55.2 on DoTAref and 50.3 on DADA-2000, against 52.1 / 48.1 for VideoMAE-S and 49.7 / 43.7 for InternVideo2-S. Its tokens are 2×16×16 space-time tubelets of a 16-frame clip, so they keep local, moving content.
+- **Weaknesses.** It is designed to be fine-tuned, and masked-model features read frozen with a linear probe lose much of their signal: in V-JEPA's frozen evaluation, VideoMAE ViT-L scores 52.5 on Kinetics-400 with a linear probe and 77.8 with an attentive probe. Its pre-training data contain no driving video, its post-pre-training labels are human actions, and its tokens are not aligned with text, so LaGoVAD's definitions cannot address them directly.
+- **Taken into this thesis.** The frozen distilled ViT-S as the motion encoder; its 8×14×14 last-layer tokens are what MQR reads. Text alignment stays with the CLIP stream.
+
+#### 2.3.4 Simple-TAD (ICCV 2025 Workshops): evidence for the encoder choice
+
+Orlova et al. show that a plain video ViT with one linear head, fine-tuned with frame-level labels, outperforms specialised traffic detectors on DoTA and DADA-2000. They compare pre-training paradigms and add domain-adaptive pre-training (DAPT): further masked pre-training on normal driving video.
+
+- **Strengths.** It is simple and fast (DAPT-VideoMAE-S: 22M parameters, 95 FPS on an A100 partition) and strong (DoTA AUC up to 88.4; DoTA → DADA-2000 up to 86.6). It shows systematically that masked video modelling transfers best to traffic anomalies and vision-language pre-training (InternVideo2, UMT) worst. DAPT on BDD100K raises ViT-S AUC-MCC on DoTAref from 52.1 to 54.9 without any anomalous data. Code, encoders and refined DoTA labels are public.
+- **Weaknesses.** It needs frame-level labels, covers dashcam data only and takes no text. It averages all tokens before the linear head, and ego-uninvolved clips lag: 81.6 / 84.1 / 85.2 AUC (ViT-S/B/L) against 89.9 / 90.7 / 90.7 on ego-involved clips. The authors note that object-aware methods (PromptTAD, ISCRTAD) do better on rare and ambiguous categories. It is a workshop paper, so the thesis uses it as evidence, not as the source of the component.
+- **Taken into this thesis.** The choice of a masked video encoder and its clip input; the DAPT encoder as an ablation; and the ego-uninvolved gap, which motivates hypothesis H1.
+
+#### 2.3.5 Efficient Probing (ICLR 2026): the source of MQR
+
+Psomas et al. revisit attentive probing of frozen encoders. Efficient Probing (EP) uses M learnable queries that score the tokens directly, with no query or key projections. Each query takes a softmax over the tokens and pools its own slice of a single value projection, and the slices are concatenated. The authors describe it as a single-iteration form of slot attention.
+
+- **Strengths.** It gives large gains where linear probing is weakest, on masked models: MAE ViT-B on ImageNet-1K rises from 67.7 with a linear probe to 75.6. It matches or beats heavier attentive probes (AIM, the V-JEPA probe) with fewer parameters, and a full Transformer block with over 10× less compute. Its queries attend to distinct regions (complementarity 0.65, against 0.37 for the best internal MAE heads), and accuracy grows with the number of queries (SimMIM ViT-B: 60.6 with 2 queries, 65.1 with 64). The code is Apache-2.0.
+- **Weaknesses.** It is evaluated on fully labelled image classification only: no video encoder, no weak labels, no anomalies. Nothing in its training ties a query to a region of interest; the distinct attention maps are a by-product of classification, and no loss encourages them.
+- **Taken into this thesis.** The readout itself. The thesis changes its start (zero queries, identity value projection, layer-normalised logits) so that it begins as mean pooling, runs it at every step of a weakly supervised detector, and adds what EP lacks: a score per query, trained by the spatial MIL loss, which turns the attention maps into evidence maps.
+
+#### 2.3.6 Beyond \[cls\] (ICCV 2025): why masked-model tokens need selective pooling
+
+Przewięźlikowski et al. analyse why the \[cls\] token and average pooling under-use the patch tokens of masked image models, and propose selective aggregation through attention-based MIL pooling (AbMILP).
+
+- **Strengths.** It explains the gap: attention in masked models is spread almost uniformly (MAE aggregation entropy 5.03 against a maximum of 5.27), so neither \[cls\] nor averaging isolates what is specific. Selective aggregation lifts MAE ViT-B from 65.8 (average of patches) to 71.6, while for the joint-embedding DINO it gives no gain over \[cls\] (75.2 against 76.6). The effect is therefore specific to masked models, the family VideoMAE V2 belongs to.
+- **Weaknesses.** Images only, classification only, and a single attention query; its code carries a non-commercial licence.
+- **Taken into this thesis.** The rationale for replacing mean pooling over VideoMAE tokens. Its single-query attentive pooling corresponds to row 3 of the ablation ladder (Section 4.5). V-JEPA's frozen-probe tables show the same pattern for video encoders (Section 2.3.3).
+
+#### 2.3.7 PromptTAD (IEEE RA-L 2025): object-level evidence from a detector
+
+Qiu et al. extend MOVAD (Video Swin Transformer with an LSTM) with object prompts. YOLOv9 boxes are encoded as prompt tokens; an instance-wise module lets object tokens and frame features attend to each other, and a relation-wise module with 12 learnable query tokens aggregates them into an enhanced frame token. Training uses frame labels and ground-truth boxes of the anomalous objects.
+
+- **Strengths.** It names the failure MQR targets: "the global perspective often emphasizes prominent regions within the frames, resulting in the neglect of distant or off-center objects". It reports gains in both AUC and STAUC, evaluates a small-object subset (334 DoTA test videos whose anomalous boxes are under 2,267 pixels), and reaches 83.9 AUC on DoTA. Transferred to DADA-2000, it holds up better than TTHF on ego-uninvolved clips (70.4 against 64.0).
+- **Weaknesses.** It needs frame labels, anomalous-object boxes and an external detector; when detection fails, as in dark scenes, the method "degenerate\[s\] into the baseline". It trains on four A6000 GPUs, has no public code, covers dashcam data only, and is a journal paper outside the venue list.
+- **Taken into this thesis.** The diagnosis, and the idea of learnable queries that gather local evidence. MQR replaces detector boxes with queries over motion tokens, and box supervision with the spatial MIL loss.
+
+#### 2.3.8 Alert-CLIP (CVPR 2026): region-level alignment learned from boxes
+
+Alert-CLIP tunes a CLIP ViT-L backbone with a temporal Transformer through three contrastive alignments: video to caption, region (ROI-aligned from annotated boxes) to region caption, and region against hard-negative captions. It is trained on VAGTA, a re-annotation of UCF-Crime and MSAD with boxes and region captions, and then used as a drop-in backbone.
+
+- **Strengths.** Region-level training moves CLIP's attention from the surrounding context to the collided vehicles (its Fig. 5), and lifts the VadCLIP framework on MSAD from 87.45 AUC / 71.09 AP to 89.63 / 78.24. Boxes are needed only for training; inference is CLIP-only.
+- **Weaknesses.** It needs manual boxes, segmentation and region captions (its hard-negative captions are written offline by Qwen-VL), and heavy tuning on an 80 GB GPU. It reports no quantitative traffic result, does not state that its checkpoint is released, and still reads frame-level appearance without motion.
+- **Taken into this thesis.** Evidence that region-level evidence improves detection, and a comparison row on MSAD. MQR seeks the same region focus with neither boxes nor captions.
+
+#### 2.3.9 STPrompt (ACM MM 2024): the closest weakly supervised spatial design
+
+STPrompt adds a spatial branch to a VadCLIP-style detector on frozen CLIP. Each patch's motion magnitude is a second-order difference of its features across neighbouring frames; the top-K moving patches are softmax-weighted and added to the frame feature for temporal detection. At test time, localisation is training-free: sliding-window crops are encoded by CLIP's global token and matched against normal and abnormal descriptions generated by an LLM.
+
+- **Strengths.** It is one of the few methods that localise anomalies in space and time from video labels, and it improves temporal-IoU localisation over VadCLIP by about 1.9, 5.7 and 4.5 points on UCF-Crime, ShanghaiTech and UBnormal.
+- **Weaknesses.** Its patch selection is a fixed motion ranking, and in dashcam video ego-motion dominates such feature differences; the thesis's own preliminary experiments found feature-difference cues unhelpful. Localisation needs an LLM and is not trained. It covers surveillance data only, and no public code was found.
+- **Taken into this thesis.** It bounds the novelty claim. MQR learns the selection from video labels on motion-foundation tokens, trains its maps through the spatial MIL loss, and uses no LLM.
+
+#### 2.3.10 Methods used as comparison rows
+
+These methods contribute no part of the architecture; they supply the published numbers the thesis is compared against (Section 4.4).
+
+| Method (venue) | Approach | Strength | Weakness | Role in this thesis |
+| --- | --- | --- | --- | --- |
+| WSAL (IEEE TIP 2021) | High-order context encoding of TSN snippet features plus segment-to-segment variation cues; introduced the TAD dataset | First weakly supervised traffic benchmark; 89.64 AUC\_O / 61.66 AUC\_A on TAD | Hand-crafted augmentations and cues; a fixed 32 segments per video; no spatial output | P1 row on both metrics |
+| UMIL (CVPR 2023) | Splits snippets into confident and ambiguous sets by prediction variance and clusters the ambiguous ones, so the classifier stops relying on context shortcuts; X-CLIP-B/32 fine-tuned end to end | Best two-metric TAD result: 92.93 AUC\_O / 65.82 AUC\_A | Needs backbone fine-tuning (90.71 AUC\_O when frozen); clustering can go wrong; sensitive to its trade-off weight on TAD | P1 row; source of the official TAD split |
+| π-VAD (CVPR 2025) | Induces five extra modalities (including pose, depth and optical flow) from RGB features during training; RGB-only inference | MSAD 88.68 AUC / 71.26 AP; flow is the most useful modality | Needs five teacher backbones for training; no public code found | P2 row; evidence that motion matters |
+| GS-MoE (ICCV 2025) | Gaussian pseudo-labels around score peaks plus one expert per anomaly class, on I3D and UR-DMU features | MSAD 87.72 AUC / 68.26 AP / 69.54 AUC\_A / 76.68 AP\_A | Needs class labels for its experts; 16.02M parameters at about 9.6 FPS; misses an accident that occupies "a very small pixel-region" | P2 row; evidence of spatial dilution |
+| WS-DoTA (ECCV 2024 Workshop) | Weakly supervised DoTA with D²-City normal clips; a spatial-aware temporal-regularity transform of CLIP features | The only weakly supervised dashcam study; lifts RTFM from 57.9 to 78.2 AUC | Its own 1,031-video subset; AUC only | Flagged P3 row; evidence that CLIP frames lack motion |
+
+### 2.4 Research gaps
 
 Four gaps follow from the review. The thesis addresses each one, and its novelty claim is deliberately narrow.
 
@@ -183,7 +280,7 @@ Top-k is taken over valid (unpadded) steps only, with k = max(⌊L/16⌋, 1) fro
 
 **Why MQR should help on traffic video.** Five pieces of evidence point the same way:
 
-1. **The motion features are the kind mean pooling hurts most.** Masked-modelling attention spreads over many patches: MAE's aggregation entropy is 5.03 against a maximum of 5.27 (Beyond \[cls\], ICCV 2025). Attentive readouts recover much of what averaging or linear probing loses (Section 2.3).
+1. **The motion features are the kind mean pooling hurts most.** Masked-modelling attention spreads over many patches: MAE's aggregation entropy is 5.03 against a maximum of 5.27 (Beyond \[cls\], ICCV 2025). Attentive readouts recover much of what averaging or linear probing loses (Sections 2.3.5, 2.3.6 and 2.4).
 2. **Several queries read several parts.** Efficient Probing's queries attend to distinct regions (complementarity 0.65 against 0.37 for the best MAE heads), and accuracy grows with query count, from 60.6 with 2 queries to 65.1 with 64 (SimMIM ViT-B).
 3. **Traffic anomalies are small and local.** The ego-uninvolved gap of Simple-TAD, PromptTAD's "neglect of distant or off-center objects" and GS-MoE's small-region failure all show that global vectors miss them (Section 2.2).
 4. **VideoMAE tokens keep local, moving content; CLIP's do not.** Masked image modelling "preserves and amplifies token-level information" (Park et al., ICLR 2023). CLIP's global embedding favours large objects (CLIP Under the Microscope, CVPR 2025), and contrastive embeddings sit in a narrow cone where even unrelated inputs average about 0.5 cosine (Mind the Gap, NeurIPS 2022). The high cosine between CLIP frame embeddings (above 0.9 in pilot measurements) therefore does not rule out local signal. CLIP's last-layer patches share the same peak dimensions (ClearCLIP, ECCV 2024); dense CLIP tokens can carry anomaly evidence once attention is corrected (AnomalyCLIP, ICLR 2024), but they carry no motion. That is why the readout runs on VideoMAE tokens.
@@ -409,7 +506,7 @@ The ablation ladder adds one ingredient per row on the same features, data and s
 1. **Where the gain lands.** DoTA ego-involved vs ego-uninvolved clips crossed with clip-level box-size bins; the "unknown" categories (UK, UK\*); TAD AUC for Accident, PedestrianOnRoad and the remaining categories pooled; the MSAD traffic slice against MSAD's non-traffic scenes; Nexar-only against Nexar + CCD training.
 2. **Spatial evidence.** STAUC and pointing game for MQR against a uniform map (row 1) and a centre prior, plus maps of successes and failures.
 3. **Query behaviour.** Attention entropy per query, overlap between queries' maps, and which queries fire on which categories.
-4. **Language.** For row 6, how much the score of accident frames changes when the definition includes or excludes accidents, and drift@5 on MSAD and XD-Violence.
+4. **Language.** For row 6, how much the score of accident frames changes when the definition includes or excludes accidents, and drift@5 on MSAD.
 5. **TAD definitions.** Main results with LaGoVAD's two-class TAD prompt, against each of TAD's 7 categories prompted with its own hand-written definition.
 6. **Cost.** Parameters, storage and measured frames per second for rows 0, 1 and 5.
 
