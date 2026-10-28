@@ -1,0 +1,24 @@
+{
+  "a": {
+    "readout_pass": true,
+    "readout_vs_mean_max_abs": {
+      "M1_change": 1.1920928955078125e-07,
+      "M1_content": 1.1920928955078125e-07,
+      "M8_change": 1.4901161193847656e-07,
+      "M8_content": 1.4901161193847656e-07
+    },
+    "splice_keeps_item_change": true
+  },
+  "b": {
+    "max_abs": {
+      "R1": 0.0,
+      "R3": 1.0728836059570312e-06,
+      "R5": 1.1324882507324219e-06,
+      "R5d": 1.1324882507324219e-06
+    },
+    "pass": true,
+    "windows": 100
+  },
+  "pass": true,
+  "rule": "S1-G2"
+}

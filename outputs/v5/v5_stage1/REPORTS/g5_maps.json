@@ -1,0 +1,48 @@
+{
+  "a": {
+    "diffs": {
+      "hit_minus_chance": 0.0,
+      "hit_minus_pre": 0.0
+    },
+    "got": {
+      "hit_minus_chance": {
+        "clips": 528,
+        "clusters": 91,
+        "high": 0.019852606926205503,
+        "low": -0.012568246291652102,
+        "mean": 0.003209677781589008
+      },
+      "hit_minus_pre": {
+        "clips": 521,
+        "clusters": 91,
+        "high": 0.034452284111703896,
+        "low": -0.006503369570785937,
+        "mean": 0.01319685808156806
+      }
+    },
+    "pass": true
+  },
+  "b": {
+    "pass": true,
+    "planted_points": true,
+    "random_points": false
+  },
+  "c": {
+    "diffs": {
+      "auc": 0.0,
+      "stauc": 0.0,
+      "tarr": 0.0
+    },
+    "official": {
+      "auc": 0.5304259634888437,
+      "stauc": 0.17144771670844555
+    },
+    "pass": true,
+    "port": {
+      "auc": 0.5304259634888437,
+      "stauc": 0.17144771670844555
+    }
+  },
+  "pass": true,
+  "rule": "S1-G5"
+}
