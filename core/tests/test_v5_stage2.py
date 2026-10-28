@@ -146,6 +146,13 @@ class TestDecide:
                              {"R5": self._guard(False), "R5d": self._guard()})
         assert d["outcome"] == v5_stage2.GUARD_FAIL[0] and d["adopted"] is None
 
+    def test_b13_rows_take_the_primary_slots(self) -> None:
+        det = {"R5q": self._det(v5_stage2.NO_DIFF), "R5dq": self._det(v5_stage2.IMPROVES)}
+        d = v5_stage2.decide(det, {"R5q": False, "R5dq": True},
+                             {"R5q": self._guard(), "R5dq": self._guard()},
+                             primary=("R5q", "R5dq"))
+        assert d["candidate"] == "R5dq" and d["outcome"] == "GO-MQR"
+
     def test_fewer_seeds_is_preliminary_and_adopts_nothing(self) -> None:
         det = {"R5": self._det(v5_stage2.IMPROVES), "R5d": self._det(v5_stage2.NO_DIFF)}
         d = v5_stage2.decide(det, {"R5": True, "R5d": False},
@@ -206,6 +213,22 @@ class TestRun:
                        {"R3": False, "R5": False})
         with pytest.raises(ValueError, match="maps"):
             _run(argv)
+
+    def test_b13_eval_read(self, tmp_path: Path) -> None:  # §2.4 B13
+        argv = _layout(tmp_path, {"R1": 0.3, "R5q": 0.3, "R5dq": 1.5},
+                       {"R5q": False, "R5dq": True})
+        r = _run([*argv, "--rows", "R5q", "R5dq", "--primary", "R5q", "R5dq",
+                  "--split", constants.V2_SPLIT_DOTA_CAP_EVAL])
+        assert r["decision"]["candidate"] == "R5dq" and r["decision"]["outcome"] == "GO-MQR"
+        assert r["printed"]["p_t2_recorded"] is None and r["set"].endswith("eval, protocol B")
+        md = (tmp_path / "out" / v5_stage2.READOUT_MD).read_text()
+        assert "R5dq replaced R5q" in md
+        assert "| R5q |" in md and "| R5dq |" in md and "R5q (printed)" not in md
+
+    def test_primary_must_be_read(self, tmp_path: Path) -> None:
+        argv = _layout(tmp_path, {"R1": 0.3, "R5": 0.3, "R5d": 0.3}, {"R5": False, "R5d": False})
+        with pytest.raises(ValueError, match="--primary"):
+            _run([*argv, "--rows", "R5", "R5d", "--primary", "R5q", "R5dq"])
 
     def test_f2_and_borrowed_are_printed(self, tmp_path: Path) -> None:
         argv = _layout(tmp_path, {"R1": 0.3, "R3": 0.3, "R5": 0.3, "R5d": 0.3},

@@ -278,6 +278,38 @@ Where the code had to choose something §2.1–§2.2 did not fix. None changes a
   after per-clip min-max** (LaGoVAD's DoTA pooling), beside the positive-frame share (an all-equal score's AP).
   On `nexar_val`: pooled frame AP over whole videos, raw scores (Nexar has normal videos), beside its
   positive-frame share. No AP read moves a sentence, a guardrail or the decision.
+- **B13 (decided by the user 2026-10-29, AFTER the one-seed Stage 2 read and BEFORE any B13 number) — the
+  queries get a learning rate they can move with. Post-hoc, disclosed.** *Why:* in R5/s2024 and R5Δ/s2024 every
+  query sat at entropy 3.8907–3.8918 (log 49 = 3.8918) from step 0 to step 1,749 (S1-G6 "did not leave the mean"),
+  so Stage 2 measured "tile mean + `W_V` + sMIL", not MQR (`RESULTS_V5_STAGE2.md` §4). The cause is the step budget:
+  `u_m` starts at 0. AdamW moves each coordinate by about the LR per step, so 5e-5 under warmup + cosine gives at
+  most ≈ 0.044 over the run. That is divided by √d_K = 19.6 (27.7 for R5Δ), against tiles that share most of their
+  layer-normalised key. A local toy with the same modules, optimiser and schedule (synthetic grids, one planted
+  tile) read: ×1 entropy 3.8918, query mass on the planted tile 0.021 (uniform 0.020); **×10 3.8907 / 0.033**;
+  **×100 min 2.890 / 0.993**; ×1 with `u_m ~ N(0, 0.02²)` 3.8918 / 0.021.
+  (a) **Rows.** `R5q` = R5 and `R5dq` = R5Δ with `v5.query_lr_mult = 100` (`constants.V5_ROWS`). That is the only
+  difference: the queries `u_m` get their own AdamW group at LR × 100 with **weight decay 0**. Every other tensor
+  (`W_V`, `g`, `W_u`, the trunk) keeps LR 5e-5 and decay 0.01, under the same warmup + cosine (it scales both groups).
+  Init is unchanged, so S1-G2 holds and each row starts as R1. **Deviation D10:** × 100 lies outside the proposal's
+  grid {1, 10} (§4.4). × 10 was measured too small in the toy, and 100 is the first decade at which the toy's queries
+  move. 100 is never searched further and never chosen on a read (lesson 14). R5 / R5Δ (× 1) stay as recorded and
+  are not retrained.
+  (b) **Logged** (printed, never gating): per query `v5_qnorm_q*` = ‖u_m‖ and `v5_logit_std_q*` = the std over tiles
+  of the logits (mean over valid steps; 0 = uniform).
+  (c) **G0 mechanics gate, read on training logs only and before any evaluation.** For every R5q/R5dq run, S1-G6 must
+  pass (finite `mil`/`sMIL`) **and** at least one query must sit below **0.95·log 49 = 3.697** at the last step
+  (`v5_stage1 collapse --require-moved`). A failing run stops the notebook and nothing is evaluated. The outcome
+  "MQR does not train at × 100" goes to the user; × 1000 needs another amendment.
+  (d) **Reads.** S2-7, S2-8, S2-9 and S2-10 are unchanged, with R5q/R5dq in R5/R5Δ's slots
+  (P1 = R5q − R1, P2 = R5Δq − R1; `v5_stage2 --primary R5q R5dq`). Control = Stage 1's R1, same seeds.
+  **Decision set: DoTA-CAP-eval** (560 clips, protocol B under `--final`; maps on its boxed clips, the same S2-8
+  reads). This is v5's first read of it; v2's Final read it in 2026-10. DoTA-CAP-dev was already read in Stage 2, so
+  its R5q/R5dq read is **printed and labelled post-hoc** and never decides. S2-9 stays on `nexar_val` (R − R1 ≥ −0.01).
+  Printed beside the eval read: `p_T2` on CAP-eval (v2 Final's `position_prior.npz`) and v2 Nexar A0/A2 on CAP-eval.
+  (e) **Seeds.** As B11: seed 2024 first, read as **`PRELIMINARY <outcome> (n = 1 seed)`**. The B13 decision is the
+  read on 2024–2026 (R1 s2025/s2026 trained by the Stage 1 notebook with `N_SEEDS = 3`). S2-11 is unchanged and
+  opens only on that full read.
+  Runs and reads go to `outputs/v5/v5_stage2b/`; runbook `colab/v5/stage2b_query_lr.ipynb`.
 
 ### §2.3 Stage 2 reads and decisions
 
@@ -326,7 +358,7 @@ per row. R7 adds **3 runs + a CLIP-patch cache** (CLIP re-run on the same rows +
 15 %); fixed λ = 0.5, M = 8, ×1 (lesson 14). D3 Nexar-only, 3 seeds (user, 2026-10-26). D4 causal window (L-3). D5 no CRN
 (v2 §29–§31). D6 rows 2/4/6 and side ablations not run. D7 R5Δ added (check L). D8 DoTA read on DoTA-CAP-dev (1,129-clip
 CAP alignment; DoTA pixels are gone), never beside LaGoVAD's 62.60. D9 DVS anchor `span` (A2's recipe; v2's
-`ignore` read −0.006 ns on Nexar in-domain).
+`ignore` read −0.006 ns on Nexar in-domain). D10 (§2.4 B13, post-hoc) the MQR queries train at LR × 100 with no weight decay.
 
 **S2-14 Printed, never gating.** By ego and box-share bin (S0-12's confound holds); `p_T2` 0.822 and v2 Nexar A2's
 0.8171 beside every DoTA-CAP-dev macro; v2's beyond-position `f_2` for P1/P2; `motion_share`, `‖W_u‖`, query

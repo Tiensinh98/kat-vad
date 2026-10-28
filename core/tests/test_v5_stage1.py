@@ -30,11 +30,17 @@ from core.data.v5_grids import (
 from core.inference import adopt_checkpoint_architecture
 from core.losses.smil import spatial_mil_loss
 from core.models.kat_vad import KATVAD
-from core.models.mqr import GridReadout, query_entropy
+from core.models.mqr import GridReadout, query_entropy, query_logit_spread
 from core.models.text_encoding import make_text_encoder
 from core.tests.fixtures import FixtureLayout, build_fixture
 from core.tools import v5_maps, v5_stage1
-from core.train import Trainer, load_class_names, set_global_seed, v5_grid_lag
+from core.train import (
+    Trainer,
+    load_class_names,
+    optimizer_param_groups,
+    set_global_seed,
+    v5_grid_lag,
+)
 
 CPU = torch.device("cpu")
 TILES, DIM, WIDTH = constants.V5_GRID_TILES, constants.V5_GRID_DIM, constants.V5_GRID_WIDTH
@@ -151,6 +157,16 @@ class TestReadout:
         ent = query_entropy(attn, torch.ones(2, 3))
         torch.testing.assert_close(ent, torch.full((8,), math.log(TILES)))
 
+    def test_logit_spread_is_the_std_of_the_logits(self) -> None:  # §2.4 B13 log
+        logits = torch.randn(2, 3, 8, TILES)
+        mask = torch.tensor([[1.0, 1.0, 0.0], [1.0, 1.0, 1.0]])
+        got = query_logit_spread(logits.softmax(-1), mask)
+        std = logits.std(-1, unbiased=False)
+        want = (std * mask[..., None]).sum((0, 1)) / mask.sum()
+        torch.testing.assert_close(got, want, rtol=1e-4, atol=1e-5)
+        uniform = query_logit_spread(torch.full((1, 2, 8, TILES), 1.0 / TILES), torch.ones(1, 2))
+        torch.testing.assert_close(uniform, torch.zeros(8), rtol=0, atol=1e-6)
+
 
 class TestConfig:
     def test_rows_validate(self) -> None:
@@ -164,6 +180,8 @@ class TestConfig:
             ([*v5_stage1.A2_OVERRIDES, "v5.readout=mqr", "v5.queries=7"], "must divide"),
             ([*v5_stage1.A2_OVERRIDES, "v5.readout=mean", "v5.queries=8"], "R1"),
             ([*v5_stage1.A2_OVERRIDES, "v5.readout=bogus"], "v5.readout"),
+            ([*v5_stage1.A2_OVERRIDES, "v5.readout=mean", "v5.query_lr_mult=100"], "needs"),
+            ([*v5_stage1.A2_OVERRIDES, "v5.readout=mqr", "v5.query_lr_mult=0"], "> 0"),
         ],
     )
     def test_bad_rows_raise(self, override: list[str], match: str) -> None:
@@ -179,6 +197,58 @@ class TestConfig:
         stored = v5_stage1.row_config("R5d").to_dict()
         adopt_checkpoint_architecture(cfg, {"config": stored}, [])
         assert (cfg.v5.readout, cfg.v5.queries, cfg.v5.keys) == ("mqr", 8, "change")
+
+
+class TestQueryLR:  # §2.4 B13
+    def test_b13_rows_change_only_the_multiplier(self) -> None:
+        for row, base in (("R5q", "R5"), ("R5dq", "R5d")):
+            got, want = constants.V5_ROWS[row], constants.V5_ROWS[base]
+            assert {k: v for k, v in got.items() if k != "query_lr_mult"} == want
+            assert got["query_lr_mult"] == constants.V5_QUERY_LR_MULT_B13
+            assert v5_stage1.row_config(row).v5.query_lr_mult == constants.V5_QUERY_LR_MULT_B13
+
+    def test_multiplier_one_is_the_old_single_group(self) -> None:
+        cfg = v5_stage1.row_config("R5")
+        model = KATVAD.from_config(cfg)
+        groups = optimizer_param_groups(model, cfg)
+        assert len(groups) == 1 and set(groups[0]) == {"params"}
+        assert len(groups[0]["params"]) == sum(p.requires_grad for p in model.parameters())
+
+    def test_queries_get_their_own_group(self) -> None:
+        cfg = v5_stage1.row_config("R5dq")
+        model = KATVAD.from_config(cfg)
+        assert model.grid_readout is not None and model.grid_readout.query is not None
+        rest, query = optimizer_param_groups(model, cfg)
+        assert query["params"] == [model.grid_readout.query]
+        assert query["lr"] == pytest.approx(cfg.train.learning_rate * 100)
+        assert query["weight_decay"] == 0.0
+        assert all(p is not model.grid_readout.query for p in rest["params"])
+        n_trainable = sum(p.requires_grad for p in model.parameters())
+        assert len(rest["params"]) + 1 == n_trainable
+
+    def test_schedule_scales_both_groups(self, tmp_path: Path) -> None:
+        fixture, a2_dir, grid_dir = _v5_fixture(tmp_path)
+        cfg = v5_stage1.row_config("R5q")
+        cfg.train.batch_size, cfg.train.num_epochs = 4, 1
+        dataset = DVSFeatureDataset(
+            data_dir=fixture.data_dir, clip_dir=a2_dir, dvs=cfg.dvs, require_flow=False,
+            seed=cfg.train.seed, grid_dir=grid_dir, grid_lag=v5_grid_lag(cfg, grid_dir),
+        )
+        model = KATVAD.from_config(cfg)
+        assert model.grid_readout is not None
+        model.grid_readout.load_head(grid_dir / constants.V5_HEAD_FILENAME)
+        trainer = Trainer(
+            cfg=cfg, model=model, dataset=dataset,
+            class_names=load_class_names(fixture.data_dir),
+            text_encode_fn=make_text_encoder(model, "stub", CPU, dim=constants.HIDDEN_DIM),
+            output_dir=tmp_path / "out", device=CPU,
+        )
+        lrs = [g["lr"] for g in trainer.optimizer.param_groups]
+        assert lrs[1] == pytest.approx(100 * lrs[0])
+        losses = trainer.compute_losses(collate_variable_length([dataset[i] for i in range(4)]))
+        for m in range(constants.V5_QUERIES):
+            assert float(losses[f"v5_qnorm_q{m}"]) == 0.0  # zero init: still R1's function
+            assert float(losses[f"v5_logit_std_q{m}"]) == pytest.approx(0.0, abs=1e-6)
 
 
 class TestModel:
@@ -394,7 +464,17 @@ class TestGates:
             json.dumps({"global_step": 5, "mil": 0.3, "smil": 0.6, **ent})
         )
         got = v5_stage1.collapse(tmp_path)
-        assert got["pass"] and got["did_not_leave_mean"]
+        assert got["pass"] and got["did_not_leave_mean"] and not got["moved"]
+        assert not v5_stage1.collapse(tmp_path, require_moved=True)["pass"]  # B13 G0
+
+    def test_b13_gate_passes_once_one_query_moved(self, tmp_path: Path) -> None:
+        ent = {f"v5_entropy_q{m}": math.log(TILES) for m in range(8)}
+        ent["v5_entropy_q3"] = 0.9 * math.log(TILES)
+        (tmp_path / "metrics.jsonl").write_text(
+            json.dumps({"global_step": 5, "mil": 0.3, "smil": 0.6, **ent})
+        )
+        got = v5_stage1.collapse(tmp_path, require_moved=True)
+        assert got["pass"] and got["moved"] and not got["did_not_leave_mean"]
 
 
 class TestExtract:

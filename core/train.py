@@ -60,7 +60,7 @@ from core.losses.dvs import pseudo_sup_mil_loss, supervised_loss
 from core.losses.mil import abnormal_bottomk_loss, mil_loss, multi_class_mil_loss
 from core.losses.smil import spatial_mil_loss
 from core.models.kat_vad import KATVAD
-from core.models.mqr import query_entropy
+from core.models.mqr import query_entropy, query_logit_spread
 from core.models.text_encoding import (
     TEXT_ENCODER_CHOICES,
     TEXT_ENCODER_CLIP,
@@ -145,6 +145,27 @@ def cosine_warmup_lambda(warmup_steps: int, total_steps: int) -> Any:
     return schedule
 
 
+def optimizer_param_groups(model: KATVAD, cfg: Config) -> list[dict[str, Any]]:
+    """AdamW groups: one group of every trainable tensor, unless ``v5.query_lr_mult != 1``.
+
+    PREREG_V5 §2.4 B13: the MQR queries ``u_m`` then get their own group at ``lr * mult`` with no
+    weight decay; every other tensor keeps the base LR and decay. The schedule multiplies both.
+    """
+    trainable = [p for p in model.parameters() if p.requires_grad]
+    mult = cfg.v5.query_lr_mult
+    if mult == 1:
+        return [{"params": trainable}]
+    readout = model.grid_readout
+    query = None if readout is None else readout.query
+    if query is None or not query.requires_grad:
+        raise ValueError(f"v5.query_lr_mult={mult} but the model has no trainable MQR queries")
+    rest = [p for p in trainable if p is not query]
+    return [
+        {"params": rest},
+        {"params": [query], "lr": cfg.train.learning_rate * mult, "weight_decay": 0.0},
+    ]
+
+
 def epoch_permutation(seed: int, epoch: int, n: int) -> list[int]:
     """Deterministic sample order for one epoch."""
     generator = torch.Generator().manual_seed(seed + epoch)
@@ -207,9 +228,10 @@ class Trainer:
             for name, param in self.model.named_parameters():
                 param.requires_grad = name.startswith("kip.")
 
-        trainable = [p for p in self.model.parameters() if p.requires_grad]
         self.optimizer = AdamW(
-            trainable, lr=cfg.train.learning_rate, weight_decay=cfg.train.weight_decay
+            optimizer_param_groups(self.model, cfg),
+            lr=cfg.train.learning_rate,
+            weight_decay=cfg.train.weight_decay,
         )
         steps_per_epoch = math.ceil(
             math.ceil(len(dataset) / cfg.train.batch_size) / cfg.train.grad_accum_steps
@@ -309,6 +331,12 @@ class Trainer:
         if "v5_attn" in outputs:
             for m, ent in enumerate(query_entropy(outputs["v5_attn"], mask)):
                 losses[f"v5_entropy_q{m}"] = ent
+            # §2.4 B13: per-query logit spread over tiles and |u_m| (logged only)
+            for m, spread in enumerate(query_logit_spread(outputs["v5_attn"], mask)):
+                losses[f"v5_logit_std_q{m}"] = spread
+            if self.model.grid_readout is not None and self.model.grid_readout.query is not None:
+                for m, norm in enumerate(self.model.grid_readout.query.detach().norm(dim=-1)):
+                    losses[f"v5_qnorm_q{m}"] = norm
         if "v5_smil" in outputs:
             losses["smil"] = spatial_mil_loss(outputs["v5_smil"], labels, lengths)
 

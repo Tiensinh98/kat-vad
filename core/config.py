@@ -169,6 +169,7 @@ class V5Config:
     queries: int = 1  # M; 1 for R1 / R3, V5_QUERIES for R5 / R5Δ
     keys: str = constants.V5_KEYS_CONTENT  # content | change (R5Δ)
     smil_weight: float = 0.0  # lambda of L_sMIL; 0 = term absent (R1 / R3)
+    query_lr_mult: float = 1.0  # §2.4 B13: AdamW LR multiplier (and no weight decay) of the queries
 
 
 @dataclass
@@ -295,6 +296,10 @@ def validate_v5(cfg: Config) -> None:
         raise ValueError(f"v5.keys must be one of {constants.V5_KEYS}, got {v5.keys!r}")
     if v5.smil_weight < 0:
         raise ValueError(f"v5.smil_weight must be >= 0, got {v5.smil_weight}")
+    if v5.query_lr_mult <= 0:
+        raise ValueError(f"v5.query_lr_mult must be > 0, got {v5.query_lr_mult}")
+    if v5.query_lr_mult != 1 and v5.readout != constants.V5_READOUT_MQR:
+        raise ValueError("v5.query_lr_mult needs v5.readout=mqr (only MQR has queries)")
     if v5.readout == constants.V5_READOUT_OFF:
         return
     if (cfg.v2.crn, cfg.v2.motion) != (constants.V2_OFF, constants.V5_ENCODER):

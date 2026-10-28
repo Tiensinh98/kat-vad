@@ -2146,3 +2146,12 @@ a planted in-box signal (expect GO) before any real number exists.
 **Rule:** Set a cross-cache tolerance from a measured cross-environment spread, or do not gate on it; never reuse a within-pass threshold.
 **Files:** `core/tools/v5_stage1.py` (`run_extract`), `core/docs/v5/PREREG_V5.md` §2.4 B9.
 **Gate status.** One occurrence; candidate.
+
+## (ca) [CRITICAL] Training - A zero-init query trained at the host's LR may never leave uniform; gate on its entropy (2026-10-29)
+**Triggers:** zero-init, attention query, attentive probe, MQR, Efficient Probing, softmax, 1/sqrt(d), learning rate, param group, entropy, readout, frozen tokens
+**Problem:** v5 Stage 2 trained R5 / R5Δ (8 zero-init queries, logits `u·LN(K)/√d_K`) inside the detector at LaGoVAD's LR 5e-5 for 1,749 steps; Adam's per-coordinate budget (≈ 0.044) could not move the logits, so every query stayed at entropy log 49 and the run measured mean pooling + `W_V` + sMIL, not MQR. The one-seed read was spent before anyone looked at the entropy (silently invalid result).
+**Bad:** `AdamW(model.parameters(), lr=5e-5)` with `self.query = nn.Parameter(torch.zeros(M, d))` and a pass/fail gate that only checks finiteness.
+**Good:** `optimizer_param_groups`: queries in their own group (`lr × 100`, no decay), and a mechanics gate before any read: `v5_stage1 collapse --require-moved` (some query < 0.95·log N at the last step).
+**Rule:** Give attention queries an LR whose step budget can move their logits, and gate every query-readout run on its last-step entropy before reading any metric.
+**Files:** `core/train.py` (`optimizer_param_groups`), `core/tools/v5_stage1.py` (`collapse`), `core/docs/v5/PREREG_V5.md` §2.4 B13, `core/docs/v5/RESULTS_V5_STAGE2.md` §4.
+**Gate status.** Gates 1–5 true; one occurrence (measured, toy-reproduced). Promote if the B13 runs move.

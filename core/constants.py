@@ -857,6 +857,11 @@ V5_ROWS = {  # S2-3: row -> config overrides beyond v2 Nexar A2's (S1-G4: only v
     "R5d": {"readout": V5_READOUT_MQR, "queries": V5_QUERIES, "keys": V5_KEYS_CHANGE,
             "smil_weight": V5_SMIL_WEIGHT},
 }
+V5_QUERY_LR_MULT_B13 = 100.0  # §2.4 B13: AdamW LR multiplier of the queries u_m (x10 too small)
+V5_ROWS |= {  # §2.4 B13: R5 / R5Δ with the query LR multiplier, nothing else changed
+    "R5q": {**V5_ROWS["R5"], "query_lr_mult": V5_QUERY_LR_MULT_B13},
+    "R5dq": {**V5_ROWS["R5d"], "query_lr_mult": V5_QUERY_LR_MULT_B13},
+}
 V5_RUN_SEEDS = NEXAR_RUN_SEEDS[:3]  # S2-1: 2024-2026, paired with v2's Nexar runs
 V5_G2_WINDOWS = 100  # S1-G2(b): real Nexar windows compared with the baked A2 rows
 V5_G2_MAX_ABS = 1e-3  # S1-G2(b) tolerance (fp16 grids)
@@ -875,3 +880,6 @@ V5_MIN_GAIN = 0.01  # S2-7 (iii): point >= +0.01
 V5_T95_N3 = 4.303  # S2-7: t(0.975, df = 2), the paired seed t (printed, never gates)
 V5_NEXAR_GUARD_MARGIN = 0.01  # S2-9: nexar_val crop endpoint R - R1 >= -0.01 (seed mean)
 V5_F2_WEIGHT = V2_FINAL_FUSION_PRIMARY  # S2-14: v2's beyond-position f_2 = z(y) + 2 z(p_T2)
+V5_B13_ROWS = ("R5q", "R5dq")  # §2.4 B13: P1 = R5q - R1, P2 = R5Δq - R1 (S2-7 statistic unchanged)
+V5_B13_MOVED_FRACTION = 0.95  # §2.4 B13 G0: >= 1 query below 0.95 log 49 at the last step = "moved"
+V5_STAGE2B_DIRNAME = "v5_stage2b"  # under OUTPUT_ROOT/V5_OUTPUT_DIRNAME: B13 runs + REPORTS/

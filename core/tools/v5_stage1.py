@@ -457,26 +457,35 @@ def run_provenance(args: argparse.Namespace) -> dict[str, Any]:
 # --------------------------------------------------------------------------- S1-G6
 
 
-def collapse(run_dir: Path) -> dict[str, Any]:
+def collapse(run_dir: Path, require_moved: bool = False) -> dict[str, Any]:
+    """S1-G6 on a run's last step; with ``require_moved`` also §2.4 B13 G0 (a query moved)."""
     last = _last_metrics(run_dir / METRICS_FILENAME)
     if last is None:
         raise FileNotFoundError(f"no metrics in {run_dir}")
     ent = {k: float(v) for k, v in sorted(last.items()) if k.startswith("v5_entropy_q")}
     finite = {k: math.isfinite(float(last[k])) for k in ("mil", "smil") if k in last}
-    bound = constants.V5_G6_ENTROPY_FRACTION * math.log(constants.V5_GRID_TILES)
+    log_tiles = math.log(constants.V5_GRID_TILES)
+    bound = constants.V5_G6_ENTROPY_FRACTION * log_tiles
+    moved_bound = constants.V5_B13_MOVED_FRACTION * log_tiles
+    moved = any(e < moved_bound for e in ent.values())
     return {
         "step": last["global_step"],
         "finite": finite,
         "entropy": ent,
         "entropy_bound": bound,
         "did_not_leave_mean": bool(ent) and all(e >= bound for e in ent.values()),
-        "pass": all(finite.values()),
+        "moved_bound": moved_bound,
+        "moved": moved,
+        "logit_std": {
+            k: float(v) for k, v in sorted(last.items()) if k.startswith("v5_logit_std_q")
+        },
+        "pass": all(finite.values()) and (moved or not require_moved),
     }
 
 
 def run_collapse(args: argparse.Namespace) -> dict[str, Any]:
     runs = {
-        f"{row}/s{seed}": collapse(args.root / row / f"s{seed}")
+        f"{row}/s{seed}": collapse(args.root / row / f"s{seed}", args.require_moved)
         for row in args.rows
         for seed in args.seeds
     }
@@ -484,17 +493,26 @@ def run_collapse(args: argparse.Namespace) -> dict[str, Any]:
     lines = [
         f"| {k} | {r['finite']} | "
         + ", ".join(f"{e:.3f}" for e in r["entropy"].values())
-        + f" | {'yes' if r['did_not_leave_mean'] else 'no'} |"
+        + f" | {'yes' if r['did_not_leave_mean'] else 'no'} | {'yes' if r['moved'] else 'no'} | "
+        + (", ".join(f"{e:.3f}" for e in r["logit_std"].values()) or "—")
+        + " |"
         for k, r in runs.items()
     ]
+    log_tiles = math.log(constants.V5_GRID_TILES)
+    rule = "S1-G6 + §2.4 B13 G0" if args.require_moved else "S1-G6"
+    stay, move = constants.V5_G6_ENTROPY_FRACTION, constants.V5_B13_MOVED_FRACTION
     md = (
-        f"# S1-G6 no collapse: **{_mark(ok)}**\n\nEntropy bound {0.999:.3f} log 49 = "
-        f"{constants.V5_G6_ENTROPY_FRACTION * math.log(constants.V5_GRID_TILES):.4f}.\n\n"
-        "| run | finite | entropy per query | did not leave the mean |\n|---|---|---|---|\n"
+        f"# {rule}: **{_mark(ok)}**\n\nEntropy bound {stay:.3f} log 49 = "
+        f"{stay * log_tiles:.4f}; moved = some query below "
+        f"{move:.2f} log 49 = {move * log_tiles:.4f}"
+        + (" (**required**, B13 G0)" if args.require_moved else " (printed)")
+        + ".\n\n| run | finite | entropy per query | did not leave the mean | moved | "
+        "logit std per query |\n|---|---|---|---|---|---|\n"
         + "\n".join(lines)
         + "\n"
     )
-    return _write(args.out_dir, "g6_collapse", {"rule": "S1-G6", "runs": runs, "pass": ok}, md)
+    payload = {"rule": rule, "require_moved": args.require_moved, "runs": runs, "pass": ok}
+    return _write(args.out_dir, "g6_collapse", payload, md)
 
 
 # --------------------------------------------------------------------------- CLI
@@ -543,6 +561,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     g6.add_argument("--root", type=Path, required=True)
     g6.add_argument("--rows", nargs="+", choices=list(constants.V5_ROWS), required=True)
     g6.add_argument("--seeds", nargs="+", type=int, default=list(constants.V5_RUN_SEEDS))
+    g6.add_argument("--require-moved", action="store_true",
+                    help="§2.4 B13 G0: fail a run none of whose queries left the mean")
 
     for p in (ex, hd, g2, g4, g6):
         p.add_argument("--out-dir", type=Path, required=True)

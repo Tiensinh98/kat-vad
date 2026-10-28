@@ -5,6 +5,7 @@ R1 has no map (its readout is uniform; hit - chance = 0 by construction).
 
 ``dump`` (Colab): one finished checkpoint on DoTA-CAP-dev at protocol B (its A2 rows + the clip's
 V7 grid, Stage 0's cache) -> per clip ``E (K, 49)``, the step score and the native frame count.
+``--split dota_cap_eval --final`` dumps B13's decision set (§2.4 B13); the sealed split needs both.
 
 ``read`` -- S2-8: per seed the Stage 0 pointing read (:func:`core.tools.v5_stage0.clip_read`, map
 in place of ``Δ``), hit rates averaged over seeds per clip; then D3 hit - chance, Amendment 1's
@@ -48,7 +49,7 @@ from core.device import resolve_device
 from core.inference import make_class_feats_fn
 from core.tools import v5_stage0 as s0
 from core.tools.kill_switch_probe import write_json_atomic, write_text_atomic
-from core.tools.protocol_b_eval import check_baked_stride, input_rows
+from core.tools.protocol_b_eval import check_baked_stride, check_split, input_rows
 from core.tools.rate_matched_eval import Run, load_finished_model, native_labels
 from core.train import load_class_names
 
@@ -161,6 +162,7 @@ def clip_maps(
 
 
 def run_dump(args: argparse.Namespace) -> dict[str, Any]:
+    check_split(args.split, args.final, "v5_maps dump")
     run = Run(args.name, args.ckpt)
     device = resolve_device(args.device)
     model, step, text_encode_fn, cfg = load_finished_model(run, device)
@@ -170,7 +172,7 @@ def run_dump(args: argparse.Namespace) -> dict[str, Any]:
     assert grid is not None  # nosec B101 - mqr
     baked = check_baked_stride(args.input_dir, args.stride)
     class_names = load_class_names(args.data_dir)
-    ids = sorted(load_split(constants.V2_SPLIT_DOTA_CAP_DEV, args.split_dir))
+    ids = sorted(load_split(args.split, args.split_dir, final=args.final))
     arrays: dict[str, np.ndarray] = {}
     for video_id in ids:
         frames = len(np.load(args.s1_dir / f"{video_id}.npy", mmap_mode="r"))
@@ -197,6 +199,7 @@ def run_dump(args: argparse.Namespace) -> dict[str, Any]:
         "ckpt": str(run.ckpt),
         "global_step": step,
         "clips": len(ids),
+        "split": args.split,
         "stride": args.stride,
         **v5_arm(cfg.v5),
     }
@@ -568,6 +571,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     dump.add_argument("--data-dir", type=Path, required=True, help="DoTA labels dir (defs.json)")
     dump.add_argument("--split-dir", type=Path, default=constants.V2_SPLITS_DIR)
     dump.add_argument("--stride", type=int, default=constants.V5_STAGE0_STRIDE)
+    dump.add_argument(
+        "--split",
+        choices=[constants.V2_SPLIT_DOTA_CAP_DEV, constants.V2_SPLIT_DOTA_CAP_EVAL],
+        default=constants.V2_SPLIT_DOTA_CAP_DEV,
+    )
+    dump.add_argument("--final", action="store_true", help="required for dota_cap_eval (B13)")
     dump.add_argument("--out", type=Path, required=True, help="<...>/maps_<row>_s<seed>.npz")
     dump.add_argument("--device", default="auto")
 

@@ -29,6 +29,10 @@ not cover, so it goes to the user (§2.4 B10).
 computed, but S2-7 (ii) cannot be met as signed, so the outcome is labelled ``PRELIMINARY``, no row
 is adopted, and S2-11 stays closed.
 
+**§2.4 B13.** ``--primary R5q R5dq`` reads the query-LR rows in place of R5 / R5Δ (same
+statistics, same table); ``--split dota_cap_eval`` reads B13's decision set (protocol B under
+``--final``); the recorded CAP-dev ``p_T2`` is printed only on CAP-dev.
+
 **AP (§2.4 B12, printed only).** Per-clip AP macro (R - R1 at 95 %) and pooled frame AP after
 per-clip min-max on DoTA-CAP-dev; pooled raw frame AP on ``nexar_val``. Never gating.
 """
@@ -68,6 +72,7 @@ OUTCOMES = {  # S2-10: (detection improves, maps point) -> outcome
                     "gain; no Stage 3 for H1"),
     (False, False): ("NULL", "MQR closed; v5 written up as a measured negative with Stage 0"),
 }
+SPLIT_LABEL = {constants.V2_SPLIT_DOTA_CAP_DEV: "dev", constants.V2_SPLIT_DOTA_CAP_EVAL: "eval"}
 GUARD_FAIL = ("NOT-ADOPTED (S2-9)", "the candidate failed a guardrail; S2-10's table does not "
               "cover this -- the user decides (§2.4 B10)")
 
@@ -217,9 +222,13 @@ def decide(
     points: dict[str, bool],
     guards: dict[str, dict[str, Any]],
     n_seeds: int = len(constants.V5_RUN_SEEDS),
+    primary: tuple[str, str] = constants.V5_PRIMARY_ROWS,
 ) -> dict[str, Any]:
-    """S2-10: the candidate row, its outcome and the next step (``PRELIMINARY`` below 3 seeds)."""
-    first, second = constants.V5_PRIMARY_ROWS
+    """S2-10: the candidate row, its outcome and the next step (``PRELIMINARY`` below 3 seeds).
+
+    ``primary`` = (content row, change row): R5 / R5Δ, or B13's R5q / R5Δq.
+    """
+    first, second = primary
     replaced = (not has_sentence(det[first], points[first])
                 and has_sentence(det[second], points[second]))
     candidate = second if replaced else first
@@ -337,19 +346,24 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         for d in det.values():
             if d["sentence"] == NO_DIFF:
                 d["sentence"] = f"no difference shown at n = {len(seeds)}"
+    primary: tuple[str, str] = (args.primary[0], args.primary[1])
+    if not set(primary) <= set(args.rows):
+        raise ValueError(f"--primary {list(primary)} must be among --rows {args.rows}")
     points = {r: bool(maps[r]["points"]) for r in args.rows if r in maps}
-    missing_maps = [r for r in constants.V5_PRIMARY_ROWS if r not in points]
+    missing_maps = [r for r in primary if r not in points]
     if missing_maps:
         raise ValueError(f"no S2-8 maps read for {missing_maps}")
     guards = {r: guardrails(r, nexar, prov, seeds) for r in args.rows}
-    decision = decide(det, points, guards, len(seeds))
+    decision = decide(det, points, guards, len(seeds), primary)
 
     prior = None
     if args.prior is not None:
         prior, _ = pb.read_clip_scores(args.prior)
     result: dict[str, Any] = {
         "rule": RULE,
-        "set": "DoTA-CAP (n/1397) dev, protocol B",
+        "set": f"DoTA-CAP (n/1397) {SPLIT_LABEL[args.split]}, protocol B",
+        "split": args.split,
+        "primary": list(primary),
         "seeds": seeds,
         "clips_two_class": len(pbs[CONTROL]["clip_aucs"]),
         "macro": {r: float(np.mean(list(d["clip_aucs"].values()))) for r, d in pbs.items()},
@@ -364,7 +378,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "printed": {
             "p_t2_macro": (None if prior is None else
                            float(np.mean(list(pb.clip_aucs(prior, labels).values())))),
-            "p_t2_recorded": constants.V5_P_T2_CAP_DEV,
+            "p_t2_recorded": (constants.V5_P_T2_CAP_DEV
+                              if args.split == constants.V2_SPLIT_DOTA_CAP_DEV else None),
             "f2": None if prior is None else f2_reads(pbs, prior, labels),
             "ap": ap_reads({r: d["scores"] for r, d in pbs.items()}, labels),
             "ap_p_t2": (None if prior is None else
@@ -409,8 +424,9 @@ def render_markdown(r: dict[str, Any]) -> str:
         *(["> **PRELIMINARY (§2.4 B11):** fewer seeds than signed; S2-7 (ii) is read on these "
            "seeds only and the paired t is not defined at n = 1. Report it as preliminary; "
            "the S2-10 decision needs every seed.", ""] if d.get("preliminary") else []),
-        f"- candidate **{d['candidate']}**" + (" (R5Δ replaced R5: R5 had no sentence)"
-                                               if d["r5d_replaced_r5"] else ""),
+        f"- candidate **{d['candidate']}**"
+        + (f" ({r['primary'][1]} replaced {r['primary'][0]}: {r['primary'][0]} had no sentence)"
+           if d["r5d_replaced_r5"] else ""),
         f"- detection: {d['detection']}; maps point: {'yes' if d['maps_point'] else 'no'}; "
         f"guardrails hold: {'yes' if d['guardrails_hold'] else 'no'}",
         f"- next: {d['next']}",
@@ -422,7 +438,7 @@ def render_markdown(r: dict[str, Any]) -> str:
         f"| {CONTROL} | {r['macro'][CONTROL]:.4f} | — | — | — | control |",
     ]
     for row, det in r["detection"].items():
-        tag = " (printed)" if row not in constants.V5_PRIMARY_ROWS else ""
+        tag = " (printed)" if row not in r["primary"] else ""
         lines.append(
             f"| {row}{tag} | {r['macro'][row]:.4f} | {_ci(det['clip_delta'])} | "
             + ", ".join(f"{v:+.4f}" for v in det["per_seed_delta"].values())
@@ -476,15 +492,15 @@ def render_markdown(r: dict[str, Any]) -> str:
                      f"{p['ap_p_t2']['pooled_minmax']:.4f} | — |")
     lines += [
         "",
-        f"Positive-frame share (an all-equal score's pooled AP): DoTA-CAP-dev "
+        f"Positive-frame share (an all-equal score's pooled AP): DoTA-CAP {r['split']} "
         f"{ap['positive_frame_share']:.4f}, nexar_val "
         f"{_num(r['nexar_val'][CONTROL]['positive_frame_share'])}.",
         "",
         "## Printed, never gating (S2-14)",
         "",
     ]
-    lines.append(f"- `p_T2` on these clips: {_num(p['p_t2_macro'])} "
-                 f"(recorded {p['p_t2_recorded']:.4f})")
+    lines.append(f"- `p_T2` on these clips: {_num(p['p_t2_macro'])}"
+                 + ("" if p["p_t2_recorded"] is None else f" (recorded {p['p_t2_recorded']:.4f})"))
     for name, label in (("v2_nexar_a2", "v2 Nexar A2"), ("r0_v2_nexar_a0", "R0 = v2 Nexar A0")):
         b = p[name]
         if b is not None:
@@ -500,7 +516,9 @@ def render_markdown(r: dict[str, Any]) -> str:
                  + ", ".join(f"{k} {_ci(v['whole_macro'])}" for k, v in r["nexar_val"].items()))
     for run_name, c in p["collapse"].items():
         ent = ", ".join(f"{e:.3f}" for e in c["entropy"].values())
+        spread = ", ".join(f"{e:.3f}" for e in c.get("logit_std", {}).values())
         lines.append(f"- S1-G6 {run_name}: entropy [{ent}]"
+                     + (f", logit std [{spread}]" if spread else "")
                      + (" — **did not leave the mean**" if c["did_not_leave_mean"] else ""))
     if p["motion_share_last"]:
         lines.append("- last-step motion share / ‖W_u‖: " + "; ".join(
@@ -532,6 +550,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--rows", nargs="+", default=list(constants.V5_STAGE2_ROWS),
                         choices=[r for r in constants.V5_ROWS if r != CONTROL])
     parser.add_argument("--seeds", nargs="+", type=int, default=list(constants.V5_RUN_SEEDS))
+    parser.add_argument("--primary", nargs=2, default=list(constants.V5_PRIMARY_ROWS),
+                        metavar=("CONTENT", "CHANGE"),
+                        help="S2-10's (R5, R5Δ); §2.4 B13 reads R5q R5dq")
+    parser.add_argument("--split", choices=list(SPLIT_LABEL),
+                        default=constants.V2_SPLIT_DOTA_CAP_DEV, help="the CAP split --pb-dir / --maps-readout were read on (B13: eval)")
     parser.add_argument("--out-dir", type=Path, required=True)
     return parser
 

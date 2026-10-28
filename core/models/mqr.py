@@ -162,4 +162,26 @@ def query_entropy(attn: Tensor, mask: Tensor) -> Tensor:
     return per_query
 
 
-__all__ = ["GridReadout", "GridReadoutOutput", "SpatialMILHead", "query_entropy"]
+def query_logit_spread(attn: Tensor, mask: Tensor) -> Tensor:
+    """Mean over valid steps of the std over tiles of each query's logits, ``(M,)`` (§2.4 B13).
+
+    ``log a`` equals the logits up to a per-step constant, so its std over tiles is the logits'.
+    0 for a uniform query (Stage 2's R5 / R5Δ read about 0.05).
+    """
+    with torch.no_grad():
+        logits = attn.float().clamp_min(torch.finfo(torch.float32).tiny).log()
+        spread = logits.std(dim=-1, unbiased=False)
+        valid = mask.bool()[..., None].expand_as(spread)
+        per_query: Tensor = spread.masked_fill(~valid, 0.0).sum((0, 1)) / valid.sum(
+            (0, 1)
+        ).clamp_min(1)
+    return per_query
+
+
+__all__ = [
+    "GridReadout",
+    "GridReadoutOutput",
+    "SpatialMILHead",
+    "query_entropy",
+    "query_logit_spread",
+]
