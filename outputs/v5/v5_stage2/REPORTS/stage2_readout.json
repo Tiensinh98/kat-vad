@@ -1,0 +1,297 @@
+{
+  "clips_two_class": 569,
+  "decision": {
+    "adopted": null,
+    "candidate": "R5d",
+    "detection": "no difference shown at n = 1",
+    "guardrails_hold": false,
+    "maps_point": true,
+    "next": "not the S2-10 decision (\u00a72.4 B11): train the remaining seeds of 2024, 2025, 2026 and re-read",
+    "outcome": "PRELIMINARY NOT-ADOPTED (S2-9) (n = 1 seed)",
+    "preliminary": true,
+    "r5d_replaced_r5": true
+  },
+  "detection": {
+    "R5": {
+      "clip_delta": {
+        "clips": 569,
+        "clusters": 91,
+        "high": 0.011550277496731567,
+        "low": -0.0038477250125462034,
+        "mean": 0.0037752840638594063
+      },
+      "paired_t_printed": null,
+      "per_seed_delta": {
+        "s2024": 0.0037752840638595186
+      },
+      "sentence": "no difference shown at n = 1"
+    },
+    "R5d": {
+      "clip_delta": {
+        "clips": 569,
+        "clusters": 91,
+        "high": 0.011518876576685981,
+        "low": -0.0038991684728832804,
+        "mean": 0.003741714615898297
+      },
+      "paired_t_printed": null,
+      "per_seed_delta": {
+        "s2024": 0.0037417146158983394
+      },
+      "sentence": "no difference shown at n = 1"
+    }
+  },
+  "guardrails": {
+    "R5": {
+      "checks": {
+        "nexar_val_crop_endpoint": false,
+        "s1_g4_every_run": true
+      },
+      "hold": false,
+      "nexar_val_crop_delta": -0.01207472308050539,
+      "s1_g4": {
+        "R5/s2024": true
+      }
+    },
+    "R5d": {
+      "checks": {
+        "nexar_val_crop_endpoint": false,
+        "s1_g4_every_run": true
+      },
+      "hold": false,
+      "nexar_val_crop_delta": -0.011945865593918858,
+      "s1_g4": {
+        "R5d/s2024": true
+      }
+    }
+  },
+  "macro": {
+    "R1": 0.810195687446355,
+    "R5": 0.8139709715102145,
+    "R5d": 0.8139374020622533
+  },
+  "maps": {
+    "R5": {
+      "hit_minus_centre": {
+        "clips": 528,
+        "clusters": 91,
+        "high": 0.0448270761597431,
+        "low": -0.03649197902651487,
+        "mean": 0.004356065746331187
+      },
+      "hit_minus_chance": {
+        "clips": 528,
+        "clusters": 91,
+        "high": 0.33322518358750447,
+        "low": 0.28225847828578493,
+        "mean": 0.30702337869273216
+      },
+      "hit_minus_pre": {
+        "clips": 522,
+        "clusters": 91,
+        "high": 0.1336298903096239,
+        "low": 0.07447081156040988,
+        "mean": 0.10386136861268817
+      },
+      "points": false,
+      "stauc": {
+        "auc": 0.7369010719226154,
+        "stauc": 0.31680682863206466
+      }
+    },
+    "R5d": {
+      "hit_minus_centre": {
+        "clips": 528,
+        "clusters": 91,
+        "high": 0.09300878005836023,
+        "low": 0.017601060793008053,
+        "mean": 0.05580713372150276
+      },
+      "hit_minus_chance": {
+        "clips": 528,
+        "clusters": 91,
+        "high": 0.3832452311485231,
+        "low": 0.33585151041332584,
+        "mean": 0.3584744466679037
+      },
+      "hit_minus_pre": {
+        "clips": 522,
+        "clusters": 91,
+        "high": 0.19516921580549593,
+        "low": 0.14221124397295395,
+        "mean": 0.16818306627670965
+      },
+      "points": true,
+      "stauc": {
+        "auc": 0.7368310466834431,
+        "stauc": 0.3261304880890451
+      }
+    }
+  },
+  "nexar_val": {
+    "R1": {
+      "crop_endpoint_mean": 0.8858010632525126,
+      "crop_endpoint_per_seed": {
+        "s2024": 0.8858010632525126
+      },
+      "whole_macro": {
+        "clips": 112,
+        "clusters": 112,
+        "high": 0.9474952470259578,
+        "low": 0.9111360761231447,
+        "mean": 0.9303265789772442
+      }
+    },
+    "R5": {
+      "crop_endpoint_mean": 0.8737263401720072,
+      "crop_endpoint_per_seed": {
+        "s2024": 0.8737263401720072
+      },
+      "whole_macro": {
+        "clips": 112,
+        "clusters": 112,
+        "high": 0.9425057180955916,
+        "low": 0.9083614727517264,
+        "mean": 0.9263231270843443
+      }
+    },
+    "R5d": {
+      "crop_endpoint_mean": 0.8738551976585938,
+      "crop_endpoint_per_seed": {
+        "s2024": 0.8738551976585938
+      },
+      "whole_macro": {
+        "clips": 112,
+        "clusters": 112,
+        "high": 0.9425761244093693,
+        "low": 0.9084126485100934,
+        "mean": 0.926385080459747
+      }
+    }
+  },
+  "per_seed_macro": {
+    "R1": {
+      "s2024": 0.810195687446355
+    },
+    "R5": {
+      "s2024": 0.8139709715102145
+    },
+    "R5d": {
+      "s2024": 0.8139374020622533
+    }
+  },
+  "printed": {
+    "collapse": {
+      "R5/s2024": {
+        "did_not_leave_mean": true,
+        "entropy": {
+          "v5_entropy_q0": 3.8917765617370605,
+          "v5_entropy_q1": 3.891479015350342,
+          "v5_entropy_q2": 3.8918027877807617,
+          "v5_entropy_q3": 3.891796827316284,
+          "v5_entropy_q4": 3.8907277584075928,
+          "v5_entropy_q5": 3.891765832901001,
+          "v5_entropy_q6": 3.891792058944702,
+          "v5_entropy_q7": 3.8917958736419678
+        },
+        "entropy_bound": 3.887928477812516,
+        "finite": {
+          "mil": true,
+          "smil": true
+        },
+        "pass": true,
+        "step": 1749
+      },
+      "R5d/s2024": {
+        "did_not_leave_mean": true,
+        "entropy": {
+          "v5_entropy_q0": 3.8917362689971924,
+          "v5_entropy_q1": 3.891538619995117,
+          "v5_entropy_q2": 3.891740560531616,
+          "v5_entropy_q3": 3.8917829990386963,
+          "v5_entropy_q4": 3.8908443450927734,
+          "v5_entropy_q5": 3.89176607131958,
+          "v5_entropy_q6": 3.8917899131774902,
+          "v5_entropy_q7": 3.891798257827759
+        },
+        "entropy_bound": 3.887928477812516,
+        "finite": {
+          "mil": true,
+          "smil": true
+        },
+        "pass": true,
+        "step": 1749
+      }
+    },
+    "f2": {
+      "delta_vs_r1": {
+        "R5": {
+          "clips": 569,
+          "clusters": 91,
+          "high": 0.0034520580095172503,
+          "low": -0.00349793688242356,
+          "mean": -6.206220285405761e-05
+        },
+        "R5d": {
+          "clips": 569,
+          "clusters": 91,
+          "high": 0.0034386607928840445,
+          "low": -0.003461669461643831,
+          "mean": -5.699585158053644e-05
+        }
+      },
+      "macro": {
+        "R1": 0.8528133160893356,
+        "R5": 0.8527512538864818,
+        "R5d": 0.8527563202377553
+      },
+      "weight": 2.0
+    },
+    "motion_share_last": {
+      "R1/s2024": null,
+      "R5/s2024": {
+        "motion_share": 0.25814077258110046,
+        "w_u_norm": 1.237740397453308
+      },
+      "R5d/s2024": {
+        "motion_share": 0.25895628333091736,
+        "w_u_norm": 1.237529993057251
+      }
+    },
+    "p_t2_macro": 0.822026582273518,
+    "p_t2_recorded": 0.822,
+    "r0_v2_nexar_a0": {
+      "per_seed_macro": {
+        "s2024": 0.6885563838309106
+      },
+      "per_seed_mean": 0.6885563838309106,
+      "seed_averaged_macro_all_seeds": 0.7138097088684461,
+      "seeds_in_file": [
+        "s2024",
+        "s2025",
+        "s2026",
+        "s2027",
+        "s2028"
+      ]
+    },
+    "v2_nexar_a2": {
+      "per_seed_macro": {
+        "s2024": 0.8110072204788573
+      },
+      "per_seed_mean": 0.8110072204788573,
+      "seed_averaged_macro_all_seeds": 0.8170946467958269,
+      "seeds_in_file": [
+        "s2024",
+        "s2025",
+        "s2026",
+        "s2027",
+        "s2028"
+      ]
+    }
+  },
+  "rule": "core/docs/v5/PREREG_V5.md S2-7, S2-9, S2-10, S2-14 (+ \u00a72.4 B10)",
+  "seeds": [
+    "s2024"
+  ],
+  "set": "DoTA-CAP (n/1397) dev, protocol B"
+}

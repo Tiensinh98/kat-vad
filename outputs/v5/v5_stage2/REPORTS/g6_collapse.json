@@ -1,0 +1,46 @@
+{
+  "pass": true,
+  "rule": "S1-G6",
+  "runs": {
+    "R5/s2024": {
+      "did_not_leave_mean": true,
+      "entropy": {
+        "v5_entropy_q0": 3.8917765617370605,
+        "v5_entropy_q1": 3.891479015350342,
+        "v5_entropy_q2": 3.8918027877807617,
+        "v5_entropy_q3": 3.891796827316284,
+        "v5_entropy_q4": 3.8907277584075928,
+        "v5_entropy_q5": 3.891765832901001,
+        "v5_entropy_q6": 3.891792058944702,
+        "v5_entropy_q7": 3.8917958736419678
+      },
+      "entropy_bound": 3.887928477812516,
+      "finite": {
+        "mil": true,
+        "smil": true
+      },
+      "pass": true,
+      "step": 1749
+    },
+    "R5d/s2024": {
+      "did_not_leave_mean": true,
+      "entropy": {
+        "v5_entropy_q0": 3.8917362689971924,
+        "v5_entropy_q1": 3.891538619995117,
+        "v5_entropy_q2": 3.891740560531616,
+        "v5_entropy_q3": 3.8917829990386963,
+        "v5_entropy_q4": 3.8908443450927734,
+        "v5_entropy_q5": 3.89176607131958,
+        "v5_entropy_q6": 3.8917899131774902,
+        "v5_entropy_q7": 3.891798257827759
+      },
+      "entropy_bound": 3.887928477812516,
+      "finite": {
+        "mil": true,
+        "smil": true
+      },
+      "pass": true,
+      "step": 1749
+    }
+  }
+}
