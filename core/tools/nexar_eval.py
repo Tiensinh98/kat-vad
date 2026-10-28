@@ -45,6 +45,7 @@ import torch
 from core import constants
 from core.data.v2_inputs import V2Stats, bake_rows, load_stats, read_input_manifest
 from core.data.v2_splits import load_split
+from core.data.v5_grids import eval_grid, v5_arm
 from core.device import resolve_device
 from core.metrics import cluster_bootstrap_ci, frame_auc
 from core.tools.kill_switch_probe import write_json_atomic, write_text_atomic
@@ -145,6 +146,7 @@ def score_run(
         raise ValueError(f"{run.name} is crn={cfg.v2.crn} motion={cfg.v2.motion}, "
                          f"the stats are {expected} (K4)")
     class_names = load_class_names(args.data_dir)
+    grid = eval_grid(cfg.v5.readout, cfg.v5.keys, args.grid_s1_dir, constants.NEXAR_EVAL_STRIDE)
     protocol = Protocol(constants.NEXAR_EVAL_STRIDE, None)
     by_video: dict[str, list[str]] = {}
     for item, (video, _, _) in items.items():
@@ -159,11 +161,13 @@ def score_run(
             rows = (source_item_rows(x1, u1, stats, start, end)
                     if stats is not None and args.crn_reference == constants.CRN_REFERENCE_SOURCE
                     else item_rows(x1, u1, stats, start, end))
+            if grid is not None:  # v5: grid (+ change within this item) appended, PREREG_V5 S2-4
+                rows = grid.append(rows, video, start, end)
             feats = torch.from_numpy(rows)
             steps = score_steps(model, feats, text_encode_fn, class_names, video, protocol)
             native[item] = to_native(steps, constants.NEXAR_EVAL_STRIDE, end - start)
     LOGGER.info("%s (step %d): scored %d items", run.name, step, len(native))
-    return native, step, {"crn": cfg.v2.crn, "motion": cfg.v2.motion}
+    return native, step, {"crn": cfg.v2.crn, "motion": cfg.v2.motion, **v5_arm(cfg.v5)}
 
 
 def two_class_aucs(
@@ -363,6 +367,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         metavar=("NAME", "CKPT"), help="one finished checkpoint (repeat per seed)")
     parser.add_argument("--census", type=Path, required=True)
     parser.add_argument("--clip-s1-dir", type=Path, required=True)
+    parser.add_argument("--grid-s1-dir", type=Path, default=None,
+                        help="v5 checkpoints: V7 grid cache of the split at s1 (PREREG_V5 S2-2)")
     parser.add_argument("--video-s1-dir", type=Path, default=None)
     parser.add_argument("--stats-dir", type=Path, default=None,
                         help="the arm's fit-ids cache (A1-A3); omit for A0")

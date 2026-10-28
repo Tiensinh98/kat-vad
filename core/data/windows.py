@@ -187,16 +187,19 @@ class FeatureSlicer:
         window = self.window_of(item_id)
         return item_id if window is None else window.source
 
-    def load(self, cache_dir: Path, item_id: str, suffix: str = ".npy") -> np.ndarray:
+    def load(
+        self, cache_dir: Path, item_id: str, suffix: str = ".npy", mmap: bool = False
+    ) -> np.ndarray:
         """``cache_dir/{source}{suffix}``, sliced to the window when there is one.
 
         ``suffix`` covers the sibling caches keyed by the same id -- RAFT's
         ``.stats.npy`` -- so every per-frame array backing an item is sliced by
-        the one window, never by two different ones.
+        the one window, never by two different ones. ``mmap`` reads only the window's rows
+        (v5 grids are ~50x wider than a CLIP row).
         """
         window = self.window_of(item_id)
         source = item_id if window is None else window.source
-        rows: np.ndarray = np.load(cache_dir / f"{source}{suffix}")
+        rows: np.ndarray = np.load(cache_dir / f"{source}{suffix}", mmap_mode="r" if mmap else None)
         if window is None:
             return rows
         if window.end > len(rows):

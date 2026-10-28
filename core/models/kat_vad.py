@@ -19,16 +19,18 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import torch
 from torch import Tensor, nn
 
 from core import constants
-from core.config import validate_v2
+from core.config import validate_v2, validate_v5
 from core.data.collate import padding_mask
 from core.kip.kip_module import KIP
 from core.models.clip_text import SoftPromptCLIPTextModel
 from core.models.fusion import CoAttentionFusion
 from core.models.heads import BinaryHead, MultiClassHead
 from core.models.motion_residual import MotionResidual
+from core.models.mqr import GridReadout, SpatialMILHead
 from core.models.temporal_encoder import TemporalEncoder
 
 if TYPE_CHECKING:
@@ -59,6 +61,8 @@ class KATVAD(nn.Module):
         clip_text_model: SoftPromptCLIPTextModel | None = None,
         tokenizer: PreTrainedTokenizerBase | None = None,
         motion_dim: int = 0,
+        grid_readout: GridReadout | None = None,
+        smil_head: SpatialMILHead | None = None,
     ) -> None:
         super().__init__()
         # v2 motion stream (architecture §5): absent unless motion_dim > 0, so every
@@ -66,6 +70,12 @@ class KATVAD(nn.Module):
         self.motion_residual = (
             MotionResidual(hidden_dim, motion_dim) if motion_dim > 0 else None
         )
+        # v5 (PREREG_V5 §2): the motion term comes from a readout of the V7 grid appended to
+        # each row; absent unless v5.readout != none, so v1 / v2 checkpoints load unchanged.
+        if grid_readout is not None and self.motion_residual is None:
+            raise ValueError("a v5 grid readout feeds the v2 motion path (motion_dim > 0)")
+        self.grid_readout = grid_readout
+        self.smil_head = smil_head
         self.temporal_encoder = TemporalEncoder(
             hidden_size=hidden_dim,
             num_layers=temporal_layers,
@@ -93,6 +103,13 @@ class KATVAD(nn.Module):
     def from_config(cls, cfg: Config, load_clip: bool = False) -> KATVAD:
         """Build from :class:`core.config.Config`; ``load_clip`` pulls HF weights."""
         validate_v2(cfg)
+        validate_v5(cfg)
+        v5 = cfg.v5
+        grid_readout = smil_head = None
+        if v5.readout != constants.V5_READOUT_OFF:
+            grid_readout = GridReadout(v5.readout, v5.queries, v5.keys)
+            if v5.smil_weight > 0:
+                smil_head = SpatialMILHead(constants.V5_GRID_DIM // v5.queries)
         clip_text_model: SoftPromptCLIPTextModel | None = None
         tokenizer: PreTrainedTokenizerBase | None = None
         if load_clip:
@@ -126,6 +143,8 @@ class KATVAD(nn.Module):
             clip_text_model=clip_text_model,
             tokenizer=tokenizer,
             motion_dim=cfg.model.motion_dim,
+            grid_readout=grid_readout,
+            smil_head=smil_head,
         )
 
     def encode_text(self, texts: list[str], use_soft_prompt: bool = True) -> Tensor:
@@ -165,6 +184,34 @@ class KATVAD(nn.Module):
         sim_mat = self.sim_head(v_fused, t_fused)
         return bin_logits, sim_mat
 
+    def _grid_rows(self, rows: Tensor, outputs: dict[str, Tensor]) -> Tensor:
+        """v5: ``[x ; u_baked ; G (; ΔG)]`` -> ``[x ; motion(readout(G))]`` (PREREG_V5 §2.1).
+
+        The baked ``u`` columns are skipped: they exist for the input-cache check and S1-G2(b).
+        """
+        assert self.grid_readout is not None and self.motion_residual is not None  # nosec B101
+        hidden, base = self.motion_residual.hidden_dim, (
+            self.motion_residual.hidden_dim + self.motion_residual.motion_dim
+        )
+        width, tiles, dim = constants.V5_GRID_WIDTH, constants.V5_GRID_TILES, constants.V5_GRID_DIM
+        blocks = 2 if self.grid_readout.uses_change else 1
+        if rows.shape[-1] != base + blocks * width:
+            raise ValueError(
+                f"v5 rows have {rows.shape[-1]} columns, expected {base} (A2) + {blocks} x "
+                f"{width} (grid{' + change' if blocks == 2 else ''}) -- is the grid appended?"
+            )
+        lead = rows.shape[:-1]
+        grid = rows[..., base : base + width].reshape(*lead, tiles, dim)
+        change = (
+            rows[..., base + width :].reshape(*lead, tiles, dim) if blocks == 2 else None
+        )
+        out = self.grid_readout(grid, change)
+        if out.attn is not None:
+            outputs["v5_attn"] = out.attn
+        if self.smil_head is not None and out.z is not None:
+            outputs["v5_smil"] = self.smil_head(out.z)
+        return torch.cat([rows[..., :hidden], out.motion], dim=-1)
+
     def forward(
         self,
         v_feat: Tensor,
@@ -184,6 +231,8 @@ class KATVAD(nn.Module):
         """
         mask = padding_mask(v_feat_l, v_feat.shape[1]).to(v_feat.device)
         outputs: dict[str, Tensor] = {}
+        if self.grid_readout is not None:
+            v_feat = self._grid_rows(v_feat, outputs)
         if self.motion_residual is not None:
             # v2 A2/A3: rows are [x ; c*u~/sigma_u] -> h = x + W_u(...)  (architecture §5)
             v_feat, outputs["motion_share"] = self.motion_residual(v_feat, mask)

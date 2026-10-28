@@ -74,7 +74,8 @@ def resize_frames(frames: np.ndarray, size: int = constants.CROP_SIZE) -> Tensor
 def normalize(resized: Tensor, mean: tuple[float, ...], std: tuple[float, ...]) -> Tensor:
     """Per-channel ``(x - mean) / std`` on a ``(..., 3, H, W)`` tensor."""
     shape = (3, 1, 1)
-    out: Tensor = (resized - torch.tensor(mean).view(shape)) / torch.tensor(std).view(shape)
+    mean_t = torch.tensor(mean, device=resized.device).view(shape)
+    out: Tensor = (resized - mean_t) / torch.tensor(std, device=resized.device).view(shape)
     return out
 
 

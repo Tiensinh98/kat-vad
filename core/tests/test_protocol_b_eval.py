@@ -17,6 +17,7 @@ import pytest
 import torch
 
 from core import constants
+from core.config import V5Config
 from core.tools import protocol_b_eval as pb
 from core.tools import rate_matched_eval as e1
 
@@ -77,7 +78,7 @@ def _fake_loader(crn: str) -> Any:
         def text_fn(batch: list[str]) -> torch.Tensor:
             return torch.zeros(len(batch), DIM)
 
-        cfg = SimpleNamespace(v2=SimpleNamespace(crn=crn, motion="none"))
+        cfg = SimpleNamespace(v2=SimpleNamespace(crn=crn, motion="none"), v5=V5Config())
         return None, 2040, text_fn, cfg
 
     return load
@@ -90,7 +91,9 @@ class TestScoreCheckpoint:
         monkeypatch.setattr(pb, "load_class_names", lambda _d: ["Normal", "CarAccident"])
 
     def _args(self, input_dir: Path) -> argparse.Namespace:
-        return argparse.Namespace(input_dir=input_dir, stride=3, data_dir=Path("unused"))
+        return argparse.Namespace(
+            input_dir=input_dir, stride=3, data_dir=Path("unused"), grid_dir=None
+        )
 
     def test_baked_steps_land_on_native_frames(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

@@ -2110,3 +2110,39 @@ a planted in-box signal (expect GO) before any real number exists.
 **Rule:** Derive the lag of any change measure from the encoder's window span, never from the sampling stride.
 **Files:** `core/tools/v5_stage0.py` (`lag`), `core/docs/v5/PREREG_V5.md` §1.3, `core/docs/v5/RESULTS_V5_STAGE0.md` §4.
 **Gate status.** One occurrence (measured; post-hoc check L); candidate.
+
+## (bw) [LOW] Tests - A gradient test through LayerNorm must not use a plain sum as the loss (2026-10-27)
+**Triggers:** layer_norm, LN, backward, grad test, .sum().backward(), flaky test, zero gradient
+**Problem:** `test_queries_learn_away_from_the_mean` backpropagated `LN(r).sum()`; with identity affine the LN output sums to 0 for every input, so the query gradient was float noise and the test failed ~1 run in N.
+**Bad:** `readout(grid).motion.sum().backward()` with `fc_weight = 1`, `fc_bias = 0`.
+**Good:** `(readout(grid).motion * torch.randn_like(...)).sum().backward()` — a random linear probe of the output.
+**Rule:** Probe gradients with a random-weighted sum; never with a plain sum after a normalization.
+**Files:** `core/tests/test_v5_stage1.py::TestReadout::test_queries_learn_away_from_the_mean`.
+**Gate status.** One occurrence; candidate.
+
+## (bx) [MEDIUM] Performance - Overlap video decode with the GPU forward in every extraction loop (2026-10-27)
+**Triggers:** decode_resized, PyAV, extract, feature extraction, GPU idle, Colab cost, iter_frame_chunks, VideoMAE, CLIP
+**Problem:** the extraction tools decoded and resized each video on one CPU thread, then ran the GPU, so the GPU sat idle for every decode; the user noticed v5 Stage 1 `extract` ran much faster once decode moved to a worker thread, after paying for slower runs before.
+**Bad:** `for v in todo: frames = decode_resized(path[v]); rows = encode(frames)`.
+**Good:** `for v, frames in decoded_ahead(paths, todo): rows = encode(frames)` (one video ahead on a `ThreadPoolExecutor(1)`).
+**Rule:** Prefetch the next item's CPU decode while the GPU encodes the current one in any per-video extraction loop.
+**Files:** `core/tools/v5_stage1.py` (`decoded_ahead`); same serial loop in `core/tools/nexar_extract.py`, `core/tools/v5_stage0.py`, `core/tools/extract_video_features.py` (unchanged).
+**Gate status.** One occurrence (user-observed speed-up, not timed); candidate.
+
+## (by) [HIGH] Numerics - Pin TF32 off when a new extraction must reproduce an fp32 cache (2026-10-27)
+**Triggers:** TF32, allow_tf32, A100, cudnn, reproduce cache, cosine gate, G1, extraction, VideoMAE, Conv3d
+**Problem:** v5 Stage 1's grid extractor ran with cuDNN's default TF32 on an A100; 11 / 563 videos fell below the cos 0.9999 reproduction gate (min 0.99977) against v2's fp32 cache, costing an 87-minute GPU run.
+**Bad:** relying on torch's defaults (`cudnn.allow_tf32 = True`) inside an extractor gated on bit-level agreement.
+**Good:** `torch.backends.cuda.matmul.allow_tf32 = False; torch.backends.cudnn.allow_tf32 = False` at the start of the extractor (cos then 1.00000000).
+**Rule:** Set TF32 explicitly in every tool whose output is gated against another cache; never inherit the default.
+**Files:** `core/tools/v5_stage1.py` (`exact_fp32`), `core/docs/v5/PREREG_V5.md` §2.4 B8.
+**Gate status.** One occurrence (measured); candidate.
+
+## (bz) [MEDIUM] Gates - A reproduction gate across environments needs a cross-environment tolerance (2026-10-28)
+**Triggers:** reproduce cache, cosine gate, threshold reuse, environment drift, PyAV, ffmpeg, decode, borrow runs
+**Problem:** v5 Stage 1 reused Stage 0's cos ≥ 0.9999 (two products of one pass) to compare new grids with a v2 cache built weeks earlier; today's decode differs on a few frames, 44 / 225 val videos failed at 0.9995, two GPU runs stopped, and the user found the gate's purpose (borrowing v2 runs) not worth it.
+**Bad:** gating a fresh extraction against an old cache at within-pass precision.
+**Good:** prove extraction correct where environments agree, gate only real faults (length, alignment), print the cosine; prefer recomputing the baseline row over borrowing old runs when it costs a few runs.
+**Rule:** Set a cross-cache tolerance from a measured cross-environment spread, or do not gate on it; never reuse a within-pass threshold.
+**Files:** `core/tools/v5_stage1.py` (`run_extract`), `core/docs/v5/PREREG_V5.md` §2.4 B9.
+**Gate status.** One occurrence; candidate.

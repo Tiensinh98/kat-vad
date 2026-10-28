@@ -824,3 +824,46 @@ V5_P_T2_CAP_DEV = 0.8220  # S0-12: v2's cubic position prior on CAP-dev (RESULTS
 V5_D0_LAG = 8  # S0-12: CLIP frames apart for D0
 V5_LAG_ROWS = (1, 3, 6)  # PREREG_V5 §1.3 L-1: row lags; 6 rows = 18 frames, no shared frame
 V5_SHIFT_ROWS = (0, 2, 3)  # PREREG_V5 §1.3 L-3: grid row k + s read against step k's box (centre shift)
+
+# ---------------------------------------------------------------------------
+# KAT-VAD v5 Stages 1-2 (core/docs/v5/PREREG_V5.md §2, S1-G1 ... S1-G6, S2-1 ... S2-14)
+# ---------------------------------------------------------------------------
+V5_STAGE1_DIRNAME = "v5_stage1"  # under OUTPUT_ROOT/V5_OUTPUT_DIRNAME: <row>/s<seed>/ + REPORTS/
+V5_ENCODER = V5_STAGE0_ENCODER  # S2-2: grids of V2-S, the encoder of v2's A2 rows
+V5_GRID_TILES = V5_GRID_COARSE * V5_GRID_COARSE  # 49 tiles of V7
+V5_GRID_DIM = VIDEOMAE_ARCH[V5_ENCODER][0]  # 384 channels per tile (last layer, before fc_norm)
+V5_GRID_WIDTH = V5_GRID_TILES * V5_GRID_DIM  # columns one flattened grid adds to an input row
+V5_SPAN_GAPS = VIDEOMAE_CLIP_FRAMES - 1  # S2-4: a window spans V5_SPAN_GAPS * step + 1 frames
+V5_READOUT_OFF = "none"  # v5.readout: no grid (every v1 / v2 checkpoint)
+V5_READOUT_MEAN = "mean"  # R1: the tile mean, nothing trainable in the readout
+V5_READOUT_MQR = "mqr"  # R3 / R5 / R5Δ: query attention over the 49 tiles (S2-4)
+V5_READOUTS = (V5_READOUT_OFF, V5_READOUT_MEAN, V5_READOUT_MQR)
+V5_KEYS_CONTENT = "content"  # keys LN(G)
+V5_KEYS_CHANGE = "change"  # keys LN([G ; G - G_{t-l}]) (R5Δ)
+V5_KEYS = (V5_KEYS_CONTENT, V5_KEYS_CHANGE)
+V5_QUERIES = 8  # S2-3 / S2-13 D2: M fixed, never searched
+V5_SMIL_WEIGHT = 0.5  # S2-6 / S2-13 D2: lambda fixed
+V5_SMIL_TOPK_PCT = 16  # S2-6: k = max(floor(L / 16), 1) (proposal §3.2)
+V5_SMIL_EPS = 1e-6  # clamp of s-hat before BCE on probabilities
+V5_HEAD_FILENAME = "v5_head.npz"  # fc_norm + A2's c / m_u / sigma_u, beside the train grids
+V5_GRID_MANIFEST_FILENAME = VIDEO_MANIFEST_FILENAME  # check_or_write_manifest (Stage 0 too)
+V5_NEXAR_TRAIN_STRIDE = 8  # S2-2: training rows s1[::8] (v2 Nexar `window`)
+V5_NEXAR_VAL_STRIDE = 1  # S2-2 + §2.4 B1: nexar_val grids at every frame (crops start on any phase)
+V5_ROWS = {  # S2-3: row -> config overrides beyond v2 Nexar A2's (S1-G4: only v5 keys differ)
+    "R1": {"readout": V5_READOUT_MEAN, "queries": 1, "keys": V5_KEYS_CONTENT, "smil_weight": 0.0},
+    "R3": {"readout": V5_READOUT_MQR, "queries": 1, "keys": V5_KEYS_CONTENT, "smil_weight": 0.0},
+    "R5": {"readout": V5_READOUT_MQR, "queries": V5_QUERIES, "keys": V5_KEYS_CONTENT,
+           "smil_weight": V5_SMIL_WEIGHT},
+    "R5d": {"readout": V5_READOUT_MQR, "queries": V5_QUERIES, "keys": V5_KEYS_CHANGE,
+            "smil_weight": V5_SMIL_WEIGHT},
+}
+V5_RUN_SEEDS = NEXAR_RUN_SEEDS[:3]  # S2-1: 2024-2026, paired with v2's Nexar runs
+V5_G2_WINDOWS = 100  # S1-G2(b): real Nexar windows compared with the baked A2 rows
+V5_G2_MAX_ABS = 1e-3  # S1-G2(b) tolerance (fp16 grids)
+V5_G2_UNIT_MAX_ABS = 1e-6  # S1-G2(a) tolerance (fp32)
+V5_G5_MAX_ABS = 1e-4  # S1-G5(a): pointing read on Stage 0's maps vs RESULTS_V5_STAGE0 §3
+V5_G5C_MAX_ABS = 1e-6  # S1-G5(c): STAUC port vs the official code
+V5_G6_ENTROPY_FRACTION = 0.999  # S1-G6: every query >= 0.999 log 49 = "did not leave the mean"
+V5_STAUC_MAP_SIZE = CROP_SIZE  # §2.4 B3: E_t bilinearly upsampled to 224 x 224 before get_tarr
+V5_CENTRE_SIGMA_FRACTION = 0.25  # S2-8: centre prior sigma = 1/4 grid width
+V5_PRIMARY_LEVEL = 0.975  # S2-7: Bonferroni over P1, P2

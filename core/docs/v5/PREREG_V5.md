@@ -135,8 +135,9 @@ window (v2-comparable). Requiring both shifts guards against picking one of nine
 
 ## §2 Stages 1–2 — build MQR, train on Nexar, read it on DoTA-CAP-dev (S1-G1 … S1-G6, S2-1 … S2-14)
 
-**Status: DRAFT 2026-10-27, not signed.** Signed by the user before any Stage 1 code produces a number; open choices
-are listed in S2-14. **Disclosed:** written after Stage 0's read-out (PARTIAL) and check L (`RESULTS_V5_STAGE0.md`
+**Status: SIGNED 2026-10-27 by the user** (before any Stage 1 code produced a number), with S2-14's open choices
+answered: **(a) R7 is not run** (no CLIP-patch cache; R7's rows below stay as text only); **(b) λ = 0.5, M = 8, LR × 1
+fixed**; **(c) DVS anchor `span`** (D9). Build notes §2.4 were fixed before any Stage 1 number. **Disclosed:** written after Stage 0's read-out (PARTIAL) and check L (`RESULTS_V5_STAGE0.md`
 §3–§5). Row R5Δ exists because of check L; every other row is the proposal's ladder (§4.5). No Stage 1 or Stage 2
 number exists when this is written.
 
@@ -158,7 +159,7 @@ DoTA-CAP-eval grids are **not** extracted in Stage 2.
 | row | readout of `G_t` | sMIL | source |
 |---|---|---|---|
 | R0 | none (CLIP only) | — | v2 Nexar A0, s2024–2026 (borrowed, no grid involved) |
-| R1 | mean of the 49 tiles | — | v2 Nexar A2, s2024–2026 (borrowed iff S1-G3 passes) |
+| R1 | mean of the 49 tiles | — | ~~v2 Nexar A2, borrowed iff S1-G3 passes~~ → **retrained s2024–2026 through the v5 path** (§2.4 B9) |
 | R3 | 1 query, content keys | — | new |
 | R5 | **LaGoVAD-MQR**: 8 queries, content keys | λ = 0.5 | new |
 | R5Δ | R5 with change keys (S2-4) | λ = 0.5 | new (Stage-0-motivated) |
@@ -193,7 +194,7 @@ mask. Learning-rate multiplier 1.
 - **S1-G2 same start.** (a) unit tests: zero queries and `W_V = I` give `r_t` = tile mean (|Δ| ≤ 1e-6, fp32), for M ∈
   {1, 8} and both key types; `ΔG` of a DVS-spliced sequence equals its items' `ΔG` (no boundary change); (b) on 100 real
   Nexar windows, the motion term at init equals the baked A2 rows to |Δ| ≤ 1e-3 (fp16 grids).
-- **S1-G3 R1 borrow.** R1 retrained once through the v5 path (readout fixed to the mean), seed 2024: `nexar_val` crop
+- ~~**S1-G3 R1 borrow.**~~ **Dropped by §2.4 B9 (R1 is retrained; nothing is borrowed).** R1 retrained once through the v5 path (readout fixed to the mean), seed 2024: `nexar_val` crop
   endpoint within ±0.01 of v2 A2 s2024 (**0.886**) **and** DoTA-CAP-dev macro within ±0.01 of v2 A2 s2024's.
   Pass → R1 = v2 A2 s2024–2026. Fail → R1 retrained on all three seeds through the v5 path (the borrowed runs are not used).
 - **S1-G4 provenance.** Every checkpoint: `global_step` = 1,749 = last `metrics.jsonl` step (J10); `config.yaml` differs
@@ -205,6 +206,50 @@ mask. Learning-rate multiplier 1.
 - **S1-G6 no collapse (read before S2-7).** Per new run: last-step `mil` and `sMIL` finite; R3/R5/R5Δ attention entropy
   printed per query; a run whose every query has entropy ≥ 0.999·log 49 at the last step is reported as "did not leave the
   mean" (still read; not a failure).
+
+### §2.4 Build notes (written with the Stage 1 code, 2026-10-27, before any Stage 1 number)
+
+Where the code had to choose something §2.1–§2.2 did not fix. None changes a rule; B1 changes S2-2 and S2-12's storage.
+
+- **B1 `nexar_val` grids at every frame (`s1`), not `s1[::3]`.** Protocol N-B's crops start on any native frame, so a
+  crop's rows are `s1[start::3]` and only an `s1` cache serves every phase. Rows *read* are still at stride 3, and
+  `ℓ = 16` is taken at the eval stride. Cost: ≈ 225 × 1,200 rows × 37.6 KB ≈ **10 GB** on Drive (S2-12 said ≈ 3.4 GB
+  for this part). Training grids stay `s1[::8]`.
+- **B2 Row layout.** A v5 input row is v2 A2's baked row `[x ; c·ũ/σ_u]` (896) followed by `G_t` flattened (18,816) and,
+  for R5Δ, `ΔG_t` (18,816). The model reads `x` and recomputes the motion term from `G`; the baked `u` columns are kept
+  only so the A2 input-manifest check still binds the run to A2's statistics and S1-G2(b) can compare against them.
+  `ΔG` is built per item in the dataset (training) and per crop / clip (eval), never after DVS (S2-4).
+- **B3 STAUC.** DoTA's official `get_tarr` (frame method) and `get_stauc`, ported; S1-G5(c) compares against
+  `data/DoTA/raw_annotations/stauc.py`. The map fed to it is the 7 × 7 step map upsampled bilinearly to 224 × 224,
+  boxes scaled from 1280 × 720; the step score is the per-clip min-max of the row's anomaly curve. STAUC is taken over
+  protocol-B **steps** (`s1[::3]`, the label of the step's frame), not over native frames. Printed only (S2-8).
+- **B4 sMIL numerics.** `BCE(ŝ, y)` is computed as `BCE-with-logits(logit(ŝ, 1e-6), y)` in fp32 with autocast off
+  (identical value; plain BCE is banned under AMP in this repo). `k = max(⌊L/16⌋, 1)` exactly as S2-6.
+- **B5 Naming.** R5Δ is written `R5d` in code, configs and paths.
+- **B6 S1-G3 references.** v2 Nexar A2 s2024: `nexar_val` crop endpoint 0.885856, DoTA-CAP-dev macro 0.811007 (both
+  from the v2 read-outs). Unused since B9.
+- **B7 S1-G5(c) was run locally while building** (the official file is on disk): port = official to |Δ| = 0. It is a
+  tool check on synthetic input, not a Stage 1 number; the notebook re-runs it.
+- **B8 (written AFTER the first S1-G1 read-out, 2026-10-27, disclosed) — TF32 pinned off; failed videos retried.**
+  First `nexar_train` extraction (A100): **FAIL**, 552 / 563, 11 videos `g1_cos` (min 0.99977), all in IDs 413–593
+  (ID 400–600 median min cos 0.999976 vs 0.999999999 outside). Diagnosis on 3 videos (one failing): with TF32 off for
+  matmul and cuDNN, cos = **1.00000000** on every row; fp16 storage moves it by ~2e-8. Cause = a tool defect: the
+  extractor left cuDNN's default TF32 on, v2's cache was plain fp32. Fix: `extract` sets both TF32 flags off
+  (`exact_fp32`), and gathers/normalizes windows on the GPU (elementwise fp32, speed only). **S1-G1 is unchanged**
+  (per-row cos ≥ 0.9999); the 11 failed videos are re-extracted under the fix and the gate re-read on all 563. The 552
+  that passed are kept as extracted (they passed the signed gate; 105 of them read < 0.99999, max deviation 1e-4).
+- **B9 (decided by the user 2026-10-28, AFTER the `nexar_val` S1-G1 read-out, disclosed) — R1 retrained, not borrowed;
+  S1-G1 printed only.** With TF32 off, `nexar_val` read **FAIL**: 181 / 225, 44 videos `g1_cos` (min 0.99946, median
+  min 0.99996). Diagnosis: identical under every TF32 / normalization setting, decode deterministic today, deviations
+  confined to a few isolated rows (e.g. 1 row in `00055`, 5 rows 798–813 in `01146`) while clean videos read
+  1.00000000 → a few frames decode differently today than when v2 built `Nexar_s1_squash` (environment drift; not
+  reproducible without v2's frames). The 0.9999 bound was carried over from Stage 0, where it compared two products
+  of one pass; across environments it is too tight. Changes: (i) **R1 = retrained s2024–2026 through the v5 path**, so
+  R1 and every other row read the same grids and no v2 run is borrowed (S1-G3 dropped; +2 training runs);
+  (ii) **S1-G1** fails a video only if its decoded length differs from v2's (a real alignment fault) and stores every
+  other grid; the per-row cosine against v2 is printed (extraction is shown correct where environments agree:
+  1.00000000); (iii) **S1-G2(b)** compares every row's motion term at init with R1's on the same grid instead of the
+  baked A2 columns. S2-7's P1 = R5 − R1, P2 = R5Δ − R1 are unchanged; R0 stays v2 Nexar A0 (no grid involved).
 
 ### §2.3 Stage 2 reads and decisions
 

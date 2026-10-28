@@ -32,6 +32,7 @@ from core import constants
 from core.config import DVSConfig
 from core.data.msad import ABNORMAL_CLASS, NORMAL_CLASS
 from core.data.synthesis import choose_filler_ids, compose_sequence, truncate_sample
+from core.data.v5_grids import v5_rows
 from core.data.windows import FeatureSlicer, load_windows
 
 LOGGER = logging.getLogger(__name__)
@@ -61,9 +62,17 @@ class DVSFeatureDataset(Dataset[dict[str, Any]]):
         require_flow: bool = True,
         knn_cache: dict[str, list[str]] | None = None,
         seed: int = constants.SEED,
+        grid_dir: Path | None = None,
+        grid_lag: int | None = None,
     ) -> None:
         self.clip_dir = clip_dir
         self.flow_dir = flow_dir
+        # v5 (PREREG_V5 §2.1): each item's V7 grid (and, with grid_lag, its change) is appended
+        # per item -- before DVS splicing, so a splice boundary never reads as change (S2-4)
+        self.grid_dir = grid_dir
+        self.grid_lag = grid_lag
+        if grid_lag is not None and grid_dir is None:
+            raise ValueError("grid_lag needs grid_dir")
         self.slicer = FeatureSlicer(load_windows(data_dir))
         self.dvs = dvs if dvs is not None else DVSConfig()
         self.vis_max_len = vis_max_len
@@ -102,9 +111,11 @@ class DVSFeatureDataset(Dataset[dict[str, Any]]):
         return self._classes.get(video_id, fallback)
 
     def _load_features(self, video_id: str) -> Tensor:
-        return torch.from_numpy(
-            self.slicer.load(self.clip_dir, video_id).astype(np.float32)
-        )
+        rows = self.slicer.load(self.clip_dir, video_id)
+        if self.grid_dir is not None:
+            grid = self.slicer.load(self.grid_dir, video_id, mmap=True)
+            rows = v5_rows(rows, grid, self.grid_lag)
+        return torch.from_numpy(rows.astype(np.float32, copy=False))
 
     def _load_flow(self, video_id: str, length: int) -> Tensor:
         if not self.require_flow:

@@ -157,6 +157,21 @@ class V2Config:
 
 
 @dataclass
+class V5Config:
+    """v5 grid readout (``core/docs/v5/PREREG_V5.md`` §2, S2-3 ... S2-6).
+
+    ``readout = none`` is every v1 / v2 model. Otherwise each input row also carries the
+    flattened V7 grid (and its change ``G - G_{t-l}`` for ``keys = change``), and the motion
+    term of v2's A2 is computed from a readout of that grid instead of the baked ``u``.
+    """
+
+    readout: str = constants.V5_READOUT_OFF  # none | mean (R1) | mqr (R3 / R5 / R5Δ)
+    queries: int = 1  # M; 1 for R1 / R3, V5_QUERIES for R5 / R5Δ
+    keys: str = constants.V5_KEYS_CONTENT  # content | change (R5Δ)
+    smil_weight: float = 0.0  # lambda of L_sMIL; 0 = term absent (R1 / R3)
+
+
+@dataclass
 class Config:
     """Top-level KAT-VAD configuration."""
 
@@ -167,6 +182,7 @@ class Config:
     data: DataConfig = field(default_factory=DataConfig)
     train: TrainConfig = field(default_factory=TrainConfig)
     v2: V2Config = field(default_factory=V2Config)
+    v5: V5Config = field(default_factory=V5Config)
 
     def to_dict(self) -> dict[str, Any]:
         return dataclasses.asdict(self)
@@ -263,3 +279,34 @@ def validate_v2(cfg: Config) -> None:
             )
     if cfg.kip.enabled and (has_motion or v2.crn != constants.V2_OFF):
         raise ValueError("v2 inputs (v2.crn / v2.motion) require kip.enabled=false")
+
+
+def validate_v5(cfg: Config) -> None:
+    """Fail loud on a v5 config that is not one of PREREG_V5 §2's rows.
+
+    The grid readout replaces A2's baked motion stream, so it needs exactly A2's inputs
+    (V2-S, no CRN, KIP off; S2-1); the query count must split the grid channels evenly
+    (``z_m`` is the ``m``-th ``D/M`` slice, S2-4); change keys and the sMIL term need queries.
+    """
+    v5 = cfg.v5
+    if v5.readout not in constants.V5_READOUTS:
+        raise ValueError(f"v5.readout must be one of {constants.V5_READOUTS}, got {v5.readout!r}")
+    if v5.keys not in constants.V5_KEYS:
+        raise ValueError(f"v5.keys must be one of {constants.V5_KEYS}, got {v5.keys!r}")
+    if v5.smil_weight < 0:
+        raise ValueError(f"v5.smil_weight must be >= 0, got {v5.smil_weight}")
+    if v5.readout == constants.V5_READOUT_OFF:
+        return
+    if (cfg.v2.crn, cfg.v2.motion) != (constants.V2_OFF, constants.V5_ENCODER):
+        raise ValueError(
+            f"v5.readout={v5.readout!r} reads A2's inputs (v2.crn=none, "
+            f"v2.motion={constants.V5_ENCODER}); got crn={cfg.v2.crn!r} motion={cfg.v2.motion!r}"
+        )
+    if v5.queries < 1 or constants.V5_GRID_DIM % v5.queries:
+        raise ValueError(
+            f"v5.queries={v5.queries} must divide the {constants.V5_GRID_DIM} grid channels"
+        )
+    if v5.readout == constants.V5_READOUT_MEAN and (
+        v5.queries != 1 or v5.keys != constants.V5_KEYS_CONTENT or v5.smil_weight > 0
+    ):
+        raise ValueError("v5.readout=mean (R1) has no queries, change keys or sMIL term")

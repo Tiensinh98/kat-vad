@@ -48,6 +48,7 @@ from core.data.definitions import (
 )
 from core.data.knn_cache import load_knn_cache
 from core.data.v2_inputs import check_input_manifest
+from core.data.v5_grids import change_lag, read_grid_geometry
 from core.device import resolve_device
 from core.kip.losses import (
     kinematic_loss,
@@ -57,7 +58,9 @@ from core.kip.losses import (
 from core.losses.contrastive import CapContrastLoss
 from core.losses.dvs import pseudo_sup_mil_loss, supervised_loss
 from core.losses.mil import abnormal_bottomk_loss, mil_loss, multi_class_mil_loss
+from core.losses.smil import spatial_mil_loss
 from core.models.kat_vad import KATVAD
+from core.models.mqr import query_entropy
 from core.models.text_encoding import (
     TEXT_ENCODER_CHOICES,
     TEXT_ENCODER_CLIP,
@@ -302,6 +305,12 @@ class Trainer:
         if self.model.motion_residual is not None:
             losses["motion_share"] = outputs["motion_share"]
             losses["w_u_norm"] = self.model.motion_residual.weight_norm()
+        # v5 (PREREG_V5 §2): per-query attention entropy (S1-G6, logged only) and L_sMIL (S2-6)
+        if "v5_attn" in outputs:
+            for m, ent in enumerate(query_entropy(outputs["v5_attn"], mask)):
+                losses[f"v5_entropy_q{m}"] = ent
+        if "v5_smil" in outputs:
+            losses["smil"] = spatial_mil_loss(outputs["v5_smil"], labels, lengths)
 
         # L_MIL (binary top-k)
         loss_bin = mil_loss(
@@ -441,6 +450,8 @@ class Trainer:
             total = total + loss_cfg.lambda_align * losses["kip_align"]
         if "kin" in losses:
             total = total + loss_cfg.gamma_kin * losses["kin"]
+        if "smil" in losses:
+            total = total + self.cfg.v5.smil_weight * losses["smil"]
         losses["total"] = total
         return losses
 
@@ -700,8 +711,37 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default=TEXT_ENCODER_CLIP,
         help="'clip' needs HF weights; 'stub' is the data-free smoke mode",
     )
+    parser.add_argument(
+        "--grid-dir",
+        type=Path,
+        default=None,
+        help="v5: V7 grid cache of the training sources (+ v5_head.npz); needs v5.readout",
+    )
     parser.add_argument("--log-every", type=int, default=10)
     return parser
+
+
+def v5_grid_lag(cfg: Config, grid_dir: Path | None) -> int | None:
+    """Check ``--grid-dir`` against ``cfg.v5``; the change lag for change keys, else ``None``.
+
+    The grid cache must be at the training stride (``data.frame_stride``): its rows are sliced by
+    the same windows as the A2 rows (lesson C13).
+    """
+    if cfg.v5.readout == constants.V5_READOUT_OFF:
+        if grid_dir is not None:
+            raise ValueError("--grid-dir given but v5.readout=none: the grid would be ignored")
+        return None
+    if grid_dir is None:
+        raise ValueError(f"v5.readout={cfg.v5.readout!r} needs --grid-dir")
+    geometry = read_grid_geometry(grid_dir)
+    if geometry.stride != cfg.data.frame_stride:
+        raise ValueError(
+            f"{grid_dir} rows are s1[::{geometry.stride}], training is at stride "
+            f"{cfg.data.frame_stride} (lesson C2)"
+        )
+    if cfg.v5.keys != constants.V5_KEYS_CHANGE:
+        return None
+    return change_lag(geometry.stride, geometry.frame_step)
 
 
 def build_trainer(
@@ -713,6 +753,7 @@ def build_trainer(
     knn_cache_path: Path | None = None,
     text_encoder: str = TEXT_ENCODER_CLIP,
     log_every: int = 10,
+    grid_dir: Path | None = None,
 ) -> Trainer:
     """Dataset + model + :class:`Trainer` from one config, the way training does.
 
@@ -731,6 +772,7 @@ def build_trainer(
     check_input_manifest(clip_dir, cfg.v2.crn, cfg.v2.motion)
 
     knn_cache = load_knn_cache(knn_cache_path) if knn_cache_path else None
+    grid_lag = v5_grid_lag(cfg, grid_dir)
     require_flow = cfg.kip.enabled
     dataset = DVSFeatureDataset(
         data_dir=data_dir,
@@ -742,12 +784,17 @@ def build_trainer(
         require_flow=require_flow,
         knn_cache=knn_cache,
         seed=cfg.train.seed,
+        grid_dir=grid_dir if cfg.v5.readout != constants.V5_READOUT_OFF else None,
+        grid_lag=grid_lag,
     )
     class_names = load_class_names(data_dir)
 
     device = resolve_device(cfg.train.device)
     needs_clip = text_encoder == TEXT_ENCODER_CLIP and cfg.train.stage == STAGE_FULL
     model = KATVAD.from_config(cfg, load_clip=needs_clip)
+    if model.grid_readout is not None:
+        assert grid_dir is not None  # nosec B101 - v5_grid_lag refused a missing grid_dir
+        model.grid_readout.load_head(grid_dir / constants.V5_HEAD_FILENAME)
     text_encode_fn = make_text_encoder(
         model, text_encoder, device, dim=cfg.model.hidden_dim
     )
@@ -786,6 +833,7 @@ def main(argv: list[str] | None = None) -> None:
         knn_cache_path=args.knn_cache,
         text_encoder=args.text_encoder,
         log_every=args.log_every,
+        grid_dir=args.grid_dir,
     )
     if args.resume is not None:
         trainer.load_checkpoint(args.resume)

@@ -44,6 +44,7 @@ from core import constants
 from core.data.dota import parse_metadata, read_split_ids
 from core.data.v2_inputs import check_input_manifest, read_input_manifest
 from core.data.v2_splits import dota_group, load_split
+from core.data.v5_grids import eval_grid, v5_arm
 from core.device import resolve_device
 from core.metrics import cluster_bootstrap_ci, frame_auc
 from core.tools.kill_switch_probe import write_json_atomic, write_text_atomic
@@ -198,17 +199,20 @@ def score_checkpoint(
     check_input_manifest(args.input_dir, cfg.v2.crn, cfg.v2.motion)
     baked = check_baked_stride(args.input_dir, args.stride)
     class_names = load_class_names(args.data_dir)
+    grid = eval_grid(cfg.v5.readout, cfg.v5.keys, args.grid_dir, args.stride)
     protocol = Protocol(args.stride, None)
     native: dict[str, np.ndarray] = {}
     for video_id in ids:
         rows = input_rows(args.input_dir, video_id, native_frames[video_id], args.stride, baked)
+        if grid is not None:  # v5: the clip's grid (+ its own change), PREREG_V5 S2-4
+            rows = grid.append(rows, video_id, 0, native_frames[video_id])
         steps = score_steps(
             model, torch.from_numpy(rows), text_encode_fn, class_names, video_id, protocol
         )
         native[video_id] = to_native(steps, args.stride, native_frames[video_id])
     LOGGER.info("%s (step %d, crn=%s motion=%s): scored %d clips",
                 run.name, step, cfg.v2.crn, cfg.v2.motion, len(ids))
-    return native, step, {"crn": cfg.v2.crn, "motion": cfg.v2.motion}
+    return native, step, {"crn": cfg.v2.crn, "motion": cfg.v2.motion, **v5_arm(cfg.v5)}
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
@@ -307,6 +311,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--input-dir", type=Path, required=True,
                         help="DoTA_s1_ncc (A0) or a baked `apply --stride` DoTA cache (A1-A3)")
+    parser.add_argument("--grid-dir", type=Path, default=None,
+                        help="v5 checkpoints: V7 grid cache of the clips (Stage 0's DoTA-CAP s3)")
     parser.add_argument("--s1-dir", type=Path, required=True,
                         help="cache/clip/DoTA_s1_ncc: native frame count per clip")
     parser.add_argument("--metadata", type=Path, required=True, help="metadata_val.json")
