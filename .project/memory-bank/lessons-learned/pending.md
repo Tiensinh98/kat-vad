@@ -2155,3 +2155,4 @@ a planted in-box signal (expect GO) before any real number exists.
 **Rule:** Give attention queries an LR whose step budget can move their logits, and gate every query-readout run on its last-step entropy before reading any metric.
 **Files:** `core/train.py` (`optimizer_param_groups`), `core/tools/v5_stage1.py` (`collapse`), `core/docs/v5/PREREG_V5.md` §2.4 B13, `core/docs/v5/RESULTS_V5_STAGE2.md` §4.
 **Gate status.** Gates 1–5 true; one occurrence (measured, toy-reproduced). Promote if the B13 runs move.
+**2026-10-29 update.** B13 runs moved (logit std 0 → 0.2–0.6 in both) → the fix works mechanically; promote on the user's word. Caveat for the rule text: *moving ≠ concentrating* — both still sat at ≈ 40/49 effective tiles and R5q failed G0 (`RESULTS_V5_STAGE2B.md` §4). A mechanics gate tests the optimiser, not whether the features carry a local signal.
