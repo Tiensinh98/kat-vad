@@ -1,0 +1,71 @@
+{
+  "pass": false,
+  "require_moved": true,
+  "rule": "S1-G6 + \u00a72.4 B13 G0",
+  "runs": {
+    "R5dq/s2024": {
+      "did_not_leave_mean": false,
+      "entropy": {
+        "v5_entropy_q0": 3.7388086318969727,
+        "v5_entropy_q1": 3.744704008102417,
+        "v5_entropy_q2": 3.6946864128112793,
+        "v5_entropy_q3": 3.8134765625,
+        "v5_entropy_q4": 3.730447769165039,
+        "v5_entropy_q5": 3.753095865249634,
+        "v5_entropy_q6": 3.8102669715881348,
+        "v5_entropy_q7": 3.791588306427002
+      },
+      "entropy_bound": 3.887928477812516,
+      "finite": {
+        "mil": true,
+        "smil": true
+      },
+      "logit_std": {
+        "v5_logit_std_q0": 0.5447096824645996,
+        "v5_logit_std_q1": 0.5777422785758972,
+        "v5_logit_std_q2": 0.5989511609077454,
+        "v5_logit_std_q3": 0.37567001581192017,
+        "v5_logit_std_q4": 0.5681681036949158,
+        "v5_logit_std_q5": 0.493914395570755,
+        "v5_logit_std_q6": 0.3700997829437256,
+        "v5_logit_std_q7": 0.4532564580440521
+      },
+      "moved": true,
+      "moved_bound": 3.697229283205095,
+      "pass": true,
+      "step": 1749
+    },
+    "R5q/s2024": {
+      "did_not_leave_mean": false,
+      "entropy": {
+        "v5_entropy_q0": 3.7332465648651123,
+        "v5_entropy_q1": 3.778597831726074,
+        "v5_entropy_q2": 3.7142555713653564,
+        "v5_entropy_q3": 3.842839241027832,
+        "v5_entropy_q4": 3.762815475463867,
+        "v5_entropy_q5": 3.8221421241760254,
+        "v5_entropy_q6": 3.862809896469116,
+        "v5_entropy_q7": 3.788550615310669
+      },
+      "entropy_bound": 3.887928477812516,
+      "finite": {
+        "mil": true,
+        "smil": true
+      },
+      "logit_std": {
+        "v5_logit_std_q0": 0.5535913109779358,
+        "v5_logit_std_q1": 0.5797446370124817,
+        "v5_logit_std_q2": 0.5747848153114319,
+        "v5_logit_std_q3": 0.2965967059135437,
+        "v5_logit_std_q4": 0.5303128957748413,
+        "v5_logit_std_q5": 0.35934093594551086,
+        "v5_logit_std_q6": 0.23277202248573303,
+        "v5_logit_std_q7": 0.46228355169296265
+      },
+      "moved": false,
+      "moved_bound": 3.697229283205095,
+      "pass": false,
+      "step": 1749
+    }
+  }
+}
