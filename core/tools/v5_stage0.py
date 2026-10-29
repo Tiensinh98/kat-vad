@@ -1070,7 +1070,7 @@ def render_lag(out: dict[str, Any]) -> str:
 # --------------------------------------------------------------------------- CLI
 
 
-def _add_read_args(read: argparse.ArgumentParser) -> None:
+def add_read_args(read: argparse.ArgumentParser) -> None:
     read.add_argument("--reports", type=Path, nargs="+", required=True)
     read.add_argument("--maps-dir", type=Path, default=stage0_dir() / "maps")
     read.add_argument(
@@ -1114,9 +1114,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--tile", action="store_true",
         help="v5.1 (PREREG_V5 §3): centred 4x7x7 grids, gate G-c, no dev maps / CLIP patches",
     )
-    _add_read_args(sub.add_parser("readout", help="local: D1/D3/D2 + the S0-11 decision"))
+    add_read_args(sub.add_parser("readout", help="local: D1/D3/D2 + the S0-11 decision"))
     lag = sub.add_parser("lag", help="check L (§1.3): V7 change at row lags, printed only")
-    _add_read_args(lag)
+    add_read_args(lag)
     lag.add_argument("--grid-dir", type=Path, default=grid_out_dir(constants.V5_STAGE0_ENCODER))
     lag.add_argument("--lags", type=int, nargs="+", default=list(constants.V5_LAG_ROWS))
     lag.add_argument("--shifts", type=int, nargs="+", default=list(constants.V5_SHIFT_ROWS))

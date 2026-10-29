@@ -459,3 +459,40 @@ centre-prior and change maps under the row's own temporal scores; mass-in-box; t
 last-step mechanics (losses finite, `p` on abnormal vs normal videos, `T`, readout entropy / log 196). Runs may
 execute concurrently on one GPU (extraction, training, reads); concurrency changes no rule and no number's
 definition, and each run keeps its own seed.
+
+### §3.7 Check C — change maps vs the centre prior (written 2026-10-30, **after** the §3 pilot read-out; post-hoc, disclosed)
+
+**Why.** The pilot (`RESULTS_V5_TILE.md`) ended **PILOT-FAIL**; §3.3 is not reopened and no tuning run follows. The
+only argument left for a further v5 row (R7, §2 S2-12: MQR on CLIP patches) is Stage 0's C14 pointing (hit − chance
++0.288 on the 528 boxed clips). On the same 528 clips the centre prior's hit − chance on the **7 × 7** grid is
+≈ +0.30 (pilot: hit − chance − (hit − centre)). The two numbers sit on different grids (chance depends on tile size),
+so they are not comparable; check C reads them **paired on the same grid and steps**.
+
+**C-1 Set and inputs.** Stage 0's stored DoTA-CAP-dev change maps (`maps/<id>.npz`, Amendment 2 re-read: 569 / 569),
+the same 528 boxed clips, boxes, labels, ego flags and box-share bins as Stage 0. No training, no new extraction, no
+DoTA-CAP-eval label. Tool `core/tools/v5_centre_check.py`, runbook `colab/v5/check_c_centre.ipynb` (CPU).
+
+**C-2 Read.** Per clip, S2-8's pointing read (`v5_stage0.clip_read`: the most-changed tile hits a box) on the map and
+on the centre prior (S2-8's Gaussian, σ = ¼ grid) **on the map's grid**, restricted to the steps where the map is
+defined. Statistic: `hit − hit(centre)`, 95 % cluster bootstrap over DoTA source videos (S0-9).
+
+**C-3 Rule (primary = `C14`, native 14 × 14).** **CLIP-BEATS-CENTRE** iff the 95 % low of `C14` hit − centre > 0;
+otherwise **CENTRE-WINS**. **INVALID** if G-C0 fails or any dev clip is failed / missing.
+On a 14 × 14 grid the prior's four middle tiles tie and `argmax` takes tile (6, 6) — disclosed, not adjusted.
+
+**C-4 Gate G-C0.** `C14` hit − chance reproduces Stage 0's recorded value (`stage0_readout.json`) within
+`V5_G5_MAX_ABS` (1e-4).
+
+**C-5 Printed, never gating.** `C14` 2 × 2-mean pooled to 7 × 7 (one centre tile; the grid of the pilot's centre
+number); `V7`, `V14` (lag 1); for every map: hit − chance, centre − chance, mass-in-box − the centre prior's,
+mass − chance; hit − centre by ego and by box-share bin.
+
+**C-6 What the outcome licenses.**
+- **CENTRE-WINS** → v5 is closed. Report sentence: "no map tested in v5 — VideoMAE V2-S change (Stage 0), the trained
+  v5.1 tile maps, CLIP-patch change — points at the agent beyond a centre prior on DoTA-CAP-dev". R7 is not built.
+- **CLIP-BEATS-CENTRE** → CLIP-patch change carries spatial evidence beyond the centre prior. R7 becomes *eligible*
+  for a new amendment, on the user's word; the most it can claim is MAPS-ONLY (Stage 0 D2: CLIP top-k − global
+  non-ego +0.007, ns). It does **not** reopen §3 or license any v5.1 claim.
+
+**C-7 Predicted before the run (Claude, 2026-10-30):** CENTRE-WINS, from +0.288 (C14, 14 × 14) vs ≈ +0.30 (centre,
+7 × 7) — an unpaired, cross-grid comparison, hence the check.

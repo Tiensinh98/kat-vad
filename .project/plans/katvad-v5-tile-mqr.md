@@ -10,9 +10,9 @@ saturate ≈ 40/49 tiles). Branch to build on: new branch off `v5-probe` (sugges
 |---|---|---|
 | 0 | user decisions D-a…D-e (§3) + PREREG_V5 §3 drafted & signed | 2026-10-29: D-c = **fixed HP, 1 seed** (λ 0.5, K 4, β 0.01, s2024); §2 mapping + Nexar-only **approved**; D-a (s3) and D-b pending the user's reply; PREREG §3 not drafted |
 | 1 | code: centred 4×7×7 extraction, tile scorer, tile-level MIL, maps, eval reads | **BUILT 2026-10-29** on `v5-probe` (user: no new branch): see §8; PREREG_V5 §3 **drafted, not signed**; D-a = s3, D-b = row 4 dropped |
-| 2 | Colab extraction (Nexar train s8, Nexar val, DoTA-CAP) + gates | not started |
-| 3 | pilot, 1 seed (rows R1c/R3c/R5c/R6c[/R4c]) + λ/K/β selection | not started |
-| 4 | confirmation, 3 seeds, decision gates | only if pilot passes |
+| 2 | Colab extraction (Nexar train s8, Nexar val, DoTA-CAP) + gates | **DONE 2026-10-30**: G-c 1129/1129, S1-G1 563/563 + 225/225, S1-G4 PASS |
+| 3 | pilot, 1 seed (rows R1c/R3c/R6c; R5c not run; no λ/K/β selection) | **READ OUT 2026-10-30: PILOT-FAIL** (R6c fails (i) maps, (ii) `nexar_val` −0.024; R3c fails all three) → `core/docs/v5/RESULTS_V5_TILE.md`; check C (PREREG §3.7) built, not run |
+| 4 | confirmation, 3 seeds, decision gates | **not run** (pilot failed; §3.3) |
 | 5 | Stage 3 protocols (MSAD/TAD/CCD/DADA, full ladder) | only if Phase 4 supports MQR |
 
 ## 1. What changed in the proposal (code-relevant only)

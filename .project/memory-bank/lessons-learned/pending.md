@@ -2165,6 +2165,7 @@ a planted in-box signal (expect GO) before any real number exists.
 **Rule:** Remove the frame-wide component before scoring cells, and train each cell's score directly (dense negatives) instead of through a pooled bag score.
 **Files:** `core/models/mqr.py`, `core/losses/smil.py`, `core/docs/v5/PREREG_V5.md` §3.
 **Gate status.** Gate 2 (measured effect) **not yet** -- built 2026-10-29, unrun; promote only if the §3 pilot shows R6c's scorer separating tiles (maps beat the change map).
+**2026-10-30 update.** Pilot read: R6c's scorer does **not** separate tiles (`p` abnormal 0.122 vs normal 0.126, maps hit − chance −0.043, below the change map) → the "Good" did not work here; gate 2 fails. Do not promote; keep as a record that per-cell supervision alone does not create a local signal the features lack (`RESULTS_V5_TILE.md` §4).
 
 ## (cc) [MEDIUM] Resume - A "file is complete" check must accept the shape the writer produces (2026-10-29)
 **Triggers:** resume, skip finished, is_complete, grid_complete, ndim, 4-D grid, 5-D grid, todo, extraction
@@ -2174,3 +2175,12 @@ a planted in-box signal (expect GO) before any real number exists.
 **Rule:** Test the resume path with a finished file of the exact shape the extractor writes, not only the fresh path.
 **Files:** `core/tools/v5_stage0.py` (`grid_complete`, `todo`), `core/tools/v5_stage1.py`.
 **Gate status.** Found by reading, fixed 2026-10-29; no measured run cost (Stage 0 ran in one pass). Gate 2 (measured impact) not met.
+
+## (cd) [MEDIUM] Evaluation - Read a pointing map against a centre prior on the same grid and steps, never against chance or across grids (2026-10-30)
+**Triggers:** pointing, hit rate, hit - chance, centre prior, center bias, evidence map, STAUC, DoTA boxes, grid size, tile, localization
+**Problem:** v5 justified R7 (CLIP patches) by Stage 0's C14 hit − chance +0.288 on a 14 × 14 grid; on the same 528 DoTA-CAP-dev clips a fixed centre Gaussian scores hit − chance +0.303 on a 7 × 7 grid, and every trained v5 map lost to it by 0.30–0.35 — "points above chance" was mostly "points at the frame centre", and chance itself changes with tile size.
+**Bad:** `hit - chance` alone, or comparing a 14 × 14 map's lift with a 7 × 7 baseline's.
+**Good:** `hit(map) - hit(centre_prior(grid))` per clip on the map's own grid and defined steps, cluster bootstrap (`core/tools/v5_centre_check.py` `clip_reads`, `matched_prior`).
+**Rule:** Print a same-grid centre-prior baseline beside every spatial pointing number, and compare maps only on one grid.
+**Files:** `core/tools/v5_centre_check.py`, `core/tools/v5_maps.py` (`centre_prior`, `clip_point_reads`), `core/docs/v5/PREREG_V5.md` §3.7.
+**Gate status.** One occurrence (v5 Stage 0 → R7 argument); measured on the pilot (centre +0.303). Check C pending.

@@ -936,3 +936,5 @@ V5_TILE_SHIFT_ROWS = (-4, -3, -2, -1, 0, 1, 2, 3, 4)  # shift test offsets, in e
 V5_TILE_SHIFT_TOLERANCE = 1  # shift test passes iff the peak is within 1 row of 0
 V5_TILE_TOST_MARGIN = 0.01  # equivalence margin on the clip-macro AUC delta (two one-sided)
 V5_TILE_TOST_LEVEL = 0.90  # two one-sided 5 % tests = a 90 % interval inside +/- margin
+V5_CHECK_C_DIRNAME = "v5_check_c"  # §3.7: under OUTPUT_ROOT/V5_OUTPUT_DIRNAME: REPORTS/ only
+V5_CHECK_C_POOL = 2  # §3.7 printed read: C14 change map 2 x 2-mean pooled to the 7 x 7 grid
