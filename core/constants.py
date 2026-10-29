@@ -837,7 +837,15 @@ V5_SPAN_GAPS = VIDEOMAE_CLIP_FRAMES - 1  # S2-4: a window spans V5_SPAN_GAPS * s
 V5_READOUT_OFF = "none"  # v5.readout: no grid (every v1 / v2 checkpoint)
 V5_READOUT_MEAN = "mean"  # R1: the tile mean, nothing trainable in the readout
 V5_READOUT_MQR = "mqr"  # R3 / R5 / R5Δ: query attention over the 49 tiles (S2-4)
-V5_READOUTS = (V5_READOUT_OFF, V5_READOUT_MEAN, V5_READOUT_MQR)
+V5_READOUT_TILE = "tile"  # v5.1 R5c / R6c: tile scorer steers the readout (PREREG_V5 §3)
+V5_READOUT_CHANGE_TOPK = "change_topk"  # v5.1 R3c: untrained residual-and-change top-K cells
+V5_READOUTS = (
+    V5_READOUT_OFF,
+    V5_READOUT_MEAN,
+    V5_READOUT_MQR,
+    V5_READOUT_TILE,
+    V5_READOUT_CHANGE_TOPK,
+)
 V5_KEYS_CONTENT = "content"  # keys LN(G)
 V5_KEYS_CHANGE = "change"  # keys LN([G ; G - G_{t-l}]) (R5Δ)
 V5_KEYS = (V5_KEYS_CONTENT, V5_KEYS_CHANGE)
@@ -883,3 +891,48 @@ V5_F2_WEIGHT = V2_FINAL_FUSION_PRIMARY  # S2-14: v2's beyond-position f_2 = z(y)
 V5_B13_ROWS = ("R5q", "R5dq")  # §2.4 B13: P1 = R5q - R1, P2 = R5Δq - R1 (S2-7 statistic unchanged)
 V5_B13_MOVED_FRACTION = 0.95  # §2.4 B13 G0: >= 1 query below 0.95 log 49 at the last step = "moved"
 V5_STAGE2B_DIRNAME = "v5_stage2b"  # under OUTPUT_ROOT/V5_OUTPUT_DIRNAME: B13 runs + REPORTS/
+
+# ---------------------------------------------------------------------------
+# KAT-VAD v5.1 tile-scored MQR (core/docs/v5/PREREG_V5.md §3, proposal 2026-10-29 §3.2)
+# ---------------------------------------------------------------------------
+V5_TILE_DIRNAME = "v5_tile"  # under OUTPUT_ROOT/V5_OUTPUT_DIRNAME: <row>/s<seed>/ + REPORTS/
+V5_WINDOW_CAUSAL = "causal"  # 16 frames ending at the row (v2 / Stages 0-2 caches)
+V5_WINDOW_CENTRED = "centred"  # frames t - 8 step ... t + 7 step, edge frames repeated (§3.1)
+V5_WINDOWS = (V5_WINDOW_CAUSAL, V5_WINDOW_CENTRED)
+V5_CENTRE_LEAD = VIDEOMAE_CLIP_FRAMES // 2  # 8 clip frames before the row, 7 after
+V5_SLOTS_V7 = 1  # Stages 0-2: the 8 temporal slots averaged into one 7 x 7 grid
+V5_SLOTS_TILE = 4  # v5.1: consecutive pairs of the 8 slots kept -> 4 x 7 x 7
+V5_SLOT_POOL = 2  # VideoMAE slots averaged per kept slot (8 / 4)
+V5_TILE_CELLS = V5_SLOTS_TILE * V5_GRID_TILES  # 196 cells per step
+V5_TILE_GRID_WIDTH = V5_TILE_CELLS * V5_GRID_DIM  # columns a 4 x 7 x 7 grid adds to a row
+V5_TILE_HIDDEN = 128  # tile scorer W_1 in R^{128 x 2D}
+V5_TILE_TOPK_CELLS = 4  # K: cells per selected step in the abnormal MIL term (fixed, §3)
+V5_TILE_BETA = 0.01  # sparsity weight (fixed, §3)
+V5_TILE_LAMBDA = 0.5  # lambda of L_tile (fixed, §3; = Stage 2's smil weight)
+V5_TILE_TEMP_MIN = 0.05  # readout temperature T = exp(theta) clamped below
+V5_TILE_GRID_TAG = "grid4x7"  # cache dirname suffix: <dataset>_s<stride>_grid4x7
+V5_TILE_NEXAR_TRAIN_STRIDE = V5_NEXAR_TRAIN_STRIDE  # s1[::8], the training rows
+V5_TILE_NEXAR_VAL_STRIDE = NEXAR_EVAL_STRIDE  # s1[::3]; crop starts snapped to the phase-0 row
+V5_TILE_DOTA_STRIDE = V5_STAGE0_STRIDE  # DoTA-CAP s1[::3], protocol B
+V5_TILE_G_C_MIN_COS = V5_G0_MIN_COS  # G-c: fc_norm(mean of 196 cells) vs v2 squash, shifted row
+V5_TILE_SEED = V5_RUN_SEEDS[0]  # §3: one seed (s2024), result first
+V5_TILE_ROWS = {  # §3 row -> v5 overrides beyond v2 Nexar A2's (every row centred, 4 x 7 x 7)
+    "R1c": {"readout": V5_READOUT_MEAN, "smil_weight": 0.0},
+    "R3c": {"readout": V5_READOUT_CHANGE_TOPK, "smil_weight": 0.0},
+    "R5c": {"readout": V5_READOUT_TILE, "smil_weight": V5_TILE_LAMBDA,
+            "dense_negatives": False},
+    "R6c": {"readout": V5_READOUT_TILE, "smil_weight": V5_TILE_LAMBDA,
+            "dense_negatives": True},
+}
+V5_TILE_ROWS = {  # every v5.1 row reads the centred 4 x 7 x 7 cache
+    row: {**over, "grid_slots": V5_SLOTS_TILE, "window": V5_WINDOW_CENTRED}
+    for row, over in V5_TILE_ROWS.items()
+}
+V5_TILE_PILOT_ROWS = ("R1c", "R3c", "R6c")  # §3: R5c built, run only on the user's word
+V5_TILE_POS_BINS = 10  # position-controlled AUC (a): relative-position bins, cross-clip pairs only
+V5_TILE_POS_DEGREE = 3  # position-only score: cubic in t / (n - 1), fitted on the pilot set
+V5_TILE_POS_WEIGHT = V5_F2_WEIGHT  # position-controlled AUC (b): z(y) + 2 z(p), as v2's f_2
+V5_TILE_SHIFT_ROWS = (-4, -3, -2, -1, 0, 1, 2, 3, 4)  # shift test offsets, in eval-stride rows
+V5_TILE_SHIFT_TOLERANCE = 1  # shift test passes iff the peak is within 1 row of 0
+V5_TILE_TOST_MARGIN = 0.01  # equivalence margin on the clip-macro AUC delta (two one-sided)
+V5_TILE_TOST_LEVEL = 0.90  # two one-sided 5 % tests = a 90 % interval inside +/- margin

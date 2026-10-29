@@ -364,3 +364,98 @@ CAP alignment; DoTA pixels are gone), never beside LaGoVAD's 62.60. D9 DVS ancho
 0.8171 beside every DoTA-CAP-dev macro; v2's beyond-position `f_2` for P1/P2; `motion_share`, `‖W_u‖`, query
 entropy and query-map overlap; `nexar_val` whole-video macro; R7 rows. **Open before signing (user):** (a) R7 yes/no;
 (b) λ = 0.5, M = 8 fixed; (c) DVS `span` (D9).
+
+## §3 v5.1 — tile-scored MQR (proposal rewrite of 2026-10-29)
+
+**Status: SIGNED 2026-10-29 by the user, before any v5.1 grid, run or number existed.** Decisions: PASS rule
+(i)–(iii) as written; **R5c not run**; the cubic `p` is fitted on DoTA-CAP-dev itself.
+
+**Why §3 exists, disclosed.** Written *after* Stage 2 (queries never left the mean) and Stage 2b (B13 G0 FAIL: × 100
+queries saturate at ≈ 40 / 49 effective tiles). The proposal was rewritten on 2026-10-29 to replace the free queries
+with a tile scorer trained by a tile-level MIL loss. This is a post-hoc redesign of the readout; every v5.1 number is
+read against that history, and the Stage 2 / 2b nulls stay in the record. Nothing below was chosen after seeing a v5.1
+number: no v5.1 grid, run or read existed when this section was written.
+
+### §3.1 What changes (T1–T8)
+
+**T1 Grid.** V2-S last-layer tokens (8 × 14 × 14 × 384) reduced to **4 × 7 × 7** (consecutive slot pairs, then 2 × 2),
+196 cells, fp16. The mean over the 196 cells is the mean of all tokens (test `test_tile_grid_keeps_slot_pairs_...`).
+
+**T2 Window.** **Centred**: frames `t − 8·step … t + 7·step`, edge frames repeated (Nexar 30 fps, step 3: `t − 24 …
+t + 21`; DoTA 10 fps, step 1: `t − 8 … t + 7`). Every v5.1 row, R1c included, reads centred grids; Stages 0–2's causal
+grids are not mixed in (train / eval refuse a mismatched cache).
+
+**T3 Features.** `R = Q − med_j Q` over the 49 tiles of a slot, per channel; `Δ~_s = Q_{s+1} − Q_s` (last slot repeats
+`Δ~_3`), `Δ = Δ~ − med_j Δ~`; `F = [LN(R) ; LN(Δ)]`, LN without affine. Computed on the GPU from the cached grid.
+
+**T4 Tile scorer + readout (R5c / R6c).** `e = h(F)`, `h = Linear(768, 128) → GELU → Linear(128, 1)`, last layer zero;
+`a = softmax_i(e / T)`, `T = exp(θ)`, θ₀ = 0, `T ≥ 0.05`; `r = W_V Σ a·Q`, `W_V = I` at init. The motion term stays
+v2's (S2-13 D1): `c · (fc_norm(r) − m_u) / σ_u` into the zero-init `W_u`. At init the readout is the cell mean, i.e.
+R1c's function (test `test_tile_readout_starts_as_r1c`). θ has no weight decay; everything else as A2.
+
+**T5 L_tile.** `p = σ(e)`, `S_t = max_i p_{t,i}`, `ŝ = mean of the top-K cells of the top-k steps`, `k = max(⌊L/16⌋, 1)`,
+**K = 4**. Abnormal (DVS-synthesized included): `BCE(ŝ, 1)`. Normal: **R6c** `mean BCE(p, 0)` over every valid cell
+(dense negatives); **R5c** `BCE(ŝ, 0)` (bag negatives only). R6c also adds, on a synthesized abnormal sequence,
+`mean BCE(p, 0)` over its pseudo-normal steps except those within `⌈8·step / stride⌉` rows of an inserted boundary
+(Nexar s8: 3). Sparsity `β = 0.01` × (`mean p` abnormal, `mean p²` normal). Total `L_A2 + λ·L_tile`, **λ = 0.5**.
+
+**T6 R3c.** No scorer: the K = 4 cells of largest `|R| + |Δ|` (raw, before LN) are averaged, then `W_V` (= I at init).
+Its map is the untrained change map `max_s (|R| + |Δ|)`.
+
+**T7 Rows, seeds.** R1c (mean of 196 cells), R3c, R6c — **one seed, s2024**, hyperparameters fixed (user, 2026-10-29:
+result first; no λ / K / β selection runs). R5c is built and runs only on the user's word. Free-query row 4 not built
+(user). Training: v2 Nexar A2's recipe (`window`, s8, 1,749 steps, `span`), only the `v5` section differs (S1-G4).
+
+**T8 Evidence map.** `E_t(j) = max_s p_{t,s,j}` (R5c / R6c); R3c's map is T6's change map. Same S2-8 pointing read,
+plus mass-in-box (`Σ E·w / Σ E`, `w` = box cover per tile, chance = `mean w`), plus "hit − change map" and "mass −
+change map" against the clip's own untrained change map.
+
+### §3.2 Sets and extraction gates
+
+**Sets.** Training: `nexar_train` positives + negatives at **s8**, centred 4 × 7 × 7. Guardrail: `nexar_val` at **s3**
+(D-a, user 2026-10-29): eval crops whose start is not on the s3 phase are read from the phase-0 rows, `start − start % 3`
+(< 3 frames = 0.1 s earlier; **deviation from B1**). Pilot read: **DoTA-CAP-dev** at protocol B (s3, whole clip), the
+set the proposal calls the "DoTA-train pilot subset" (DoTA-train has no pixels). DoTA-CAP-eval stays sealed for v5.1
+until §3.4's confirmation.
+
+**G-c (extraction).** On every row whose centred clip is unclamped, `fc_norm(mean of the 196 cells)` is compared with
+v2's causal `*_s1_squash` row `t + 7·step` (the same 16 frames): DoTA-CAP min cos ≥ 0.9999 per clip (Stage 0's G0;
+a failing clip stores nothing); Nexar length-gated, cos printed (§2.4 B9 unchanged).
+
+### §3.3 Pilot reads (`core/tools/v5_tile_read.py`; outcome labelled PRELIMINARY, n = 1)
+
+Against R1c on DoTA-CAP-dev: clip-macro Δ (95 % cluster bootstrap over source videos) with TOST at ±0.01 (90 %
+interval: equivalent / different / inconclusive); **position-controlled AUC (a)** cross-clip pairs in 10 relative-
+position bins (point, printed); **(b)** per-clip AUC of `z(y) + 2 z(p)`, `p` a cubic in `t / (n − 1)` least-squares-fitted
+to the same clips' labels; gain beyond `p` and Δ vs R1c (95 %); **shift test** on the score sequence, offsets −4 … +4
+s3 rows, peak must be within 1 row of 0 (printed for every row; a failing R1c means the window is mis-centred and is
+reported before any other read); **time-reversed control** (`protocol_b_eval --reverse-time`), printed.
+
+**Pilot gate (per candidate R6c; R3c printed through the same table).** PASS iff all of:
+(i) maps: `hit − centre prior` **and** `hit − change map` 95 % lows > 0 (`beats_centre_and_change`);
+(ii) `nexar_val` crop endpoint ≥ R1c's − 0.01 (S2-9's margin; one seed has no spread);
+(iii) position-controlled (b) Δ vs R1c: 95 % high ≥ 0 (not shown below).
+PASS → §3.4. FAIL → v5.1 is written up as a negative result with these reads; no tuning run follows.
+
+### §3.4 Confirmation (only after PILOT-PASS)
+
+R1c, R3c, R6c at s2025, s2026; DoTA-CAP-eval opened once (`--final`). Supported iff, over 3 seeds, the 95 % paired
+interval of position-controlled (b) Δ **or** of (hit − centre, hit − change) excludes 0, with no `nexar_val` regression
+beyond 0.01. TOST printed. Not licensed by the pilot: any "MQR improves detection" sentence.
+
+### §3.5 Cost (estimate, printed before the run)
+
+Grids fp16 150.5 KB / row: `nexar_train` s8 81.5 k rows ≈ **12.3 GB**; `nexar_val` s3 ≈ 85.7 k rows ≈ **12.9 GB**;
+DoTA-CAP s3 ≈ 37 k rows ≈ **5.6 GB**; total ≈ **31 GB** on Drive. Extraction ≈ 1.5 h + 1.5 h (A100, from Stage 1's
+measured 87 min for 81.5 k windows) + ≈ 2–4 h I/O-bound CAP stream. Training 3 runs × ≈ 0.3–0.7 h, evals ≈ 0.2–0.3 h
+each (one timing run first). Total ≈ **7–10 A100-hours**.
+
+**Closed at signing (2026-10-29):** (a) PASS rule (i)–(iii) as written; (b) R5c built, **not run**; (c) the cubic
+`p` is fitted on DoTA-CAP-dev itself (pilot = the proposal's "pilot subset").
+
+**§3.6 Printed with the pilot (proposal §4.4; never gating).** AP (clip macro, pooled after min-max); AUC and (b)
+by ego-involved / ego-uninvolved and by box-share bin (Δ vs R1c, 95 %); STAUC of each map row beside the uniform,
+centre-prior and change maps under the row's own temporal scores; mass-in-box; time-reversed − forward macro;
+last-step mechanics (losses finite, `p` on abnormal vs normal videos, `T`, readout entropy / log 196). Runs may
+execute concurrently on one GPU (extraction, training, reads); concurrency changes no rule and no number's
+definition, and each run keeps its own seed.

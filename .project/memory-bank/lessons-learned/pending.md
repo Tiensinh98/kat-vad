@@ -2156,3 +2156,21 @@ a planted in-box signal (expect GO) before any real number exists.
 **Files:** `core/train.py` (`optimizer_param_groups`), `core/tools/v5_stage1.py` (`collapse`), `core/docs/v5/PREREG_V5.md` §2.4 B13, `core/docs/v5/RESULTS_V5_STAGE2.md` §4.
 **Gate status.** Gates 1–5 true; one occurrence (measured, toy-reproduced). Promote if the B13 runs move.
 **2026-10-29 update.** B13 runs moved (logit std 0 → 0.2–0.6 in both) → the fix works mechanically; promote on the user's word. Caveat for the rule text: *moving ≠ concentrating* — both still sat at ≈ 40/49 effective tiles and R5q failed G0 (`RESULTS_V5_STAGE2B.md` §4). A mechanics gate tests the optimiser, not whether the features carry a local signal.
+
+## (cb) [MEDIUM] Design - A readout trained only through a pooled score gets no per-cell signal; give every cell its own loss (2026-10-29)
+**Triggers:** attention pooling, readout, tile, MIL, dense negatives, softmax plateau, zero-init, near-identical tokens, frame-wide component
+**Problem:** v5 Stages 2 / 2b trained free queries only through `max_m` of pooled query scores; near-identical tiles (a shared frame-wide component dominates) give a covariance-sized gradient at a uniform start, so the queries barely moved (×1) or saturated at ≈ 40 / 49 tiles (×100).
+**Bad:** `a = softmax(u · LN(G) / √d)` with `u = 0`, trained only by `BCE(max_m s_m, y)`.
+**Good:** `e = h([LN(G − med G) ; LN(Δ − med Δ)])` per cell (last layer zero), `L_tile` with top-K cells on abnormal and BCE on every cell of normal videos, readout `softmax(e / T)` (`core/models/mqr.py` `TileReadout`, `core/losses/smil.py` `tile_mil_loss`).
+**Rule:** Remove the frame-wide component before scoring cells, and train each cell's score directly (dense negatives) instead of through a pooled bag score.
+**Files:** `core/models/mqr.py`, `core/losses/smil.py`, `core/docs/v5/PREREG_V5.md` §3.
+**Gate status.** Gate 2 (measured effect) **not yet** -- built 2026-10-29, unrun; promote only if the §3 pilot shows R6c's scorer separating tiles (maps beat the change map).
+
+## (cc) [MEDIUM] Resume - A "file is complete" check must accept the shape the writer produces (2026-10-29)
+**Triggers:** resume, skip finished, is_complete, grid_complete, ndim, 4-D grid, 5-D grid, todo, extraction
+**Problem:** `v5_stage0.todo` skipped finished DoTA-CAP clips with `feature_cache.is_complete`, which accepts only 2-D arrays; Stage 0's (K, 7, 7, D) grids and v5.1's (K, 4, 7, 7, D) grids never counted as done, so any resumed extraction silently re-did every clip (hours of CAP-tar streaming) while looking correct.
+**Bad:** `is_complete(grid_dir / f"{v}.npy")` for a 4-D / 5-D cache.
+**Good:** one shape-aware check shared by every writer of that cache (`v5_stage0.grid_complete`: `ndim in (4, 5)`), plus a test that a finished file of the real shape is skipped (`test_stage0_todo_skips_finished_tile_grids`).
+**Rule:** Test the resume path with a finished file of the exact shape the extractor writes, not only the fresh path.
+**Files:** `core/tools/v5_stage0.py` (`grid_complete`, `todo`), `core/tools/v5_stage1.py`.
+**Gate status.** Found by reading, fixed 2026-10-29; no measured run cost (Stage 0 ran in one pass). Gate 2 (measured impact) not met.

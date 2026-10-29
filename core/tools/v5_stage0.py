@@ -18,7 +18,7 @@ import json
 import logging
 import math
 import shutil
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -30,13 +30,14 @@ from torch import Tensor
 from core import constants
 from core.data.dota import parse_metadata, read_split_ids
 from core.data.v2_splits import dota_group, load_split
+from core.data.v5_grids import centred_reference
 from core.data.video_io import list_frame_images, read_images
 from core.device import resolve_device
 from core.metrics import cluster_bootstrap_ci, frame_auc
 from core.models.videomae_v2 import VideoMAEv2Encoder, load_pretrained
 from core.tools import extract_clip_features, extract_video_features
 from core.tools.dota_cap import file_sha256, frame_cosines, rebuild_folder
-from core.tools.feature_cache import is_complete, read_ids_file, save_array
+from core.tools.feature_cache import read_ids_file, save_array
 from core.tools.kill_switch_probe import write_json_atomic, write_text_atomic
 from core.tools.rate_matched_eval import native_labels, to_native
 from core.tools.stream_frames_clip import stream_video_batches
@@ -74,6 +75,24 @@ def token_grids(tokens: Tensor, fine: int = constants.V5_GRID_FINE) -> tuple[Ten
     half = fine // 2
     coarse = fine_grid.reshape(batch, half, 2, half, 2, dim).mean((2, 4))
     return fine_grid, coarse
+
+
+def tile_grid(tokens: Tensor, fine: int = constants.V5_GRID_FINE) -> Tensor:
+    """``(B, 8 * f * f, D)`` tokens -> ``(B, 4, f/2, f/2, D)`` (v5.1, PREREG_V5 §3).
+
+    Consecutive pairs of the 8 temporal slots and 2 x 2 tiles are averaged; both are equal-weight
+    means, so the mean over all 196 cells is the mean of all tokens (the same starting function).
+    """
+    batch, count, dim = tokens.shape
+    slots = count // (fine * fine)
+    if slots * fine * fine != count or slots != constants.V5_SLOTS_TILE * constants.V5_SLOT_POOL:
+        raise ValueError(f"{count} tokens are not 8 x {fine} x {fine}")
+    half = fine // 2
+    grid = tokens.reshape(
+        batch, constants.V5_SLOTS_TILE, constants.V5_SLOT_POOL, half, 2, half, 2, dim
+    )
+    out: Tensor = grid.mean((2, 4, 6))
+    return out
 
 
 def _cos_rows(a: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -141,6 +160,25 @@ def tile_weights(
 # --------------------------------------------------------------------------- encoders
 
 
+def _clip_tokens(
+    paths: list[Path],
+    clips: list[list[int]],
+    encoder: VideoMAEv2Encoder,
+    device: torch.device,
+    batch_size: int,
+) -> Iterator[Tensor]:
+    """Last-layer tokens ``(B, 1568, D)`` of each batch of clips (frame indices into ``paths``)."""
+    frames = extract_video_features.decode_frames(paths, sorted({i for c in clips for i in c}))
+    for start in range(0, len(clips), batch_size):
+        batch = torch.stack(
+            [
+                torch.stack([frames[i] for i in clip], dim=1)
+                for clip in clips[start : start + batch_size]
+            ]
+        ).to(device)
+        yield encoder.forward_tokens(batch).float()
+
+
 @torch.no_grad()
 def video_grids(
     paths: list[Path],
@@ -154,21 +192,35 @@ def video_grids(
         extract_video_features.causal_clip_indices(t, step=constants.DOTA_VIDEOMAE_FRAME_STEP)
         for t in steps
     ]
-    frames = extract_video_features.decode_frames(paths, sorted({i for c in clips for i in c}))
     fine, coarse, pooled = [], [], []
-    for start in range(0, len(clips), batch_size):
-        batch = torch.stack(
-            [
-                torch.stack([frames[i] for i in clip], dim=1)
-                for clip in clips[start : start + batch_size]
-            ]
-        ).to(device)
-        tokens = encoder.forward_tokens(batch).float()
+    for tokens in _clip_tokens(paths, clips, encoder, device, batch_size):
         v14, v7 = token_grids(tokens)
         fine.append(v14.cpu())
         coarse.append(v7.cpu())
         pooled.append(encoder.fc_norm(tokens.mean(1)).float().cpu())
     return (torch.cat(fine).numpy(), torch.cat(coarse).numpy(), torch.cat(pooled).numpy())
+
+
+@torch.no_grad()
+def video_tile_grids(
+    paths: list[Path],
+    steps: list[int],
+    encoder: VideoMAEv2Encoder,
+    device: torch.device,
+    batch_size: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """v5.1: ``4 x 7 x 7`` grids and ``fc_norm(mean tokens)`` of the clip centred on each step."""
+    clips = [
+        extract_video_features.centred_clip_indices(
+            t, len(paths), step=constants.DOTA_VIDEOMAE_FRAME_STEP
+        )
+        for t in steps
+    ]
+    tiles, pooled = [], []
+    for tokens in _clip_tokens(paths, clips, encoder, device, batch_size):
+        tiles.append(tile_grid(tokens).cpu())
+        pooled.append(encoder.fc_norm(tokens.mean(1)).float().cpu())
+    return torch.cat(tiles).numpy(), torch.cat(pooled).numpy()
 
 
 @torch.no_grad()
@@ -209,13 +261,13 @@ def passes_row_gate(cos: np.ndarray) -> bool:
     return bool(cos.min() >= constants.DOTA_CAP_MIN_COS)
 
 
-def grid_out_dir(encoder: str) -> Path:
-    return (
-        constants.CACHE_ROOT
-        / constants.V5_GRID_CACHE_DIRNAME
-        / encoder
-        / constants.V5_GRID_DATASET_TAG
+def grid_out_dir(encoder: str, tile: bool = False) -> Path:
+    tag = (
+        f"{constants.DOTA_CAP_DATASET}_s{constants.V5_TILE_DOTA_STRIDE}_{constants.V5_TILE_GRID_TAG}"
+        if tile
+        else constants.V5_GRID_DATASET_TAG
     )
+    return constants.CACHE_ROOT / constants.V5_GRID_CACHE_DIRNAME / encoder / tag
 
 
 def stage0_dir() -> Path:
@@ -236,7 +288,7 @@ class Stage0Extractor:
     encoder: VideoMAEv2Encoder
     clip_model: Any
     v2_cache: Path
-    dota_clip_dir: Path
+    dota_clip_dir: Path | None
     grid_dir: Path
     maps_dir: Path
     farm: Path
@@ -246,6 +298,7 @@ class Stage0Extractor:
     report: dict[str, dict[str, Any]]
     save_report: Callable[[], None]
     stride: int = constants.V5_STAGE0_STRIDE
+    tile: bool = False  # v5.1: centred 4 x 7 x 7 grids, G0 on the shifted rows, no dev maps
     done: list[str] = field(default_factory=list)
 
     def __call__(self, ready_dir: Path) -> None:
@@ -271,10 +324,12 @@ class Stage0Extractor:
         if abs(entry["aspect"] / ASPECT - 1.0) > constants.V5_ASPECT_TOLERANCE:
             return {**entry, "reason": "g2_aspect"}
         steps = extract_video_features.step_end_frames(len(paths), self.stride)
-        v14, v7, pooled = video_grids(paths, steps, self.encoder, self.device, self.batch_size)
         ref = np.load(self.v2_cache / f"{dota_id}.npy")
         if len(ref) != len(paths):
             return {**entry, "reason": "g0_length"}
+        if self.tile:
+            return {**entry, **self._encode_tile(dota_id, paths, steps, ref)}
+        v14, v7, pooled = video_grids(paths, steps, self.encoder, self.device, self.batch_size)
         entry["g0_min_cos"] = float(_cos_rows(pooled, ref[steps]).min())
         if entry["g0_min_cos"] < constants.V5_G0_MIN_COS:
             return {**entry, "reason": "g0_cos"}
@@ -283,6 +338,7 @@ class Stage0Extractor:
             embeds, cgrid, worst = clip_patches(
                 paths, steps, self.clip_model, self.device, self.batch_size
             )
+            assert self.dota_clip_dir is not None  # nosec B101 - run_extract requires it
             s1 = np.load(self.dota_clip_dir / f"{dota_id}.npy")
             cos = frame_cosines(embeds, s1[steps])
             entry |= {"g1_max_abs": worst, "pixel_min_cos": float(cos.min())}
@@ -314,8 +370,41 @@ class Stage0Extractor:
         )
         return {**entry, "steps": len(steps), "reason": OK}
 
+    def _encode_tile(
+        self, dota_id: str, paths: list[Path], steps: list[int], ref: np.ndarray
+    ) -> dict[str, Any]:
+        """v5.1 gate G-c: ``fc_norm`` of the cell mean == the v2 row of the same frames."""
+        tiles, pooled = video_tile_grids(paths, steps, self.encoder, self.device, self.batch_size)
+        keep, index = centred_reference(
+            np.asarray(steps), constants.DOTA_VIDEOMAE_FRAME_STEP, len(paths)
+        )
+        entry: dict[str, Any] = {"g0_rows": int(keep.sum())}
+        if keep.any():
+            entry["g0_min_cos"] = float(_cos_rows(pooled[keep], ref[index]).min())
+            if entry["g0_min_cos"] < constants.V5_TILE_G_C_MIN_COS:
+                return {**entry, "reason": "g0_cos"}
+        save_array(self.grid_dir / f"{dota_id}.npy", tiles.astype(np.float16))
+        LOGGER.info("%s: %d steps (centred 4x7x7), G-c rows %d", dota_id, len(steps), keep.sum())
+        return {**entry, "steps": len(steps), "reason": OK}
 
-def grid_manifest(encoder: str, alignment_sha256: str) -> dict[str, Any]:
+
+def grid_manifest(encoder: str, alignment_sha256: str, tile: bool = False) -> dict[str, Any]:
+    if tile:
+        return {
+            "encoder": encoder,
+            "weights_sha256": constants.VIDEOMAE_WEIGHTS_SHA256[encoder],
+            "stride": constants.V5_TILE_DOTA_STRIDE,
+            "frame_step": constants.DOTA_VIDEOMAE_FRAME_STEP,
+            "slots": constants.V5_SLOTS_TILE,
+            "window_kind": constants.V5_WINDOW_CENTRED,
+            "rows": f"s1[::{constants.V5_TILE_DOTA_STRIDE}] (protocol B)",
+            "window": "centred 16 frames t-8..t+7, edge frames repeated",
+            "grid": "4x7x7: pairs of the 8 slots, then 2x2, last layer before fc_norm",
+            "dtype": "float16",
+            "transform": extract_video_features.TRANSFORM_NAME,
+            "alignment_sha256": alignment_sha256,
+            "rule": "core/docs/v5/PREREG_V5.md §3",
+        }
     return {
         "encoder": encoder,
         "weights_sha256": constants.VIDEOMAE_WEIGHTS_SHA256[encoder],
@@ -330,6 +419,17 @@ def grid_manifest(encoder: str, alignment_sha256: str) -> dict[str, Any]:
     }
 
 
+def grid_complete(path: Path) -> bool:
+    """A readable ``(T, [4,] 7, 7, D)`` grid (``feature_cache.is_complete`` only accepts 2-D)."""
+    if not path.exists():
+        return False
+    try:
+        array = np.load(path, mmap_mode="r")
+    except (OSError, ValueError, EOFError):
+        return False
+    return bool(array.ndim in (4, 5) and array.shape[0] > 0)
+
+
 def todo(
     alignment: dict[str, Any],
     ids: list[str],
@@ -338,6 +438,7 @@ def todo(
     dev: set[str],
     report: dict[str, dict[str, Any]],
     retry: frozenset[str] = frozenset(),
+    maps: bool = True,
 ) -> list[dict[str, Any]]:
     """Clips still to extract; a clip that failed for a reason in ``retry`` is redone."""
     out = []
@@ -349,8 +450,10 @@ def todo(
         if done is not None and (
             done["reason"] != OK
             or (
-                is_complete(grid_dir / f"{dota_id}.npy")
-                and (dota_id not in dev or (maps_dir / f"{dota_id}{MAP_SUFFIX}").exists())
+                grid_complete(grid_dir / f"{dota_id}.npy")
+                and (
+                    not maps or dota_id not in dev or (maps_dir / f"{dota_id}{MAP_SUFFIX}").exists()
+                )
             )
         ):
             continue
@@ -364,15 +467,19 @@ def run_extract(args: argparse.Namespace) -> None:
     if any(alignment["clips"][i]["reason"] != OK for i in ids):
         raise ValueError("finalized DoTA-CAP id not aligned ok -- wrong alignment file")
     dev = set(load_split(constants.V2_SPLIT_DOTA_CAP_DEV))
-    grid_dir, maps_dir = args.grid_dir or grid_out_dir(args.encoder), args.out_dir / "maps"
+    tile = bool(args.tile)
+    grid_dir = args.grid_dir or grid_out_dir(args.encoder, tile)
+    maps_dir = args.out_dir / "maps"
     grid_dir.mkdir(parents=True, exist_ok=True)
     maps_dir.mkdir(parents=True, exist_ok=True)
-    manifest = grid_manifest(args.encoder, file_sha256(args.alignment))
+    manifest = grid_manifest(args.encoder, file_sha256(args.alignment), tile)
     extract_video_features.check_or_write_manifest(grid_dir, manifest, force=False)
     report: dict[str, dict[str, Any]] = (
         json.loads(args.report.read_text(encoding="utf-8")) if args.report.exists() else {}
     )
-    work = todo(alignment, ids, grid_dir, maps_dir, dev, report, frozenset(args.retry))
+    work = todo(
+        alignment, ids, grid_dir, maps_dir, dev, report, frozenset(args.retry), maps=not tile
+    )
     if args.cap_ids_file is not None:
         group = read_ids_file(args.cap_ids_file)
         work = [c for c in work if c["cap_id"] in group]
@@ -381,7 +488,12 @@ def run_extract(args: argparse.Namespace) -> None:
         return
     need = [c["dota_id"] for c in work]
     missing = [v for v in need if not (args.v2_cache / f"{v}.npy").exists()]
-    missing += [v for v in need if v in dev and not (args.dota_clip_dir / f"{v}.npy").exists()]
+    if not tile:
+        if args.dota_clip_dir is None:
+            raise ValueError("--dota-clip-dir is required without --tile (G1, D0)")
+        missing += [
+            v for v in need if v in dev and not (args.dota_clip_dir / f"{v}.npy").exists()
+        ]
     if missing:
         raise FileNotFoundError(f"{len(missing)} reference rows missing (G0/G1): {missing[:5]}")
     by_cap: dict[str, list[dict[str, Any]]] = {}
@@ -392,7 +504,7 @@ def run_extract(args: argparse.Namespace) -> None:
         by_cap=by_cap,
         dev=dev,
         encoder=load_pretrained(args.encoder, device, None),
-        clip_model=extract_clip_features.load_pretrained_encoder(device),
+        clip_model=None if tile else extract_clip_features.load_pretrained_encoder(device),
         v2_cache=args.v2_cache,
         dota_clip_dir=args.dota_clip_dir,
         grid_dir=grid_dir,
@@ -403,6 +515,7 @@ def run_extract(args: argparse.Namespace) -> None:
         batch_size=args.batch_size,
         report=report,
         save_report=lambda: write_json_atomic(args.report, report),
+        tile=tile,
     )
     LOGGER.info(
         "Stage 0: %d DoTA-CAP clips (%d dev) from %d CAP videos",
@@ -982,7 +1095,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     ext.add_argument("--final-readout", type=Path, required=True, help="dota_cap_readout.json")
     ext.add_argument("--parts", type=Path, nargs="+", required=True)
     ext.add_argument("--work-dir", type=Path, required=True)
-    ext.add_argument("--dota-clip-dir", type=Path, required=True, help="DoTA_s1_ncc (G1, D0)")
+    ext.add_argument("--dota-clip-dir", type=Path, default=None,
+                     help="DoTA_s1_ncc (G1, D0); not read with --tile")
     ext.add_argument("--v2-cache", type=Path, required=True, help="V2-S DoTA_CAP_s1_squash (G0)")
     ext.add_argument("--report", type=Path, required=True)
     ext.add_argument("--out-dir", type=Path, default=stage0_dir())
@@ -995,6 +1109,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     ext.add_argument("--device", default="auto")
     ext.add_argument(
         "--retry", nargs="*", default=[], help="redo clips that failed for these reasons (Am. 2)"
+    )
+    ext.add_argument(
+        "--tile", action="store_true",
+        help="v5.1 (PREREG_V5 §3): centred 4x7x7 grids, gate G-c, no dev maps / CLIP patches",
     )
     _add_read_args(sub.add_parser("readout", help="local: D1/D3/D2 + the S0-11 decision"))
     lag = sub.add_parser("lag", help="check L (§1.3): V7 change at row lags, printed only")

@@ -74,6 +74,25 @@ def causal_clip_indices(
     return [max(0, end_frame - step * (frames - 1 - k)) for k in range(frames)]
 
 
+def centred_clip_indices(
+    centre_frame: int,
+    num_frames: int,
+    frames: int = constants.VIDEOMAE_CLIP_FRAMES,
+    step: int = constants.VIDEOMAE_CLIP_FRAME_STEP,
+    lead: int = constants.V5_CENTRE_LEAD,
+) -> list[int]:
+    """Raw frame indices of the clip centred on ``centre_frame`` (v5.1, PREREG_V5 §3).
+
+    Frames ``t - lead * step ... t + (frames - 1 - lead) * step``, oldest first; indices outside
+    ``[0, num_frames)`` repeat the edge frame. Away from the edges it is the causal clip ending
+    ``(frames - 1 - lead) * step`` frames later.
+    """
+    if num_frames < 1:
+        raise ValueError(f"num_frames must be >= 1, got {num_frames}")
+    first = centre_frame - lead * step
+    return [min(max(0, first + step * k), num_frames - 1) for k in range(frames)]
+
+
 def shuffled_frame_order(
     seed: int, frames: int = constants.VIDEOMAE_CLIP_FRAMES
 ) -> list[int]:

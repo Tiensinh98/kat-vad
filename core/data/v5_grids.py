@@ -39,16 +39,36 @@ def change_lag(stride: int, frame_step: int) -> int:
     return math.ceil((constants.V5_SPAN_GAPS * frame_step + 1) / stride)
 
 
+GRID_WIDTHS = (constants.V5_GRID_WIDTH, constants.V5_TILE_GRID_WIDTH)  # V7 | 4 x 7 x 7
+
+
+def centred_reference(
+    rows: np.ndarray, frame_step: int, num_frames: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """Which centred rows equal a causal ``*_s1_squash`` row, and that row (v5.1 gate G-c).
+
+    The clip centred on ``t`` is the causal clip ending ``(16 - 1 - lead) * step`` frames later,
+    unless either end is clamped. Returns ``(keep (len(rows),) bool, s1 index of the kept rows)``.
+    """
+    rows = np.asarray(rows, dtype=np.int64)
+    lead = constants.V5_CENTRE_LEAD * frame_step
+    lag = (constants.VIDEOMAE_CLIP_FRAMES - 1 - constants.V5_CENTRE_LEAD) * frame_step
+    keep: np.ndarray = (rows - lead >= 0) & (rows + lag < num_frames)
+    index: np.ndarray = rows[keep] + lag
+    return keep, index
+
+
 def flat_grid(grid: np.ndarray) -> np.ndarray:
-    """``(T, 7, 7, D)`` or ``(T, 49, D)`` -> ``(T, 49 * D)`` (tile-major, channel-minor)."""
+    """``(T, [4,] 7, 7, D)`` or ``(T, cells, D)`` -> ``(T, cells * D)`` (slot, tile, channel).
+
+    V7 rows (Stages 0-2) hold 49 cells, v5.1 rows 196 (4 slots x 49 tiles, PREREG_V5 §3).
+    """
     rows = np.asarray(grid)
-    if rows.ndim not in (3, 4):
-        raise ValueError(f"a grid is (T, 7, 7, D) or (T, 49, D), got shape {rows.shape}")
+    if rows.ndim not in (3, 4, 5):
+        raise ValueError(f"a grid is (T, [S,] 7, 7, D) or (T, cells, D), got shape {rows.shape}")
     flat: np.ndarray = rows.reshape(len(rows), -1)
-    if flat.shape[1] != constants.V5_GRID_WIDTH:
-        raise ValueError(
-            f"grid rows have {flat.shape[1]} values, expected {constants.V5_GRID_WIDTH}"
-        )
+    if flat.shape[1] not in GRID_WIDTHS:
+        raise ValueError(f"grid rows have {flat.shape[1]} values, expected one of {GRID_WIDTHS}")
     return flat
 
 
@@ -86,7 +106,9 @@ class GridGeometry:
     """How a grid cache's rows map to native frames."""
 
     stride: int  # cache row k = native frame k * stride
-    frame_step: int  # VideoMAE frame step of the causal window ending at each row
+    frame_step: int  # VideoMAE frame step of the window at each row
+    slots: int = constants.V5_SLOTS_V7  # temporal slots kept per row (v5.1: 4)
+    window: str = constants.V5_WINDOW_CAUSAL  # causal (Stages 0-2) | centred (v5.1)
 
 
 def read_grid_geometry(grid_dir: Path) -> GridGeometry:
@@ -100,18 +122,40 @@ def read_grid_geometry(grid_dir: Path) -> GridGeometry:
         raise FileNotFoundError(f"no grid manifest in {grid_dir}")
     manifest: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
     if "stride" in manifest and "frame_step" in manifest:
-        return GridGeometry(int(manifest["stride"]), int(manifest["frame_step"]))
+        return GridGeometry(
+            int(manifest["stride"]),
+            int(manifest["frame_step"]),
+            int(manifest.get("slots", constants.V5_SLOTS_V7)),
+            str(manifest.get("window_kind", constants.V5_WINDOW_CAUSAL)),
+        )
     stage0_rows = f"s1[::{constants.V5_STAGE0_STRIDE}] (protocol B)"
     if manifest.get("rows") == stage0_rows:
         return GridGeometry(constants.V5_STAGE0_STRIDE, constants.DOTA_VIDEOMAE_FRAME_STEP)
     raise ValueError(f"{path}: no stride / frame_step and not Stage 0's DoTA-CAP cache")
 
 
+def tile_boundary_rows(geometry: GridGeometry, stride: int) -> int:
+    """Rows around an inserted DVS boundary left out of L_tile's dense negatives (PREREG_V5 §3).
+
+    A centred clip reaches ``V5_CENTRE_LEAD * frame_step`` native frames before its row; at
+    ``stride`` that is ``ceil(lead * step / stride)`` rows (Nexar s8: 3).
+    """
+    return math.ceil(constants.V5_CENTRE_LEAD * geometry.frame_step / stride)
+
+
 def item_grid(
     grid: np.ndarray, geometry: GridGeometry, start: int, end: int, stride: int
 ) -> np.ndarray:
-    """Grid rows of native frames ``range(start, end, stride)`` from a cache at ``geometry``."""
+    """Grid rows of native frames ``range(start, end, stride)`` from a cache at ``geometry``.
+
+    v5.1 (PREREG_V5 §3, ``nexar_val`` at s3): a centred cache at the item's own stride serves an
+    item of any phase by snapping it to the phase-0 rows, ``start - start % stride`` (< ``stride``
+    frames earlier); any other off-grid read raises (Stages 0-2 caches unchanged).
+    """
     frames = np.arange(start, end, stride)
+    snap = geometry.window == constants.V5_WINDOW_CENTRED and stride == geometry.stride
+    if len(frames) and snap:
+        frames = frames - start % stride
     if len(frames) and (frames % geometry.stride).any():
         raise ValueError(
             f"frames {start}:{end}:{stride} are not on the cache's s1[::{geometry.stride}] rows"
@@ -166,6 +210,8 @@ def v5_arm(v5: Any) -> dict[str, Any]:
         "v5_queries": v5.queries,
         "v5_keys": v5.keys,
         "v5_smil_weight": v5.smil_weight,
+        "v5_grid_slots": v5.grid_slots,
+        "v5_window": v5.window,
     }
 
 
@@ -209,8 +255,10 @@ def load_head(path: Path) -> dict[str, np.ndarray]:
 
 
 __all__ = [
+    "GRID_WIDTHS",
     "EvalGrid",
     "GridGeometry",
+    "centred_reference",
     "change_lag",
     "eval_grid",
     "eval_lag",
@@ -221,6 +269,7 @@ __all__ = [
     "read_grid_geometry",
     "row_width",
     "save_head",
+    "tile_boundary_rows",
     "v5_arm",
     "v5_rows",
 ]

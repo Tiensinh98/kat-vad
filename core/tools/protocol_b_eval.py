@@ -201,14 +201,19 @@ def score_checkpoint(
     class_names = load_class_names(args.data_dir)
     grid = eval_grid(cfg.v5.readout, cfg.v5.keys, args.grid_dir, args.stride)
     protocol = Protocol(args.stride, None)
+    reverse = bool(getattr(args, "reverse_time", False))
     native: dict[str, np.ndarray] = {}
     for video_id in ids:
         rows = input_rows(args.input_dir, video_id, native_frames[video_id], args.stride, baked)
         if grid is not None:  # v5: the clip's grid (+ its own change), PREREG_V5 S2-4
             rows = grid.append(rows, video_id, 0, native_frames[video_id])
+        if reverse:  # v5.1 time-reversed control (§3): steps fed last-first, scores re-reversed
+            rows = np.ascontiguousarray(rows[::-1])
         steps = score_steps(
             model, torch.from_numpy(rows), text_encode_fn, class_names, video_id, protocol
         )
+        if reverse:
+            steps = np.ascontiguousarray(np.asarray(steps)[::-1])
         native[video_id] = to_native(steps, args.stride, native_frames[video_id])
     LOGGER.info("%s (step %d, crn=%s motion=%s): scored %d clips",
                 run.name, step, cfg.v2.crn, cfg.v2.motion, len(ids))
@@ -267,6 +272,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             for name, scores in per_run.items()
         },
         "position_ruler": ci(clip_aucs(ruler, labels)),
+        "reverse_time": bool(getattr(args, "reverse_time", False)),
     }
     args.out_dir.mkdir(parents=True, exist_ok=True)
     write_json_atomic(args.out_dir / CLIP_AUCS_JSON, aucs)
@@ -332,6 +338,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--device", default="auto")
     parser.add_argument("--seed", type=int, default=constants.SEED)
+    parser.add_argument(
+        "--reverse-time", action="store_true",
+        help="v5.1 control (PREREG_V5 §3): feed each clip's steps in reverse order",
+    )
     return parser
 
 

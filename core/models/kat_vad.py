@@ -30,7 +30,7 @@ from core.models.clip_text import SoftPromptCLIPTextModel
 from core.models.fusion import CoAttentionFusion
 from core.models.heads import BinaryHead, MultiClassHead
 from core.models.motion_residual import MotionResidual
-from core.models.mqr import GridReadout, SpatialMILHead
+from core.models.mqr import GridReadout, SpatialMILHead, build_readout
 from core.models.temporal_encoder import TemporalEncoder
 
 if TYPE_CHECKING:
@@ -107,8 +107,8 @@ class KATVAD(nn.Module):
         v5 = cfg.v5
         grid_readout = smil_head = None
         if v5.readout != constants.V5_READOUT_OFF:
-            grid_readout = GridReadout(v5.readout, v5.queries, v5.keys)
-            if v5.smil_weight > 0:
+            grid_readout = build_readout(v5)
+            if v5.smil_weight > 0 and v5.readout == constants.V5_READOUT_MQR:
                 smil_head = SpatialMILHead(constants.V5_GRID_DIM // v5.queries)
         clip_text_model: SoftPromptCLIPTextModel | None = None
         tokenizer: PreTrainedTokenizerBase | None = None
@@ -193,7 +193,8 @@ class KATVAD(nn.Module):
         hidden, base = self.motion_residual.hidden_dim, (
             self.motion_residual.hidden_dim + self.motion_residual.motion_dim
         )
-        width, tiles, dim = constants.V5_GRID_WIDTH, constants.V5_GRID_TILES, constants.V5_GRID_DIM
+        tiles, dim = self.grid_readout.tiles, self.grid_readout.dim
+        width = tiles * dim
         blocks = 2 if self.grid_readout.uses_change else 1
         if rows.shape[-1] != base + blocks * width:
             raise ValueError(
@@ -210,6 +211,8 @@ class KATVAD(nn.Module):
             outputs["v5_attn"] = out.attn
         if self.smil_head is not None and out.z is not None:
             outputs["v5_smil"] = self.smil_head(out.z)
+        if out.tile_logits is not None:  # v5.1: scorer logits e (L_tile, evidence maps)
+            outputs["v5_tile_logits"] = out.tile_logits
         return torch.cat([rows[..., :hidden], out.motion], dim=-1)
 
     def forward(

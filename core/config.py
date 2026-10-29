@@ -165,11 +165,17 @@ class V5Config:
     term of v2's A2 is computed from a readout of that grid instead of the baked ``u``.
     """
 
-    readout: str = constants.V5_READOUT_OFF  # none | mean (R1) | mqr (R3 / R5 / R5Δ)
+    readout: str = constants.V5_READOUT_OFF  # none | mean | mqr | tile | change_topk
     queries: int = 1  # M; 1 for R1 / R3, V5_QUERIES for R5 / R5Δ
     keys: str = constants.V5_KEYS_CONTENT  # content | change (R5Δ)
-    smil_weight: float = 0.0  # lambda of L_sMIL; 0 = term absent (R1 / R3)
+    smil_weight: float = 0.0  # lambda of L_sMIL / L_tile; 0 = term absent (R1 / R3)
     query_lr_mult: float = 1.0  # §2.4 B13: AdamW LR multiplier (and no weight decay) of the queries
+    # v5.1 (PREREG_V5 §3): the grid's slots and clip window; tile-level MIL settings
+    grid_slots: int = constants.V5_SLOTS_V7  # 1 = V7 (Stages 0-2) | 4 = 4 x 7 x 7
+    window: str = constants.V5_WINDOW_CAUSAL  # causal (Stages 0-2) | centred (v5.1)
+    dense_negatives: bool = True  # L_tile: BCE on every cell of normal steps (R6c) or not (R5c)
+    tile_topk_cells: int = constants.V5_TILE_TOPK_CELLS  # K
+    tile_beta: float = constants.V5_TILE_BETA  # sparsity weight
 
 
 @dataclass
@@ -315,3 +321,30 @@ def validate_v5(cfg: Config) -> None:
         v5.queries != 1 or v5.keys != constants.V5_KEYS_CONTENT or v5.smil_weight > 0
     ):
         raise ValueError("v5.readout=mean (R1) has no queries, change keys or sMIL term")
+    _validate_v5_tile(v5)
+
+
+def _validate_v5_tile(v5: V5Config) -> None:
+    """v5.1 (PREREG_V5 §3): the slot / window pair and the tile rows' settings."""
+    if v5.window not in constants.V5_WINDOWS:
+        raise ValueError(f"v5.window must be one of {constants.V5_WINDOWS}, got {v5.window!r}")
+    if v5.grid_slots not in (constants.V5_SLOTS_V7, constants.V5_SLOTS_TILE):
+        raise ValueError(
+            f"v5.grid_slots must be {constants.V5_SLOTS_V7} or {constants.V5_SLOTS_TILE}, "
+            f"got {v5.grid_slots}"
+        )
+    tile_rows = (constants.V5_READOUT_TILE, constants.V5_READOUT_CHANGE_TOPK)
+    if v5.readout in tile_rows and v5.grid_slots != constants.V5_SLOTS_TILE:
+        raise ValueError(f"v5.readout={v5.readout!r} reads the 4 x 7 x 7 grid (grid_slots=4)")
+    if v5.readout == constants.V5_READOUT_MQR and v5.grid_slots != constants.V5_SLOTS_V7:
+        raise ValueError("v5.readout=mqr (Stages 1-2) reads the V7 grid (grid_slots=1)")
+    if v5.readout in tile_rows and (v5.queries != 1 or v5.keys != constants.V5_KEYS_CONTENT):
+        raise ValueError(f"v5.readout={v5.readout!r} has no queries or change keys")
+    if v5.readout == constants.V5_READOUT_TILE and v5.smil_weight <= 0:
+        raise ValueError("v5.readout=tile needs v5.smil_weight > 0 (the scorer's own loss)")
+    if v5.readout == constants.V5_READOUT_CHANGE_TOPK and v5.smil_weight > 0:
+        raise ValueError("v5.readout=change_topk has no scorer, so no L_tile")
+    if v5.tile_topk_cells < 1 or v5.tile_topk_cells > constants.V5_TILE_CELLS:
+        raise ValueError(f"v5.tile_topk_cells must be in [1, {constants.V5_TILE_CELLS}]")
+    if v5.tile_beta < 0:
+        raise ValueError(f"v5.tile_beta must be >= 0, got {v5.tile_beta}")

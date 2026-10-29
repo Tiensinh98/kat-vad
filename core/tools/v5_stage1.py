@@ -44,6 +44,7 @@ from core.config import Config, load_config
 from core.data.synthesis import compose_sequence
 from core.data.v2_inputs import load_stats, read_input_manifest
 from core.data.v5_grids import (
+    centred_reference,
     change_lag,
     grid_change,
     read_grid_geometry,
@@ -55,11 +56,15 @@ from core.device import resolve_device
 from core.models.kat_vad import KATVAD
 from core.models.mqr import GridReadout
 from core.models.videomae_v2 import VideoMAEv2Encoder, load_pretrained
-from core.tools.extract_video_features import causal_clip_indices, check_or_write_manifest
+from core.tools.extract_video_features import (
+    causal_clip_indices,
+    centred_clip_indices,
+    check_or_write_manifest,
+)
 from core.tools.feature_cache import Progress, read_ids_file, save_array
 from core.tools.kill_switch_probe import write_json_atomic, write_text_atomic
 from core.tools.nexar_extract import decode_resized, normalize, video_paths
-from core.tools.v5_stage0 import token_grids
+from core.tools.v5_stage0 import grid_complete, tile_grid, token_grids
 
 LOGGER = logging.getLogger(__name__)
 
@@ -107,8 +112,10 @@ def grid_rows(
     device: torch.device,
     batch_size: int,
     frame_step: int = constants.VIDEOMAE_CLIP_FRAME_STEP,
+    tile: bool = False,
 ) -> np.ndarray:
-    """``(len(rows), 7, 7, D)`` float32 V7 grids of the causal window ending at each row.
+    """Float32 grids per row: V7 ``(R, 7, 7, D)`` of the causal window ending at the row, or
+    (``tile``, v5.1) ``(R, 4, 7, 7, D)`` of the window centred on it.
 
     The video goes to ``device`` once; windows are gathered and normalized there (elementwise
     fp32, same values as on the CPU), so the CPU only decodes.
@@ -116,15 +123,19 @@ def grid_rows(
     video = resized.to(device)
     out: list[np.ndarray] = []
     for start in range(0, len(rows), batch_size):
-        index = torch.tensor(
-            [causal_clip_indices(t, step=frame_step) for t in rows[start : start + batch_size]],
-            device=device,
+        chunk = rows[start : start + batch_size]
+        clips = (
+            [centred_clip_indices(t, len(resized), step=frame_step) for t in chunk]
+            if tile
+            else [causal_clip_indices(t, step=frame_step) for t in chunk]
         )
+        index = torch.tensor(clips, device=device)
         frames = normalize(
             video[index], constants.VIDEOMAE_IMAGE_MEAN, constants.VIDEOMAE_IMAGE_STD
         )  # (B, 16, 3, H, W): N2's squash transform on N2's resize
         tokens = encoder.forward_tokens(frames.permute(0, 2, 1, 3, 4)).float()
-        out.append(token_grids(tokens)[1].cpu().numpy())
+        grid = tile_grid(tokens) if tile else token_grids(tokens)[1]
+        out.append(grid.cpu().numpy())
     return np.concatenate(out)
 
 
@@ -141,7 +152,22 @@ def g1_cosines(grid16: np.ndarray, reference: np.ndarray, encoder: VideoMAEv2Enc
     return cos
 
 
-def grid_manifest(encoder: str, stride: int) -> dict[str, Any]:
+def grid_manifest(encoder: str, stride: int, tile: bool = False) -> dict[str, Any]:
+    if tile:
+        return {
+            "encoder": encoder,
+            "weights_sha256": constants.VIDEOMAE_WEIGHTS_SHA256[encoder],
+            "stride": stride,
+            "frame_step": constants.VIDEOMAE_CLIP_FRAME_STEP,
+            "slots": constants.V5_SLOTS_TILE,
+            "window_kind": constants.V5_WINDOW_CENTRED,
+            "rows": f"s1[::{stride}] of the decoded mp4 (Nexar N2 frame order)",
+            "window": "centred 16 frames t-8*step..t+7*step, edge frames repeated",
+            "grid": "4x7x7: pairs of the 8 slots, then 2x2, last layer before fc_norm",
+            "dtype": "float16",
+            "transform": "N2 decode_resized + squash normalize",
+            "rule": "core/docs/v5/PREREG_V5.md §3",
+        }
     return {
         "encoder": encoder,
         "weights_sha256": constants.VIDEOMAE_WEIGHTS_SHA256[encoder],
@@ -155,17 +181,6 @@ def grid_manifest(encoder: str, stride: int) -> dict[str, Any]:
         "transform": "N2 decode_resized + squash normalize",
         "rule": "core/docs/v5/PREREG_V5.md S2-2",
     }
-
-
-def grid_complete(path: Path) -> bool:
-    """A readable ``(T, 7, 7, D)`` grid (``feature_cache.is_complete`` only accepts 2-D)."""
-    if not path.exists():
-        return False
-    try:
-        array = np.load(path, mmap_mode="r")
-    except (OSError, ValueError, EOFError):
-        return False
-    return bool(array.ndim == 4 and array.shape[0] > 0)
 
 
 def decoded_ahead(paths: dict[str, Path], ids: list[str]) -> Iterator[tuple[str, torch.Tensor]]:
@@ -189,7 +204,10 @@ def run_extract(args: argparse.Namespace) -> dict[str, Any]:
     census = json.loads(args.census.read_text(encoding="utf-8"))
     ids = sorted(read_ids_file(args.ids_file))
     paths = video_paths(args.root, census, set(ids))
-    check_or_write_manifest(args.grid_dir, grid_manifest(args.encoder, args.stride), force=False)
+    tile = bool(args.tile)
+    check_or_write_manifest(
+        args.grid_dir, grid_manifest(args.encoder, args.stride, tile), force=False
+    )
     report: dict[str, Any] = (
         json.loads(args.report.read_text(encoding="utf-8")) if args.report.exists() else {}
     )
@@ -213,12 +231,20 @@ def run_extract(args: argparse.Namespace) -> dict[str, Any]:
             report[video_id] = {**entry, "reason": "g1_length"}
             continue
         rows = list(range(0, len(resized), args.stride))
-        grid16 = grid_rows(resized, rows, encoder, device, args.batch_size).astype(np.float16)
-        cos = g1_cosines(grid16, np.asarray(reference[rows]), encoder)
+        grid16 = grid_rows(resized, rows, encoder, device, args.batch_size, tile=tile).astype(
+            np.float16
+        )
+        if tile:  # G-c: centred rows == the v2 causal row of the same 16 frames (shifted)
+            keep, index = centred_reference(
+                np.asarray(rows), constants.VIDEOMAE_CLIP_FRAME_STEP, len(resized)
+            )
+            cos = g1_cosines(grid16[keep], np.asarray(reference[index]), encoder)
+        else:
+            cos = g1_cosines(grid16, np.asarray(reference[rows]), encoder)
         entry |= {
             "rows": len(rows),
-            "g1_min_cos": float(cos.min()),
-            "g1_mean_cos": float(cos.mean()),
+            "g1_min_cos": float(cos.min()) if len(cos) else None,
+            "g1_mean_cos": float(cos.mean()) if len(cos) else None,
         }
         save_array(args.grid_dir / f"{video_id}.npy", grid16)
         report[video_id] = {**entry, "reason": OK}
@@ -232,9 +258,15 @@ def run_extract(args: argparse.Namespace) -> dict[str, Any]:
         )
     write_json_atomic(args.report, report)
     failed = {v: e["reason"] for v, e in report.items() if v in ids and e["reason"] != OK}
-    mins = [report[v]["g1_min_cos"] for v in ids if "g1_min_cos" in report.get(v, {})]
+    mins = [
+        report[v]["g1_min_cos"]
+        for v in ids
+        if report.get(v, {}).get("g1_min_cos") is not None
+    ]
     summary = {
-        "rule": "S1-G1 (S2-2, §2.4 B9: length gates; cos vs v2 printed only)",
+        "rule": "S1-G1 (S2-2, §2.4 B9: length gates; cos vs v2 printed only)"
+        + (" + v5.1 G-c (centred, shifted rows; §3)" if tile else ""),
+        "tile": tile,
         "tf32": False,
         "grid_dir": str(args.grid_dir),
         "stride": args.stride,
@@ -252,7 +284,8 @@ def run_extract(args: argparse.Namespace) -> dict[str, Any]:
         f"{summary['g1_min_cos']}; videos with a row < {constants.V5_G0_MIN_COS}: "
         f"{summary['videos_min_cos_below_0.9999']}\n"
     )
-    return _write(args.out_dir, f"g1_extract_s{args.stride}", summary, md)
+    name = f"g1_extract{'_tile' if tile else ''}_s{args.stride}"
+    return _write(args.out_dir, name, summary, md)
 
 
 # --------------------------------------------------------------------------- head (D1)
@@ -290,9 +323,12 @@ def run_head(args: argparse.Namespace) -> dict[str, Any]:
 # --------------------------------------------------------------------------- S1-G2
 
 
+ALL_ROWS: dict[str, dict[str, Any]] = {**constants.V5_ROWS, **constants.V5_TILE_ROWS}
+
+
 def row_config(row: str, overrides: list[str] | None = None) -> Config:
-    """v2 Nexar A2's architecture with ``row``'s v5 section (S2-3)."""
-    extra = [f"v5.{k}={v}" for k, v in constants.V5_ROWS[row].items()]
+    """v2 Nexar A2's architecture with ``row``'s v5 section (S2-3; v5.1 rows, §3)."""
+    extra = [f"v5.{k}={v}" for k, v in ALL_ROWS[row].items()]
     return load_config(None, [*A2_OVERRIDES, *extra, *(overrides or [])])
 
 
@@ -418,7 +454,7 @@ def provenance(run_dir: Path, row: str, a2_dir: Path, steps: int) -> dict[str, A
         for k in set(mine) | set(theirs)
         if not k.startswith("v5.") and mine.get(k) != theirs.get(k)
     )
-    want_v5 = {f"v5.{k}": v for k, v in constants.V5_ROWS[row].items()}
+    want_v5 = {f"v5.{k}": v for k, v in ALL_ROWS[row].items()}
     bad_v5 = sorted(k for k, v in want_v5.items() if mine.get(k) != v)
     ok = ckpt_step == metrics_step == steps and not diff and not bad_v5
     return {
@@ -538,6 +574,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     ex.add_argument("--weights", type=Path, default=None)
     ex.add_argument("--batch-size", type=int, default=32)
     ex.add_argument("--device", default="auto")
+    ex.add_argument("--tile", action="store_true",
+                    help="v5.1 (PREREG_V5 §3): centred 4x7x7 grids; G-c on the shifted v2 rows")
 
     hd = sub.add_parser("head", help="fc_norm + A2 statistics -> v5_head.npz")
     hd.add_argument("--stats-dir", type=Path, required=True, help="cache/v2/A2_S/Nexar_s8")
@@ -553,13 +591,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
     g4 = sub.add_parser("provenance", help="S1-G4")
     g4.add_argument("--root", type=Path, required=True, help="v5 runs: <row>/s<seed>/")
     g4.add_argument("--a2-root", type=Path, required=True, help="v2 Nexar A2 runs: s<seed>/")
-    g4.add_argument("--rows", nargs="+", choices=list(constants.V5_ROWS), required=True)
+    g4.add_argument("--rows", nargs="+", choices=list(ALL_ROWS), required=True)
     g4.add_argument("--seeds", nargs="+", type=int, default=list(constants.V5_RUN_SEEDS))
     g4.add_argument("--steps", type=int, required=True, help="the build plan's steps (1,749)")
 
     g6 = sub.add_parser("collapse", help="S1-G6")
     g6.add_argument("--root", type=Path, required=True)
-    g6.add_argument("--rows", nargs="+", choices=list(constants.V5_ROWS), required=True)
+    g6.add_argument("--rows", nargs="+", choices=list(ALL_ROWS), required=True)
     g6.add_argument("--seeds", nargs="+", type=int, default=list(constants.V5_RUN_SEEDS))
     g6.add_argument("--require-moved", action="store_true",
                     help="§2.4 B13 G0: fail a run none of whose queries left the mean")

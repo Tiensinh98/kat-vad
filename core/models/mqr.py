@@ -20,6 +20,15 @@ with V2-S's frozen ``fc_norm`` and Nexar A2's baked ``c``, ``m_u``, ``sigma_u`` 
 (:meth:`GridReadout.load_head`), so a checkpoint carries them.
 
 :class:`SpatialMILHead` scores each query, ``s_{t,m} = sigmoid(g(z_{t,m}))``, ``g`` shared (S2-6).
+
+v5.1 (PREREG_V5 §3, proposal 2026-10-29 §3.2) reads the centred ``4 x 7 x 7`` grid, 196 cells:
+
+* :class:`TileReadout` (R5c / R6c): a shared scorer ``h`` rates every cell from
+  ``F = [LN(R) ; LN(Δ)]`` (:func:`tile_features`; frame-wide median removed before LN), and the
+  readout pools the raw cells with ``softmax(e / T)``. ``h``'s last layer is zero, so every
+  weight starts uniform and ``r_t`` is the cell mean -- R1c's function at init.
+* :class:`ChangeTopKReadout` (R3c): no scorer; the ``K`` cells of largest ``|R| + |Δ|`` are
+  averaged (a fixed motion ranking).
 """
 
 from __future__ import annotations
@@ -33,6 +42,7 @@ import torch.nn.functional as F  # noqa: N812
 from torch import Tensor, nn
 
 from core import constants
+from core.config import V5Config
 from core.data.v5_grids import load_head
 
 
@@ -43,6 +53,7 @@ class GridReadoutOutput:
     motion: Tensor  # (B, L, D) the pre-scaled motion term c * (fc_norm(r) - m_u) / sigma_u
     attn: Tensor | None  # (B, L, M, tiles) query attention; None for the mean readout
     z: Tensor | None  # (B, L, M, D / M) per-query slices; None for the mean readout
+    tile_logits: Tensor | None = None  # (B, L, cells) v5.1 scorer logits e; None otherwise
 
 
 class GridReadout(nn.Module):
@@ -129,11 +140,145 @@ class GridReadout(nn.Module):
         z = torch.einsum("blmd,med->blme", pooled, weight) + bias
         return z.reshape(*z.shape[:-2], self.dim), attn, z
 
+    def motion(self, r: Tensor) -> Tensor:
+        """A2's motion term of a readout ``r``: ``c * (fc_norm(r) - m_u) / sigma_u``, float32."""
+        u = F.layer_norm(r.float(), (self.dim,), self.fc_weight, self.fc_bias, self.eps)
+        out: Tensor = self.c * (u - self.m_u) / self.sigma_u
+        return out
+
     def forward(self, grid: Tensor, change: Tensor | None = None) -> GridReadoutOutput:
         r, attn, z = self.read(grid, change)
-        u = F.layer_norm(r.float(), (self.dim,), self.fc_weight, self.fc_bias, self.eps)
-        motion = self.c * (u - self.m_u) / self.sigma_u
-        return GridReadoutOutput(motion.to(grid.dtype), attn, z)
+        return GridReadoutOutput(self.motion(r).to(grid.dtype), attn, z)
+
+
+def tile_residuals(
+    grid: Tensor, slots: int = constants.V5_SLOTS_TILE
+) -> tuple[Tensor, Tensor]:
+    """Raw ``R`` and ``Δ`` of each cell, ``(..., slots * tiles, D)`` float32 (proposal §3.2).
+
+    ``R = Q - med_j Q`` over the tiles of a slot; ``Δ~_s = Q_{s+1} - Q_s`` (the last slot repeats
+    ``Δ~_{S-1}``), ``Δ = Δ~ - med_j Δ~``. The median is taken per channel.
+    """
+    q = grid.float().unflatten(-2, (slots, -1))
+    r = q - q.median(dim=-2, keepdim=True).values
+    step = torch.diff(q, dim=-3)
+    step = torch.cat([step, step[..., -1:, :, :]], dim=-3)
+    d = step - step.median(dim=-2, keepdim=True).values
+    return r.flatten(-3, -2), d.flatten(-3, -2)
+
+
+def tile_features(grid: Tensor, slots: int = constants.V5_SLOTS_TILE) -> Tensor:
+    """``F = [LN(R) ; LN(Δ)]``, ``(..., cells, 2D)``; LN without affine (proposal §3.2)."""
+    r, d = tile_residuals(grid, slots)
+    feats: Tensor = torch.cat(
+        [F.layer_norm(r, (r.shape[-1],)), F.layer_norm(d, (d.shape[-1],))], dim=-1
+    )
+    return feats
+
+
+def change_magnitude(grid: Tensor, slots: int = constants.V5_SLOTS_TILE) -> Tensor:
+    """``|R| + |Δ|`` per cell, ``(..., cells)``: R3c's ranking and the untrained change map."""
+    r, d = tile_residuals(grid, slots)
+    mag: Tensor = r.norm(dim=-1) + d.norm(dim=-1)
+    return mag
+
+
+class TileScorer(nn.Module):
+    """``h(F) = w_2 . GELU(W_1 F + b_1) + b_2``, shared by all cells; last layer zero (§3.2)."""
+
+    def __init__(self, in_dim: int, hidden: int = constants.V5_TILE_HIDDEN) -> None:
+        super().__init__()
+        self.hidden = nn.Linear(in_dim, hidden)
+        self.out = nn.Linear(hidden, 1)
+        nn.init.zeros_(self.out.weight)
+        nn.init.zeros_(self.out.bias)
+
+    def forward(self, feats: Tensor) -> Tensor:
+        """``(..., cells, 2D)`` -> logits ``e (..., cells)``."""
+        logits: Tensor = self.out(F.gelu(self.hidden(feats))).squeeze(-1)
+        return logits
+
+
+class _CellReadout(GridReadout):
+    """Shared base of the v5.1 readouts: the frozen head, ``W_V = I`` and 196 cells."""
+
+    def __init__(self, readout: str, dim: int, cells: int, eps: float) -> None:
+        super().__init__(constants.V5_READOUT_MEAN, 1, constants.V5_KEYS_CONTENT, dim, cells, eps)
+        self.readout = readout
+        self.value = nn.Linear(dim, dim)
+        with torch.no_grad():
+            self.value.weight.copy_(torch.eye(dim))
+            self.value.bias.zero_()
+
+    def pool(self, grid: Tensor, weights: Tensor) -> Tensor:
+        """``W_V sum_i a_i Q_i`` -- pooling before projecting equals projecting every cell."""
+        assert self.value is not None  # nosec B101 - set in __init__
+        pooled = torch.einsum("bli,blid->bld", weights.to(grid.dtype), grid)
+        out: Tensor = self.value(pooled)
+        return out
+
+
+class TileReadout(_CellReadout):
+    """R5c / R6c: weights ``softmax_i(e_{t,i} / T)`` from the tile scorer (proposal §3.2)."""
+
+    def __init__(
+        self,
+        dim: int = constants.V5_GRID_DIM,
+        cells: int = constants.V5_TILE_CELLS,
+        eps: float = constants.VIDEOMAE_LN_EPS,
+    ) -> None:
+        super().__init__(constants.V5_READOUT_TILE, dim, cells, eps)
+        self.scorer = TileScorer(2 * dim)
+        self.log_temp = nn.Parameter(torch.zeros(()))  # theta; T = exp(theta) >= T_min
+
+    def temperature(self) -> Tensor:
+        temp: Tensor = self.log_temp.exp().clamp_min(constants.V5_TILE_TEMP_MIN)
+        return temp
+
+    def forward(self, grid: Tensor, change: Tensor | None = None) -> GridReadoutOutput:
+        if change is not None:
+            raise ValueError("the tile readout computes its own change features")
+        logits = self.scorer(tile_features(grid))
+        attn = (logits.float() / self.temperature()).softmax(dim=-1)
+        r = self.pool(grid, attn)
+        return GridReadoutOutput(
+            self.motion(r).to(grid.dtype), attn.unsqueeze(-2), None, tile_logits=logits
+        )
+
+
+class ChangeTopKReadout(_CellReadout):
+    """R3c: the mean of the ``K`` cells of largest ``|R| + |Δ|`` per step, then ``W_V``."""
+
+    def __init__(
+        self,
+        k: int = constants.V5_TILE_TOPK_CELLS,
+        dim: int = constants.V5_GRID_DIM,
+        cells: int = constants.V5_TILE_CELLS,
+        eps: float = constants.VIDEOMAE_LN_EPS,
+    ) -> None:
+        super().__init__(constants.V5_READOUT_CHANGE_TOPK, dim, cells, eps)
+        self.k = k
+
+    def forward(self, grid: Tensor, change: Tensor | None = None) -> GridReadoutOutput:
+        if change is not None:
+            raise ValueError("the change top-K readout computes its own change features")
+        with torch.no_grad():
+            top = change_magnitude(grid).topk(self.k, dim=-1).indices
+            weights = torch.zeros(grid.shape[:-1], device=grid.device, dtype=torch.float32)
+            weights.scatter_(-1, top, 1.0 / self.k)
+        r = self.pool(grid, weights)
+        return GridReadoutOutput(self.motion(r).to(grid.dtype), weights.unsqueeze(-2), None)
+
+
+def build_readout(v5: V5Config) -> GridReadout:
+    """The readout ``cfg.v5`` names (``v5.readout != none``)."""
+    if v5.readout == constants.V5_READOUT_TILE:
+        return TileReadout()
+    if v5.readout == constants.V5_READOUT_CHANGE_TOPK:
+        return ChangeTopKReadout(v5.tile_topk_cells)
+    return GridReadout(
+        v5.readout, v5.queries, v5.keys, tiles=v5.grid_slots * constants.V5_GRID_TILES
+    )
 
 
 class SpatialMILHead(nn.Module):
@@ -179,9 +324,16 @@ def query_logit_spread(attn: Tensor, mask: Tensor) -> Tensor:
 
 
 __all__ = [
+    "ChangeTopKReadout",
     "GridReadout",
     "GridReadoutOutput",
     "SpatialMILHead",
+    "TileReadout",
+    "TileScorer",
+    "build_readout",
+    "change_magnitude",
     "query_entropy",
     "query_logit_spread",
+    "tile_features",
+    "tile_residuals",
 ]

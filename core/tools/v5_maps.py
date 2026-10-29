@@ -47,6 +47,7 @@ from core.data.v2_splits import load_split
 from core.data.v5_grids import eval_grid, v5_arm
 from core.device import resolve_device
 from core.inference import make_class_feats_fn
+from core.models.mqr import change_magnitude
 from core.tools import v5_stage0 as s0
 from core.tools.kill_switch_probe import write_json_atomic, write_text_atomic
 from core.tools.protocol_b_eval import check_baked_stride, check_split, input_rows
@@ -56,12 +57,48 @@ from core.train import load_class_names
 LOGGER = logging.getLogger(__name__)
 
 RULE = "core/docs/v5/PREREG_V5.md S2-8 + S1-G5"
-MAP_KEY, SCORE_KEY, FRAMES_KEY = "E_", "s_", "n_"
+MAP_KEY, SCORE_KEY, FRAMES_KEY, CHANGE_KEY = "E_", "s_", "n_", "C_"
+MAP_READOUTS = (  # readouts with a map: MQR (S2-8) and the v5.1 rows (§3)
+    constants.V5_READOUT_MQR,
+    constants.V5_READOUT_TILE,
+    constants.V5_READOUT_CHANGE_TOPK,
+)
 TOPK = constants.V5_TOPK[constants.V5_GRID_COARSE]
 TARR_EPS = 1e-6  # stauc.py: values.sum() + 1e-6
 
 
 # --------------------------------------------------------------------------- STAUC (port)
+
+
+def box_mask(
+    bboxes: list[list[float]],
+    height: int,
+    width: int,
+    image_size: tuple[int, int] = constants.V5_BOX_FRAME_SIZE,
+) -> torch.Tensor:
+    """``stauc.get_tarr``'s union-of-boxes mask at map resolution."""
+    boxes = torch.tensor(copy.deepcopy(bboxes), dtype=torch.float32)
+    if boxes.max() > 1:
+        boxes[:, [0, 2]] /= image_size[0]
+        boxes[:, [1, 3]] /= image_size[1]
+    boxes[:, [0, 2]] *= width
+    boxes[:, [1, 3]] *= height
+    boxes = boxes.type(torch.long)
+    mask = torch.zeros([height, width])
+    for box in boxes:
+        mask[box[1] : box[3], box[0] : box[2]] = 1
+    return mask
+
+
+def uniform_tarr(label: int, bboxes: list[list[float]]) -> float:
+    """TARR of a constant map: its top-K pixels are an arbitrary tie-break, so take the expected
+    value over tie orders -- the boxes' share of the map (§3, uniform baseline)."""
+    if label == 0:
+        return 0.0
+    if len(bboxes) == 0:
+        return 1.0
+    size = constants.V5_STAUC_MAP_SIZE
+    return float(box_mask(bboxes, size, size).mean())
 
 
 def tarr_frame(
@@ -77,16 +114,7 @@ def tarr_frame(
         return 1.0
     dmap = torch.as_tensor(np.asarray(difference_map), dtype=torch.float32)
     height, width = dmap.shape
-    boxes = torch.tensor(copy.deepcopy(bboxes), dtype=torch.float32)
-    if boxes.max() > 1:
-        boxes[:, [0, 2]] /= image_size[0]
-        boxes[:, [1, 3]] /= image_size[1]
-    boxes[:, [0, 2]] *= width
-    boxes[:, [1, 3]] *= height
-    boxes = boxes.type(torch.long)
-    mask = torch.zeros([height, width])
-    for box in boxes:
-        mask[box[1] : box[3], box[0] : box[2]] = 1
+    mask = box_mask(bboxes, height, width, image_size)
     k = int(mask.sum())
     values, indices = torch.topk(dmap.view(-1), k=k)
     inside = mask[indices // width, indices % width] == 1
@@ -134,8 +162,17 @@ def upsample(grid_map: np.ndarray, size: int = constants.V5_STAUC_MAP_SIZE) -> n
 # --------------------------------------------------------------------------- dump
 
 
+def slot_max(cells: torch.Tensor, slots: int = constants.V5_SLOTS_TILE) -> torch.Tensor:
+    """``(..., slots * 49)`` -> ``(..., 49)``: each tile's maximum over the clip's slots."""
+    out: torch.Tensor = cells.unflatten(-1, (slots, -1)).amax(dim=-2)
+    return out
+
+
 def step_maps(outputs: dict[str, torch.Tensor]) -> torch.Tensor:
-    """``(B, L, 49)`` map: ``sum_m s a`` with an sMIL head, else the single query's attention."""
+    """``(B, L, 49)`` map: v5.1 ``E_t(j) = max_s p_{t,s,j}`` (§3); MQR ``sum_m s a`` with an sMIL
+    head, else the single query's attention (S2-8)."""
+    if "v5_tile_logits" in outputs:
+        return slot_max(outputs["v5_tile_logits"].float().sigmoid())
     attn = outputs["v5_attn"]
     if "v5_smil" in outputs:
         return torch.einsum("blm,blmt->blt", outputs["v5_smil"], attn)
@@ -144,21 +181,43 @@ def step_maps(outputs: dict[str, torch.Tensor]) -> torch.Tensor:
     return attn[:, :, 0]
 
 
+def change_maps(rows: torch.Tensor) -> torch.Tensor:
+    """Untrained change map of v5.1 rows (§3): ``max_s (|R| + |Δ|)`` per tile, ``(K, 49)``.
+
+    The grid is the last ``V5_TILE_GRID_WIDTH`` columns of a v5.1 row (no change block).
+    """
+    grid = rows[..., -constants.V5_TILE_GRID_WIDTH :].unflatten(
+        -1, (constants.V5_TILE_CELLS, constants.V5_GRID_DIM)
+    )
+    return slot_max(change_magnitude(grid))
+
+
 @torch.no_grad()
 def clip_maps(
-    model: Any, rows: torch.Tensor, class_feats_fn: Any, max_len: int = constants.MAX_VIS_LEN
-) -> tuple[np.ndarray, np.ndarray]:
-    """One clip's ``(K, 49)`` maps and ``(K,)`` sigmoid step scores (windows of ``max_len``)."""
+    model: Any,
+    rows: torch.Tensor,
+    class_feats_fn: Any,
+    max_len: int = constants.MAX_VIS_LEN,
+    tile_grid: bool = False,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
+    """One clip's ``(K, 49)`` maps, ``(K,)`` sigmoid step scores (windows of ``max_len``) and, for
+    a v5.1 row (``tile_grid``), its untrained change map; R3c's map is that change map."""
     device = next(model.parameters()).device
-    maps, scores = [], []
+    maps, scores, changes = [], [], []
     for start in range(0, len(rows), max_len):
         window = rows[start : start + max_len].unsqueeze(0).to(device)
         out = model(
             window, torch.tensor([window.shape[1]], device=device), class_feats=class_feats_fn()
         )
-        maps.append(step_maps(out)[0].float().cpu())
+        if tile_grid:
+            changes.append(change_maps(window[0]).float().cpu())
+        if "v5_tile_logits" in out or not tile_grid:
+            maps.append(step_maps(out)[0].float().cpu())
         scores.append(out["cls_bin_logits"][0].sigmoid().float().cpu())
-    return torch.cat(maps).numpy(), torch.cat(scores).numpy()
+    change = torch.cat(changes).numpy() if tile_grid else None
+    grid_map = torch.cat(maps).numpy() if maps else change
+    assert grid_map is not None  # nosec B101 - tile rows always have a change map
+    return grid_map, torch.cat(scores).numpy(), change
 
 
 def run_dump(args: argparse.Namespace) -> dict[str, Any]:
@@ -166,10 +225,13 @@ def run_dump(args: argparse.Namespace) -> dict[str, Any]:
     run = Run(args.name, args.ckpt)
     device = resolve_device(args.device)
     model, step, text_encode_fn, cfg = load_finished_model(run, device)
-    if cfg.v5.readout != constants.V5_READOUT_MQR:
+    if cfg.v5.readout not in MAP_READOUTS:
         raise ValueError(f"{run.name}: v5.readout={cfg.v5.readout!r} has no map (R1 is uniform)")
     grid = eval_grid(cfg.v5.readout, cfg.v5.keys, args.grid_dir, args.stride)
-    assert grid is not None  # nosec B101 - mqr
+    assert grid is not None  # nosec B101 - a map readout
+    tile_grid = cfg.v5.grid_slots == constants.V5_SLOTS_TILE
+    if (grid.geometry.slots, grid.geometry.window) != (cfg.v5.grid_slots, cfg.v5.window):
+        raise ValueError(f"{args.grid_dir} does not match {run.name}'s grid (PREREG_V5 §3)")
     baked = check_baked_stride(args.input_dir, args.stride)
     class_names = load_class_names(args.data_dir)
     ids = sorted(load_split(args.split, args.split_dir, final=args.final))
@@ -184,12 +246,16 @@ def run_dump(args: argparse.Namespace) -> dict[str, Any]:
             class_names,
             item_verbalizer(dataset_abbr(constants.DOTA_DATASET), video_id),
         )
-        maps, scores = clip_maps(model, torch.from_numpy(rows), feats_fn)
+        maps, scores, change = clip_maps(
+            model, torch.from_numpy(rows), feats_fn, tile_grid=tile_grid
+        )
         arrays |= {
             f"{MAP_KEY}{video_id}": maps.astype(np.float32),
             f"{SCORE_KEY}{video_id}": scores.astype(np.float32),
             f"{FRAMES_KEY}{video_id}": np.array(frames),
         }
+        if change is not None:
+            arrays[f"{CHANGE_KEY}{video_id}"] = change.astype(np.float32)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     tmp = args.out.with_name(args.out.name + ".partial.npz")
     np.savez_compressed(tmp, **arrays)
@@ -220,6 +286,8 @@ def load_dump(path: Path) -> dict[str, dict[str, np.ndarray]]:
                     "s": data[f"{SCORE_KEY}{v}"],
                     "n": data[f"{FRAMES_KEY}{v}"],
                 }
+                if f"{CHANGE_KEY}{v}" in data.files:
+                    out[v]["C"] = data[f"{CHANGE_KEY}{v}"]
     return out
 
 
@@ -237,13 +305,40 @@ def centre_prior(grid: int = constants.V5_GRID_COARSE) -> np.ndarray:
     return prior
 
 
+def clip_mass(
+    grid_map: np.ndarray,
+    steps: np.ndarray,
+    labels: np.ndarray,
+    boxes: dict[int, list[list[float]]],
+) -> tuple[float, float] | None:
+    """Mass-in-box (§3): mean over boxed anomalous steps of ``sum_j E_j w_j / sum_j E_j`` and its
+    uniform-map chance ``mean_j w_j`` (``w`` = box cover of each tile); the steps of clip_read."""
+    grid = math.isqrt(grid_map.shape[1])
+    mass, chance = [], []
+    for k, frame in enumerate(steps):
+        frame_boxes = boxes.get(int(frame))
+        if not labels[frame] or not frame_boxes or not np.isfinite(grid_map[k]).all():
+            continue
+        w = s0.tile_weights(frame_boxes, grid)
+        total = float(grid_map[k].sum())
+        if not 0 < w.sum() < grid * grid or total <= 0:
+            continue
+        mass.append(float((grid_map[k] * w).sum()) / total)
+        chance.append(float(w.mean()))
+    if len(mass) < constants.V5_MIN_STEPS:
+        return None
+    return float(np.mean(mass)), float(np.mean(chance))
+
+
 def clip_point_reads(
     maps: list[np.ndarray],
     steps: np.ndarray,
     labels: np.ndarray,
     boxes: dict[int, list[list[float]]],
+    change: np.ndarray | None = None,
 ) -> dict[str, float] | None:
-    """One clip: seed-averaged hit / hit_pre, chance / chance_pre, the centre prior's hit."""
+    """One clip: seed-averaged hit / hit_pre, chance / chance_pre, the centre prior's hit; v5.1
+    (§3) also mass-in-box and, given the untrained ``change`` map, its hit and mass."""
     reads = [s0.clip_read(m, np.zeros(len(m)), steps, labels, boxes, TOPK) for m in maps]
     first = reads[0]
     if first.hit is None or first.chance is None:
@@ -261,6 +356,16 @@ def clip_point_reads(
             "hit_pre": float(np.mean([r.hit_pre for r in reads if r.hit_pre is not None])),
             "chance_pre": first.chance_pre,
         }
+    masses = [clip_mass(m, steps, labels, boxes) for m in maps]
+    if all(m is not None for m in masses):
+        out["mass"] = float(np.mean([m[0] for m in masses if m is not None]))
+        out["mass_chance"] = float(masses[0][1]) if masses[0] is not None else 0.0
+    if change is not None:
+        base = s0.clip_read(change, np.zeros(len(change)), steps, labels, boxes, TOPK)
+        out["hit_change"] = float(base.hit or 0.0)
+        base_mass = clip_mass(change, steps, labels, boxes)
+        if base_mass is not None:
+            out["mass_change"] = base_mass[0]
     return out
 
 
@@ -281,9 +386,27 @@ def point_summary(
         "hit_minus_centre": s0.ci(centre),
     }
     points = all(st is not None and st["low"] > 0 for st in stats.values())
+    v51 = {  # §3: mass-in-box and the untrained change map (absent on Stage 2 dumps)
+        "mass_minus_chance": s0.ci(
+            {v: r["mass"] - r["mass_chance"] for v, r in per_clip.items() if "mass" in r}
+        ),
+        "hit_minus_change": s0.ci(
+            {v: r["hit"] - r["hit_change"] for v, r in per_clip.items() if "hit_change" in r}
+        ),
+        "mass_minus_change": s0.ci(
+            {
+                v: r["mass"] - r["mass_change"]
+                for v, r in per_clip.items()
+                if "mass" in r and "mass_change" in r
+            }
+        ),
+    }
+    beats = [v51["hit_minus_change"], stats["hit_minus_centre"]]
     return {
         **stats,
+        **v51,
         "points": points,
+        "beats_centre_and_change": all(st is not None and st["low"] > 0 for st in beats),
         "by_ego": {
             lab: s0.ci({v: x for v, x in d3.items() if ego.get(v) == flag})
             for flag, lab in ((True, "ego"), (False, "non_ego"))
@@ -322,24 +445,49 @@ def minmax(x: np.ndarray) -> np.ndarray:
 
 
 def stauc_of(
-    maps: dict[str, np.ndarray],
+    maps: dict[str, np.ndarray] | None,
     scores: dict[str, np.ndarray],
     labels: dict[str, np.ndarray],
     boxes: dict[str, dict[int, list[list[float]]]],
     stride: int,
 ) -> dict[str, float]:
-    """STAUC over every step of the boxed clips (per-clip min-max step scores)."""
+    """STAUC over every step of the boxed clips (per-clip min-max step scores); ``maps=None`` is
+    the uniform map (§3)."""
     lab, sc, tr = [], [], []
-    for v in sorted(maps):
-        if v not in labels:
+    for v in sorted(scores):
+        if v not in labels or (maps is not None and v not in maps):
             continue
         s = minmax(scores[v])
         for k, frame in enumerate(range(0, len(labels[v]), stride)):
             y = int(labels[v][frame])
+            frame_boxes = boxes[v].get(frame, [])
             lab.append(y)
             sc.append(float(s[k]))
-            tr.append(tarr_frame(upsample(maps[v][k]), y, boxes[v].get(frame, [])))
+            tr.append(
+                uniform_tarr(y, frame_boxes)
+                if maps is None
+                else tarr_frame(upsample(maps[v][k]), y, frame_boxes)
+            )
     return stauc(np.array(lab), np.array(sc), np.array(tr))
+
+
+def baseline_staucs(
+    scores: dict[str, np.ndarray],
+    change: dict[str, np.ndarray],
+    labels: dict[str, np.ndarray],
+    boxes: dict[str, dict[int, list[list[float]]]],
+    stride: int,
+) -> dict[str, dict[str, float]]:
+    """STAUC of the uniform, centre-prior and untrained change maps under the row's own temporal
+    scores, so only the map differs (§3; proposal §4.4)."""
+    centre = {v: np.tile(centre_prior(), (len(s), 1)) for v, s in scores.items()}
+    out = {
+        "uniform": stauc_of(None, scores, labels, boxes, stride),
+        "centre": stauc_of(centre, scores, labels, boxes, stride),
+    }
+    if change:
+        out["change"] = stauc_of(change, scores, labels, boxes, stride)
+    return out
 
 
 def run_read(args: argparse.Namespace) -> dict[str, Any]:
@@ -356,16 +504,28 @@ def run_read(args: argparse.Namespace) -> dict[str, Any]:
         per_clip: dict[str, dict[str, float]] = {}
         for v in labels:
             steps = np.arange(0, clips[v], args.stride)
-            read = clip_point_reads([d[v]["E"] for d in dumps.values()], steps, labels[v], boxes[v])
+            first = next(iter(dumps.values()))[v]
+            read = clip_point_reads(
+                [d[v]["E"] for d in dumps.values()], steps, labels[v], boxes[v], first.get("C")
+            )
             if read is not None:
                 per_clip[v] = read
         mean_map = {v: np.mean([d[v]["E"] for d in dumps.values()], axis=0) for v in labels}
         mean_score = {v: np.mean([d[v]["s"] for d in dumps.values()], axis=0) for v in labels}
+        first_dump = next(iter(dumps.values()))
+        change = {v: d["C"] for v, d in first_dump.items() if "C" in d and v in labels}
         out["rows"][row] = {
             "seeds": sorted(seeds),
             "clips_read": len(per_clip),
             **point_summary(per_clip, ego, bins),
             "stauc": stauc_of(mean_map, mean_score, labels, boxes, args.stride),
+            "stauc_baselines": baseline_staucs(
+                mean_score,
+                change,
+                labels,
+                boxes,
+                args.stride,
+            ),
         }
     out["printed_beside"] = {
         "stage0_v7_change_lag6_hit_minus_chance": 0.076,
@@ -400,6 +560,35 @@ def render_read(out: dict[str, Any]) -> str:
             f"| {row} | {_f(r['hit_minus_chance'])} | {_f(r['hit_minus_pre'])} | "
             f"{_f(r['hit_minus_centre'])} | {'**yes**' if r['points'] else 'no'} | "
             f"{r['stauc']['stauc']:.4f} | {r['stauc']['auc']:.4f} |"
+        )
+    lines += [
+        "",
+        "v5.1 (PREREG_V5 §3): mass-in-box and the untrained change map",
+        "",
+        "| row | mass - chance | hit - change map | mass - change map | beats centre + change? |",
+        "|---|---|---|---|---|",
+    ]
+    for row, r in out["rows"].items():
+        lines.append(
+            f"| {row} | {_f(r.get('mass_minus_chance'))} | {_f(r.get('hit_minus_change'))} | "
+            f"{_f(r.get('mass_minus_change'))} | "
+            f"{'**yes**' if r.get('beats_centre_and_change') else 'no'} |"
+        )
+    lines += [
+        "",
+        "STAUC beside the baselines (same temporal scores, only the map differs; §3)",
+        "",
+        "| row | STAUC | uniform | centre prior | change map |",
+        "|---|---|---|---|---|",
+    ]
+    for row, r in out["rows"].items():
+        b = r.get("stauc_baselines", {})
+        lines.append(
+            f"| {row} | {r['stauc']['stauc']:.4f} | "
+            + " | ".join(
+                f"{b[k]['stauc']:.4f}" if k in b else "—" for k in ("uniform", "centre", "change")
+            )
+            + " |"
         )
     lines += [
         "",

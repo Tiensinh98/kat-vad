@@ -31,7 +31,7 @@ from typing import Any
 
 import numpy as np
 import torch
-from torch import Tensor
+from torch import Tensor, nn
 from torch.amp.grad_scaler import GradScaler
 from torch.optim.adamw import AdamW
 from torch.optim.lr_scheduler import LambdaLR
@@ -48,7 +48,7 @@ from core.data.definitions import (
 )
 from core.data.knn_cache import load_knn_cache
 from core.data.v2_inputs import check_input_manifest
-from core.data.v5_grids import change_lag, read_grid_geometry
+from core.data.v5_grids import change_lag, read_grid_geometry, tile_boundary_rows
 from core.device import resolve_device
 from core.kip.losses import (
     kinematic_loss,
@@ -58,9 +58,9 @@ from core.kip.losses import (
 from core.losses.contrastive import CapContrastLoss
 from core.losses.dvs import pseudo_sup_mil_loss, supervised_loss
 from core.losses.mil import abnormal_bottomk_loss, mil_loss, multi_class_mil_loss
-from core.losses.smil import spatial_mil_loss
+from core.losses.smil import spatial_mil_loss, tile_mil_loss
 from core.models.kat_vad import KATVAD
-from core.models.mqr import query_entropy, query_logit_spread
+from core.models.mqr import TileReadout, query_entropy, query_logit_spread
 from core.models.text_encoding import (
     TEXT_ENCODER_CHOICES,
     TEXT_ENCODER_CLIP,
@@ -153,9 +153,17 @@ def optimizer_param_groups(model: KATVAD, cfg: Config) -> list[dict[str, Any]]:
     """
     trainable = [p for p in model.parameters() if p.requires_grad]
     mult = cfg.v5.query_lr_mult
+    readout = model.grid_readout
+    temp = getattr(readout, "log_temp", None)  # v5.1 TileReadout: theta, no weight decay (§3)
+    if isinstance(temp, nn.Parameter) and temp.requires_grad:
+        if mult != 1:
+            raise ValueError("v5.query_lr_mult applies to MQR queries; the tile readout has none")
+        return [
+            {"params": [p for p in trainable if p is not temp]},
+            {"params": [temp], "weight_decay": 0.0},
+        ]
     if mult == 1:
         return [{"params": trainable}]
-    readout = model.grid_readout
     query = None if readout is None else readout.query
     if query is None or not query.requires_grad:
         raise ValueError(f"v5.query_lr_mult={mult} but the model has no trainable MQR queries")
@@ -200,8 +208,10 @@ class Trainer:
         output_dir: Path,
         device: torch.device | None = None,
         log_every: int = 10,
+        tile_boundary_rows: int = 0,
     ) -> None:
         self.cfg = cfg
+        self.tile_boundary_rows = tile_boundary_rows  # v5.1 L_tile: DVS boundary exclusion
         self.device = device if device is not None else resolve_device(cfg.train.device)
         self.model = model.to(self.device)
         self.dataset = dataset
@@ -339,6 +349,22 @@ class Trainer:
                     losses[f"v5_qnorm_q{m}"] = norm
         if "v5_smil" in outputs:
             losses["smil"] = spatial_mil_loss(outputs["v5_smil"], labels, lengths)
+        if "v5_tile_logits" in outputs:  # v5.1 L_tile (PREREG_V5 §3)
+            v5 = self.cfg.v5
+            losses |= tile_mil_loss(
+                outputs["v5_tile_logits"],
+                labels,
+                lengths,
+                pseudo,
+                is_synth,
+                dense_negatives=v5.dense_negatives,
+                topk_cells=v5.tile_topk_cells,
+                beta=v5.tile_beta,
+                boundary_rows=self.tile_boundary_rows,
+            )
+            readout = self.model.grid_readout
+            if isinstance(readout, TileReadout):
+                losses["v5_temp"] = readout.temperature().detach()
 
         # L_MIL (binary top-k)
         loss_bin = mil_loss(
@@ -480,6 +506,8 @@ class Trainer:
             total = total + loss_cfg.gamma_kin * losses["kin"]
         if "smil" in losses:
             total = total + self.cfg.v5.smil_weight * losses["smil"]
+        if "tile" in losses:
+            total = total + self.cfg.v5.smil_weight * losses["tile"]
         losses["total"] = total
         return losses
 
@@ -767,6 +795,11 @@ def v5_grid_lag(cfg: Config, grid_dir: Path | None) -> int | None:
             f"{grid_dir} rows are s1[::{geometry.stride}], training is at stride "
             f"{cfg.data.frame_stride} (lesson C2)"
         )
+    if (geometry.slots, geometry.window) != (cfg.v5.grid_slots, cfg.v5.window):
+        raise ValueError(
+            f"{grid_dir} holds {geometry.slots}-slot {geometry.window} grids, the config reads "
+            f"{cfg.v5.grid_slots}-slot {cfg.v5.window} (PREREG_V5 §3; lesson C2)"
+        )
     if cfg.v5.keys != constants.V5_KEYS_CHANGE:
         return None
     return change_lag(geometry.stride, geometry.frame_step)
@@ -835,6 +868,11 @@ def build_trainer(
         output_dir=output_dir,
         device=device,
         log_every=log_every,
+        tile_boundary_rows=(
+            tile_boundary_rows(read_grid_geometry(grid_dir), cfg.data.frame_stride)
+            if grid_dir is not None and cfg.v5.readout == constants.V5_READOUT_TILE
+            else 0
+        ),
     )
 
 
