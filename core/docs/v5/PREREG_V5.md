@@ -561,3 +561,13 @@ steps, 100 k values per row (v5.1: 75 k) → ≈ v5.1's step 2–3.
   "`nexar_val` guardrail not read" (P-f's guardrail is not evaluated in the fast pilot). Detection numbers are printed
   only (P-h). A MAPS-ONLY-PILOT licenses no report sentence until P-g's seeds 2025/2026 and P-f's guardrail are read;
   a NULL-PILOT is reported as a one-seed negative.
+
+### §4.5 Amendment R7-A1 — G-R7c (written 2026-10-30 after the first Phase 1 run; no R7 detection or map number exists)
+
+The first run failed G-R7c on **569 / 569** CAP-dev clips (bar: per-clip max |Δ dc14| ≤ 5e-3, fixed without a
+measurement) while G1 passed everywhere (Nexar min cos 0.99994; DoTA-CAP G1-pixel min 0.9538 ≥ 0.95), and a failing
+clip stored nothing. Changes: (1) G-R7c **no longer blocks storing** — every clip passing G1 is stored with
+`dc14_{max,p99,mean}_abs` and `dc14_argmax_agree` (share of steps whose most-changed tile matches Stage 0's, the
+quantity check C's pointing read uses); (2) the bar is re-fixed **from those printed distributions, before any R7 run
+is trained or read**, as a validity gate (does the cache reproduce C14?), never against an outcome; (3) a uniform
+`inf` (different steps / grid) is a defect, not a tolerance question, and stops the pilot.

@@ -55,8 +55,11 @@ class TestGap:
         np.savez(
             path, steps=np.array([0, 3, 6, 9]), dc14=v5_stage0.change_map(grid.astype(np.float32))
         )
-        assert v5_stage0.dc14_gap(grid, [0, 3, 6, 9], path) == 0.0
-        assert v5_stage0.dc14_gap(grid, [0, 3, 6, 12], path) == float("inf")
+        same = v5_stage0.dc14_gap(grid, [0, 3, 6, 9], path)
+        assert same is not None and same["max_abs"] == 0.0 and same["argmax_agree"] == 1.0
+        moved = v5_stage0.dc14_gap(grid, [0, 3, 6, 12], path)
+        assert moved is not None and moved["max_abs"] == float("inf")
+        assert moved["argmax_agree"] == 0.0
 
 
 class TestDotaCap:
@@ -173,6 +176,7 @@ class TestDotaCap:
             "eee_fff_000001": "ok",
         }
         assert got["aaa_bbb_000001"]["dc14_max_abs"] <= constants.V5_R7_DC14_MAX_ABS
+        assert got["aaa_bbb_000001"]["dc14_argmax_agree"] == 1.0
         assert "dc14_max_abs" not in got["eee_fff_000001"]  # eval clip: stored, no Stage 0 map
         grid_dir = v5_stage0.grid_out_dir("", clip_grid=True)
         assert grid_dir.name == f"{constants.DOTA_CAP_DATASET}_s3_{constants.V5_CLIP_GRID_TAG}"
@@ -185,7 +189,7 @@ class TestDotaCap:
             constants.V5_WINDOW_FRAME,
         )
 
-    def test_a_dc14_mismatch_stores_nothing(
+    def test_a_dc14_mismatch_is_recorded_and_the_grid_kept(
         self,
         tmp_path: Path,
         tiny: Any,  # noqa: F811
@@ -209,8 +213,11 @@ class TestDotaCap:
             self._cmd(tmp_path, env, out, report, "--clip-grid", "--stage0-maps-dir", str(maps))
         )
         got = json.loads(report.read_text())
-        assert got["aaa_bbb_000001"]["reason"] == "g_r7c"
-        assert not (v5_stage0.grid_out_dir("", clip_grid=True) / "aaa_bbb_000001.npy").exists()
+        entry = got["aaa_bbb_000001"]
+        assert entry["reason"] == "ok"  # G-R7c is read on the run's summary, never blocks storing
+        assert entry["dc14_max_abs"] > constants.V5_R7_DC14_MAX_ABS
+        assert {"dc14_p99_abs", "dc14_mean_abs", "dc14_argmax_agree"} <= set(entry)
+        assert (v5_stage0.grid_out_dir("", clip_grid=True) / "aaa_bbb_000001.npy").exists()
 
     def test_tile_and_clip_grid_are_exclusive(self, tmp_path: Path) -> None:
         (tmp_path / "a.json").write_text(json.dumps({"clips": {}}))

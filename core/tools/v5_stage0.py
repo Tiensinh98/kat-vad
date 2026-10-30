@@ -116,10 +116,12 @@ def change_map(grid: np.ndarray, lag: int = 1) -> np.ndarray:
     return out
 
 
-def dc14_gap(grid: np.ndarray, steps: list[int], stage0_map: Path) -> float | None:
-    """R7 G-R7c: max |lag-1 change map of ``grid`` - Stage 0's stored ``dc14``| over defined rows.
+def dc14_gap(grid: np.ndarray, steps: list[int], stage0_map: Path) -> dict[str, float] | None:
+    """R7 G-R7c: the lag-1 change map of ``grid`` vs Stage 0's stored ``dc14`` (defined rows).
 
-    ``None`` when Stage 0 stored no map for the clip; ``inf`` when the two read different steps.
+    Returns max / p99 / mean |Δ| and ``argmax_agree`` -- the share of steps whose most-changed
+    tile is the same (what the pointing read uses); ``None`` when Stage 0 stored no map;
+    ``max_abs = inf`` and ``argmax_agree = 0`` when the two read different steps or grids.
     """
     if not stage0_map.exists():
         return None
@@ -127,9 +129,20 @@ def dc14_gap(grid: np.ndarray, steps: list[int], stage0_map: Path) -> float | No
         ref, ref_steps = np.asarray(stored["dc14"], dtype=np.float64), np.asarray(stored["steps"])
     tiles = grid[0].size // grid.shape[-1]
     if not np.array_equal(ref_steps, np.asarray(steps)) or ref.shape[1] != tiles:
-        return float("inf")
-    gap = np.abs(change_map(np.asarray(grid, dtype=np.float32)) - ref)
-    return float(np.nanmax(gap)) if np.isfinite(gap).any() else 0.0
+        return {"max_abs": float("inf"), "p99_abs": float("inf"), "mean_abs": float("inf"),
+                "argmax_agree": 0.0}
+    mine = change_map(np.asarray(grid, dtype=np.float32))
+    rows = np.isfinite(mine).all(1) & np.isfinite(ref).all(1)
+    if not rows.any():
+        return {"max_abs": 0.0, "p99_abs": 0.0, "mean_abs": 0.0, "argmax_agree": 1.0}
+    gap = np.abs(mine[rows] - ref[rows])
+    agree = float((mine[rows].argmax(1) == ref[rows].argmax(1)).mean())
+    return {
+        "max_abs": float(gap.max()),
+        "p99_abs": float(np.percentile(gap, constants.V5_R7_DC14_PERCENTILE)),
+        "mean_abs": float(gap.mean()),
+        "argmax_agree": agree,
+    }
 
 
 def global_change(vectors: np.ndarray, lag: int = 1) -> np.ndarray:
@@ -434,9 +447,8 @@ class Stage0Extractor:
         grid16 = cgrid.astype(np.float16)
         if dota_id in self.dev and self.stage0_maps_dir is not None:
             gap = dc14_gap(grid16, steps, self.stage0_maps_dir / f"{dota_id}{MAP_SUFFIX}")
-            entry["dc14_max_abs"] = gap
-            if gap is not None and gap > constants.V5_R7_DC14_MAX_ABS:
-                return {**entry, "reason": "g_r7c"}
+            if gap is not None:  # recorded, never blocks storing: G-R7c is read on the run
+                entry |= {f"dc14_{k}": v for k, v in gap.items()}
         save_array(self.grid_dir / f"{dota_id}.npy", grid16)
         LOGGER.info(
             "%s: %d steps (CLIP 14x14), G1 pixel min cos %.6f", dota_id, len(steps), cos.min()
