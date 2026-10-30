@@ -2205,3 +2205,15 @@ environments without measuring it; it failed 569 / 569 (median 0.050) and, becau
 cost a 110-min CAP stream. CLS embeddings had moved (G1-pixel min 0.953983 → 0.953811); a per-patch frame difference
 amplifies that. Fix: gate on the **statistic the claim uses** (check C's C14 hit − chance within 0.01) and never let a
 reproduction gate discard the expensive artifact (record, then decide). Second occurrence → candidate for promotion.
+
+## (cf) [MEDIUM] Evaluation - Print where a trained map's mass and argmax sit on the grid before reading any pointing score (2026-10-31)
+**Triggers:** evidence map, tile scorer, pointing, hit rate, argmax, border, sky, hood, CLIP patches, ViT artifact tokens, registers, map read
+**Problem:** R7t's map read hit − chance −0.083 and hit − C14 −0.371; only a post-hoc histogram showed why — 93 % of
+its per-step argmaxes sat in rows 0–2 / 11–13 (sky, hood), rows 3–10 ≈ 1 %. The pointing numbers said "fails", not
+"fails because it learned the border"; a v5.1 / Stage 2b map could have hidden the same thing.
+**Bad:** read hit − chance / hit − centre / STAUC only, from `v5_maps read`.
+**Good:** beside every map read, print the argmax share and mean mass per grid row and column (and per clip, the share
+of steps whose argmax is on the border), plus `p_abnormal` vs `p_normal` from training.
+**Rule:** Print a row / column histogram of a trained map's argmax and mass next to its pointing statistics.
+**Files:** `core/tools/v5_maps.py` (read), `core/docs/v5/RESULTS_V5_R7.md` §4.
+**Gate status.** One occurrence (R7). Mechanism (CLIP high-norm artifact tokens) untested. Gate 2 not met.

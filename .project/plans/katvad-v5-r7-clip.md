@@ -1,6 +1,6 @@
 # KAT-VAD v5 R7 — MQR on CLIP 14 × 14 patches (after check C)
 
-Rules: `core/docs/v5/PREREG_V5.md` **§4** (DRAFT). Branch `v5-r7` (off `v5-probe@a6d61df`). Predecessors:
+Rules: `core/docs/v5/PREREG_V5.md` **§4** (FIXED 2026-10-30; read-out §4.6). Branch `v5-r7` (off `v5-probe@a6d61df`). Predecessors:
 `katvad-v5-mqr.md` (Stages 0–2b), `katvad-v5-tile-mqr.md` (v5.1, PILOT-FAIL), check C (§3.7, CLIP-BEATS-CENTRE).
 
 ## 0. Status
@@ -10,7 +10,8 @@ Rules: `core/docs/v5/PREREG_V5.md` **§4** (DRAFT). Branch `v5-r7` (off `v5-prob
 | 0 | user: R7 at native 14 × 14 × 512; store the grids unpooled for later pooling; new branch | **decided 2026-10-30** |
 | 1 | CLIP grid extraction (Nexar train s8 / val s3, DoTA-CAP all 1,129 s3) + gates G1 / G-R7c | **BUILT 2026-10-30**: `v5_stage1 extract --clip-grid`, `v5_stage0 extract --clip-grid`, `v5_grids.clip_grid_manifest`, constants `V5_CLIP_*` / `V5_R7_*`, tests `test_v5_r7_grids.py` (7); notebook `colab/v5/r7_clip_grids.ipynb`. **Not run.** |
 | 2 | PREREG §4.2 (recommended column, user's "fastest result" instruction) → readout/trainer on 196 CLIP cells, `W_c` path, maps vs C14 | **BUILT 2026-10-30**: `v5.window=frame` (config `_validate_v5_frame`), `TileReadout(frame=True)` + `frame_tile_features`, R7m `GridReadout` at 512 × 196, `KATVAD` residual width = readout width (A2's `u` skipped), `frame_lag` / `eval_grid` frame path, no `v5_head.npz`, `v5_maps.frame_change_map` + 14 × 14 centre prior + `mass_minus_centre` + `r7_points`, `v5_tile_read --gate r7` (no `--nexar-dir`), `v5_stage0 extract --dev-only`; constants `V5_R7_ROWS` etc.; tests `test_v5_r7_grids.py` (23) |
-| 3 | fast pilot s2024 on DoTA-CAP-dev (§4.4) → read-out | **notebook `colab/v5/r7_fast_pilot.ipynb` built, not run** |
+| 3 | fast pilot s2024 on DoTA-CAP-dev (§4.4) → read-out | **READ OUT 2026-10-31: NULL-PILOT** (PRELIMINARY, n = 1) — R7t map hit − chance −0.083, hit − C14 −0.371, mass − centre −0.033; map on the frame border (93 % of argmaxes in rows 0–2 / 11–13, post-hoc); R7t − R7m detection = position (+0.001 under control). `core/docs/v5/RESULTS_V5_R7.md`, PREREG §4.6. Notebook fix 2026-10-31: `grid_local('dota')` for G-R7c on a resumed session |
+| 4 | full Phase 1 (`r7_clip_grids.ipynb`), seeds 2025/2026, CAP-eval | **not run — not needed after NULL-PILOT** (F4) |
 
 ## 1. Why 14 × 14, why store unpooled
 

@@ -583,3 +583,11 @@ chance (+0.2878) within **`V5_R7_REPRO_TOL` = 0.01** (≈ ½ of that interval's 
 **R7-A1, gate status changed by the user (2026-10-30, before the run):** G-R7c is **printed, not gating** — the fast
 pilot trains and reads whatever it reproduces. The read-out must be reported with the G-R7c line beside it; a
 reproduction miss > 0.01 means the R7 maps are not read on the same C14 that check C measured.
+
+### §4.6 Read-out (2026-10-31; rules above unchanged)
+
+**Fast pilot: NULL-PILOT (maps), PRELIMINARY (n = 1), `nexar_val` guardrail not read.** P-e: hit − chance −0.083
+[−0.096, −0.069], lift − lift_pre −0.020, hit − C14 −0.371, mass − centre −0.033 — no low > 0. G-R7c reproduced
+(+0.2877 vs +0.2878, |Δ| 1.1e-4); S1-G4 PASS. Detection (printed): R7t − R7m +0.020, position-controlled +0.001
+[−0.004, +0.006]. Per F4 a one-seed negative; P-g's extra seeds and CAP-eval are not run. Record
+`core/docs/v5/RESULTS_V5_R7.md`.

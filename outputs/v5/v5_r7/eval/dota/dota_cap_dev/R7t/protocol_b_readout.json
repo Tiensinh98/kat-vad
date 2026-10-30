@@ -1,0 +1,46 @@
+{
+  "arm": {
+    "crn": "none",
+    "motion": "vit_s_k710_dl_from_giant",
+    "v5_grid_slots": 1,
+    "v5_keys": "content",
+    "v5_queries": 1,
+    "v5_readout": "tile",
+    "v5_smil_weight": 0.5,
+    "v5_window": "frame"
+  },
+  "checkpoints": {
+    "s2024": "/content/v5r7f/runs/R7t/s2024/checkpoint_last.pt"
+  },
+  "clips": 569,
+  "excluded_featureless": [],
+  "global_steps": {
+    "s2024": 1749
+  },
+  "input_dir": "/content/v5r7f/stage/dota_cap_dev_A2",
+  "macro": {
+    "clips": 569,
+    "clusters": 91,
+    "high": 0.8164205457645857,
+    "low": 0.7824806899294517,
+    "mean": 0.8000219567755874
+  },
+  "per_run_macro": {
+    "s2024": 0.8000219567755874
+  },
+  "position_ruler": {
+    "clips": 569,
+    "clusters": 91,
+    "high": 0.5764967326968747,
+    "low": 0.5379905922012269,
+    "mean": 0.5573060693077054
+  },
+  "protocol": "B: s1[::3], whole clip, native frames (addendum \u00a78.1 J1-J5)",
+  "reverse_time": false,
+  "runs": [
+    "s2024"
+  ],
+  "split": "dota_cap_dev",
+  "split_clips": 569,
+  "two_class": 569
+}
