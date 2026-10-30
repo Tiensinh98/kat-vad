@@ -2200,3 +2200,8 @@ with a reshape-mean on read.
 the reader, not in the cache.
 **Files:** `core/tools/v5_stage0.py` (`--clip-grid`), `core/tools/v5_stage1.py` (`run_extract_clip`), `core/data/v5_grids.py` (`clip_grid_manifest`).
 **Gate status.** One occurrence (R7); cost = one extra extraction pass. Gate 2 not met.
+**2026-10-30 recurrence (R7 G-R7c).** Fixed a bit-level reproduction bar (max |Δ dc14| ≤ 5e-3) across two Colab
+environments without measuring it; it failed 569 / 569 (median 0.050) and, because a failing clip stored nothing,
+cost a 110-min CAP stream. CLS embeddings had moved (G1-pixel min 0.953983 → 0.953811); a per-patch frame difference
+amplifies that. Fix: gate on the **statistic the claim uses** (check C's C14 hit − chance within 0.01) and never let a
+reproduction gate discard the expensive artifact (record, then decide). Second occurrence → candidate for promotion.

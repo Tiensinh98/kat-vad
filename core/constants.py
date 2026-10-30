@@ -956,6 +956,7 @@ V5_R7_DOTA_STRIDE = V5_STAGE0_STRIDE  # DoTA-CAP s1[::3], every finalized clip (
 V5_R7_G1_MIN_COS = 0.999  # Nexar G1: recomputed image_embeds vs Nexar_s1_ncc, every stored row
 V5_R7_DC14_MAX_ABS = 5e-3  # G-R7c as first fixed: max |Δ dc14| per clip -- FAILED 569/569 on Colab
 V5_R7_DC14_PERCENTILE = 99  # G-R7c printed: p99 |Δ dc14| per clip beside max / mean / argmax_agree
+V5_R7_REPRO_TOL = 0.01  # §4.5 G-R7c: |C14 hit - chance (R7 cache) - Stage 0's|, ≈ ½ CI half-width
 V5_R7_CELLS = V5_CLIP_GRID * V5_CLIP_GRID  # 196 cells per row
 V5_R7_GRID_WIDTH = V5_R7_CELLS * V5_CLIP_GRID_DIM  # columns one flattened CLIP grid adds to a row
 V5_R7_CHANGE_ROWS = 1  # §4.2 P-b: Δ lag in rows -- Nexar s8 0.27 s, DoTA-CAP s3 0.3 s (= C14's lag)

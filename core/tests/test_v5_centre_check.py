@@ -155,6 +155,28 @@ class TestRunCheck:
         out = cc.run_check(argparse.Namespace(stage0_readout=ref, out_dir=tmp_path / "R"))
         assert out["decision"] == cc.INVALID
 
+    def test_r7_cache_replaces_c14_and_uses_the_r7_tolerance(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        inputs = self._inputs(4)
+        rng = np.random.default_rng(0)
+        grids = tmp_path / "cgrid"
+        grids.mkdir()
+        for v, m in inputs.maps.items():
+            np.save(grids / f"{v}.npy", rng.normal(size=(len(m["steps"]), GRID14, GRID14, 6)))
+        monkeypatch.setattr(s0, "load_dev", lambda _args: inputs)
+        ref = tmp_path / "stage0_readout.json"
+        ref.write_text(json.dumps({"summary": {cc.PRIMARY: {"hit_minus_chance": {"mean": 9.0}}}}))
+        args = argparse.Namespace(stage0_readout=ref, out_dir=tmp_path / "R", r7_grid_dir=grids)
+        out = cc.run_check(args)
+        assert out["g_c0"]["tol"] == constants.V5_R7_REPRO_TOL and not out["g_c0"]["pass"]
+        v = next(iter(inputs.maps))
+        want = s0.change_map(np.load(grids / f"{v}.npy").astype(np.float32))
+        np.testing.assert_allclose(inputs.maps[v][cc.STAGE0_C14_KEY], want)
+        np.save(grids / f"{v}.npy", np.zeros((1, GRID14, GRID14, 6)))
+        with pytest.raises(ValueError, match="rows"):
+            cc.use_r7_grids(inputs, grids)
+
     def test_cli_parses(self, tmp_path: Path) -> None:
         args = cc.build_arg_parser().parse_args(
             ["--reports", str(tmp_path / "a.json"), "--stage0-readout", str(tmp_path / "r.json")]

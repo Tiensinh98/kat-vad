@@ -571,3 +571,11 @@ clip stored nothing. Changes: (1) G-R7c **no longer blocks storing** — every c
 quantity check C's pointing read uses); (2) the bar is re-fixed **from those printed distributions, before any R7 run
 is trained or read**, as a validity gate (does the cache reproduce C14?), never against an outcome; (3) a uniform
 `inf` (different steps / grid) is a defect, not a tolerance question, and stops the pilot.
+
+**R7-A1, bar fixed (2026-10-30, after the first run's printed max |Δ dc14| — median 0.050, max 0.395, no `inf` — and
+before any R7 detection or map number).** The CLS embeddings themselves moved between the Stage 0 and R7 Colab
+environments (G1-pixel min 0.953983 → 0.953811), and a per-patch frame-difference amplifies that, so bit-level
+agreement with `dc14` is the wrong test. **G-R7c (hard):** check C re-run on the R7 cache (`v5_centre_check
+--r7-grid-dir`: C14 = the stored grid's lag-1 change map, everything else Stage 0's) must reproduce Stage 0's C14 hit −
+chance (+0.2878) within **`V5_R7_REPRO_TOL` = 0.01** (≈ ½ of that interval's half-width, 0.019). Its other rows
+(hit − centre, mass − centre) are printed beside check C's, never gated. The per-clip `dc14_*` statistics stay printed.

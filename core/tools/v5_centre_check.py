@@ -38,9 +38,10 @@ RULE = "core/docs/v5/PREREG_V5.md §3.7 (check C)"
 READOUT_JSON = "check_c_readout.json"
 READOUT_MD = "check_c_readout.md"
 PRIMARY = "C14"
+STAGE0_C14_KEY = "dc14"  # Stage 0 maps: the CLIP 14 x 14 lag-1 change map
 REPS = (  # name -> (stored key, pooling factor); the primary first
-    (PRIMARY, "dc14", 1),
-    ("C14->7", "dc14", constants.V5_CHECK_C_POOL),
+    (PRIMARY, STAGE0_C14_KEY, 1),
+    ("C14->7", STAGE0_C14_KEY, constants.V5_CHECK_C_POOL),
     ("V7", "d7", 1),
     ("V14", "d14", 1),
 )
@@ -119,12 +120,25 @@ def summarize(
     }
 
 
-def g_c0(summary: dict[str, Any], reference: dict[str, Any]) -> dict[str, Any]:
-    """G-C0: the primary map's hit - chance reproduces Stage 0's recorded C14 row."""
+def g_c0(
+    summary: dict[str, Any], reference: dict[str, Any], tol: float = constants.V5_G5_MAX_ABS
+) -> dict[str, Any]:
+    """G-C0: the primary map's hit - chance reproduces Stage 0's recorded C14 row (``tol``:
+    1e-4 on Stage 0's own maps; ``V5_R7_REPRO_TOL`` on an R7 cache, PREREG_V5 §4.5)."""
     got = summary["hit_minus_chance"]
     ref = reference["summary"][PRIMARY]["hit_minus_chance"]
     diff = math.inf if got is None else abs(got["mean"] - ref["mean"])
-    return {"got": got, "ref": ref["mean"], "diff": diff, "pass": diff <= constants.V5_G5_MAX_ABS}
+    return {"got": got, "ref": ref["mean"], "diff": diff, "tol": tol, "pass": diff <= tol}
+
+
+def use_r7_grids(inputs: s0.DevInputs, grid_dir: Path) -> None:
+    """R7 G-R7c (PREREG_V5 §4.5): replace each clip's C14 map by the lag-1 change map of the
+    stored R7 CLIP grid (same steps), so check C runs on the R7 cache."""
+    for v, m in inputs.maps.items():
+        grid = np.load(grid_dir / f"{v}.npy").astype(np.float32)
+        if len(grid) != len(m["steps"]):
+            raise ValueError(f"{v}: R7 grid has {len(grid)} rows, Stage 0 read {len(m['steps'])}")
+        m[STAGE0_C14_KEY] = s0.change_map(grid)
 
 
 def decide(primary: dict[str, Any], valid: bool) -> str:
@@ -136,6 +150,10 @@ def decide(primary: dict[str, Any], valid: bool) -> str:
 
 def run_check(args: argparse.Namespace) -> dict[str, Any]:
     inputs = s0.load_dev(args)
+    r7_dir: Path | None = getattr(args, "r7_grid_dir", None)
+    r7 = r7_dir is not None
+    if r7_dir is not None:
+        use_r7_grids(inputs, r7_dir)
     summary: dict[str, Any] = {}
     for name, key, factor in REPS:
         per_clip: dict[str, dict[str, float]] = {}
@@ -146,10 +164,12 @@ def run_check(args: argparse.Namespace) -> dict[str, Any]:
                 per_clip[v] = read
         summary[name] = summarize(per_clip, inputs.ego, inputs.bins)
     reference = json.loads(args.stage0_readout.read_text(encoding="utf-8"))
-    gate = g_c0(summary[PRIMARY], reference)
+    tol = constants.V5_R7_REPRO_TOL if r7 else constants.V5_G5_MAX_ABS
+    gate = g_c0(summary[PRIMARY], reference, tol)
     valid = gate["pass"] and not inputs.failed and not inputs.missing
     out = {
-        "rule": RULE,
+        "rule": RULE if not r7 else f"{RULE}; run on the R7 cache {r7_dir} (§4.5)",
+        "r7_grid_dir": str(r7_dir) if r7 else None,
         "decision": decide(summary[PRIMARY], valid),
         "g_c0": gate,
         "validity": inputs.validity(),
@@ -179,7 +199,9 @@ def render(out: dict[str, Any]) -> str:
         "",
         f"Validity: dev maps {valid['dev_maps']}, failed {len(valid['failed'])}, missing "
         f"{len(valid['missing_dev'])}; G-C0 {PRIMARY} hit - chance {_f(gate['got'])} vs Stage 0 "
-        f"{gate['ref']:+.4f} (|Δ| {gate['diff']:.1e}) -> {'PASS' if gate['pass'] else 'FAIL'}",
+        f"{gate['ref']:+.4f} (|Δ| {gate['diff']:.1e}, "
+        f"tol {gate.get('tol', constants.V5_G5_MAX_ABS):g}) -> "
+        f"{'PASS' if gate['pass'] else 'FAIL'}",
         "",
         "| map | clips | hit - centre | hit - chance | centre - chance | mass - centre "
         "| mass - chance |",
@@ -210,6 +232,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     s0.add_read_args(parser)
     parser.add_argument(
         "--stage0-readout", type=Path, required=True, help="Stage 0's stage0_readout.json (G-C0)"
+    )
+    parser.add_argument(
+        "--r7-grid-dir", type=Path, default=None,
+        help="R7 G-R7c (PREREG_V5 §4.5): read C14 from this CLIP 14x14 cache instead of dc14",
     )
     parser.set_defaults(
         out_dir=constants.OUTPUT_ROOT
