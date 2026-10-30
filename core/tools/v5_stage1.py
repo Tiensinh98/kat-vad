@@ -9,6 +9,9 @@ Subcommands (each writes ``<name>.json`` + ``<name>.md`` under ``--out-dir``):
     length differs from ``Nexar_s1_squash`` stores nothing (fails); the per-row
     ``cos(fc_norm(mean_j G_t(j)), Nexar_s1_squash[t])`` on the stored grid is printed only.
     Training positives at stride 8, ``nexar_val`` at stride 1 (§2.4 B1). Resumable per video.
+    ``--clip-grid`` (R7, PREREG_V5 §4 Phase 1): CLIP ViT-B/16 patch grids ``(R, 14, 14, 512)`` of
+    the same rows instead, stored unpooled; G1 = length, projected CLS == ``image_embeds``, and
+    every stored row's ``image_embeds`` vs ``Nexar_s1_ncc`` >= ``V5_R7_G1_MIN_COS``.
 ``head``
     V2-S's ``fc_norm`` + Nexar A2's baked ``c``, ``m_u``, ``sigma_u`` -> ``v5_head.npz`` in the
     training grid cache (deviation D1).
@@ -46,6 +49,7 @@ from core.data.v2_inputs import load_stats, read_input_manifest
 from core.data.v5_grids import (
     centred_reference,
     change_lag,
+    clip_grid_manifest,
     grid_change,
     read_grid_geometry,
     save_head,
@@ -56,6 +60,8 @@ from core.device import resolve_device
 from core.models.kat_vad import KATVAD
 from core.models.mqr import GridReadout
 from core.models.videomae_v2 import VideoMAEv2Encoder, load_pretrained
+from core.tools.dota_cap import frame_cosines
+from core.tools.extract_clip_features import load_pretrained_encoder
 from core.tools.extract_video_features import (
     causal_clip_indices,
     centred_clip_indices,
@@ -63,8 +69,8 @@ from core.tools.extract_video_features import (
 )
 from core.tools.feature_cache import Progress, read_ids_file, save_array
 from core.tools.kill_switch_probe import write_json_atomic, write_text_atomic
-from core.tools.nexar_extract import decode_resized, normalize, video_paths
-from core.tools.v5_stage0 import grid_complete, tile_grid, token_grids
+from core.tools.nexar_extract import CLIP_TRANSFORM, decode_resized, normalize, video_paths
+from core.tools.v5_stage0 import clip_patch_tokens, grid_complete, tile_grid, token_grids
 
 LOGGER = logging.getLogger(__name__)
 
@@ -140,6 +146,30 @@ def grid_rows(
 
 
 @torch.no_grad()
+def clip_grid_rows(
+    resized: torch.Tensor, rows: list[int], model: Any, device: torch.device, batch_size: int
+) -> tuple[np.ndarray, np.ndarray, float]:
+    """R7: ``image_embeds (R, 512)``, CLIP patch grids ``(R, 14, 14, 512)`` float32 of frames
+    ``rows`` and G1's max |projected CLS - image_embeds|.
+
+    Pixels are N2's CLIP rows exactly (``nexar_extract.clip_rows``: the shared resize, CLIP
+    mean/std on the CPU), so ``image_embeds`` reproduces ``Nexar_s1_ncc``.
+    """
+    embeds, grids, worst = [], [], 0.0
+    for start in range(0, len(rows), batch_size):
+        pixels = normalize(
+            resized[rows[start : start + batch_size]],
+            constants.CLIP_IMAGE_MEAN,
+            constants.CLIP_IMAGE_STD,
+        )
+        embed, grid, gap = clip_patch_tokens(pixels.to(device), model)
+        worst = max(worst, gap)
+        embeds.append(embed)
+        grids.append(grid)
+    return torch.cat(embeds).numpy(), torch.cat(grids).numpy(), worst
+
+
+@torch.no_grad()
 def g1_cosines(grid16: np.ndarray, reference: np.ndarray, encoder: VideoMAEv2Encoder) -> np.ndarray:
     """Per-row ``cos(fc_norm(mean tiles of the stored fp16 grid), reference row)`` (S1-G1)."""
     device = encoder.fc_norm.weight.device
@@ -200,7 +230,39 @@ def decoded_ahead(paths: dict[str, Path], ids: list[str]) -> Iterator[tuple[str,
             yield video_id, frames
 
 
+def clip_grid_entry(
+    resized: torch.Tensor,
+    reference: np.ndarray,
+    stride: int,
+    model: Any,
+    device: torch.device,
+    batch_size: int,
+) -> tuple[dict[str, Any], np.ndarray | None]:
+    """R7 G1 on one video: its report entry and the fp16 grid to store (``None`` = failed)."""
+    entry: dict[str, Any] = {"frames": len(resized)}
+    if len(resized) != len(reference):
+        return {**entry, "reason": "g1_length"}, None
+    rows = list(range(0, len(resized), stride))
+    embeds, grid, worst = clip_grid_rows(resized, rows, model, device, batch_size)
+    cos = frame_cosines(embeds, np.asarray(reference[rows]))
+    entry |= {
+        "rows": len(rows),
+        "g1_max_abs": worst,
+        "g1_min_cos": float(cos.min()),
+        "g1_mean_cos": float(cos.mean()),
+    }
+    if worst > constants.V5_G1_MAX_ABS:
+        return {**entry, "reason": "g1_cls"}, None
+    if entry["g1_min_cos"] < constants.V5_R7_G1_MIN_COS:
+        return {**entry, "reason": "g1_cos"}, None
+    return {**entry, "reason": OK}, grid.astype(np.float16)
+
+
 def run_extract(args: argparse.Namespace) -> dict[str, Any]:
+    if args.clip_grid:
+        return run_extract_clip(args)
+    if args.video_s1_dir is None:
+        raise ValueError("--video-s1-dir is required without --clip-grid (S1-G1)")
     census = json.loads(args.census.read_text(encoding="utf-8"))
     ids = sorted(read_ids_file(args.ids_file))
     paths = video_paths(args.root, census, set(ids))
@@ -286,6 +348,71 @@ def run_extract(args: argparse.Namespace) -> dict[str, Any]:
     )
     name = f"g1_extract{'_tile' if tile else ''}_s{args.stride}"
     return _write(args.out_dir, name, summary, md)
+
+
+def run_extract_clip(args: argparse.Namespace) -> dict[str, Any]:
+    """R7 Phase 1 (PREREG_V5 §4): CLIP 14 x 14 x 512 grids of rows ``s1[::stride]``, G1."""
+    if args.tile:
+        raise ValueError("--tile and --clip-grid build different caches; pass one")
+    if args.clip_s1_dir is None:
+        raise ValueError("--clip-grid needs --clip-s1-dir (Nexar_s1_ncc, G1)")
+    census = json.loads(args.census.read_text(encoding="utf-8"))
+    ids = sorted(read_ids_file(args.ids_file))
+    paths = video_paths(args.root, census, set(ids))
+    rows = f"s1[::{args.stride}] of the decoded mp4 (Nexar N2 frame order)"
+    check_or_write_manifest(
+        args.grid_dir, clip_grid_manifest(args.stride, rows, CLIP_TRANSFORM), force=False
+    )
+    report: dict[str, Any] = (
+        json.loads(args.report.read_text(encoding="utf-8")) if args.report.exists() else {}
+    )
+    todo = [
+        v
+        for v in ids
+        if not (report.get(v, {}).get("reason") == OK and grid_complete(args.grid_dir / f"{v}.npy"))
+    ]
+    LOGGER.info(
+        "CLIP grids: %d / %d videos done, %d to go", len(ids) - len(todo), len(ids), len(todo)
+    )
+    device = resolve_device(args.device)  # TF32 left at torch's defaults, as N2 built Nexar_s1_ncc
+    model = load_pretrained_encoder(device) if todo else None
+    progress = Progress(len(todo))
+    for video_id, resized in decoded_ahead(paths, todo):
+        reference = np.load(args.clip_s1_dir / f"{video_id}.npy", mmap_mode="r")
+        entry, grid16 = clip_grid_entry(
+            resized, reference, args.stride, model, device, args.batch_size
+        )
+        if grid16 is not None:
+            save_array(args.grid_dir / f"{video_id}.npy", grid16)
+        report[video_id] = entry
+        write_json_atomic(args.report, report)
+        LOGGER.info("%s: %s, G1 min cos %s -- %s", video_id, entry["reason"],
+                    entry.get("g1_min_cos"), progress.step())
+    write_json_atomic(args.report, report)
+    failed = {v: e["reason"] for v, e in report.items() if v in ids and e["reason"] != OK}
+    mins = [report[v]["g1_min_cos"] for v in ids if report.get(v, {}).get("g1_min_cos") is not None]
+    gaps = [report[v]["g1_max_abs"] for v in ids if report.get(v, {}).get("g1_max_abs") is not None]
+    summary = {
+        "rule": "PREREG_V5 §4 R7 G1 (length; projected CLS; image_embeds vs Nexar_s1_ncc)",
+        "grid_dir": str(args.grid_dir),
+        "stride": args.stride,
+        "videos": len(ids),
+        "ok": sum(1 for v in ids if report.get(v, {}).get("reason") == OK),
+        "rows": sum(report[v].get("rows", 0) for v in ids if report.get(v, {}).get("reason") == OK),
+        "failed": failed,
+        "g1_min_cos": min(mins, default=None),
+        "g1_max_abs": max(gaps, default=None),
+        "min_cos_bar": constants.V5_R7_G1_MIN_COS,
+        "pass": not failed and all(v in report for v in ids),
+    }
+    md = (
+        f"# R7 G1 CLIP grid extraction (stride {args.stride})\n\n**{_mark(summary['pass'])}** -- "
+        f"{summary['ok']} / {len(ids)} videos, {summary['rows']} rows stored; failed "
+        f"{len(failed)} {sorted(failed.items())[:10]}\n\nmin cos vs `Nexar_s1_ncc` "
+        f"{summary['g1_min_cos']} (bar {constants.V5_R7_G1_MIN_COS}); max |CLS - image_embeds| "
+        f"{summary['g1_max_abs']} (bar {constants.V5_G1_MAX_ABS})\n"
+    )
+    return _write(args.out_dir, f"g1_extract_cgrid_s{args.stride}", summary, md)
 
 
 # --------------------------------------------------------------------------- head (D1)
@@ -558,15 +685,18 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n", 1)[0])
     sub = parser.add_subparsers(dest="command", required=True)
 
-    ex = sub.add_parser("extract", help="Nexar V7 grids + S1-G1 (GPU)")
+    ex = sub.add_parser("extract", help="Nexar V7 / 4x7x7 / CLIP 14x14 grids + G1 (GPU)")
     ex.add_argument(
         "--root", type=Path, required=True, help="Nexar raw root (train/{positive,negative})"
     )
     ex.add_argument("--census", type=Path, required=True)
     ex.add_argument("--ids-file", type=Path, required=True)
     ex.add_argument(
-        "--video-s1-dir", type=Path, required=True, help="cache/video/<V2-S>/Nexar_s1_squash"
+        "--video-s1-dir", type=Path, default=None,
+        help="cache/video/<V2-S>/Nexar_s1_squash (S1-G1); not read with --clip-grid",
     )
+    ex.add_argument("--clip-s1-dir", type=Path, default=None,
+                    help="cache/clip/Nexar_s1_ncc (R7 G1); --clip-grid only")
     ex.add_argument("--grid-dir", type=Path, required=True)
     ex.add_argument("--stride", type=int, required=True)
     ex.add_argument("--report", type=Path, required=True)
@@ -576,6 +706,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     ex.add_argument("--device", default="auto")
     ex.add_argument("--tile", action="store_true",
                     help="v5.1 (PREREG_V5 §3): centred 4x7x7 grids; G-c on the shifted v2 rows")
+    ex.add_argument("--clip-grid", action="store_true",
+                    help="R7 (PREREG_V5 §4): CLIP 14x14x512 grids, unpooled; G1 vs Nexar_s1_ncc")
 
     hd = sub.add_parser("head", help="fc_norm + A2 statistics -> v5_head.npz")
     hd.add_argument("--stats-dir", type=Path, required=True, help="cache/v2/A2_S/Nexar_s8")

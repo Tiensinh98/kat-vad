@@ -30,7 +30,7 @@ from torch import Tensor
 from core import constants
 from core.data.dota import parse_metadata, read_split_ids
 from core.data.v2_splits import dota_group, load_split
-from core.data.v5_grids import centred_reference
+from core.data.v5_grids import centred_reference, clip_grid_manifest
 from core.data.video_io import list_frame_images, read_images
 from core.device import resolve_device
 from core.metrics import cluster_bootstrap_ci, frame_auc
@@ -39,6 +39,7 @@ from core.tools import extract_clip_features, extract_video_features
 from core.tools.dota_cap import file_sha256, frame_cosines, rebuild_folder
 from core.tools.feature_cache import read_ids_file, save_array
 from core.tools.kill_switch_probe import write_json_atomic, write_text_atomic
+from core.tools.nexar_extract import CLIP_TRANSFORM
 from core.tools.rate_matched_eval import native_labels, to_native
 from core.tools.stream_frames_clip import stream_video_batches
 
@@ -113,6 +114,22 @@ def change_map(grid: np.ndarray, lag: int = 1) -> np.ndarray:
     if len(flat) > lag:
         out[lag:] = 1.0 - _cos_rows(flat[lag:], flat[:-lag])
     return out
+
+
+def dc14_gap(grid: np.ndarray, steps: list[int], stage0_map: Path) -> float | None:
+    """R7 G-R7c: max |lag-1 change map of ``grid`` - Stage 0's stored ``dc14``| over defined rows.
+
+    ``None`` when Stage 0 stored no map for the clip; ``inf`` when the two read different steps.
+    """
+    if not stage0_map.exists():
+        return None
+    with np.load(stage0_map) as stored:
+        ref, ref_steps = np.asarray(stored["dc14"], dtype=np.float64), np.asarray(stored["steps"])
+    tiles = grid[0].size // grid.shape[-1]
+    if not np.array_equal(ref_steps, np.asarray(steps)) or ref.shape[1] != tiles:
+        return float("inf")
+    gap = np.abs(change_map(np.asarray(grid, dtype=np.float32)) - ref)
+    return float(np.nanmax(gap)) if np.isfinite(gap).any() else 0.0
 
 
 def global_change(vectors: np.ndarray, lag: int = 1) -> np.ndarray:
@@ -233,20 +250,34 @@ def clip_patches(
 ) -> tuple[np.ndarray, np.ndarray, float]:
     """CLIP ``image_embeds (K, P)``, patch grid ``(K, g, g, P)``, G1's max |CLS - image_embeds|."""
     embeds, grids, worst = [], [], 0.0
-    vision, project = model.vision_model, model.visual_projection
     for start in range(0, len(steps), batch_size):
         pixels = extract_clip_features.preprocess_frames(
             read_images([paths[t] for t in steps[start : start + batch_size]]), center_crop=False
         ).to(device)
-        out = model(pixel_values=pixels)
-        hidden = out.last_hidden_state
-        cls = project(vision.post_layernorm(hidden[:, 0]))
-        worst = max(worst, float((cls - out.image_embeds).abs().max()))
-        patches = project(vision.post_layernorm(hidden[:, 1:]))
-        side = math.isqrt(patches.shape[1])
-        embeds.append(out.image_embeds.float().cpu())
-        grids.append(patches.reshape(len(patches), side, side, -1).float().cpu())
+        embed, grid, gap = clip_patch_tokens(pixels, model)
+        worst = max(worst, gap)
+        embeds.append(embed)
+        grids.append(grid)
     return torch.cat(embeds).numpy(), torch.cat(grids).numpy(), worst
+
+
+@torch.no_grad()
+def clip_patch_tokens(pixels: Tensor, model: Any) -> tuple[Tensor, Tensor, float]:
+    """One CLIP batch: ``image_embeds (B, P)``, patch grid ``(B, g, g, P)`` (CPU, float32) and
+    G1's max |projected CLS - image_embeds|.
+
+    Patches take the CLS token's path, ``visual_projection(post_layernorm(.))``, so they live in
+    ``image_embeds``' 512-d space (Stage 0's C14; R7's grids, PREREG_V5 §4).
+    """
+    vision, project = model.vision_model, model.visual_projection
+    out = model(pixel_values=pixels)
+    hidden = out.last_hidden_state
+    cls = project(vision.post_layernorm(hidden[:, 0]))
+    worst = float((cls - out.image_embeds).abs().max())
+    patches = project(vision.post_layernorm(hidden[:, 1:]))
+    side = math.isqrt(patches.shape[1])
+    grid = patches.reshape(len(patches), side, side, -1).float().cpu()
+    return out.image_embeds.float().cpu(), grid, worst
 
 
 # --------------------------------------------------------------------------- extract
@@ -261,7 +292,12 @@ def passes_row_gate(cos: np.ndarray) -> bool:
     return bool(cos.min() >= constants.DOTA_CAP_MIN_COS)
 
 
-def grid_out_dir(encoder: str, tile: bool = False) -> Path:
+def grid_out_dir(encoder: str, tile: bool = False, clip_grid: bool = False) -> Path:
+    if clip_grid:  # R7 (PREREG_V5 §4): CLIP 14 x 14 x 512, every finalized clip
+        stride = constants.V5_R7_DOTA_STRIDE
+        tag = f"{constants.DOTA_CAP_DATASET}_s{stride}_{constants.V5_CLIP_GRID_TAG}"
+        root = constants.CACHE_ROOT / constants.V5_GRID_CACHE_DIRNAME
+        return root / constants.V5_CLIP_GRID_ENCODER / tag
     tag = (
         f"{constants.DOTA_CAP_DATASET}_s{constants.V5_TILE_DOTA_STRIDE}_{constants.V5_TILE_GRID_TAG}"
         if tile
@@ -285,9 +321,9 @@ class Stage0Extractor:
 
     by_cap: dict[str, list[dict[str, Any]]]
     dev: set[str]
-    encoder: VideoMAEv2Encoder
+    encoder: VideoMAEv2Encoder | None  # None for CLIP grids (R7)
     clip_model: Any
-    v2_cache: Path
+    v2_cache: Path | None  # V2-S DoTA_CAP_s1_squash (G0); None for CLIP grids (R7)
     dota_clip_dir: Path | None
     grid_dir: Path
     maps_dir: Path
@@ -299,6 +335,8 @@ class Stage0Extractor:
     save_report: Callable[[], None]
     stride: int = constants.V5_STAGE0_STRIDE
     tile: bool = False  # v5.1: centred 4 x 7 x 7 grids, G0 on the shifted rows, no dev maps
+    clip_grid: bool = False  # R7 (§4): CLIP 14 x 14 x 512 grids of every clip, G1, G-R7c on dev
+    stage0_maps_dir: Path | None = None  # R7 G-R7c: Stage 0's dev maps (dc14 reference)
     done: list[str] = field(default_factory=list)
 
     def __call__(self, ready_dir: Path) -> None:
@@ -324,6 +362,9 @@ class Stage0Extractor:
         if abs(entry["aspect"] / ASPECT - 1.0) > constants.V5_ASPECT_TOLERANCE:
             return {**entry, "reason": "g2_aspect"}
         steps = extract_video_features.step_end_frames(len(paths), self.stride)
+        if self.clip_grid:
+            return {**entry, **self._encode_clip(dota_id, paths, steps)}
+        assert self.v2_cache is not None and self.encoder is not None  # nosec B101 - run_extract
         ref = np.load(self.v2_cache / f"{dota_id}.npy")
         if len(ref) != len(paths):
             return {**entry, "reason": "g0_length"}
@@ -370,10 +411,43 @@ class Stage0Extractor:
         )
         return {**entry, "steps": len(steps), "reason": OK}
 
+    def _encode_clip(self, dota_id: str, paths: list[Path], steps: list[int]) -> dict[str, Any]:
+        """R7 (§4) Phase 1: G1 (projected CLS, every row vs ``DoTA_s1_ncc``) and, on CAP-dev,
+        G-R7c (the stored fp16 grid's lag-1 change map == Stage 0's ``dc14``)."""
+        assert self.dota_clip_dir is not None  # nosec B101 - run_extract requires it
+        s1 = np.load(self.dota_clip_dir / f"{dota_id}.npy")
+        if len(s1) != len(paths):
+            return {"reason": "g1_length"}
+        embeds, cgrid, worst = clip_patches(
+            paths, steps, self.clip_model, self.device, self.batch_size
+        )
+        cos = frame_cosines(embeds, s1[steps])
+        entry: dict[str, Any] = {
+            "g1_max_abs": worst,
+            "pixel_min_cos": float(cos.min()),
+            "pixel_mean_cos": float(cos.mean()),
+        }
+        if worst > constants.V5_G1_MAX_ABS:
+            return {**entry, "reason": "g1_cls"}
+        if not passes_row_gate(cos):
+            return {**entry, "reason": "g1_pixel"}
+        grid16 = cgrid.astype(np.float16)
+        if dota_id in self.dev and self.stage0_maps_dir is not None:
+            gap = dc14_gap(grid16, steps, self.stage0_maps_dir / f"{dota_id}{MAP_SUFFIX}")
+            entry["dc14_max_abs"] = gap
+            if gap is not None and gap > constants.V5_R7_DC14_MAX_ABS:
+                return {**entry, "reason": "g_r7c"}
+        save_array(self.grid_dir / f"{dota_id}.npy", grid16)
+        LOGGER.info(
+            "%s: %d steps (CLIP 14x14), G1 pixel min cos %.6f", dota_id, len(steps), cos.min()
+        )
+        return {**entry, "steps": len(steps), "reason": OK}
+
     def _encode_tile(
         self, dota_id: str, paths: list[Path], steps: list[int], ref: np.ndarray
     ) -> dict[str, Any]:
         """v5.1 gate G-c: ``fc_norm`` of the cell mean == the v2 row of the same frames."""
+        assert self.encoder is not None  # nosec B101 - loaded unless --clip-grid
         tiles, pooled = video_tile_grids(paths, steps, self.encoder, self.device, self.batch_size)
         keep, index = centred_reference(
             np.asarray(steps), constants.DOTA_VIDEOMAE_FRAME_STEP, len(paths)
@@ -467,18 +541,36 @@ def run_extract(args: argparse.Namespace) -> None:
     if any(alignment["clips"][i]["reason"] != OK for i in ids):
         raise ValueError("finalized DoTA-CAP id not aligned ok -- wrong alignment file")
     dev = set(load_split(constants.V2_SPLIT_DOTA_CAP_DEV))
-    tile = bool(args.tile)
-    grid_dir = args.grid_dir or grid_out_dir(args.encoder, tile)
+    tile, clip_grid = bool(args.tile), bool(args.clip_grid)
+    if tile and clip_grid:
+        raise ValueError("--tile and --clip-grid build different caches; pass one")
+    grid_dir = args.grid_dir or grid_out_dir(args.encoder, tile, clip_grid)
     maps_dir = args.out_dir / "maps"
     grid_dir.mkdir(parents=True, exist_ok=True)
     maps_dir.mkdir(parents=True, exist_ok=True)
-    manifest = grid_manifest(args.encoder, file_sha256(args.alignment), tile)
+    manifest = (
+        clip_grid_manifest(
+            constants.V5_R7_DOTA_STRIDE,
+            f"s1[::{constants.V5_R7_DOTA_STRIDE}] (protocol B), every finalized DoTA-CAP clip",
+            CLIP_TRANSFORM,
+            alignment_sha256=file_sha256(args.alignment),
+        )
+        if clip_grid
+        else grid_manifest(args.encoder, file_sha256(args.alignment), tile)
+    )
     extract_video_features.check_or_write_manifest(grid_dir, manifest, force=False)
     report: dict[str, dict[str, Any]] = (
         json.loads(args.report.read_text(encoding="utf-8")) if args.report.exists() else {}
     )
     work = todo(
-        alignment, ids, grid_dir, maps_dir, dev, report, frozenset(args.retry), maps=not tile
+        alignment,
+        ids,
+        grid_dir,
+        maps_dir,
+        dev,
+        report,
+        frozenset(args.retry),
+        maps=not (tile or clip_grid),
     )
     if args.cap_ids_file is not None:
         group = read_ids_file(args.cap_ids_file)
@@ -487,12 +579,18 @@ def run_extract(args: argparse.Namespace) -> None:
         LOGGER.info("Nothing to extract for %s", args.parts[0].parent)
         return
     need = [c["dota_id"] for c in work]
-    missing = [v for v in need if not (args.v2_cache / f"{v}.npy").exists()]
+    missing: list[str] = []
+    if not clip_grid:
+        if args.v2_cache is None:
+            raise ValueError("--v2-cache is required without --clip-grid (G0)")
+        missing += [v for v in need if not (args.v2_cache / f"{v}.npy").exists()]
     if not tile:
         if args.dota_clip_dir is None:
             raise ValueError("--dota-clip-dir is required without --tile (G1, D0)")
         missing += [
-            v for v in need if v in dev and not (args.dota_clip_dir / f"{v}.npy").exists()
+            v
+            for v in need
+            if (clip_grid or v in dev) and not (args.dota_clip_dir / f"{v}.npy").exists()
         ]
     if missing:
         raise FileNotFoundError(f"{len(missing)} reference rows missing (G0/G1): {missing[:5]}")
@@ -503,7 +601,7 @@ def run_extract(args: argparse.Namespace) -> None:
     extractor = Stage0Extractor(
         by_cap=by_cap,
         dev=dev,
-        encoder=load_pretrained(args.encoder, device, None),
+        encoder=None if clip_grid else load_pretrained(args.encoder, device, None),
         clip_model=None if tile else extract_clip_features.load_pretrained_encoder(device),
         v2_cache=args.v2_cache,
         dota_clip_dir=args.dota_clip_dir,
@@ -516,6 +614,8 @@ def run_extract(args: argparse.Namespace) -> None:
         report=report,
         save_report=lambda: write_json_atomic(args.report, report),
         tile=tile,
+        clip_grid=clip_grid,
+        stage0_maps_dir=args.stage0_maps_dir,
     )
     LOGGER.info(
         "Stage 0: %d DoTA-CAP clips (%d dev) from %d CAP videos",
@@ -1097,7 +1197,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     ext.add_argument("--work-dir", type=Path, required=True)
     ext.add_argument("--dota-clip-dir", type=Path, default=None,
                      help="DoTA_s1_ncc (G1, D0); not read with --tile")
-    ext.add_argument("--v2-cache", type=Path, required=True, help="V2-S DoTA_CAP_s1_squash (G0)")
+    ext.add_argument("--v2-cache", type=Path, default=None,
+                     help="V2-S DoTA_CAP_s1_squash (G0); not read with --clip-grid")
     ext.add_argument("--report", type=Path, required=True)
     ext.add_argument("--out-dir", type=Path, default=stage0_dir())
     ext.add_argument("--cap-ids-file", type=Path, default=None)
@@ -1114,6 +1215,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--tile", action="store_true",
         help="v5.1 (PREREG_V5 §3): centred 4x7x7 grids, gate G-c, no dev maps / CLIP patches",
     )
+    ext.add_argument(
+        "--clip-grid", action="store_true",
+        help="R7 (PREREG_V5 §4): CLIP 14x14x512 grids of every clip, G1 + G-R7c, no VideoMAE",
+    )
+    ext.add_argument("--stage0-maps-dir", type=Path, default=None,
+                     help="R7 G-R7c: Stage 0's dev maps (dc14 reference); CAP-dev only")
     add_read_args(sub.add_parser("readout", help="local: D1/D3/D2 + the S0-11 decision"))
     lag = sub.add_parser("lag", help="check L (§1.3): V7 change at row lags, printed only")
     add_read_args(lag)

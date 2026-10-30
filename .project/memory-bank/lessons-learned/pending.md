@@ -2184,3 +2184,19 @@ a planted in-box signal (expect GO) before any real number exists.
 **Rule:** Print a same-grid centre-prior baseline beside every spatial pointing number, and compare maps only on one grid.
 **Files:** `core/tools/v5_centre_check.py`, `core/tools/v5_maps.py` (`centre_prior`, `clip_point_reads`), `core/docs/v5/PREREG_V5.md` §3.7.
 **Gate status.** One occurrence (v5 Stage 0 → R7 argument); measured on the pilot (centre +0.303). Check C pending.
+**2026-10-30 update (check C).** Same-grid read done: C14 hit − centre +0.131 at 14 × 14 but −0.002 at 7 × 7 — on an
+even grid a symmetric prior's argmax is one of four tied tiles (off-centre), which inflates "beats centre". Add to the
+rule: on an even grid, read a symmetric prior with a tie-free statistic (mass-in-box) or an odd pooled grid beside it
+(`RESULTS_V5_CHECK_C.md` §2).
+
+## (ce) [LOW] Caches - Extract a spatial feature grid once, at native resolution, and pool on read (2026-10-30)
+**Triggers:** grid cache, pooling, 7x7, 14x14, re-extraction, VideoMAE tokens, CLIP patches, storage, fp16
+**Problem:** Stage 0 / v5.1 stored VideoMAE grids already pooled to 7 × 7 and kept no CLIP grid at all (only Stage 0's
+dev change maps), so check C's 14 × 14 finding could not be trained on without a new GPU extraction of every video.
+**Bad:** store `token_grids(...)[1]` (7 × 7) as the only cache; derive maps and discard the grid.
+**Good:** store the native grid once (R7: CLIP `(rows, 14, 14, 512)` fp16, `v5_stage{0,1} extract --clip-grid`) and pool
+with a reshape-mean on read.
+**Rule:** Store the finest grid an encoder produces when a cache is built for spatial reads, and record the pooling in
+the reader, not in the cache.
+**Files:** `core/tools/v5_stage0.py` (`--clip-grid`), `core/tools/v5_stage1.py` (`run_extract_clip`), `core/data/v5_grids.py` (`clip_grid_manifest`).
+**Gate status.** One occurrence (R7); cost = one extra extraction pass. Gate 2 not met.

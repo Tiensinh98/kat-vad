@@ -134,6 +134,30 @@ def read_grid_geometry(grid_dir: Path) -> GridGeometry:
     raise ValueError(f"{path}: no stride / frame_step and not Stage 0's DoTA-CAP cache")
 
 
+def clip_grid_manifest(stride: int, rows: str, transform: str, **extra: Any) -> dict[str, Any]:
+    """Manifest of an R7 CLIP patch-grid cache (PREREG_V5 §4): one frame per row, unpooled.
+
+    The numeric fields are :func:`read_grid_geometry`'s; the rest binds the cache to the model,
+    revision and transform that built it (lesson C2).
+    """
+    return {
+        "encoder": constants.V5_CLIP_GRID_ENCODER,
+        "model": constants.CLIP_MODEL_NAME,
+        "revision": constants.CLIP_MODEL_REVISION,
+        "stride": stride,
+        "frame_step": constants.V5_CLIP_FRAME_STEP,
+        "slots": constants.V5_SLOTS_FRAME,
+        "window_kind": constants.V5_WINDOW_FRAME,
+        "rows": rows,
+        "grid": f"{constants.V5_CLIP_GRID}x{constants.V5_CLIP_GRID}x{constants.V5_CLIP_GRID_DIM}: "
+        "patch tokens, visual_projection(post_layernorm(.)), unpooled",
+        "dtype": "float16",
+        "transform": transform,
+        "rule": "core/docs/v5/PREREG_V5.md §4 (R7 Phase 1)",
+        **extra,
+    }
+
+
 def tile_boundary_rows(geometry: GridGeometry, stride: int) -> int:
     """Rows around an inserted DVS boundary left out of L_tile's dense negatives (PREREG_V5 §3).
 
@@ -260,6 +284,7 @@ __all__ = [
     "GridGeometry",
     "centred_reference",
     "change_lag",
+    "clip_grid_manifest",
     "eval_grid",
     "eval_lag",
     "flat_grid",

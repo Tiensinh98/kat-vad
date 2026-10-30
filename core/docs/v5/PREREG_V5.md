@@ -496,3 +496,47 @@ mass − chance; hit − centre by ego and by box-share bin.
 
 **C-7 Predicted before the run (Claude, 2026-10-30):** CENTRE-WINS, from +0.288 (C14, 14 × 14) vs ≈ +0.30 (centre,
 7 × 7) — an unpaired, cross-grid comparison, hence the check.
+
+## §4 R7 — MQR on CLIP patches (written 2026-10-30, after check C read **CLIP-BEATS-CENTRE**; post-hoc, disclosed)
+
+**Status: DRAFT — Phase 1 (features only) fixed and built; Phase 2 (rows, readout, rule) OPEN, to be signed by the
+user before any R7 run is trained or read.** Branch `v5-r7` (off `v5-probe`). Plan `.project/plans/katvad-v5-r7-clip.md`.
+
+**Why.** §3.7 C-6: CLIP-BEATS-CENTRE makes R7 *eligible*, at most **MAPS-ONLY**. Check C's own prints bound what R7 can
+hope for: C14 hit − centre +0.131 at 14 × 14 (the centre prior's argmax there is one of four tied tiles), −0.002 once
+pooled to 7 × 7; mass − centre +0.020 (14 × 14) / +0.015 (7 × 7), the only tie-free read above zero. Hence R7 reads the
+**native 14 × 14** grid, not §2's 7 × 7 (S2-3's R7 row is superseded by this section).
+
+### §4.1 Phase 1 — CLIP 14 × 14 × 512 grids (fixed 2026-10-30, before any extraction)
+
+- **R7-1 Tensor.** Per row, CLIP ViT-B/16 (`CLIP_MODEL_REVISION`) patch tokens `visual_projection(post_layernorm(·))`,
+  `(14, 14, 512)` fp16, **unpooled** — the space of `image_embeds` and of Stage 0's C14. Transform `no_center_crop`
+  (Nexar: N2's `decode_resized` + CLIP mean/std; DoTA-CAP: Stage 0's `preprocess_frames(center_crop=False)`). Any
+  pooling is a later reshape-mean; the 768-d pre-projection states are not stored.
+- **R7-2 Rows.** v5.1's rows: Nexar train positives `s1[::8]`, `nexar_val` `s1[::3]` (phase 0), DoTA-CAP **all 1,129**
+  finalized clips `s1[::3]` (dev and eval stored; eval stays unread until a signed rule opens it).
+- **R7-3 Gates (hard; a failing video / clip stores nothing).** Nexar G1: decoded length == `Nexar_s1_ncc`; max
+  |projected CLS − `image_embeds`| ≤ `V5_G1_MAX_ABS` (1e-5); every stored row's `image_embeds` vs `Nexar_s1_ncc` cos ≥
+  `V5_R7_G1_MIN_COS` (0.999). DoTA-CAP: Stage 0's G2 aspect, G1 CLS and G1-pixel (Amendment 2, every row ≥ 0.95 vs
+  `DoTA_s1_ncc`), and **G-R7c** on CAP-dev: the lag-1 change map of the stored fp16 grid vs Stage 0's `dc14`, max |Δ| ≤
+  `V5_R7_DC14_MAX_ABS` (5e-3). **Phase 1 PASS** = every Nexar video and all 1,129 clips stored, all 569 CAP-dev clips
+  compared. Phase 1 reads no detection or map number.
+
+### §4.2 Phase 2 — open choices (Claude's recommendation first; the user signs one per line)
+
+| # | choice | recommended | alternatives | why |
+|---|---|---|---|---|
+| P-a | readout | **v5.1 tile scorer** (`TileReadout`, `L_tile`, dense negatives, λ 0.5 / K 4 / β 0.01) on 196 CLIP cells | free queries × 100 (B13) | queries saturated on V2-S (Stage 2b); the scorer rates each cell directly |
+| P-b | scorer features | `[LN(R) ; LN(Δ)]`, `R` = cell − frame median, `Δ` = row change − its median at **lag ≈ 0.3 s** (Nexar s8: 1 row, `nexar_val` s3: 3 rows, DoTA-CAP s3: 1 row = C14's lag) | content only | C14's evidence is change at that lag |
+| P-c | trunk path | S2-5's `h = x + W_c·LN(r)`, `W_c` zero-init, on **R0** (v2 Nexar A0, CLIP only) | on A2 (V2-S motion kept) | isolates what CLIP cells add |
+| P-d | rows | **R7m** (mean of the 196 cells, same path; detection control), **R7t** (P-a/P-b) | + R7c (untrained change top-K, as R3c) | R7c costs 0.06 macro on V2-S; its map is C14 itself (already measured) |
+| P-e | map rule ("R7t's maps point") | all 95 % lows > 0 of: hit − chance, lift − lift_pre, **hit − C14 change map**, **mass − centre** (14 × 14) | S2-8 as written (hit − centre) | hit − centre at 14 × 14 is inflated by the tie (§3.7 C-3); beating the untrained C14 map is what makes a trained map worth claiming |
+| P-f | guardrails | `nexar_val` R7t − R7m ≥ −0.01; S1-G4 provenance; finite losses | — | as §2 / §3 |
+| P-g | seeds / sets | pilot s2024 on DoTA-CAP-dev → PASS ⇒ s2025/s2026 + CAP-eval once | 3 seeds at once | as §3 |
+| P-h | outcome labels | **MAPS-ONLY** (rule P-e passes) / **NULL**; detection printed only (R7t − R7m, R7t − R0, TOST ±0.01) | — | C-6 caps the claim |
+
+### §4.3 Cost (estimate, printed before the run)
+
+Phase 1: ≈ 205 k rows × 200 KB ≈ **41 GB** on Drive (train 16.4, val 17.2, DoTA-CAP 7.7); one PyAV decode of 788 mp4s
++ CAP streaming; CLIP forward ≈ minutes (decode-bound, ≈ v5.1's step 1). Phase 2 (P-d, one seed): 2 runs × 1,749
+steps, 100 k values per row (v5.1: 75 k) → ≈ v5.1's step 2–3.
