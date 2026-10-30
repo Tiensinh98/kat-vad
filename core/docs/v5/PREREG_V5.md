@@ -579,3 +579,7 @@ agreement with `dc14` is the wrong test. **G-R7c (hard):** check C re-run on the
 --r7-grid-dir`: C14 = the stored grid's lag-1 change map, everything else Stage 0's) must reproduce Stage 0's C14 hit −
 chance (+0.2878) within **`V5_R7_REPRO_TOL` = 0.01** (≈ ½ of that interval's half-width, 0.019). Its other rows
 (hit − centre, mass − centre) are printed beside check C's, never gated. The per-clip `dc14_*` statistics stay printed.
+
+**R7-A1, gate status changed by the user (2026-10-30, before the run):** G-R7c is **printed, not gating** — the fast
+pilot trains and reads whatever it reproduces. The read-out must be reported with the G-R7c line beside it; a
+reproduction miss > 0.01 means the R7 maps are not read on the same C14 that check C measured.
