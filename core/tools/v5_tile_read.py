@@ -29,6 +29,11 @@ Per row R against the control (R1c), on DoTA-CAP-dev at protocol B:
 prior *and* the untrained change map on pointing (``beats_centre_and_change``), (ii) its
 ``nexar_val`` crop endpoint >= the control's - ``V5_NEXAR_GUARD_MARGIN``, (iii) its
 position-controlled (b) Δ is not shown below 0 (95 % high >= 0). Pass -> 3-seed confirmation.
+
+**R7 fast pilot (``--gate r7``, PREREG_V5 §4.2):** (i) is the P-e rule (``r7_points``: hit - chance,
+lift - lift_pre, hit - C14 change map, mass - centre, all 95 % lows > 0); (ii) is **not read**
+without ``--nexar-dir`` (the fast pilot extracts no ``nexar_val`` grids) and is reported as such;
+(iii) as v5.1. Outcome label MAPS-ONLY-PILOT / NULL-PILOT (§4.2 P-h).
 """
 
 from __future__ import annotations
@@ -63,8 +68,12 @@ LOGGER = logging.getLogger(__name__)
 RULE = "core/docs/v5/PREREG_V5.md §3"
 READOUT_JSON = "v51_pilot_readout.json"
 READOUT_MD = "v51_pilot_readout.md"
+R7_READOUT_JSON = "r7_pilot_readout.json"
 EQUIVALENT, DIFFERENT, INCONCLUSIVE = "equivalent", "different", "inconclusive"
 PASS, FAIL = "PILOT-PASS", "PILOT-FAIL"
+GATE_V51, GATE_R7 = "v51", "r7"
+R7_PASS, R7_NULL = "MAPS-ONLY-PILOT", "NULL-PILOT"
+NOT_READ = "not read"
 
 
 def _json(path: Path) -> Any:
@@ -295,19 +304,31 @@ def mechanics(run_dir: Path) -> dict[str, Any] | None:
 def pilot_gate(
     row: str,
     maps: dict[str, Any] | None,
-    nexar: dict[str, dict[str, Any]],
+    nexar: dict[str, dict[str, Any]] | None,
     fused: dict[str, Any],
     control: str,
+    gate: str = GATE_V51,
 ) -> dict[str, Any]:
-    """§3 (i)-(iii) for one candidate row."""
-    checks: dict[str, bool] = {
-        "maps_beat_centre_and_change": bool(maps and maps.get("beats_centre_and_change")),
-        "nexar_guard": nexar[row]["crop_endpoint_mean"]
-        >= nexar[control]["crop_endpoint_mean"] - constants.V5_NEXAR_GUARD_MARGIN,
-    }
+    """§3 (i)-(iii) for one candidate row; ``gate=r7`` reads §4.2's map rule and may skip (ii)."""
+    maps_key = "r7_points" if gate == GATE_R7 else "beats_centre_and_change"
+    checks: dict[str, bool | str] = {"maps": bool(maps and maps.get(maps_key))}
+    if nexar is None:
+        if gate != GATE_R7:
+            raise ValueError("the v5.1 gate needs the nexar_val guardrail (--nexar-dir)")
+        checks["nexar_guard"] = NOT_READ
+    else:
+        checks["nexar_guard"] = bool(
+            nexar[row]["crop_endpoint_mean"]
+            >= nexar[control]["crop_endpoint_mean"] - constants.V5_NEXAR_GUARD_MARGIN
+        )
     delta = fused["delta_vs_control"].get(row)
     checks["position_controlled_not_below"] = bool(delta is not None and delta["high"] >= 0)
-    failed = [k for k, ok in checks.items() if not ok]
+    failed = [k for k, ok in checks.items() if ok is False]
+    if gate == GATE_R7:
+        outcome = R7_PASS if not failed else f"{R7_NULL} ({', '.join(failed)})"
+        if checks["nexar_guard"] == NOT_READ:
+            outcome += " -- nexar_val guardrail not read"
+        return {"checks": checks, "outcome": outcome}
     return {"checks": checks, "outcome": PASS if not failed else f"{FAIL} ({', '.join(failed)})"}
 
 
@@ -320,7 +341,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     pb_rows = {r: load_pb_row(args.pb_dir, r, seeds) for r in rows}
     labels = check_same_clips(pb_rows)
     curves = {r: d["scores"] for r, d in pb_rows.items()}
-    nexar = {r: load_nexar_row(args.nexar_dir, r, seeds) for r in rows}
+    nexar = (
+        {r: load_nexar_row(args.nexar_dir, r, seeds) for r in rows}
+        if args.nexar_dir is not None
+        else None
+    )
     maps_rows: dict[str, Any] = (
         _json(args.maps_readout)["rows"] if args.maps_readout is not None else {}
     )
@@ -328,7 +353,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     fused_per_clip, _ = fused_clips(curves, labels)
     clip_aucs = {r: d["clip_aucs"] for r, d in pb_rows.items()}
     out: dict[str, Any] = {
-        "rule": RULE,
+        "rule": RULE if args.gate == GATE_V51 else "core/docs/v5/PREREG_V5.md §4 (R7 fast pilot)",
+        "gate_kind": args.gate,
         "seeds": seeds,
         "preliminary": len(seeds) < len(constants.V5_RUN_SEEDS),
         "control": args.control,
@@ -380,13 +406,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             if m is not None
         }
     out["gate"] = {
-        r: pilot_gate(r, maps_rows.get(r), nexar, fused, args.control)
+        r: pilot_gate(r, maps_rows.get(r), nexar, fused, args.control, args.gate)
         for r in rows
         if r != args.control
     }
     args.out_dir.mkdir(parents=True, exist_ok=True)
-    write_json_atomic(args.out_dir / READOUT_JSON, out)
-    write_text_atomic(args.out_dir / READOUT_MD, render_markdown(out))
+    name = READOUT_JSON if args.gate == GATE_V51 else R7_READOUT_JSON
+    write_json_atomic(args.out_dir / name, out)
+    write_text_atomic(args.out_dir / name.replace(".json", ".md"), render_markdown(out))
     return out
 
 
@@ -407,7 +434,9 @@ def render_markdown(r: dict[str, Any]) -> str:
     )
     fused = r["position_fused"]
     lines = [
-        "# v5.1 tile-scored MQR -- pilot read-out",
+        "# v5.1 tile-scored MQR -- pilot read-out"
+        if r.get("gate_kind", GATE_V51) == GATE_V51
+        else "# v5 R7 -- MQR on CLIP 14 x 14 patches, fast pilot read-out",
         "",
         f"Rule: {r['rule']}. Control {control}. Seeds {', '.join(r['seeds'])}. "
         f"DoTA-CAP-dev clips {r['clips']}.",
@@ -431,7 +460,11 @@ def render_markdown(r: dict[str, Any]) -> str:
             f"{fused['macro'][row]:.4f} | {fused['gain_beyond_position'][row]:+.4f} | "
             f"{_ci(fused['delta_vs_control'].get(row))} | {st['peak_offset']:+d} "
             f"({'ok' if st['pass'] else 'off'}) | "
-            f"{r['nexar_val'][row]['crop_endpoint_mean']:.4f} |"
+            + (
+                f"{r['nexar_val'][row]['crop_endpoint_mean']:.4f} |"
+                if r["nexar_val"]
+                else "not read |"
+            )
         )
     if "time_reversed_macro" in r:
         lines += ["", "Time-reversed control (printed; reversed - forward should be ≤ 0): "
@@ -446,14 +479,20 @@ def render_markdown(r: dict[str, Any]) -> str:
     lines += render_subsets(r)
     lines += render_maps(r)
     lines += render_mechanics(r)
-    lines += ["", "## Pilot gate (§3)", "", "| row | maps beat centre + change | nexar guard | "
-              "pos. (b) not below | outcome |", "|---|---|---|---|---|"]
+    r7 = r.get("gate_kind") == GATE_R7
+    maps_head = "maps: R7 rule (§4.2 P-e)" if r7 else "maps beat centre + change"
+    lines += ["", "## Pilot gate (§4.2)" if r7 else "## Pilot gate (§3)", "",
+              f"| row | {maps_head} | nexar guard | pos. (b) not below | outcome |",
+              "|---|---|---|---|---|"]
+
+    def mark(v: bool | str) -> str:
+        return v if isinstance(v, str) else ("yes" if v else "no")
+
     for row, g in r["gate"].items():
         c = g["checks"]
         lines.append(
-            f"| {row} | {'yes' if c['maps_beat_centre_and_change'] else 'no'} | "
-            f"{'yes' if c['nexar_guard'] else 'no'} | "
-            f"{'yes' if c['position_controlled_not_below'] else 'no'} | **{g['outcome']}** |"
+            f"| {row} | {mark(c['maps'])} | {mark(c['nexar_guard'])} | "
+            f"{mark(c['position_controlled_not_below'])} | **{g['outcome']}** |"
         )
     return "\n".join(lines) + "\n"
 
@@ -523,7 +562,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n", 1)[0])
     parser.add_argument("--pb-dir", type=Path, required=True, help="protocol_b_eval <row>/ dirs")
     parser.add_argument("--pb-rev-dir", type=Path, default=None, help="--reverse-time reads")
-    parser.add_argument("--nexar-dir", type=Path, required=True, help="nexar_eval <row>/ dirs")
+    parser.add_argument("--nexar-dir", type=Path, default=None,
+                        help="nexar_eval <row>/ dirs (required by --gate v51)")
+    parser.add_argument("--gate", choices=(GATE_V51, GATE_R7), default=GATE_V51)
     parser.add_argument("--maps-readout", type=Path, default=None, help="v5_maps read json")
     parser.add_argument("--rows", nargs="+", default=list(constants.V5_TILE_PILOT_ROWS))
     parser.add_argument("--control", default="R1c")

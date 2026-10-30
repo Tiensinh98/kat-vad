@@ -39,7 +39,11 @@ def change_lag(stride: int, frame_step: int) -> int:
     return math.ceil((constants.V5_SPAN_GAPS * frame_step + 1) / stride)
 
 
-GRID_WIDTHS = (constants.V5_GRID_WIDTH, constants.V5_TILE_GRID_WIDTH)  # V7 | 4 x 7 x 7
+GRID_WIDTHS = (  # V7 | 4 x 7 x 7 | R7 CLIP 14 x 14
+    constants.V5_GRID_WIDTH,
+    constants.V5_TILE_GRID_WIDTH,
+    constants.V5_R7_GRID_WIDTH,
+)
 
 
 def centred_reference(
@@ -162,8 +166,11 @@ def tile_boundary_rows(geometry: GridGeometry, stride: int) -> int:
     """Rows around an inserted DVS boundary left out of L_tile's dense negatives (PREREG_V5 §3).
 
     A centred clip reaches ``V5_CENTRE_LEAD * frame_step`` native frames before its row; at
-    ``stride`` that is ``ceil(lead * step / stride)`` rows (Nexar s8: 3).
+    ``stride`` that is ``ceil(lead * step / stride)`` rows (Nexar s8: 3). A per-frame grid (R7)
+    reaches no other frame and its ΔG is taken inside the item: none.
     """
+    if geometry.window == constants.V5_WINDOW_FRAME:
+        return 0
     return math.ceil(constants.V5_CENTRE_LEAD * geometry.frame_step / stride)
 
 
@@ -191,6 +198,12 @@ def item_grid(
         )
     out: np.ndarray = np.asarray(grid[index])
     return out
+
+
+def frame_lag(readout: str) -> int | None:
+    """R7 (§4.2 P-b): per-frame grids carry ΔG at ``V5_R7_CHANGE_ROWS`` iff the tile scorer
+    reads them."""
+    return constants.V5_R7_CHANGE_ROWS if readout == constants.V5_READOUT_TILE else None
 
 
 def eval_lag(keys: str, frame_step: int, stride: int) -> int | None:
@@ -222,6 +235,10 @@ def eval_grid(readout: str, keys: str, grid_dir: Path | None, stride: int) -> Ev
     if grid_dir is None:
         raise ValueError(f"checkpoint has v5.readout={readout!r}: pass its grid cache")
     geometry = read_grid_geometry(grid_dir)
+    if geometry.window == constants.V5_WINDOW_FRAME:
+        if stride != geometry.stride:  # Δ's lag is in rows of the cache (P-b)
+            raise ValueError(f"{grid_dir} is s1[::{geometry.stride}], the read is at s{stride}")
+        return EvalGrid(grid_dir, geometry, stride, frame_lag(readout))
     return EvalGrid(grid_dir, geometry, stride, eval_lag(keys, geometry.frame_step, stride))
 
 
@@ -288,6 +305,7 @@ __all__ = [
     "eval_grid",
     "eval_lag",
     "flat_grid",
+    "frame_lag",
     "grid_change",
     "item_grid",
     "load_head",

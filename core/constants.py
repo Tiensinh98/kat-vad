@@ -898,7 +898,8 @@ V5_STAGE2B_DIRNAME = "v5_stage2b"  # under OUTPUT_ROOT/V5_OUTPUT_DIRNAME: B13 ru
 V5_TILE_DIRNAME = "v5_tile"  # under OUTPUT_ROOT/V5_OUTPUT_DIRNAME: <row>/s<seed>/ + REPORTS/
 V5_WINDOW_CAUSAL = "causal"  # 16 frames ending at the row (v2 / Stages 0-2 caches)
 V5_WINDOW_CENTRED = "centred"  # frames t - 8 step ... t + 7 step, edge frames repeated (§3.1)
-V5_WINDOWS = (V5_WINDOW_CAUSAL, V5_WINDOW_CENTRED)
+V5_WINDOW_FRAME = "frame"  # R7 (§4): one frame per row, no clip window (CLIP grids)
+V5_WINDOWS = (V5_WINDOW_CAUSAL, V5_WINDOW_CENTRED, V5_WINDOW_FRAME)
 V5_CENTRE_LEAD = VIDEOMAE_CLIP_FRAMES // 2  # 8 clip frames before the row, 7 after
 V5_SLOTS_V7 = 1  # Stages 0-2: the 8 temporal slots averaged into one 7 x 7 grid
 V5_SLOTS_TILE = 4  # v5.1: consecutive pairs of the 8 slots kept -> 4 x 7 x 7
@@ -947,7 +948,6 @@ V5_CLIP_GRID = CROP_SIZE // V5_CLIP_PATCH  # 14 x 14 native patch grid -- stored
 V5_CLIP_GRID_DIM = CLIP_FEATURE_DIM  # 512: post_layernorm + visual_projection (Stage 0's C14 space)
 V5_CLIP_GRID_ENCODER = "clip_vit_b16"  # cache dir under cache/video_grid/ (no VideoMAE weights)
 V5_CLIP_GRID_TAG = f"cgrid{V5_CLIP_GRID}"  # cache dirname suffix: <dataset>_s<stride>_cgrid14
-V5_WINDOW_FRAME = "frame"  # one frame per row, no clip window (CLIP grids)
 V5_SLOTS_FRAME = 1  # a CLIP grid row has no temporal slots
 V5_CLIP_FRAME_STEP = 1  # manifest frame_step of a per-frame grid (no window spans frames)
 V5_R7_NEXAR_TRAIN_STRIDE = V5_TILE_NEXAR_TRAIN_STRIDE  # s1[::8], the rows v5.1 stored
@@ -955,3 +955,17 @@ V5_R7_NEXAR_VAL_STRIDE = V5_TILE_NEXAR_VAL_STRIDE  # s1[::3], phase 0, as v5.1
 V5_R7_DOTA_STRIDE = V5_STAGE0_STRIDE  # DoTA-CAP s1[::3], every finalized clip (dev + eval)
 V5_R7_G1_MIN_COS = 0.999  # Nexar G1: recomputed image_embeds vs Nexar_s1_ncc, every stored row
 V5_R7_DC14_MAX_ABS = 5e-3  # G-R7c: change map of the stored fp16 grid vs Stage 0's dc14 (CAP-dev)
+V5_R7_CELLS = V5_CLIP_GRID * V5_CLIP_GRID  # 196 cells per row
+V5_R7_GRID_WIDTH = V5_R7_CELLS * V5_CLIP_GRID_DIM  # columns one flattened CLIP grid adds to a row
+V5_R7_CHANGE_ROWS = 1  # §4.2 P-b: Δ lag in rows -- Nexar s8 0.27 s, DoTA-CAP s3 0.3 s (= C14's lag)
+V5_R7_DIRNAME = "v5_r7"  # under OUTPUT_ROOT/V5_OUTPUT_DIRNAME: <row>/s<seed>/ + REPORTS/
+V5_R7_SEED = V5_RUN_SEEDS[0]  # §4.2 P-g (fast pilot): one seed, s2024
+V5_R7_ROWS = {  # §4.2 P-d: row -> v5 overrides beyond v2 Nexar A2's (A2's baked u is skipped)
+    "R7m": {"readout": V5_READOUT_MEAN, "smil_weight": 0.0},
+    "R7t": {"readout": V5_READOUT_TILE, "smil_weight": V5_TILE_LAMBDA, "dense_negatives": True},
+}
+V5_R7_ROWS = {  # every R7 row reads the per-frame CLIP 14 x 14 cache
+    row: {**over, "grid_slots": V5_SLOTS_FRAME, "window": V5_WINDOW_FRAME}
+    for row, over in V5_R7_ROWS.items()
+}
+V5_R7_CONTROL = "R7m"  # detection control (same path, mean of the 196 cells)

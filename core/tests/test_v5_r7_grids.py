@@ -359,3 +359,227 @@ class TestNexar:
             ]
         )
         assert (grid_dir / "good.npy").stat().st_mtime_ns == stamp
+
+
+# --------------------------------------------------------------------------- Phase 2 (§4.2)
+
+R7_DIM, R7_CELLS = constants.V5_CLIP_GRID_DIM, constants.V5_R7_CELLS
+
+
+def _frame_fixture(tmp_path: Path) -> tuple[Any, Path, Path]:
+    """The MSAD fixture with A2-wide rows and a per-frame CLIP 14 x 14 x 512 cache."""
+    from core.tests.fixtures import build_fixture
+
+    fixture = build_fixture(tmp_path / "fx")
+    rng = np.random.default_rng(2)
+    a2_dir, grid_dir = tmp_path / "a2", tmp_path / "cgrid"
+    a2_dir.mkdir()
+    grid_dir.mkdir()
+    manifest = v5_grids_manifest(constants.FRAME_STRIDE)
+    (grid_dir / constants.V5_GRID_MANIFEST_FILENAME).write_text(json.dumps(manifest))
+    for path in fixture.clip_dir.glob("*.npy"):
+        x = np.load(path)
+        u = rng.standard_normal((len(x), constants.V5_GRID_DIM))
+        np.save(a2_dir / path.name, np.concatenate([x, u], 1).astype(np.float32))
+        np.save(
+            grid_dir / path.name,
+            rng.standard_normal((len(x), GRID, GRID, R7_DIM)).astype(np.float16),
+        )
+    (a2_dir / constants.V2_INPUT_MANIFEST_FILENAME).write_text(
+        json.dumps({"crn": constants.V2_OFF, "motion": constants.V5_ENCODER})
+    )
+    return fixture, a2_dir, grid_dir
+
+
+def v5_grids_manifest(stride: int) -> dict[str, Any]:
+    from core.data.v5_grids import clip_grid_manifest
+
+    return clip_grid_manifest(stride, "test rows", "test transform")
+
+
+class TestR7Config:
+    @pytest.mark.parametrize("row", list(constants.V5_R7_ROWS))
+    def test_rows_validate(self, row: str) -> None:
+        from core.config import validate_v5
+
+        validate_v5(v5_stage1.row_config(row))
+
+    @pytest.mark.parametrize(
+        ("override", "match"),
+        [
+            (["v5.readout=change_topk"], "mean or tile"),
+            (["v5.smil_weight=0"], "iff readout=tile"),
+            (["v5.grid_slots=4"], "1 slot"),
+            (["v5.keys=change"], "no queries or change keys"),
+        ],
+    )
+    def test_bad_rows_raise(self, override: list[str], match: str) -> None:
+        from core.config import validate_v5
+
+        with pytest.raises(ValueError, match=match):
+            validate_v5(v5_stage1.row_config("R7t", override))
+
+
+class TestR7Model:
+    def test_r7t_starts_as_r7m_and_both_as_r0(self) -> None:
+        from core.data.v5_grids import v5_rows
+        from core.models.kat_vad import KATVAD
+
+        rng = np.random.default_rng(0)
+        base = rng.standard_normal((12, constants.HIDDEN_DIM + constants.V5_GRID_DIM))
+        grid = rng.standard_normal((12, GRID, GRID, R7_DIM)).astype(np.float16)
+        cells = torch.from_numpy(grid.astype(np.float32)).reshape(1, 12, R7_CELLS, R7_DIM)
+        change = torch.from_numpy(
+            v5_rows(base.astype(np.float32), grid, constants.V5_R7_CHANGE_ROWS)[
+                :, -cells[0, 0].numel() :
+            ]
+        ).reshape(1, 12, R7_CELLS, R7_DIM)
+        motion = {}
+        for row in constants.V5_R7_ROWS:
+            model = KATVAD.from_config(v5_stage1.row_config(row)).eval()
+            assert model.grid_readout is not None and model.motion_residual is not None
+            assert model.motion_residual.motion_dim == R7_DIM  # W_c reads the 512-d readout
+            rows = torch.from_numpy(v5_rows(base.astype(np.float32), grid, lag_of(row)))[None]
+            with torch.no_grad():
+                out = model(rows, torch.tensor([12]))
+                uses = model.grid_readout.uses_change
+                motion[row] = model.grid_readout(cells, change if uses else None).motion
+            assert float(out["motion_share"]) == 0.0  # W_c = 0: R0's function at init
+        torch.testing.assert_close(motion["R7t"], motion["R7m"], atol=1e-5, rtol=1e-5)
+        torch.testing.assert_close(  # identity head: LN of the cell mean, no fc_norm
+            motion["R7m"], torch.nn.functional.layer_norm(cells.mean(-2), (R7_DIM,), eps=1e-6)
+        )
+
+    def test_tile_readout_refuses_a_missing_change_block(self) -> None:
+        from core.models.mqr import TileReadout
+
+        with pytest.raises(ValueError, match="ΔG"):
+            TileReadout(R7_DIM, R7_CELLS, frame=True)(torch.randn(1, 3, R7_CELLS, R7_DIM))
+
+    def test_frame_features_remove_the_frame_median(self) -> None:
+        from core.models.mqr import frame_tile_features
+
+        grid = torch.randn(2, 3, R7_CELLS, 8) + 5.0  # a frame-wide offset
+        feats = frame_tile_features(grid, torch.zeros_like(grid))
+        torch.testing.assert_close(feats, frame_tile_features(grid - 5.0, torch.zeros_like(grid)))
+        assert feats.shape == (2, 3, R7_CELLS, 16)
+
+
+def lag_of(row: str) -> int | None:
+    from core.data.v5_grids import frame_lag
+
+    return frame_lag(str(constants.V5_R7_ROWS[row]["readout"]))
+
+
+class TestR7Training:
+    @pytest.mark.parametrize("row", list(constants.V5_R7_ROWS))
+    def test_losses_and_lag(self, tmp_path: Path, row: str) -> None:
+        from core.data.collate import collate_variable_length
+        from core.data.dataset import DVSFeatureDataset
+        from core.models.kat_vad import KATVAD
+        from core.models.mqr import TileReadout
+        from core.models.text_encoding import make_text_encoder
+        from core.train import Trainer, load_class_names, set_global_seed, v5_grid_lag
+
+        fixture, a2_dir, grid_dir = _frame_fixture(tmp_path)
+        cfg = v5_stage1.row_config(row)
+        cfg.train.batch_size, cfg.train.num_epochs = 4, 1
+        set_global_seed(cfg.train.seed)
+        lag = v5_grid_lag(cfg, grid_dir)
+        assert lag == lag_of(row)
+        dataset = DVSFeatureDataset(
+            data_dir=fixture.data_dir, clip_dir=a2_dir, dvs=cfg.dvs, require_flow=False,
+            seed=cfg.train.seed, grid_dir=grid_dir, grid_lag=lag,
+        )  # fmt: skip
+        model = KATVAD.from_config(cfg)
+        trainer = Trainer(
+            cfg=cfg, model=model, dataset=dataset,
+            class_names=load_class_names(fixture.data_dir),
+            text_encode_fn=make_text_encoder(model, "stub", CPU, dim=constants.HIDDEN_DIM),
+            output_dir=tmp_path / "out", device=CPU,
+        )  # fmt: skip
+        losses = trainer.compute_losses(collate_variable_length([dataset[i] for i in range(4)]))
+        assert torch.isfinite(losses["total"])
+        assert ("tile" in losses) == (row == "R7t")
+        losses["total"].backward()
+        if row == "R7t":
+            assert isinstance(model.grid_readout, TileReadout)
+            grad = model.grid_readout.scorer.out.weight.grad
+            assert grad is not None and float(grad.abs().sum()) > 0
+
+    def test_videomae_cache_is_refused(self, tmp_path: Path) -> None:
+        from core.train import v5_grid_lag
+
+        (tmp_path / constants.V5_GRID_MANIFEST_FILENAME).write_text(
+            json.dumps({"stride": constants.FRAME_STRIDE, "frame_step": 3})
+        )
+        with pytest.raises(ValueError, match="1-slot causal"):
+            v5_grid_lag(v5_stage1.row_config("R7t"), tmp_path)
+
+
+class TestR7Maps:
+    def test_baseline_is_stage0_c14(self) -> None:
+        from core.data.v5_grids import v5_rows
+        from core.tools import v5_maps
+
+        rng = np.random.default_rng(3)
+        grid = rng.standard_normal((6, GRID, GRID, R7_DIM)).astype(np.float16)
+        base = rng.standard_normal((6, 896)).astype(np.float32)
+        rows = torch.from_numpy(v5_rows(base, grid, constants.V5_R7_CHANGE_ROWS))
+        got = v5_maps.frame_change_map(rows)
+        want = v5_stage0.change_map(grid.astype(np.float32))
+        assert np.isnan(got[0]).all() and np.isnan(want[0]).all()
+        np.testing.assert_allclose(got[1:], want[1:], atol=1e-6)
+
+    def test_rule_uses_mass_minus_centre_on_the_map_grid(self) -> None:
+        from core.tools import v5_maps
+
+        steps = np.arange(0, 30, 3)
+        labels = np.zeros(30, dtype=bool)
+        labels[9:] = True
+        box = [[0.0, 0.0, 200.0, 120.0]]  # top-left corner, away from the centre
+        boxes = {int(t): box for t in steps if labels[t]}
+        w = v5_stage0.tile_weights(box, GRID)
+        good = np.tile(w, (len(steps), 1)) + 1e-3  # a map that sits on the box
+        read = v5_maps.clip_point_reads([good], steps, labels, boxes, change=np.ones_like(good))
+        assert read is not None
+        assert read["hit"] == 1.0 and read["hit_centre"] == 0.0
+        assert read["mass"] > read["mass_centre"]
+        per_clip = {f"s{i:03d}_000001": read for i in range(8)}
+        summary = v5_maps.point_summary(per_clip, {}, {})
+        assert summary["mass_minus_centre"]["low"] > 0
+        assert "r7_points" in summary
+
+
+class TestR7Read:
+    def test_gate_without_nexar_says_not_read(self) -> None:
+        from core.tools import v5_tile_read as rd
+
+        fused = {"delta_vs_control": {"R7t": {"mean": 0.0, "low": -0.01, "high": 0.01}}}
+        g = rd.pilot_gate("R7t", {"r7_points": True}, None, fused, "R7m", rd.GATE_R7)
+        assert g["outcome"].startswith(rd.R7_PASS) and "not read" in g["outcome"]
+        g = rd.pilot_gate("R7t", {"r7_points": False}, None, fused, "R7m", rd.GATE_R7)
+        assert g["outcome"].startswith(rd.R7_NULL)
+        with pytest.raises(ValueError, match="nexar"):
+            rd.pilot_gate("R7t", {}, None, fused, "R7m", rd.GATE_V51)
+
+
+class TestR7Eval:
+    def test_eval_grid_appends_grid_and_change_at_the_cache_stride(self, tmp_path: Path) -> None:
+        from core.data.v5_grids import eval_grid
+
+        (tmp_path / constants.V5_GRID_MANIFEST_FILENAME).write_text(
+            json.dumps(v5_grids_manifest(constants.V5_R7_DOTA_STRIDE))
+        )
+        grid = np.random.default_rng(4).normal(size=(5, GRID, GRID, R7_DIM)).astype(np.float16)
+        np.save(tmp_path / "clip.npy", grid)
+        base = np.zeros((5, 896), dtype=np.float32)
+        tile = eval_grid(constants.V5_READOUT_TILE, constants.V5_KEYS_CONTENT, tmp_path, 3)
+        mean = eval_grid(constants.V5_READOUT_MEAN, constants.V5_KEYS_CONTENT, tmp_path, 3)
+        assert tile is not None and mean is not None
+        assert tile.lag == constants.V5_R7_CHANGE_ROWS and mean.lag is None
+        rows = tile.append(base, "clip", 0, 15)
+        assert rows.shape == (5, 896 + 2 * constants.V5_R7_GRID_WIDTH)
+        assert mean.append(base, "clip", 0, 15).shape == (5, 896 + constants.V5_R7_GRID_WIDTH)
+        with pytest.raises(ValueError, match="s1\\[::3\\]"):
+            eval_grid(constants.V5_READOUT_TILE, constants.V5_KEYS_CONTENT, tmp_path, 1)

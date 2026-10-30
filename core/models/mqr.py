@@ -176,6 +176,20 @@ def tile_features(grid: Tensor, slots: int = constants.V5_SLOTS_TILE) -> Tensor:
     return feats
 
 
+def frame_tile_features(grid: Tensor, change: Tensor) -> Tensor:
+    """R7 (PREREG_V5 §4.2 P-b): ``[LN(G - med G) ; LN(ΔG - med ΔG)]`` of per-frame cells.
+
+    ``change`` is ``G_t - G_{t-l}`` computed inside the item (S2-4); medians are per channel over
+    the frame's cells, LN without affine -- v5.1's features with the row lag in place of slots.
+    """
+    r = grid.float() - grid.float().median(dim=-2, keepdim=True).values
+    d = change.float() - change.float().median(dim=-2, keepdim=True).values
+    feats: Tensor = torch.cat(
+        [F.layer_norm(r, (r.shape[-1],)), F.layer_norm(d, (d.shape[-1],))], dim=-1
+    )
+    return feats
+
+
 def change_magnitude(grid: Tensor, slots: int = constants.V5_SLOTS_TILE) -> Tensor:
     """``|R| + |Δ|`` per cell, ``(..., cells)``: R3c's ranking and the untrained change map."""
     r, d = tile_residuals(grid, slots)
@@ -226,19 +240,28 @@ class TileReadout(_CellReadout):
         dim: int = constants.V5_GRID_DIM,
         cells: int = constants.V5_TILE_CELLS,
         eps: float = constants.VIDEOMAE_LN_EPS,
+        frame: bool = False,
     ) -> None:
         super().__init__(constants.V5_READOUT_TILE, dim, cells, eps)
+        self.frame = frame  # R7: per-frame grid, Δ arrives as the row's change block
         self.scorer = TileScorer(2 * dim)
         self.log_temp = nn.Parameter(torch.zeros(()))  # theta; T = exp(theta) >= T_min
+
+    @property
+    def uses_change(self) -> bool:
+        return self.frame
 
     def temperature(self) -> Tensor:
         temp: Tensor = self.log_temp.exp().clamp_min(constants.V5_TILE_TEMP_MIN)
         return temp
 
     def forward(self, grid: Tensor, change: Tensor | None = None) -> GridReadoutOutput:
-        if change is not None:
-            raise ValueError("the tile readout computes its own change features")
-        logits = self.scorer(tile_features(grid))
+        if self.frame != (change is not None):
+            raise ValueError(
+                "the R7 tile readout needs the row's ΔG; the v5.1 one computes its own"
+            )
+        feats = tile_features(grid) if change is None else frame_tile_features(grid, change)
+        logits = self.scorer(feats)
         attn = (logits.float() / self.temperature()).softmax(dim=-1)
         r = self.pool(grid, attn)
         return GridReadoutOutput(
@@ -272,6 +295,11 @@ class ChangeTopKReadout(_CellReadout):
 
 def build_readout(v5: V5Config) -> GridReadout:
     """The readout ``cfg.v5`` names (``v5.readout != none``)."""
+    if v5.window == constants.V5_WINDOW_FRAME:  # R7 (§4): CLIP 14 x 14 x 512, identity head
+        dim, cells = constants.V5_CLIP_GRID_DIM, constants.V5_R7_CELLS
+        if v5.readout == constants.V5_READOUT_TILE:
+            return TileReadout(dim, cells, frame=True)
+        return GridReadout(v5.readout, dim=dim, tiles=cells)
     if v5.readout == constants.V5_READOUT_TILE:
         return TileReadout()
     if v5.readout == constants.V5_READOUT_CHANGE_TOPK:
@@ -332,6 +360,7 @@ __all__ = [
     "TileScorer",
     "build_readout",
     "change_magnitude",
+    "frame_tile_features",
     "query_entropy",
     "query_logit_spread",
     "tile_features",

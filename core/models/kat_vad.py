@@ -67,8 +67,12 @@ class KATVAD(nn.Module):
         super().__init__()
         # v2 motion stream (architecture §5): absent unless motion_dim > 0, so every
         # v1 / A0 / A1 checkpoint builds -- and loads -- exactly as before.
+        # R7 (PREREG_V5 §4): the residual takes the readout's width (CLIP 512 = W_c); the row
+        # still carries A2's baked u (motion_dim columns), skipped by _grid_rows.
+        residual_dim = grid_readout.dim if grid_readout is not None else motion_dim
+        self.baked_motion_dim = motion_dim
         self.motion_residual = (
-            MotionResidual(hidden_dim, motion_dim) if motion_dim > 0 else None
+            MotionResidual(hidden_dim, residual_dim) if motion_dim > 0 else None
         )
         # v5 (PREREG_V5 §2): the motion term comes from a readout of the V7 grid appended to
         # each row; absent unless v5.readout != none, so v1 / v2 checkpoints load unchanged.
@@ -190,9 +194,8 @@ class KATVAD(nn.Module):
         The baked ``u`` columns are skipped: they exist for the input-cache check and S1-G2(b).
         """
         assert self.grid_readout is not None and self.motion_residual is not None  # nosec B101
-        hidden, base = self.motion_residual.hidden_dim, (
-            self.motion_residual.hidden_dim + self.motion_residual.motion_dim
-        )
+        hidden = self.motion_residual.hidden_dim
+        base = hidden + self.baked_motion_dim
         tiles, dim = self.grid_readout.tiles, self.grid_readout.dim
         width = tiles * dim
         blocks = 2 if self.grid_readout.uses_change else 1

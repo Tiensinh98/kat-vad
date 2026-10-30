@@ -313,6 +313,9 @@ def validate_v5(cfg: Config) -> None:
             f"v5.readout={v5.readout!r} reads A2's inputs (v2.crn=none, "
             f"v2.motion={constants.V5_ENCODER}); got crn={cfg.v2.crn!r} motion={cfg.v2.motion!r}"
         )
+    if v5.window == constants.V5_WINDOW_FRAME:
+        _validate_v5_frame(v5)
+        return
     if v5.queries < 1 or constants.V5_GRID_DIM % v5.queries:
         raise ValueError(
             f"v5.queries={v5.queries} must divide the {constants.V5_GRID_DIM} grid channels"
@@ -322,6 +325,22 @@ def validate_v5(cfg: Config) -> None:
     ):
         raise ValueError("v5.readout=mean (R1) has no queries, change keys or sMIL term")
     _validate_v5_tile(v5)
+
+
+def _validate_v5_frame(v5: V5Config) -> None:
+    """R7 (PREREG_V5 §4): per-frame CLIP 14 x 14 grids, mean (R7m) or tile (R7t) readout."""
+    if v5.grid_slots != constants.V5_SLOTS_FRAME:
+        raise ValueError(f"v5.window=frame grids have {constants.V5_SLOTS_FRAME} slot")
+    if v5.readout not in (constants.V5_READOUT_MEAN, constants.V5_READOUT_TILE):
+        raise ValueError(f"v5.window=frame reads mean or tile, got {v5.readout!r}")
+    if v5.queries != 1 or v5.keys != constants.V5_KEYS_CONTENT or v5.query_lr_mult != 1:
+        raise ValueError("v5.window=frame has no queries or change keys (Δ is the tile scorer's)")
+    if (v5.readout == constants.V5_READOUT_TILE) != (v5.smil_weight > 0):
+        raise ValueError("v5.window=frame: smil_weight > 0 iff readout=tile (L_tile)")
+    if v5.tile_topk_cells < 1 or v5.tile_topk_cells > constants.V5_R7_CELLS:
+        raise ValueError(f"v5.tile_topk_cells must be in [1, {constants.V5_R7_CELLS}]")
+    if v5.tile_beta < 0:
+        raise ValueError(f"v5.tile_beta must be >= 0, got {v5.tile_beta}")
 
 
 def _validate_v5_tile(v5: V5Config) -> None:

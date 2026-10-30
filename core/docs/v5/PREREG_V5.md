@@ -499,8 +499,11 @@ mass − chance; hit − centre by ego and by box-share bin.
 
 ## §4 R7 — MQR on CLIP patches (written 2026-10-30, after check C read **CLIP-BEATS-CENTRE**; post-hoc, disclosed)
 
-**Status: DRAFT — Phase 1 (features only) fixed and built; Phase 2 (rows, readout, rule) OPEN, to be signed by the
-user before any R7 run is trained or read.** Branch `v5-r7` (off `v5-probe`). Plan `.project/plans/katvad-v5-r7-clip.md`.
+**Status: FIXED 2026-10-30, before any R7 grid, run or number existed.** Phase 1 (§4.1) as written. Phase 2 (§4.2)
+= the **recommended column**, adopted on the user's instruction of 2026-10-30 ("fastest result for the report: extract
+as little as possible, train, evaluate on DoTA-CAP-dev first, one seed, fixed hyper-parameters") — the user did not
+review P-a … P-h line by line; §4.4 lists what the fast pilot drops. Branch `v5-r7` (off `v5-probe`). Plan
+`.project/plans/katvad-v5-r7-clip.md`.
 
 **Why.** §3.7 C-6: CLIP-BEATS-CENTRE makes R7 *eligible*, at most **MAPS-ONLY**. Check C's own prints bound what R7 can
 hope for: C14 hit − centre +0.131 at 14 × 14 (the centre prior's argmax there is one of four tied tiles), −0.002 once
@@ -540,3 +543,20 @@ pooled to 7 × 7; mass − centre +0.020 (14 × 14) / +0.015 (7 × 7), the only 
 Phase 1: ≈ 205 k rows × 200 KB ≈ **41 GB** on Drive (train 16.4, val 17.2, DoTA-CAP 7.7); one PyAV decode of 788 mp4s
 + CAP streaming; CLIP forward ≈ minutes (decode-bound, ≈ v5.1's step 1). Phase 2 (P-d, one seed): 2 runs × 1,749
 steps, 100 k values per row (v5.1: 75 k) → ≈ v5.1's step 2–3.
+
+### §4.4 Fast pilot (fixed 2026-10-30 with §4.2; runbook `colab/v5/r7_fast_pilot.ipynb`)
+
+- **F1 Extraction.** Nexar train `s1[::8]` and **CAP-dev only** (569 clips, `v5_stage0 extract --clip-grid --dev-only`),
+  §4.1's gates; Phase 1's PASS rule is read on those two caches (every train video, every CAP-dev clip stored and
+  compared with Stage 0). `nexar_val` and CAP-eval grids are not extracted (`r7_clip_grids.ipynb` adds them later,
+  resumably, into the same caches).
+- **F2 Rows / seed.** R7m and R7t (`constants.V5_R7_ROWS`), s2024, v2 Nexar A2's recipe (1,749 steps), λ 0.5 / K 4 /
+  β 0.01, Δ lag `V5_R7_CHANGE_ROWS` = 1 row. Inputs = A2's bake; the model skips A2's baked `u` and adds
+  `W_c·LN(r)` (`W_c` zero-init) — R0's function at init, so R7m = "R0 + CLIP cell mean".
+- **F3 Reads.** DoTA-CAP-dev protocol B (+ time-reversed) for both rows; R7t maps (its `p` on 14 × 14) with the
+  C14 change map (`1 − cos`, lag 1 row, recomputed from the stored grid) as the untrained baseline; `v5_maps read`;
+  `v5_tile_read --gate r7`.
+- **F4 Outcome.** P-e's four intervals → **MAPS-ONLY-PILOT** or **NULL-PILOT**, labelled **PRELIMINARY (n = 1)** and
+  "`nexar_val` guardrail not read" (P-f's guardrail is not evaluated in the fast pilot). Detection numbers are printed
+  only (P-h). A MAPS-ONLY-PILOT licenses no report sentence until P-g's seeds 2025/2026 and P-f's guardrail are read;
+  a NULL-PILOT is reported as a one-seed negative.

@@ -48,7 +48,7 @@ from core.data.definitions import (
 )
 from core.data.knn_cache import load_knn_cache
 from core.data.v2_inputs import check_input_manifest
-from core.data.v5_grids import change_lag, read_grid_geometry, tile_boundary_rows
+from core.data.v5_grids import change_lag, frame_lag, read_grid_geometry, tile_boundary_rows
 from core.device import resolve_device
 from core.kip.losses import (
     kinematic_loss,
@@ -800,6 +800,8 @@ def v5_grid_lag(cfg: Config, grid_dir: Path | None) -> int | None:
             f"{grid_dir} holds {geometry.slots}-slot {geometry.window} grids, the config reads "
             f"{cfg.v5.grid_slots}-slot {cfg.v5.window} (PREREG_V5 §3; lesson C2)"
         )
+    if cfg.v5.window == constants.V5_WINDOW_FRAME:
+        return frame_lag(cfg.v5.readout)
     if cfg.v5.keys != constants.V5_KEYS_CHANGE:
         return None
     return change_lag(geometry.stride, geometry.frame_step)
@@ -853,9 +855,10 @@ def build_trainer(
     device = resolve_device(cfg.train.device)
     needs_clip = text_encoder == TEXT_ENCODER_CLIP and cfg.train.stage == STAGE_FULL
     model = KATVAD.from_config(cfg, load_clip=needs_clip)
-    if model.grid_readout is not None:
+    if model.grid_readout is not None and cfg.v5.window != constants.V5_WINDOW_FRAME:
         assert grid_dir is not None  # nosec B101 - v5_grid_lag refused a missing grid_dir
         model.grid_readout.load_head(grid_dir / constants.V5_HEAD_FILENAME)
+    # R7 (§4.2 P-c): identity head -- the motion term is LN(r), no fc_norm or A2 statistics
     text_encode_fn = make_text_encoder(
         model, text_encoder, device, dim=cfg.model.hidden_dim
     )

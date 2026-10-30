@@ -542,6 +542,8 @@ def run_extract(args: argparse.Namespace) -> None:
         raise ValueError("finalized DoTA-CAP id not aligned ok -- wrong alignment file")
     dev = set(load_split(constants.V2_SPLIT_DOTA_CAP_DEV))
     tile, clip_grid = bool(args.tile), bool(args.clip_grid)
+    if args.dev_only:  # R7 fast pilot: CAP-dev only (the cache is extended later, resumably)
+        ids = [v for v in ids if v in dev]
     if tile and clip_grid:
         raise ValueError("--tile and --clip-grid build different caches; pass one")
     grid_dir = args.grid_dir or grid_out_dir(args.encoder, tile, clip_grid)
@@ -1219,6 +1221,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--clip-grid", action="store_true",
         help="R7 (PREREG_V5 §4): CLIP 14x14x512 grids of every clip, G1 + G-R7c, no VideoMAE",
     )
+    ext.add_argument("--dev-only", action="store_true",
+                     help="extract DoTA-CAP-dev clips only (R7 fast pilot); eval clips later")
     ext.add_argument("--stage0-maps-dir", type=Path, default=None,
                      help="R7 G-R7c: Stage 0's dev maps (dc14 reference); CAP-dev only")
     add_read_args(sub.add_parser("readout", help="local: D1/D3/D2 + the S0-11 decision"))

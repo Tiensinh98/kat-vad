@@ -146,6 +146,10 @@ def score_run(
         raise ValueError(f"{run.name} is crn={cfg.v2.crn} motion={cfg.v2.motion}, "
                          f"the stats are {expected} (K4)")
     class_names = load_class_names(args.data_dir)
+    if cfg.v5.window == constants.V5_WINDOW_FRAME:  # Δ was trained at 1 row of s8 (0.27 s)
+        raise ValueError(
+            "R7 rows: nexar_val at s3 needs ΔG at 3 rows, not built (PREREG_V5 §4.4 F4)"
+        )
     grid = eval_grid(cfg.v5.readout, cfg.v5.keys, args.grid_s1_dir, constants.NEXAR_EVAL_STRIDE)
     protocol = Protocol(constants.NEXAR_EVAL_STRIDE, None)
     by_video: dict[str, list[str]] = {}

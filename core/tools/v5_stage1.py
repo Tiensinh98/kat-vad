@@ -450,7 +450,11 @@ def run_head(args: argparse.Namespace) -> dict[str, Any]:
 # --------------------------------------------------------------------------- S1-G2
 
 
-ALL_ROWS: dict[str, dict[str, Any]] = {**constants.V5_ROWS, **constants.V5_TILE_ROWS}
+ALL_ROWS: dict[str, dict[str, Any]] = {
+    **constants.V5_ROWS,
+    **constants.V5_TILE_ROWS,
+    **constants.V5_R7_ROWS,  # R7 (§4): A2's recipe, the CLIP grid read instead of u
+}
 
 
 def row_config(row: str, overrides: list[str] | None = None) -> Config:

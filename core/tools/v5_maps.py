@@ -168,11 +168,13 @@ def slot_max(cells: torch.Tensor, slots: int = constants.V5_SLOTS_TILE) -> torch
     return out
 
 
-def step_maps(outputs: dict[str, torch.Tensor]) -> torch.Tensor:
-    """``(B, L, 49)`` map: v5.1 ``E_t(j) = max_s p_{t,s,j}`` (§3); MQR ``sum_m s a`` with an sMIL
-    head, else the single query's attention (S2-8)."""
+def step_maps(
+    outputs: dict[str, torch.Tensor], slots: int = constants.V5_SLOTS_TILE
+) -> torch.Tensor:
+    """``(B, L, tiles)`` map: v5.1 ``E_t(j) = max_s p_{t,s,j}`` (§3; R7 ``slots`` = 1, so ``p``
+    itself on 14 x 14); MQR ``sum_m s a`` with an sMIL head, else the single query's attention."""
     if "v5_tile_logits" in outputs:
-        return slot_max(outputs["v5_tile_logits"].float().sigmoid())
+        return slot_max(outputs["v5_tile_logits"].float().sigmoid(), slots)
     attn = outputs["v5_attn"]
     if "v5_smil" in outputs:
         return torch.einsum("blm,blmt->blt", outputs["v5_smil"], attn)
@@ -192,6 +194,19 @@ def change_maps(rows: torch.Tensor) -> torch.Tensor:
     return slot_max(change_magnitude(grid))
 
 
+def frame_change_map(rows: torch.Tensor, lag: int = constants.V5_R7_CHANGE_ROWS) -> np.ndarray:
+    """R7 baseline = Stage 0's C14: ``1 - cos(G_t, G_{t-lag})`` per cell of one clip's v5 rows
+    ``[... ; G ; ΔG]`` (ΔG taken over the whole clip); rows ``t < lag`` are NaN (S0-5)."""
+    width = constants.V5_R7_GRID_WIDTH
+    shape = (constants.V5_R7_CELLS, constants.V5_CLIP_GRID_DIM)
+    grid = rows[..., -2 * width : -width].unflatten(-1, shape).double()
+    prev = grid - rows[..., -width:].unflatten(-1, shape).double()
+    cos = F.cosine_similarity(grid, prev, dim=-1, eps=float(np.finfo(np.float64).tiny))
+    out: np.ndarray = (1.0 - cos).numpy()
+    out[:lag] = np.nan
+    return out
+
+
 @torch.no_grad()
 def clip_maps(
     model: Any,
@@ -199,10 +214,13 @@ def clip_maps(
     class_feats_fn: Any,
     max_len: int = constants.MAX_VIS_LEN,
     tile_grid: bool = False,
+    frame_grid: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
-    """One clip's ``(K, 49)`` maps, ``(K,)`` sigmoid step scores (windows of ``max_len``) and, for
-    a v5.1 row (``tile_grid``), its untrained change map; R3c's map is that change map."""
+    """One clip's ``(K, tiles)`` maps, ``(K,)`` sigmoid step scores (windows of ``max_len``) and,
+    for a v5.1 row (``tile_grid``), its untrained change map; R3c's map is that change map. An R7
+    row (``frame_grid``) carries Stage 0's C14 change map as its untrained baseline."""
     device = next(model.parameters()).device
+    slots = constants.V5_SLOTS_FRAME if frame_grid else constants.V5_SLOTS_TILE
     maps, scores, changes = [], [], []
     for start in range(0, len(rows), max_len):
         window = rows[start : start + max_len].unsqueeze(0).to(device)
@@ -212,9 +230,11 @@ def clip_maps(
         if tile_grid:
             changes.append(change_maps(window[0]).float().cpu())
         if "v5_tile_logits" in out or not tile_grid:
-            maps.append(step_maps(out)[0].float().cpu())
+            maps.append(step_maps(out, slots)[0].float().cpu())
         scores.append(out["cls_bin_logits"][0].sigmoid().float().cpu())
     change = torch.cat(changes).numpy() if tile_grid else None
+    if frame_grid:
+        change = frame_change_map(rows)
     grid_map = torch.cat(maps).numpy() if maps else change
     assert grid_map is not None  # nosec B101 - tile rows always have a change map
     return grid_map, torch.cat(scores).numpy(), change
@@ -229,7 +249,8 @@ def run_dump(args: argparse.Namespace) -> dict[str, Any]:
         raise ValueError(f"{run.name}: v5.readout={cfg.v5.readout!r} has no map (R1 is uniform)")
     grid = eval_grid(cfg.v5.readout, cfg.v5.keys, args.grid_dir, args.stride)
     assert grid is not None  # nosec B101 - a map readout
-    tile_grid = cfg.v5.grid_slots == constants.V5_SLOTS_TILE
+    frame_grid = cfg.v5.window == constants.V5_WINDOW_FRAME
+    tile_grid = cfg.v5.grid_slots == constants.V5_SLOTS_TILE and not frame_grid
     if (grid.geometry.slots, grid.geometry.window) != (cfg.v5.grid_slots, cfg.v5.window):
         raise ValueError(f"{args.grid_dir} does not match {run.name}'s grid (PREREG_V5 §3)")
     baked = check_baked_stride(args.input_dir, args.stride)
@@ -247,7 +268,7 @@ def run_dump(args: argparse.Namespace) -> dict[str, Any]:
             item_verbalizer(dataset_abbr(constants.DOTA_DATASET), video_id),
         )
         maps, scores, change = clip_maps(
-            model, torch.from_numpy(rows), feats_fn, tile_grid=tile_grid
+            model, torch.from_numpy(rows), feats_fn, tile_grid=tile_grid, frame_grid=frame_grid
         )
         arrays |= {
             f"{MAP_KEY}{video_id}": maps.astype(np.float32),
@@ -343,9 +364,8 @@ def clip_point_reads(
     first = reads[0]
     if first.hit is None or first.chance is None:
         return None
-    centre = s0.clip_read(
-        np.tile(centre_prior(), (len(steps), 1)), np.zeros(len(steps)), steps, labels, boxes, TOPK
-    )
+    prior = np.tile(centre_prior(math.isqrt(maps[0].shape[1])), (len(steps), 1))
+    centre = s0.clip_read(prior, np.zeros(len(steps)), steps, labels, boxes, TOPK)
     out = {
         "hit": float(np.mean([r.hit for r in reads if r.hit is not None])),
         "chance": first.chance,
@@ -360,6 +380,9 @@ def clip_point_reads(
     if all(m is not None for m in masses):
         out["mass"] = float(np.mean([m[0] for m in masses if m is not None]))
         out["mass_chance"] = float(masses[0][1]) if masses[0] is not None else 0.0
+        centre_mass = clip_mass(prior, steps, labels, boxes)
+        if centre_mass is not None:
+            out["mass_centre"] = centre_mass[0]
     if change is not None:
         base = s0.clip_read(change, np.zeros(len(change)), steps, labels, boxes, TOPK)
         out["hit_change"] = float(base.hit or 0.0)
@@ -400,13 +423,27 @@ def point_summary(
                 if "mass" in r and "mass_change" in r
             }
         ),
+        "mass_minus_centre": s0.ci(
+            {
+                v: r["mass"] - r["mass_centre"]
+                for v, r in per_clip.items()
+                if "mass" in r and "mass_centre" in r
+            }
+        ),
     }
     beats = [v51["hit_minus_change"], stats["hit_minus_centre"]]
+    r7 = [  # PREREG_V5 §4.2 P-e: hit - centre is replaced by the tie-free mass - centre
+        stats["hit_minus_chance"],
+        stats["hit_minus_pre"],
+        v51["hit_minus_change"],
+        v51["mass_minus_centre"],
+    ]
     return {
         **stats,
         **v51,
         "points": points,
         "beats_centre_and_change": all(st is not None and st["low"] > 0 for st in beats),
+        "r7_points": all(st is not None and st["low"] > 0 for st in r7),
         "by_ego": {
             lab: s0.ci({v: x for v, x in d3.items() if ego.get(v) == flag})
             for flag, lab in ((True, "ego"), (False, "non_ego"))
@@ -480,7 +517,8 @@ def baseline_staucs(
 ) -> dict[str, dict[str, float]]:
     """STAUC of the uniform, centre-prior and untrained change maps under the row's own temporal
     scores, so only the map differs (§3; proposal §4.4)."""
-    centre = {v: np.tile(centre_prior(), (len(s), 1)) for v, s in scores.items()}
+    side = math.isqrt(next(iter(change.values())).shape[1]) if change else constants.V5_GRID_COARSE
+    centre = {v: np.tile(centre_prior(side), (len(s), 1)) for v, s in scores.items()}
     out = {
         "uniform": stauc_of(None, scores, labels, boxes, stride),
         "centre": stauc_of(centre, scores, labels, boxes, stride),
@@ -565,14 +603,16 @@ def render_read(out: dict[str, Any]) -> str:
         "",
         "v5.1 (PREREG_V5 §3): mass-in-box and the untrained change map",
         "",
-        "| row | mass - chance | hit - change map | mass - change map | beats centre + change? |",
-        "|---|---|---|---|---|",
+        "| row | mass - chance | hit - change map | mass - change map | mass - centre | "
+        "beats centre + change? | R7 rule (§4.2 P-e)? |",
+        "|---|---|---|---|---|---|---|",
     ]
     for row, r in out["rows"].items():
         lines.append(
             f"| {row} | {_f(r.get('mass_minus_chance'))} | {_f(r.get('hit_minus_change'))} | "
-            f"{_f(r.get('mass_minus_change'))} | "
-            f"{'**yes**' if r.get('beats_centre_and_change') else 'no'} |"
+            f"{_f(r.get('mass_minus_change'))} | {_f(r.get('mass_minus_centre'))} | "
+            f"{'**yes**' if r.get('beats_centre_and_change') else 'no'} | "
+            f"{'**yes**' if r.get('r7_points') else 'no'} |"
         )
     lines += [
         "",

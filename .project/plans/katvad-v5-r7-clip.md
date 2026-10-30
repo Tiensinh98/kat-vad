@@ -9,8 +9,8 @@ Rules: `core/docs/v5/PREREG_V5.md` **§4** (DRAFT). Branch `v5-r7` (off `v5-prob
 |---|---|---|
 | 0 | user: R7 at native 14 × 14 × 512; store the grids unpooled for later pooling; new branch | **decided 2026-10-30** |
 | 1 | CLIP grid extraction (Nexar train s8 / val s3, DoTA-CAP all 1,129 s3) + gates G1 / G-R7c | **BUILT 2026-10-30**: `v5_stage1 extract --clip-grid`, `v5_stage0 extract --clip-grid`, `v5_grids.clip_grid_manifest`, constants `V5_CLIP_*` / `V5_R7_*`, tests `test_v5_r7_grids.py` (7); notebook `colab/v5/r7_clip_grids.ipynb`. **Not run.** |
-| 2 | PREREG §4.2 signed (P-a … P-h) → readout/trainer on 196 CLIP cells, `W_c` path on R0, maps vs C14 | **open — needs the user's signature** |
-| 3 | pilot s2024 → read-out | not built |
+| 2 | PREREG §4.2 (recommended column, user's "fastest result" instruction) → readout/trainer on 196 CLIP cells, `W_c` path, maps vs C14 | **BUILT 2026-10-30**: `v5.window=frame` (config `_validate_v5_frame`), `TileReadout(frame=True)` + `frame_tile_features`, R7m `GridReadout` at 512 × 196, `KATVAD` residual width = readout width (A2's `u` skipped), `frame_lag` / `eval_grid` frame path, no `v5_head.npz`, `v5_maps.frame_change_map` + 14 × 14 centre prior + `mass_minus_centre` + `r7_points`, `v5_tile_read --gate r7` (no `--nexar-dir`), `v5_stage0 extract --dev-only`; constants `V5_R7_ROWS` etc.; tests `test_v5_r7_grids.py` (23) |
+| 3 | fast pilot s2024 on DoTA-CAP-dev (§4.4) → read-out | **notebook `colab/v5/r7_fast_pilot.ipynb` built, not run** |
 
 ## 1. Why 14 × 14, why store unpooled
 
@@ -36,13 +36,13 @@ new extraction.
 Cache dirs: `Thesis-V5/cache/video_grid/clip_vit_b16/{Nexar_s8,Nexar_s3,DoTA_CAP_s3}_cgrid14/` + `video_manifest.json`
 (`stride`, `frame_step` 1, `slots` 1, `window_kind` `frame`, model + revision, transform).
 
-## 3. Phase 2 — what the code still needs (after §4.2 is signed)
+## 3. Phase 2 — as built (fast pilot, §4.4)
 
-- `V5_WINDOWS` + `v5.window = frame`, `grid_slots = 1`; `GridReadout`/`TileReadout` at `dim` 512, `cells` 196, identity
-  head (no `fc_norm`, no A2 statistics) → `LN(r)`; `MotionResidual(512, 512)` = `W_c` on R0's rows (`x` only, no `u`).
-- `tile_features` for per-frame grids: `Δ` across rows at the P-b lag, computed per item before DVS (S2-4's rule).
-- `v5_maps` / `v5_tile_read`: 14 × 14 maps, `hit − C14 change`, `mass − centre` columns; STAUC at 14 × 14.
-- notebook `colab/v5/r7_pilot.ipynb` (train R7m / R7t s2024, reads, read-out).
+- Rows carry A2's bake `[x ; u]` + `G` (+ `ΔG` for R7t, lag 1 row, per item before DVS). The model drops `u` and
+  feeds `LN(r)` into `MotionResidual(512, 512)` = `W_c`, zero-init.
+- Memory: an R7t row is 201,600 floats (806 KB fp32), ≈ 2.7 × a v5.1 row; a batch of 64 windows × 20 rows is
+  ≈ 1–2 GB on the host. Use a High-RAM runtime.
+- Not built yet: `nexar_val` at s3 needs Δ at 3 rows (0.1 s / row); the fast pilot does not read it.
 
 ## 4. Risks
 
