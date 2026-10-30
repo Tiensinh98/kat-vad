@@ -63,16 +63,18 @@ class KATVAD(nn.Module):
         motion_dim: int = 0,
         grid_readout: GridReadout | None = None,
         smil_head: SpatialMILHead | None = None,
+        clip_branch: bool = False,
     ) -> None:
         super().__init__()
         # v2 motion stream (architecture §5): absent unless motion_dim > 0, so every
         # v1 / A0 / A1 checkpoint builds -- and loads -- exactly as before.
-        # R7 (PREREG_V5 §4): the residual takes the readout's width (CLIP 512 = W_c); the row
-        # still carries A2's baked u (motion_dim columns), skipped by _grid_rows.
-        residual_dim = grid_readout.dim if grid_readout is not None else motion_dim
-        self.baked_motion_dim = motion_dim
         self.motion_residual = (
-            MotionResidual(hidden_dim, residual_dim) if motion_dim > 0 else None
+            MotionResidual(hidden_dim, motion_dim) if motion_dim > 0 else None
+        )
+        # R7 (PREREG_V5 §4.2 P-c): A2's motion path is kept (W_u on the baked u) and a second
+        # zero-init residual W_c adds LN(readout of the CLIP 14 x 14 grid) -- A2's function at init.
+        self.clip_residual = (
+            MotionResidual(hidden_dim, grid_readout.dim) if clip_branch and grid_readout else None
         )
         # v5 (PREREG_V5 §2): the motion term comes from a readout of the V7 grid appended to
         # each row; absent unless v5.readout != none, so v1 / v2 checkpoints load unchanged.
@@ -149,6 +151,7 @@ class KATVAD(nn.Module):
             motion_dim=cfg.model.motion_dim,
             grid_readout=grid_readout,
             smil_head=smil_head,
+            clip_branch=v5.window == constants.V5_WINDOW_FRAME,
         )
 
     def encode_text(self, texts: list[str], use_soft_prompt: bool = True) -> Tensor:
@@ -188,14 +191,18 @@ class KATVAD(nn.Module):
         sim_mat = self.sim_head(v_fused, t_fused)
         return bin_logits, sim_mat
 
-    def _grid_rows(self, rows: Tensor, outputs: dict[str, Tensor]) -> Tensor:
+    def _grid_rows(
+        self, rows: Tensor, outputs: dict[str, Tensor]
+    ) -> tuple[Tensor, Tensor | None]:
         """v5: ``[x ; u_baked ; G (; ΔG)]`` -> ``[x ; motion(readout(G))]`` (PREREG_V5 §2.1).
 
         The baked ``u`` columns are skipped: they exist for the input-cache check and S1-G2(b).
+        R7 (§4.2 P-c) keeps them -- ``[x ; u_baked]`` is returned with ``LN(r)`` for ``W_c``.
         """
         assert self.grid_readout is not None and self.motion_residual is not None  # nosec B101
-        hidden = self.motion_residual.hidden_dim
-        base = hidden + self.baked_motion_dim
+        hidden, base = self.motion_residual.hidden_dim, (
+            self.motion_residual.hidden_dim + self.motion_residual.motion_dim
+        )
         tiles, dim = self.grid_readout.tiles, self.grid_readout.dim
         width = tiles * dim
         blocks = 2 if self.grid_readout.uses_change else 1
@@ -216,7 +223,9 @@ class KATVAD(nn.Module):
             outputs["v5_smil"] = self.smil_head(out.z)
         if out.tile_logits is not None:  # v5.1: scorer logits e (L_tile, evidence maps)
             outputs["v5_tile_logits"] = out.tile_logits
-        return torch.cat([rows[..., :hidden], out.motion], dim=-1)
+        if self.clip_residual is not None:
+            return rows[..., :base], out.motion
+        return torch.cat([rows[..., :hidden], out.motion], dim=-1), None
 
     def forward(
         self,
@@ -237,11 +246,17 @@ class KATVAD(nn.Module):
         """
         mask = padding_mask(v_feat_l, v_feat.shape[1]).to(v_feat.device)
         outputs: dict[str, Tensor] = {}
+        clip_term = None
         if self.grid_readout is not None:
-            v_feat = self._grid_rows(v_feat, outputs)
+            v_feat, clip_term = self._grid_rows(v_feat, outputs)
         if self.motion_residual is not None:
             # v2 A2/A3: rows are [x ; c*u~/sigma_u] -> h = x + W_u(...)  (architecture §5)
             v_feat, outputs["motion_share"] = self.motion_residual(v_feat, mask)
+        if self.clip_residual is not None and clip_term is not None:
+            # R7: h = x + W_u u + W_c LN(r_CLIP); clip_share = ||W_c LN(r)|| / ||x + W_u u||
+            v_feat, outputs["clip_share"] = self.clip_residual(
+                torch.cat([v_feat, clip_term], dim=-1), mask
+            )
         vt = self.temporal_encoder(v_feat, v_feat_l)
 
         if self.kip is not None:

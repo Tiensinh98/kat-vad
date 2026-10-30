@@ -531,7 +531,7 @@ pooled to 7 × 7; mass − centre +0.020 (14 × 14) / +0.015 (7 × 7), the only 
 |---|---|---|---|---|
 | P-a | readout | **v5.1 tile scorer** (`TileReadout`, `L_tile`, dense negatives, λ 0.5 / K 4 / β 0.01) on 196 CLIP cells | free queries × 100 (B13) | queries saturated on V2-S (Stage 2b); the scorer rates each cell directly |
 | P-b | scorer features | `[LN(R) ; LN(Δ)]`, `R` = cell − frame median, `Δ` = row change − its median at **lag ≈ 0.3 s** (Nexar s8: 1 row, `nexar_val` s3: 3 rows, DoTA-CAP s3: 1 row = C14's lag) | content only | C14's evidence is change at that lag |
-| P-c | trunk path | S2-5's `h = x + W_c·LN(r)`, `W_c` zero-init, on **R0** (v2 Nexar A0, CLIP only) | on A2 (V2-S motion kept) | isolates what CLIP cells add |
+| P-c | trunk path | ~~on R0~~ → **on A2 = v5's R1 base (V2-S global `u` kept)**: `h = x + W_u·u + W_c·LN(r)`, `W_c` zero-init (amended 2026-10-30 before any R7 run: the user — the V2-S motion term carries v5's DoTA-CAP-dev ≈ 0.81, R1 0.8102 / R1c 0.8124; dropping it would test MQR on a weaker trunk) | on R0 (CLIP only) | the MQR readout moves from the V2-S token grid to the CLIP patch grid; V2-S returns to its global 384-d vector |
 | P-d | rows | **R7m** (mean of the 196 cells, same path; detection control), **R7t** (P-a/P-b) | + R7c (untrained change top-K, as R3c) | R7c costs 0.06 macro on V2-S; its map is C14 itself (already measured) |
 | P-e | map rule ("R7t's maps point") | all 95 % lows > 0 of: hit − chance, lift − lift_pre, **hit − C14 change map**, **mass − centre** (14 × 14) | S2-8 as written (hit − centre) | hit − centre at 14 × 14 is inflated by the tie (§3.7 C-3); beating the untrained C14 map is what makes a trained map worth claiming |
 | P-f | guardrails | `nexar_val` R7t − R7m ≥ −0.01; S1-G4 provenance; finite losses | — | as §2 / §3 |
@@ -550,9 +550,10 @@ steps, 100 k values per row (v5.1: 75 k) → ≈ v5.1's step 2–3.
   §4.1's gates; Phase 1's PASS rule is read on those two caches (every train video, every CAP-dev clip stored and
   compared with Stage 0). `nexar_val` and CAP-eval grids are not extracted (`r7_clip_grids.ipynb` adds them later,
   resumably, into the same caches).
-- **F2 Rows / seed.** R7m and R7t (`constants.V5_R7_ROWS`), s2024, v2 Nexar A2's recipe (1,749 steps), λ 0.5 / K 4 /
-  β 0.01, Δ lag `V5_R7_CHANGE_ROWS` = 1 row. Inputs = A2's bake; the model skips A2's baked `u` and adds
-  `W_c·LN(r)` (`W_c` zero-init) — R0's function at init, so R7m = "R0 + CLIP cell mean".
+- **F2 Rows / seed.** R7m and R7t (`constants.V5_R7_ROWS`), s2024, the v5 rows' recipe (S2-1: A2's, 1,749 steps),
+  λ 0.5 / K 4 / β 0.01, Δ lag `V5_R7_CHANGE_ROWS` = 1 row. Inputs = A2's bake; the model keeps `W_u·u` (V2-S global
+  vector, as R1's function at init) and adds `W_c·LN(r)` (`W_c` zero-init) — A2's function at init, so R7m = "R1-like
+  trunk + CLIP cell mean" and R7t = "+ CLIP tile-scored readout". Logged: `clip_share`, `w_c_norm`.
 - **F3 Reads.** DoTA-CAP-dev protocol B (+ time-reversed) for both rows; R7t maps (its `p` on 14 × 14) with the
   C14 change map (`1 − cos`, lag 1 row, recomputed from the stored grid) as the untrained baseline; `v5_maps read`;
   `v5_tile_read --gate r7`.

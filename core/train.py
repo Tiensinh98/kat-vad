@@ -337,6 +337,9 @@ class Trainer:
         if self.model.motion_residual is not None:
             losses["motion_share"] = outputs["motion_share"]
             losses["w_u_norm"] = self.model.motion_residual.weight_norm()
+        if self.model.clip_residual is not None:  # R7 (§4.2 P-c): the CLIP-patch branch
+            losses["clip_share"] = outputs["clip_share"]
+            losses["w_c_norm"] = self.model.clip_residual.weight_norm()
         # v5 (PREREG_V5 §2): per-query attention entropy (S1-G6, logged only) and L_sMIL (S2-6)
         if "v5_attn" in outputs:
             for m, ent in enumerate(query_entropy(outputs["v5_attn"], mask)):
@@ -858,7 +861,7 @@ def build_trainer(
     if model.grid_readout is not None and cfg.v5.window != constants.V5_WINDOW_FRAME:
         assert grid_dir is not None  # nosec B101 - v5_grid_lag refused a missing grid_dir
         model.grid_readout.load_head(grid_dir / constants.V5_HEAD_FILENAME)
-    # R7 (§4.2 P-c): identity head -- the motion term is LN(r), no fc_norm or A2 statistics
+    # R7 (§4.2 P-c): identity head -- W_c reads LN(r); A2's u comes baked in the rows
     text_encode_fn = make_text_encoder(
         model, text_encoder, device, dim=cfg.model.hidden_dim
     )

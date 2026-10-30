@@ -512,7 +512,7 @@ def g2_real(args: argparse.Namespace) -> dict[str, Any]:
             lag if cfg.v5.keys == constants.V5_KEYS_CHANGE else None,
         )
         with torch.no_grad():
-            out = models[row]._grid_rows(torch.from_numpy(rows)[None], {})
+            out, _ = models[row]._grid_rows(torch.from_numpy(rows)[None], {})  # V5_ROWS: no W_c
         return out[0, :, constants.HIDDEN_DIM :]
 
     models: dict[str, KATVAD] = {}

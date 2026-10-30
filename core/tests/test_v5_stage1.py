@@ -261,7 +261,8 @@ class TestModel:
         rows = torch.cat(
             [torch.randn(1, 5, constants.HIDDEN_DIM), baked, grid.reshape(1, 5, -1)], -1
         )
-        out = model._grid_rows(rows, {})
+        out, clip_term = model._grid_rows(rows, {})
+        assert clip_term is None  # v5 rows: the readout replaces u (only R7 returns W_c's input)
         torch.testing.assert_close(
             out[..., constants.HIDDEN_DIM :], rows[..., constants.HIDDEN_DIM : BASE]
         )

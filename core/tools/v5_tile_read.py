@@ -279,7 +279,7 @@ def ap_summary(
 
 
 MECHANICS_KEYS = ("mil", "tile", "tile_p_abnormal", "tile_p_normal", "v5_temp",
-                  "v5_entropy_q0", "v5_logit_std_q0", "motion_share")
+                  "v5_entropy_q0", "v5_logit_std_q0", "motion_share", "clip_share")
 
 
 def mechanics(run_dir: Path) -> dict[str, Any] | None:
@@ -544,16 +544,17 @@ def render_mechanics(r: dict[str, Any]) -> list[str]:
         return []
     lines = ["", "## Mechanics (last step; printed)", "",
              "| run | finite | mil | tile | p abnormal | p normal | T | entropy / log 196 | "
-             "motion share |", "|---|---|---|---|---|---|---|---|---|"]
+             "motion share | CLIP share (R7) |", "|---|---|---|---|---|---|---|---|---|---|"]
     for k, m in r["mechanics"].items():
         if m is None:
-            lines.append(f"| {k} | no metrics | | | | | | | |")
+            lines.append(f"| {k} | no metrics | | | | | | | | |")
             continue
         lines.append(
             f"| {k} | {'yes' if m['finite'] else '**NO**'} | {_num(m.get('mil'))} | "
             f"{_num(m.get('tile'))} | {_num(m.get('tile_p_abnormal'))} | "
             f"{_num(m.get('tile_p_normal'))} | {_num(m.get('v5_temp'))} | "
-            f"{_num(m.get('entropy_over_log_cells'))} | {_num(m.get('motion_share'))} |"
+            f"{_num(m.get('entropy_over_log_cells'))} | {_num(m.get('motion_share'))} | "
+            f"{_num(m.get('clip_share'))} |"
         )
     return lines
 

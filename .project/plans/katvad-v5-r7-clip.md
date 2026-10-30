@@ -38,8 +38,9 @@ Cache dirs: `Thesis-V5/cache/video_grid/clip_vit_b16/{Nexar_s8,Nexar_s3,DoTA_CAP
 
 ## 3. Phase 2 — as built (fast pilot, §4.4)
 
-- Rows carry A2's bake `[x ; u]` + `G` (+ `ΔG` for R7t, lag 1 row, per item before DVS). The model drops `u` and
-  feeds `LN(r)` into `MotionResidual(512, 512)` = `W_c`, zero-init.
+- Rows carry A2's bake `[x ; u]` + `G` (+ `ΔG` for R7t, lag 1 row, per item before DVS). The model keeps
+  `W_u·u` (V2-S global, `MotionResidual(512, 384)`) and adds `LN(r)` through a second `MotionResidual(512, 512)` =
+  `W_c`, zero-init (`KATVAD.clip_residual`; P-c amended 2026-10-30 — MQR moves from the V2-S grid to CLIP patches).
 - Memory: an R7t row is 201,600 floats (806 KB fp32), ≈ 2.7 × a v5.1 row; a batch of 64 windows × 20 rows is
   ≈ 1–2 GB on the host. Use a High-RAM runtime.
 - Not built yet: `nexar_val` at s3 needs Δ at 3 rows (0.1 s / row); the fast pilot does not read it.

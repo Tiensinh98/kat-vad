@@ -421,33 +421,40 @@ class TestR7Config:
 
 
 class TestR7Model:
-    def test_r7t_starts_as_r7m_and_both_as_r0(self) -> None:
+    def test_both_rows_start_as_a2(self) -> None:
+        """A2's W_u path is kept; W_c (zero-init) adds LN(r_CLIP) -> A2's function at init."""
         from core.data.v5_grids import v5_rows
         from core.models.kat_vad import KATVAD
 
         rng = np.random.default_rng(0)
         base = rng.standard_normal((12, constants.HIDDEN_DIM + constants.V5_GRID_DIM))
+        base = base.astype(np.float32)
         grid = rng.standard_normal((12, GRID, GRID, R7_DIM)).astype(np.float16)
-        cells = torch.from_numpy(grid.astype(np.float32)).reshape(1, 12, R7_CELLS, R7_DIM)
-        change = torch.from_numpy(
-            v5_rows(base.astype(np.float32), grid, constants.V5_R7_CHANGE_ROWS)[
-                :, -cells[0, 0].numel() :
-            ]
-        ).reshape(1, 12, R7_CELLS, R7_DIM)
-        motion = {}
         for row in constants.V5_R7_ROWS:
+            torch.manual_seed(0)
             model = KATVAD.from_config(v5_stage1.row_config(row)).eval()
-            assert model.grid_readout is not None and model.motion_residual is not None
-            assert model.motion_residual.motion_dim == R7_DIM  # W_c reads the 512-d readout
-            rows = torch.from_numpy(v5_rows(base.astype(np.float32), grid, lag_of(row)))[None]
+            assert model.motion_residual is not None and model.clip_residual is not None
+            assert model.motion_residual.motion_dim == constants.V5_GRID_DIM  # A2's W_u on u
+            assert model.clip_residual.motion_dim == R7_DIM  # W_c on the 512-d CLIP readout
+            torch.nn.init.normal_(model.motion_residual.proj.weight)  # a trained-looking W_u
+            rows = torch.from_numpy(v5_rows(base, grid, lag_of(row)))[None]
             with torch.no_grad():
                 out = model(rows, torch.tensor([12]))
-                uses = model.grid_readout.uses_change
-                motion[row] = model.grid_readout(cells, change if uses else None).motion
-            assert float(out["motion_share"]) == 0.0  # W_c = 0: R0's function at init
-        torch.testing.assert_close(motion["R7t"], motion["R7m"], atol=1e-5, rtol=1e-5)
-        torch.testing.assert_close(  # identity head: LN of the cell mean, no fc_norm
-            motion["R7m"], torch.nn.functional.layer_norm(cells.mean(-2), (R7_DIM,), eps=1e-6)
+                plain = torch.from_numpy(base)[None]  # what A2's model sees
+                want, _ = model.motion_residual(plain)
+            assert float(out["motion_share"]) > 0  # VideoMAE u is read
+            assert float(out["clip_share"]) == 0.0  # W_c = 0 at init
+            hidden = model.temporal_encoder(want, torch.tensor([12]))
+            torch.testing.assert_close(out["vis_feats"], hidden)
+
+    def test_clip_term_is_ln_of_the_cell_mean_for_r7m(self) -> None:
+        from core.models.mqr import build_readout
+
+        cells = torch.randn(1, 4, R7_CELLS, R7_DIM)
+        readout = build_readout(v5_stage1.row_config("R7m").v5)
+        torch.testing.assert_close(
+            readout(cells).motion,
+            torch.nn.functional.layer_norm(cells.mean(-2), (R7_DIM,), eps=1e-6),
         )
 
     def test_tile_readout_refuses_a_missing_change_block(self) -> None:
