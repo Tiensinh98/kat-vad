@@ -1054,3 +1054,13 @@ V6_TEXT_NORMAL = "a dashcam video of normal driving"
 V6_STRAT_BINS = 50  # position-stratified AUC (primary detection metric)
 V6_RANK_SCORES = ("motion_change", "crop_change", "crop_text", "loom", "approach")
 V6_PRIORS = ("centre", "largest", "lowest")
+
+# v6 post-hoc DADA read (PREREG_V6 §4): v5 R1 s2024 on SimpleTAD's official DADA-2000 list
+V6_DADA_OFFICIAL_URL = "https://huggingface.co/tue-mps/simple-tad/resolve/main/datasets/D2K.zip"
+# inside D2K.zip: every DADA-2000 clip not in LOTVS train
+V6_DADA_OFFICIAL_LIST = "DADA2K_my_split/validation.txt"
+# share of the official list with annotation + frames + CLIP / V2-S caches
+V6_DADA_MIN_COVERAGE = 0.95
+V6_GS_MACRO_TOL = 1e-3  # G-S: stripped R1 vs R1 DoTA-CAP-dev macro
+V6_GS_SCORE_TOL = 1e-2  # G-S: max per-frame |score delta| (fp16 grid mean vs fp32 baked u)
+V6_DADA_DIRNAME = "dada_official"

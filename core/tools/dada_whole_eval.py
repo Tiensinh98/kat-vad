@@ -65,6 +65,15 @@ def test_sources(t2_dir: Path) -> list[str]:
     return sources
 
 
+def read_ids(path: Path) -> list[str]:
+    """Source ids of ``--ids-file``: one ``t{type:02d}_v{video:03d}`` per line."""
+    ids = sorted({line.strip() for line in path.read_text(encoding="utf-8").splitlines()
+                  if line.strip()})
+    if not ids:
+        raise ValueError(f"{path} names no source")
+    return ids
+
+
 def check_rows(labels: Curves, rows: dict[str, int]) -> None:
     """One label per cached row on every source (C10, C13): a mismatch is a stride error."""
     missing = sorted(set(labels) - set(rows))
@@ -127,7 +136,9 @@ def score_run(
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
-    ids = test_sources(args.t2_dir)
+    if (args.ids_file is None) == (args.t2_dir is None):
+        raise ValueError("pass exactly one of --t2-dir (T2-test's sources) / --ids-file")
+    ids = read_ids(args.ids_file) if args.ids_file is not None else test_sources(args.t2_dir)
     labels = {
         v: np.asarray(g, dtype=np.int64)
         for v, g in source_labels(args.annotation, load_counts(args.census), ids,
@@ -150,7 +161,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     summary = summarize(per_run, labels, args.seed)
     readout: dict[str, Any] = {
         "protocol": f"whole source video, every s{args.stride} row, labels = annotation span",
-        "set": "DADA-2000 original: the sources of T2-test's windows",
+        "set": args.set_name or "DADA-2000 original: the sources of T2-test's windows",
         "input_dir": str(args.input_dir),
         "arm": next(iter(arms.values())),
         "checkpoints": dict(args.run),
@@ -173,7 +184,7 @@ def _fmt(c: dict[str, float] | None) -> str:
 def render_markdown(r: dict[str, Any]) -> str:
     video = "—" if r["video_auc"] is None else f"{r['video_auc']:.4f}"
     lines = [
-        f"# DADA-2000 whole videos — {r['videos']} sources ({r['abnormal_videos']} abnormal, "
+        f"# {r['set']} — whole videos, {r['videos']} sources ({r['abnormal_videos']} abnormal, "
         f"{r['two_class']} two-class)",
         "",
         f"{r['protocol']}. Arm `{r['arm']}`, input `{r['input_dir']}`, steps {r['global_steps']}.",
@@ -192,8 +203,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n", 1)[0])
     parser.add_argument("--run", nargs=2, action="append", required=True,
                         metavar=("NAME", "CKPT"), help="one finished checkpoint (repeat per seed)")
-    parser.add_argument("--t2-dir", type=Path, required=True,
+    parser.add_argument("--t2-dir", type=Path, default=None,
                         help="the PARENT T2 dir (meta.json names T2-test's sources)")
+    parser.add_argument("--ids-file", type=Path, default=None,
+                        help="instead of --t2-dir: the sources to read, one id per line")
+    parser.add_argument("--set-name", default=None, help="set label printed in the read-out")
     parser.add_argument("--annotation", type=Path, required=True, help="dada标注.xlsx")
     parser.add_argument("--census", nargs="+", required=True, help="resolved_census.json")
     parser.add_argument("--input-dir", type=Path, required=True,

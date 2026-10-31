@@ -88,3 +88,19 @@ Normal: mean BCE(p, 0) over every candidate of every valid step. No GT box or fr
   ego / no-agent pick shares.
 * **Pilot pass** (to 3 seeds + CAP-eval): AP − R1 macro ≥ 0 on all **and** non-ego strat-50 ≥ R1's, **and** box
   hit − centre 95 % low > 0 (proposal §4.5 decision gates). Otherwise PILOT-FAIL, reported as a negative result.
+
+## 4. Post-hoc read: v5 R1 s2024 zero-shot on the official DADA-2000 test set (printed only)
+
+Written 2026-11-01, **after** the §3 read-out (PILOT-FAIL: AP − R1 macro −0.014 [−0.027, −0.002]) and **before
+any DADA number of R1**. User decisions (2026-11-01): set = the official list used by the papers (option a), **R1
+only** (AP is not read on DADA: no agent cache exists there). Nothing in this section changes §3's verdict or
+licenses an AP claim; it answers "what does the control score on DADA-2000 zero-shot".
+
+| # | choice |
+|---|---|
+| Z1 | **Set** = SimpleTAD's (CVPR 2025) DADA-2000 evaluation list, `DADA2K_my_split/validation.txt` in `D2K.zip` (`constants.V6_DADA_OFFICIAL_URL`): every clip of the original release **not** in LOTVS's training list (`simple-tad/data_tools/dada/prepare_anno_dada2000.py`). `{type}/{video}` → `t{type:02d}_v{video:03d}`. Not this project's T2-test (370 sources, a seeded split), and not "dev + eval" (that is DoTA-CAP). |
+| Z2 | **Coverage gate**: a listed clip is read iff it has an annotation row in `dada标注.xlsx`, frames on disk (census), an anomaly start inside them (`make_record`), and the DADA2000_orig CLIP s8 + V2-S s8 caches. Every exclusion is named by reason (`v6_r1_dada ids`); **coverage < 0.95 stops** (no number). |
+| Z3 | **Model** = v5 R1 s2024 with its parameter-free mean readout removed (`v6_r1_dada strip`): same weights, `v5.readout = none`, reading A2's baked `u` (the same term; PREREG_V5 S1-G2(b)). Inputs = DADA rows baked with **R1's own Nexar A2 statistics** (`build_v2_inputs apply`, `A2_S/Nexar_s8`). |
+| Z4 | **Gate G-S** (before DADA): stripped R1 on DoTA-CAP-dev (protocol B, A2 bake) vs R1's stored protocol-B scores: \|Δ macro\| ≤ 1e-3 **and** max per-frame \|Δ score\| ≤ 1e-2. FAIL stops. |
+| Z5 | **Protocol** = `dada_whole_eval` unchanged (§29 D-N20): whole source video, every s8 row in one forward, labels = the annotation span at s8 (Gate D0 rule), macro over two-class videos (95 % bootstrap over videos), micro pooled, `t/N` and middle rulers beside. One seed → no seed interval. |
+| Z6 | **Wording.** One sentence: "R1 (Nexar-trained, zero-shot) scores macro X / micro Y on the official DADA-2000 test list (N of M clips), against a middle-position ruler of R". SimpleTAD's D2K numbers are **fully supervised on DADA** and use their own frame annotation: printed in another column with that note, never as a comparison. Not licensed: any AP claim, any DADA claim for v2's `B`. |
