@@ -971,3 +971,86 @@ V5_R7_ROWS = {  # every R7 row reads the per-frame CLIP 14 x 14 cache
     for row, over in V5_R7_ROWS.items()
 }
 V5_R7_CONTROL = "R7m"  # detection control (same path, mean of the 196 cells)
+
+# ---------------------------------------------------------------------------
+# KAT-VAD v6 -- LaGoVAD-AP, the Agent Prompt branch (core/docs/final proposal §3.2,
+# rules core/docs/v6/PREREG_V6.md, plan .project/plans/katvad-v6-agent-prompt.md)
+# ---------------------------------------------------------------------------
+V6_OUTPUT_DIRNAME = "v6"  # under OUTPUT_ROOT: <row>/s<seed>/ + REPORTS/
+V6_AGENT_CACHE_DIRNAME = "agents"  # cache/agents/<dataset>_s<stride>_k<K>/
+V6_TRACK_CACHE_DIRNAME = "tracks"  # cache/tracks/<dataset>/{id}.npz (raw tracks + camera affines)
+V6_DETECTOR_WEIGHTS = "yolov9c.pt"  # §3.2: COCO YOLOv9-C, ultralytics release
+V6_DETECTOR_IMGSZ = 1280  # native resolution, long side capped at 1280
+V6_DETECTOR_CONF = 0.10  # confidence floor after NMS
+V6_DETECTOR_BATCH = 32  # frames per detector forward
+V6_COCO_CLASSES = (0, 1, 2, 3, 5, 7)  # person, bicycle, car, motorcycle, bus, truck
+V6_CLASS_NAMES = ("person", "bicycle", "car", "motorcycle", "bus", "truck", "rider")
+V6_COCO_TO_CLASS = {0: 0, 1: 1, 2: 2, 3: 3, 5: 4, 7: 5}  # COCO id -> V6_CLASS_NAMES index
+V6_RIDER_CLASS = 6  # a person track merged into a two-wheeler track
+V6_TWO_WHEELERS = (1, 3)  # bicycle, motorcycle (V6_CLASS_NAMES indices)
+V6_RIDER_CONTAIN = 0.5  # IoU or containment of the person box in the two-wheeler box
+V6_RIDER_SHARE = 0.5  # share of the co-visible frames that must satisfy V6_RIDER_CONTAIN
+V6_TRACKER = "botsort.yaml"  # dashcam: BoT-SORT with camera-motion compensation, no ReID
+V6_TRACK_LOST_FRAMES = 10  # track buffer at the 10 fps detection rate (DoTA's max_age 10)
+V6_GMC_METHOD = "sparseOptFlow"  # camera affine per detection frame (BoT-SORT's default CMC)
+V6_MIN_TRACK_DETS = 3  # tracks shorter than 3 detections are dropped
+V6_DET_FPS = 10  # every video is detected and tracked at 10 fps
+V6_K_MAX = 16  # agents kept per step, by track-mean confidence
+V6_CROP_SCALE = 1.5  # crop side = 1.5 x the box's long side, padded square
+V6_CROP_MIN_PX = 32  # minimum crop side in source pixels
+V6_ROI_OUT = 2  # 2 x 2 RoIAlign on each slot's 14 x 14 VideoMAE token grid
+V6_TOKEN_GRID = 14  # VideoMAE V2-S tokens per side (224 / 16)
+V6_TOKEN_SLOTS = 8  # temporal slots of a 16-frame clip (tubelet 2)
+V6_KIN_CLIP = 10.0  # |kinematic feature| cap (box heights / s etc.): tracker glitches
+V6_EGO_BOX = (0.35, 0.85, 0.65, 1.0)  # fixed ego box (normalized xyxy), bottom centre
+V6_EGO_POINT = (0.5, 1.0)  # ego reference point for the ego gap
+# per-agent row columns: valid, box xyxy (norm), conf, class, track id, kinematics, motion, crop
+V6_KIN_NAMES = ("ux", "uy", "ax", "ay", "rho", "age", "gap", "gap_rate", "gap_ego")
+V6_KIN_DIM = len(V6_KIN_NAMES)
+V6_AGENT_MOTION_DIM = V5_GRID_DIM  # 384: V2-S last-layer channels
+V6_AGENT_CROP_DIM = CLIP_FEATURE_DIM  # 512: CLIP image_embeds (same space as c_t and the text)
+V6_AGENT_HEAD = 8  # valid(1) + box(4) + conf(1) + class(1) + track id(1)
+V6_AGENT_DIM = (  # 913
+    V6_AGENT_HEAD + V6_KIN_DIM + V6_AGENT_MOTION_DIM + V6_AGENT_CROP_DIM
+)
+V6_EGO_DIM = V6_TOKEN_SLOTS * 6  # camera affine (minus identity) per slot of the centred clip
+V6_ROW_WIDTH = V6_K_MAX * V6_AGENT_DIM + V6_EGO_DIM  # columns the agent cache adds to a row
+V6_NEXAR_STRIDE = NEXAR_TRAIN_STRIDE  # s1[::8], A2's training rows
+V6_DOTA_STRIDE = V2_E1_STRIDE_BC  # s1[::3], protocol B
+# branch (§3.2): d = 256, 4 heads, FFN ratio 2, 12 relation queries x 2 blocks
+V6_D = 256
+V6_HEADS = 4
+V6_FFN_RATIO = 2
+V6_QUERIES = 12
+V6_RELATION_BLOCKS = 2
+V6_SCORER_HIDDEN = 128
+V6_PAIR_DIM = 6  # box difference (4), IoU, normalized centre gap
+V6_FOURIER_SEED = 2024  # SAM-style random Gaussian frequencies (a fixed buffer)
+V6_FOURIER_SCALE = 1.0
+# agent-level MIL (§3.2): top-K agents of the top-k steps (abnormal), dense negatives (normal)
+V6_LAMBDA = 0.5  # λ of L_agent (pilot; the grid {0.1, 0.5, 1} is a later choice)
+V6_TOPK_AGENTS = 1  # K (DoTA averages 1.39 anomalous agents per annotated frame)
+V6_BETA = 0.01  # L1 sparsity on abnormal videos
+V6_MIL_TOPK_PCT = 16  # k = max(floor(L / 16), 1)
+V6_BOUNDARY_FRAMES = 8  # centred-clip half width (VideoMAE frames) around an inserted DVS boundary
+V6_SMIL_EPS = 1e-6
+V6_SEED = SEED  # pilot: one seed, s2024 (paired with v2 Nexar A2 s2024)
+V6_ROW_AP = "AP"  # the full branch (alignment term not built: λ_a = 0, PREREG_V6 §2)
+V6_CONTROL = "A2"  # v2 Nexar A2 = the motion stream, mean pooling (W_u, causal V2-S)
+# Step 0 (PREREG_V6 §1): go / no-go on DoTA-CAP-dev
+V6_IOU_LOOSE = 0.3
+V6_IOU_STRICT = 0.5
+V6_TRACK_FOUND_SHARE = 0.5  # a GT track is found if matched on >= 50 % of its frames
+V6_GO_RECALL = 0.80  # GO: track recall at IoU 0.3 (VO / OO excluded), overall
+V6_GO_RECALL_STRATUM = 0.70  # GO: ego-uninvolved and smallest box bin
+V6_NARROW_RECALL = 0.60  # below = NO-GO
+V6_DROP_STRATUM = 0.50  # NARROW: a stratum below this is dropped from H1 / H2
+V6_SMALL_BOX_PX = 2267  # PromptTAD's small-object cut (pixels in 1280 x 720)
+V6_AGENTLESS_CATEGORIES = ("obstacle", "leave_to_right", "leave_to_left")  # VO, OO: no agent
+V6_CHANGE_LAG_ROWS = 6  # non-overlapping V2-S windows at DoTA s3: 18 frames > 16
+V6_CROP_CHANGE_LAG_ROWS = 1  # CLIP crop change, 0.3 s
+V6_TEXT_ABNORMAL = "a dashcam video of a car accident"
+V6_TEXT_NORMAL = "a dashcam video of normal driving"
+V6_STRAT_BINS = 50  # position-stratified AUC (primary detection metric)
+V6_RANK_SCORES = ("motion_change", "crop_change", "crop_text", "loom", "approach")
+V6_PRIORS = ("centre", "largest", "lowest")

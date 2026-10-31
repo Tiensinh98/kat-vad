@@ -23,9 +23,11 @@ import torch
 from torch import Tensor, nn
 
 from core import constants
-from core.config import validate_v2, validate_v5
+from core.agents.layout import RowLayout, split_row
+from core.config import validate_agent, validate_v2, validate_v5
 from core.data.collate import padding_mask
 from core.kip.kip_module import KIP
+from core.models.agent_branch import AgentBranch, AgentGate
 from core.models.clip_text import SoftPromptCLIPTextModel
 from core.models.fusion import CoAttentionFusion
 from core.models.heads import BinaryHead, MultiClassHead
@@ -64,6 +66,7 @@ class KATVAD(nn.Module):
         grid_readout: GridReadout | None = None,
         smil_head: SpatialMILHead | None = None,
         clip_branch: bool = False,
+        agent_branch: AgentBranch | None = None,
     ) -> None:
         super().__init__()
         # v2 motion stream (architecture §5): absent unless motion_dim > 0, so every
@@ -82,6 +85,13 @@ class KATVAD(nn.Module):
             raise ValueError("a v5 grid readout feeds the v2 motion path (motion_dim > 0)")
         self.grid_readout = grid_readout
         self.smil_head = smil_head
+        # v6 (PREREG_V6 §2.2): agent columns follow A2's row; z_t enters through a closed gate
+        if agent_branch is not None and (self.motion_residual is None or grid_readout is not None):
+            raise ValueError("the agent branch is added to A2 (motion_dim > 0, no v5 readout)")
+        self.agent_branch = agent_branch
+        self.agent_gate = (
+            AgentGate(hidden_dim, agent_branch.d) if agent_branch is not None else None
+        )
         self.temporal_encoder = TemporalEncoder(
             hidden_size=hidden_dim,
             num_layers=temporal_layers,
@@ -110,6 +120,7 @@ class KATVAD(nn.Module):
         """Build from :class:`core.config.Config`; ``load_clip`` pulls HF weights."""
         validate_v2(cfg)
         validate_v5(cfg)
+        validate_agent(cfg)
         v5 = cfg.v5
         grid_readout = smil_head = None
         if v5.readout != constants.V5_READOUT_OFF:
@@ -152,6 +163,22 @@ class KATVAD(nn.Module):
             grid_readout=grid_readout,
             smil_head=smil_head,
             clip_branch=v5.window == constants.V5_WINDOW_FRAME,
+            agent_branch=(
+                AgentBranch(
+                    clip_dim=cfg.model.hidden_dim,
+                    motion_dim=cfg.model.motion_dim,
+                    d=cfg.agent.d,
+                    heads=cfg.agent.heads,
+                    queries=cfg.agent.queries,
+                    blocks=cfg.agent.relation_blocks,
+                    k_max=cfg.agent.k_max,
+                    appearance=cfg.agent.appearance,
+                    motion=cfg.agent.motion,
+                    relation=cfg.agent.relation,
+                )
+                if cfg.agent.enabled
+                else None
+            ),
         )
 
     def encode_text(self, texts: list[str], use_soft_prompt: bool = True) -> Tensor:
@@ -247,11 +274,25 @@ class KATVAD(nn.Module):
         mask = padding_mask(v_feat_l, v_feat.shape[1]).to(v_feat.device)
         outputs: dict[str, Tensor] = {}
         clip_term = None
+        agent_z = None
         if self.grid_readout is not None:
             v_feat, clip_term = self._grid_rows(v_feat, outputs)
+        if self.agent_branch is not None and self.motion_residual is not None:
+            # v6: [x ; u ; agents ; ego] -> branch on (x ; u, agents, ego), A2 on [x ; u]
+            base = self.motion_residual.hidden_dim + self.motion_residual.motion_dim
+            v_feat, agents, ego = split_row(
+                v_feat, RowLayout(base=base, k_max=self.agent_branch.k_max)
+            )
+            branch = self.agent_branch(v_feat, agents, ego, mask)
+            agent_z = branch.z
+            outputs["agent_logits"] = branch.logits
+            outputs["agent_candidates"] = branch.candidates
         if self.motion_residual is not None:
             # v2 A2/A3: rows are [x ; c*u~/sigma_u] -> h = x + W_u(...)  (architecture §5)
             v_feat, outputs["motion_share"] = self.motion_residual(v_feat, mask)
+        if self.agent_gate is not None and agent_z is not None:
+            # v6: h = x + W_u u + tanh(alpha_o) W_o LN(z_t)
+            v_feat, outputs["agent_share"] = self.agent_gate(v_feat, agent_z, mask)
         if self.clip_residual is not None and clip_term is not None:
             # R7: h = x + W_u u + W_c LN(r_CLIP); clip_share = ||W_c LN(r)|| / ||x + W_u u||
             v_feat, outputs["clip_share"] = self.clip_residual(

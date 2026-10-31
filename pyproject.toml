@@ -60,6 +60,8 @@ disallow_untyped_defs = false
 module = [
     "faiss",
     "faiss.*",
+    "ultralytics",
+    "ultralytics.*",
     "cv2",
     "cv2.*",
     "av",

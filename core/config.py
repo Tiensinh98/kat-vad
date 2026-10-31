@@ -179,6 +179,31 @@ class V5Config:
 
 
 @dataclass
+class AgentConfig:
+    """v6 Agent Prompt branch (proposal §3.2, ``core/docs/v6/PREREG_V6.md`` §2).
+
+    ``enabled = false`` is every v1 / v2 / v5 model. Otherwise each input row also carries the
+    agent cache's ``V6_ROW_WIDTH`` columns, the branch builds ``z_t`` from them and adds
+    ``tanh(alpha_o) W_o LN(z_t)`` to A2's input (``alpha_o = 0``: A2's function at init), and
+    ``L_agent`` trains one score per candidate from video labels.
+    """
+
+    enabled: bool = False
+    k_max: int = constants.V6_K_MAX
+    d: int = constants.V6_D
+    heads: int = constants.V6_HEADS
+    queries: int = constants.V6_QUERIES
+    relation_blocks: int = constants.V6_RELATION_BLOCKS
+    appearance: bool = True  # ladder row 5: CLIP crop
+    motion: bool = True  # ladder row 6: VideoMAE RoI motion
+    relation: bool = True  # ladder row 7: instance + relation module (off: score-weighted mean)
+    weight: float = constants.V6_LAMBDA  # lambda of L_agent
+    topk_agents: int = constants.V6_TOPK_AGENTS  # K
+    beta: float = constants.V6_BETA
+    dense_negatives: bool = True  # ladder row 9: False = bag negatives only
+
+
+@dataclass
 class Config:
     """Top-level KAT-VAD configuration."""
 
@@ -190,6 +215,7 @@ class Config:
     train: TrainConfig = field(default_factory=TrainConfig)
     v2: V2Config = field(default_factory=V2Config)
     v5: V5Config = field(default_factory=V5Config)
+    agent: AgentConfig = field(default_factory=AgentConfig)
 
     def to_dict(self) -> dict[str, Any]:
         return dataclasses.asdict(self)
@@ -367,3 +393,27 @@ def _validate_v5_tile(v5: V5Config) -> None:
         raise ValueError(f"v5.tile_topk_cells must be in [1, {constants.V5_TILE_CELLS}]")
     if v5.tile_beta < 0:
         raise ValueError(f"v5.tile_beta must be >= 0, got {v5.tile_beta}")
+
+
+def validate_agent(cfg: Config) -> None:
+    """Fail loud on a v6 config that is not LaGoVAD-AP on A2's inputs (PREREG_V6 §2).
+
+    The branch is added to v2 Nexar A2 (V2-S motion stream, no CRN, KIP off, no v5 readout), so
+    that ``alpha_o = 0`` reproduces A2 exactly and A2's own runs are the control.
+    """
+    agent = cfg.agent
+    if not agent.enabled:
+        return
+    if (cfg.v2.crn, cfg.v2.motion) != (constants.V2_OFF, constants.V5_ENCODER):
+        raise ValueError(
+            f"agent.enabled reads A2's inputs (v2.crn=none, v2.motion={constants.V5_ENCODER}); "
+            f"got crn={cfg.v2.crn!r} motion={cfg.v2.motion!r}"
+        )
+    if cfg.v5.readout != constants.V5_READOUT_OFF or cfg.kip.enabled:
+        raise ValueError("agent.enabled excludes the v5 readouts and KIP")
+    if agent.k_max != constants.V6_K_MAX:
+        raise ValueError(f"agent.k_max must be the cache's {constants.V6_K_MAX}")
+    if agent.d % agent.heads or agent.d % 2:
+        raise ValueError(f"agent.d={agent.d} must be even and divisible by agent.heads")
+    if agent.weight < 0 or agent.beta < 0 or agent.topk_agents < 1:
+        raise ValueError("agent.weight / beta must be >= 0 and topk_agents >= 1")

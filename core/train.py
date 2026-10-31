@@ -38,6 +38,7 @@ from torch.optim.lr_scheduler import LambdaLR
 
 from core import constants
 from core.config import Config, load_config
+from core.data.agent_cache import check_agent_dir, read_agent_manifest
 from core.data.collate import collate_variable_length
 from core.data.dataset import DVSFeatureDataset
 from core.data.definitions import (
@@ -55,6 +56,7 @@ from core.kip.losses import (
     kip_alignment_loss,
     kip_reconstruction_loss,
 )
+from core.losses.agent_mil import agent_mil_loss
 from core.losses.contrastive import CapContrastLoss
 from core.losses.dvs import pseudo_sup_mil_loss, supervised_loss
 from core.losses.mil import abnormal_bottomk_loss, mil_loss, multi_class_mil_loss
@@ -162,6 +164,14 @@ def optimizer_param_groups(model: KATVAD, cfg: Config) -> list[dict[str, Any]]:
             {"params": [p for p in trainable if p is not temp]},
             {"params": [temp], "weight_decay": 0.0},
         ]
+    if model.agent_gate is not None and model.agent_branch is not None:
+        # v6 (proposal §3.3): alpha_o and the relation queries get no weight decay
+        free = [model.agent_gate.alpha, model.agent_branch.query]
+        ids = {id(p) for p in free}
+        return [
+            {"params": [p for p in trainable if id(p) not in ids]},
+            {"params": [p for p in free if p.requires_grad], "weight_decay": 0.0},
+        ]
     if mult == 1:
         return [{"params": trainable}]
     query = None if readout is None else readout.query
@@ -209,9 +219,11 @@ class Trainer:
         device: torch.device | None = None,
         log_every: int = 10,
         tile_boundary_rows: int = 0,
+        agent_boundary_rows: int = 0,
     ) -> None:
         self.cfg = cfg
         self.tile_boundary_rows = tile_boundary_rows  # v5.1 L_tile: DVS boundary exclusion
+        self.agent_boundary_rows = agent_boundary_rows  # v6 L_agent: same exclusion, agent clips
         self.device = device if device is not None else resolve_device(cfg.train.device)
         self.model = model.to(self.device)
         self.dataset = dataset
@@ -369,6 +381,24 @@ class Trainer:
             if isinstance(readout, TileReadout):
                 losses["v5_temp"] = readout.temperature().detach()
 
+        if "agent_logits" in outputs:  # v6 L_agent (PREREG_V6 §2.3)
+            agent = self.cfg.agent
+            losses |= agent_mil_loss(
+                outputs["agent_logits"],
+                outputs["agent_candidates"],
+                labels,
+                lengths,
+                pseudo,
+                is_synth,
+                dense_negatives=agent.dense_negatives,
+                topk_agents=agent.topk_agents,
+                beta=agent.beta,
+                boundary_rows=self.agent_boundary_rows,
+            )
+            if self.model.agent_gate is not None:
+                losses["agent_alpha"] = self.model.agent_gate.alpha.detach()
+                losses["agent_share"] = outputs["agent_share"]
+
         # L_MIL (binary top-k)
         loss_bin = mil_loss(
             outputs["cls_bin_logits"], labels, lengths, topk_pct=loss_cfg.mil_topk_pct
@@ -511,6 +541,8 @@ class Trainer:
             total = total + self.cfg.v5.smil_weight * losses["smil"]
         if "tile" in losses:
             total = total + self.cfg.v5.smil_weight * losses["tile"]
+        if "agent" in losses:
+            total = total + self.cfg.agent.weight * losses["agent"]
         losses["total"] = total
         return losses
 
@@ -771,6 +803,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="'clip' needs HF weights; 'stub' is the data-free smoke mode",
     )
     parser.add_argument(
+        "--agent-dir",
+        type=Path,
+        default=None,
+        help="v6: agent cache of the training sources (core.tools.v6_agents); needs agent.enabled",
+    )
+    parser.add_argument(
         "--grid-dir",
         type=Path,
         default=None,
@@ -820,6 +858,7 @@ def build_trainer(
     text_encoder: str = TEXT_ENCODER_CLIP,
     log_every: int = 10,
     grid_dir: Path | None = None,
+    agent_dir: Path | None = None,
 ) -> Trainer:
     """Dataset + model + :class:`Trainer` from one config, the way training does.
 
@@ -839,6 +878,7 @@ def build_trainer(
 
     knn_cache = load_knn_cache(knn_cache_path) if knn_cache_path else None
     grid_lag = v5_grid_lag(cfg, grid_dir)
+    check_agent_dir(cfg.agent.enabled, agent_dir, cfg.data.frame_stride)
     require_flow = cfg.kip.enabled
     dataset = DVSFeatureDataset(
         data_dir=data_dir,
@@ -852,6 +892,7 @@ def build_trainer(
         seed=cfg.train.seed,
         grid_dir=grid_dir if cfg.v5.readout != constants.V5_READOUT_OFF else None,
         grid_lag=grid_lag,
+        agent_dir=agent_dir,
     )
     class_names = load_class_names(data_dir)
 
@@ -879,7 +920,17 @@ def build_trainer(
             if grid_dir is not None and cfg.v5.readout == constants.V5_READOUT_TILE
             else 0
         ),
+        agent_boundary_rows=agent_boundary_rows(agent_dir),
     )
+
+
+def agent_boundary_rows(agent_dir: Path | None) -> int:
+    """Rows of an inserted DVS boundary whose centred agent clip crosses it (PREREG_V6 §2.3)."""
+    if agent_dir is None:
+        return 0
+    manifest = read_agent_manifest(agent_dir)
+    half = constants.V6_BOUNDARY_FRAMES * int(manifest["clip_step"])
+    return -(-half // int(manifest["stride"]))
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -908,6 +959,7 @@ def main(argv: list[str] | None = None) -> None:
         text_encoder=args.text_encoder,
         log_every=args.log_every,
         grid_dir=args.grid_dir,
+        agent_dir=args.agent_dir,
     )
     if args.resume is not None:
         trainer.load_checkpoint(args.resume)

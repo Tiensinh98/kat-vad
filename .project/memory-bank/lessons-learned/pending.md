@@ -2217,3 +2217,15 @@ of steps whose argmax is on the border), plus `p_abnormal` vs `p_normal` from tr
 **Rule:** Print a row / column histogram of a trained map's argmax and mass next to its pointing statistics.
 **Files:** `core/tools/v5_maps.py` (read), `core/docs/v5/RESULTS_V5_R7.md` §4.
 **Gate status.** One occurrence (R7). Mechanism (CLIP high-norm artifact tokens) untested. Gate 2 not met.
+
+## (cg) [MEDIUM] Colab - Pass model weight paths to a tool; never let a library download into the subprocess CWD (2026-10-31)
+**Triggers:** ultralytics, YOLO, weights download, torch hub, cwd, subprocess, run_parallel, Drive, REPO
+**Problem:** `YOLO("yolov9c.pt")` resolves a bare name against the CWD and downloads there; the notebooks launch every
+tool with `cwd=REPO`, i.e. the code folder on Drive, so each process would write a 50 MB file into the uploaded code
+(and race with the other shards). Caught at build time, not in a run.
+**Bad:** `load_detector(device)` with the bare weights name, `os.chdir(LOCAL)` in the kernel (does not reach `Popen(cwd=REPO)`).
+**Good:** download once into VM disk in the kernel, pass `--weights /content/v6ap/yolov9c.pt` to every tool.
+**Rule:** Give every tool an explicit weights path on VM disk; never rely on a library's CWD-relative cache.
+**Files:** `core/tools/v6_agents.py` (`--weights`), `colab/v6/ap_pilot.ipynb` (cell 6).
+**Gate status.** One occurrence, prevented before a run. Gate 2 not met.
+

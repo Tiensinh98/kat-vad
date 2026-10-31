@@ -41,6 +41,7 @@ import numpy as np
 import torch
 
 from core import constants
+from core.data.agent_cache import append_agents, check_agent_dir, load_agents
 from core.data.dota import parse_metadata, read_split_ids
 from core.data.v2_inputs import check_input_manifest, read_input_manifest
 from core.data.v2_splits import dota_group, load_split
@@ -200,6 +201,8 @@ def score_checkpoint(
     baked = check_baked_stride(args.input_dir, args.stride)
     class_names = load_class_names(args.data_dir)
     grid = eval_grid(cfg.v5.readout, cfg.v5.keys, args.grid_dir, args.stride)
+    agent_dir = getattr(args, "agent_dir", None)
+    check_agent_dir(cfg.agent.enabled, agent_dir if cfg.agent.enabled else None, args.stride)
     protocol = Protocol(args.stride, None)
     reverse = bool(getattr(args, "reverse_time", False))
     native: dict[str, np.ndarray] = {}
@@ -207,6 +210,9 @@ def score_checkpoint(
         rows = input_rows(args.input_dir, video_id, native_frames[video_id], args.stride, baked)
         if grid is not None:  # v5: the clip's grid (+ its own change), PREREG_V5 S2-4
             rows = grid.append(rows, video_id, 0, native_frames[video_id])
+        if cfg.agent.enabled:  # v6: the clip's agent rows (PREREG_V6 §2.1)
+            assert agent_dir is not None  # nosec B101 - check_agent_dir refused None
+            rows = append_agents(rows, load_agents(agent_dir, video_id), video_id)
         if reverse:  # v5.1 time-reversed control (§3): steps fed last-first, scores re-reversed
             rows = np.ascontiguousarray(rows[::-1])
         steps = score_steps(
@@ -317,6 +323,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--input-dir", type=Path, required=True,
                         help="DoTA_s1_ncc (A0) or a baked `apply --stride` DoTA cache (A1-A3)")
+    parser.add_argument("--agent-dir", type=Path, default=None,
+                        help="v6 checkpoints: agent cache of the clips (v6_agents extract-dota)")
     parser.add_argument("--grid-dir", type=Path, default=None,
                         help="v5 checkpoints: V7 grid cache of the clips (Stage 0's DoTA-CAP s3)")
     parser.add_argument("--s1-dir", type=Path, required=True,

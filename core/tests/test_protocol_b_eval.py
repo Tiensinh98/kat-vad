@@ -17,7 +17,7 @@ import pytest
 import torch
 
 from core import constants
-from core.config import V5Config
+from core.config import AgentConfig, V5Config
 from core.tools import protocol_b_eval as pb
 from core.tools import rate_matched_eval as e1
 
@@ -78,7 +78,9 @@ def _fake_loader(crn: str) -> Any:
         def text_fn(batch: list[str]) -> torch.Tensor:
             return torch.zeros(len(batch), DIM)
 
-        cfg = SimpleNamespace(v2=SimpleNamespace(crn=crn, motion="none"), v5=V5Config())
+        cfg = SimpleNamespace(
+            v2=SimpleNamespace(crn=crn, motion="none"), v5=V5Config(), agent=AgentConfig()
+        )
         return None, 2040, text_fn, cfg
 
     return load

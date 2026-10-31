@@ -30,6 +30,7 @@ from torch.utils.data import Dataset
 
 from core import constants
 from core.config import DVSConfig
+from core.data.agent_cache import append_agents
 from core.data.msad import ABNORMAL_CLASS, NORMAL_CLASS
 from core.data.synthesis import choose_filler_ids, compose_sequence, truncate_sample
 from core.data.v5_grids import v5_rows
@@ -64,8 +65,11 @@ class DVSFeatureDataset(Dataset[dict[str, Any]]):
         seed: int = constants.SEED,
         grid_dir: Path | None = None,
         grid_lag: int | None = None,
+        agent_dir: Path | None = None,
     ) -> None:
         self.clip_dir = clip_dir
+        # v6 (PREREG_V6 §2.1): the agent cache's columns follow the row, before DVS splicing
+        self.agent_dir = agent_dir
         self.flow_dir = flow_dir
         # v5 (PREREG_V5 §2.1): each item's V7 grid (and, with grid_lag, its change) is appended
         # per item -- before DVS splicing, so a splice boundary never reads as change (S2-4)
@@ -115,6 +119,9 @@ class DVSFeatureDataset(Dataset[dict[str, Any]]):
         if self.grid_dir is not None:
             grid = self.slicer.load(self.grid_dir, video_id, mmap=True)
             rows = v5_rows(rows, grid, self.grid_lag)
+        if self.agent_dir is not None:
+            agents = self.slicer.load(self.agent_dir, video_id, mmap=True)
+            rows = append_agents(rows, agents, video_id)
         return torch.from_numpy(rows.astype(np.float32, copy=False))
 
     def _load_flow(self, video_id: str, length: int) -> Tensor:
