@@ -18,6 +18,8 @@
 | `main` | KAT-VAD v1 (KIP: PMG head + frozen-MLP shift + motion-score head) | v1 copy |
 | `v2` | v1 code + the v2 build line (frozen VideoMAE V2 motion input + CRN, no KIP/RAFT) | v2 copy |
 | `v3` | v1 + KIP gate rebuild (`gate_type`, ECMR) | v3 copy |
+| `v5` / `v5-probe` / `v5-r7` | v2 code + LaGoVAD-MQR (v5) | v5 copies |
+| `v7` | v5-r7 + LaGoVAD-LSP (MQR → Latent Surprise Predictor); no v6 code | v7 copy (from v5-r7) |
 
 The memory bank is tracked per branch and the copies diverge on purpose — never merge them with "take theirs".
 

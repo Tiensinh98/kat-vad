@@ -971,3 +971,55 @@ V5_R7_ROWS = {  # every R7 row reads the per-frame CLIP 14 x 14 cache
     for row, over in V5_R7_ROWS.items()
 }
 V5_R7_CONTROL = "R7m"  # detection control (same path, mean of the 196 cells)
+
+# ---------------------------------------------------------------------------
+# KAT-VAD v7 -- LaGoVAD-LSP: v5 with MQR replaced by the Latent Surprise Predictor
+# (core/docs/v7/PREREG_V7.md §1, plan .project/plans/katvad-v7-lsp.md). Step 0 = D1, stage 1, D2-D5.
+# ---------------------------------------------------------------------------
+V7_OUTPUT_DIRNAME = "v7"  # OUTPUT_ROOT/v7/
+V7_LSP_DIRNAME = "v7_lsp"  # OUTPUT_ROOT/v7/v7_lsp/step0/ (models + REPORTS/)
+V7_SPLITS_DIR = Path(__file__).resolve().parent / "splits" / "v7"
+V7_HOLDOUT_FILENAME = "lsp_holdout.txt"  # 45 of the 449 nexar_train negatives (X8), frozen
+V7_HOLDOUT_FRACTION = 0.1  # proposal §3.3 stage 2: 10 % of the protocol's normal videos
+V7_SEED = 2024  # holdout draw, LSP init, window sampling
+V7_ENCODER = V5_ENCODER  # VideoMAE V2-S: the vectors v5 R1 reads (fc_norm(mean tokens))
+V7_DIM = VIDEOMAE_ARCH[V7_ENCODER][0]  # 384
+# X6: the LSP lives on a fixed 10 fps lattice -- Nexar native frames f, f-3, f-6, ... (3 phases),
+# DoTA native 10 fps (1 phase). A causal V2-S window spans 15 lattice gaps (16 frames).
+V7_NEXAR_LATTICE_STEP = VIDEOMAE_CLIP_FRAME_STEP  # 3 native frames at 30 fps = 0.1 s
+V7_DOTA_LATTICE_STEP = DOTA_VIDEOMAE_FRAME_STEP  # 1 native frame at 10 fps = 0.1 s
+V7_HORIZON = VIDEOMAE_CLIP_FRAMES  # Δ = 16 lattice steps = 1.6 s: the target clip shares no frame
+V7_CONTEXTS = (16, 32)  # K candidates (1.6 s / 3.2 s); chosen once by held-out L_rec
+V7_CONTEXT_TIE_REL = 0.01  # relative held-out L_rec difference below which K = the smaller one
+V7_LAYERS = 2  # proposal §3.2.2
+V7_HEADS = 6
+V7_MLP_RATIO = 4
+V7_POS_INIT_STD = 0.02  # learned positional embeddings over the K positions
+V7_SMOOTH_L1_BETA = 1.0  # FLaRA's Smooth-L1
+V7_EPS = 1e-6  # rho_t = log((s + eps) / (p + eps))
+V7_LR = 3e-4  # proposal §3.3 settings
+V7_WEIGHT_DECAY = 0.05
+V7_EPOCHS = 50
+V7_BATCH = 256
+V7_SAMPLES_PER_SEQUENCE = 32  # random targets drawn per (video, phase) lattice sequence per epoch
+# Held-out comparisons (K choice, D2) score the same targets for every predictor and every K:
+# t >= Δ + max(K) - 1 (also >= 2Δ, so constant velocity is defined).
+V7_HELDOUT_FIRST_TARGET = V7_HORIZON + max(V7_CONTEXTS) - 1
+V7_D1_MAX_LAG = 40  # cos(u_t, u_{t+k}), k = 1..40 lattice steps (4 s)
+V7_D1_FAIL_DELTA = 0.01  # D1 fails iff cos at k = Δ is within this of cos at k = 1
+V7_D2_MIN_REL_GAIN = 0.10  # LSP held-out L_rec <= (1 - 0.10) x the best fixed predictor
+V7_D4_FOLDS = 5
+V7_D4_FLAG_GAP = 0.2  # source AUC - D3 anomaly AUC above this flags the median-subtracted variant
+V7_BOOTSTRAP = V5_BOOTSTRAP
+V7_BOOTSTRAP_SEED = V5_BOOTSTRAP_SEED
+V7_BOOTSTRAP_LEVEL = V5_BOOTSTRAP_LEVEL
+V7_POS_DEGREE = V5_TILE_POS_DEGREE  # cubic position prior printed beside every DoTA-CAP number
+V7_VERDICT_GO = "GO"
+V7_VERDICT_NO_GO = "NO-GO"
+# PREREG_V7 §1.1 (Amendment 1, post-hoc after the V2-S NO-GO): Step 0 re-run on CLIP frame vectors.
+V7_STREAM_V2S = "v2s"  # §1: V2-S fc_norm(mean tokens), causal 1.5 s window (Nexar_s1_squash)
+V7_STREAM_CLIP = "clip"  # §1.1: CLIP ViT-B/16 image embedding of one frame (Nexar_s1_ncc)
+V7_STREAMS = (V7_STREAM_V2S, V7_STREAM_CLIP)
+V7_STREAM_DIMS = {V7_STREAM_V2S: V7_DIM, V7_STREAM_CLIP: CLIP_FEATURE_DIM}
+V7_STREAM_HEADS = {V7_STREAM_V2S: V7_HEADS, V7_STREAM_CLIP: 8}  # head width 64 for both
+V7_STREAM_OUT = {V7_STREAM_V2S: "step0", V7_STREAM_CLIP: "step0_clip"}  # never overwrite §1's read

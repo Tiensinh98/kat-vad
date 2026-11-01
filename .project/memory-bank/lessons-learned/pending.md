@@ -2217,3 +2217,13 @@ of steps whose argmax is on the border), plus `p_abnormal` vs `p_normal` from tr
 **Rule:** Print a row / column histogram of a trained map's argmax and mass next to its pointing statistics.
 **Files:** `core/tools/v5_maps.py` (read), `core/docs/v5/RESULTS_V5_R7.md` §4.
 **Gate status.** One occurrence (R7). Mechanism (CLIP high-norm artifact tokens) untested. Gate 2 not met.
+
+## (cg) [MEDIUM] Evaluation - Score every predictor and every context length on the same held-out targets (2026-11-01)
+
+**Triggers:** held-out loss, context length, K, copy-last, fixed predictor, D2
+**Problem:** a predictor with a longer context has fewer valid targets per sequence (its first target is later), so averaging each predictor over its own valid targets compares different frames, and the early, often easier, frames favour the short-context model.
+**Bad:** `loss_k = mean over t >= delta + k - 1` for each k, then pick the min.
+**Good:** one target set `t >= delta + max(K) - 1` (and `>= 2*delta` for constant velocity) for every predictor (`V7_HELDOUT_FIRST_TARGET`, `heldout_losses` refuses an earlier first target).
+**Rule:** Fix the target set before comparing predictors; refuse a first target earlier than the longest context needs.
+**Files:** core/tools/v7_lsp.py (heldout_losses), core/constants.py (V7_HELDOUT_FIRST_TARGET)
+**Gates:** not yet validated (no recurrence observed; written at build time).
