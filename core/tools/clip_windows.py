@@ -18,11 +18,17 @@ geometry) and stride 3 on DoTA-CAP (protocol B, the rows of ``DoTA_s1_ncc[::3]``
 all windows flattened, ``(L, W * D)`` in ``TW_STORE_DTYPE``; :func:`unflatten` restores
 ``(L, W, D)``. The manifest records grids, transform, model revision, stride and frame source.
 
+LaGoVAD-STP reuses this extractor with ``--grids 1 7 --cells resized224`` (proposal §3.2.2): the
+7 x 7 cells are cut from the 224^2 squash of the frame (32 x 32 windows, as in STPrompt) and the
+1 x 1 cell is still the CLIP row; ``core.tools.stp_patches select`` then keeps the motion top-K.
+
 Two subcommands:
 
 ``frames`` -- per-video frame folders (T2: the per-shard DADA symlink farm of the notebooks).
 ``cap``    -- DoTA-CAP: streams the CAP tar parts, rebuilds each DoTA clip from its frozen frame
               map (:func:`core.tools.dota_cap.rebuild_folder`), encodes it at stride 3.
+``archive`` -- DoTA-CAP from the per-clip frame archive (``core.tools.dota_cap_frames pack``):
+              the same rebuilt frames, same gate, no tar stream.
 
 CLI::
 
@@ -57,7 +63,7 @@ from core.data.video_io import (
     video_id_from_path,
 )
 from core.device import resolve_device
-from core.tools import extract_clip_features, extract_video_features
+from core.tools import dota_cap_frames, extract_clip_features, extract_video_features
 from core.tools.dota_cap import (
     FARM_DIR,
     OK,
@@ -131,6 +137,37 @@ def window_pixels(
     return normalized
 
 
+def squash(frames: Tensor, size: int = constants.CROP_SIZE) -> Tensor:
+    """``(N, 3, H, W)`` in [0, 1] -> the ``no_center_crop`` resize to ``size``^2 (no norm)."""
+    out: Tensor = nn.functional.interpolate(
+        frames, size=(size, size), mode="bilinear", antialias=True
+    )
+    return out
+
+
+@torch.no_grad()
+def encode_frame_windows(
+    frames: Tensor,
+    encoder: extract_clip_features.ImageEncoder,
+    grids: tuple[int, ...] = constants.TW_GRIDS,
+    cells: str = constants.STP_CELLS_NATIVE,
+) -> np.ndarray:
+    """``(N, 3, H, W)`` in [0, 1] on the encoder's device -> ``(N, W, D)`` float32.
+
+    ``cells = resized224`` cuts the grid from the 224^2 squash of each frame (STPrompt's 32 x 32
+    windows); ``native`` cuts it from the frame as given (the text-window probe).
+    """
+    if cells not in constants.STP_CELL_SOURCES:
+        raise ValueError(f"cells must be one of {constants.STP_CELL_SOURCES}, got {cells!r}")
+    if cells == constants.STP_CELLS_RESIZED:
+        frames = squash(frames)
+    boxes = window_boxes(frames.shape[-2], frames.shape[-1], grids)
+    output = encoder(pixel_values=window_pixels(frames, boxes))
+    embeds = output.image_embeds.float().cpu()  # type: ignore[attr-defined]
+    out: np.ndarray = embeds.view(len(frames), len(boxes), -1).numpy()
+    return out
+
+
 @torch.no_grad()
 def encode_windows(
     paths: list[Path],
@@ -138,6 +175,7 @@ def encode_windows(
     device: torch.device,
     frames_per_batch: int = constants.TW_FRAMES_PER_BATCH,
     grids: tuple[int, ...] = constants.TW_GRIDS,
+    cells: str = constants.STP_CELLS_NATIVE,
 ) -> np.ndarray:
     """``(L, W, D)`` float32 window embeddings for ``paths`` (already strided), streamed (C9)."""
     if not paths:
@@ -146,10 +184,7 @@ def encode_windows(
     for start in range(0, len(paths), frames_per_batch):
         frames = torch.from_numpy(read_images(paths[start : start + frames_per_batch]))
         frames = frames.to(device).permute(0, 3, 1, 2).float() / 255.0
-        boxes = window_boxes(frames.shape[-2], frames.shape[-1], grids)
-        output = encoder(pixel_values=window_pixels(frames, boxes))
-        embeds = output.image_embeds.float().cpu()  # type: ignore[attr-defined]
-        chunks.append(embeds.view(len(frames), len(boxes), -1).numpy())
+        chunks.append(encode_frame_windows(frames, encoder, grids, cells))
     out: np.ndarray = np.concatenate(chunks).astype(np.float32)
     return out
 
@@ -176,7 +211,10 @@ def global_window(windows: np.ndarray, grids: tuple[int, ...] = constants.TW_GRI
 
 
 def gate_rows(
-    windows: np.ndarray, clip_rows: np.ndarray, min_mean_cos: float | None = None
+    windows: np.ndarray,
+    clip_rows: np.ndarray,
+    min_mean_cos: float | None = None,
+    grids: tuple[int, ...] = constants.TW_GRIDS,
 ) -> dict[str, Any]:
     """Row count and whole-frame cosine against the clip's own CLIP cache rows.
 
@@ -185,7 +223,7 @@ def gate_rows(
     """
     if len(windows) != len(clip_rows):
         return {"reason": ROWS_MISMATCH, "rows": len(windows), "clip_rows": len(clip_rows)}
-    cos = frame_cosines(global_window(windows), clip_rows)
+    cos = frame_cosines(global_window(windows, grids), clip_rows)
     entry = {"global_mean_cos": float(cos.mean()), "global_min_cos": float(cos.min())}
     passes = entry["global_min_cos"] >= constants.DOTA_CAP_MIN_COS and (
         min_mean_cos is None or entry["global_mean_cos"] >= min_mean_cos
@@ -208,13 +246,19 @@ def corpus_gate(entries: list[dict[str, Any]]) -> dict[str, Any]:
             else GATE_FAILED}
 
 
-def build_manifest(dataset: str, stride: int, frame_source: str) -> dict[str, Any]:
+def build_manifest(
+    dataset: str,
+    stride: int,
+    frame_source: str,
+    grids: tuple[int, ...] = constants.TW_GRIDS,
+    cells: str = constants.STP_CELLS_NATIVE,
+) -> dict[str, Any]:
     """Everything that makes two window caches comparable (C2)."""
-    return {
+    manifest: dict[str, Any] = {
         "dataset": dataset,
         "stride": stride,
-        "grids": list(constants.TW_GRIDS),
-        "windows_per_frame": windows_per_frame(),
+        "grids": list(grids),
+        "windows_per_frame": windows_per_frame(grids),
         "model": constants.CLIP_MODEL_NAME,
         "revision": constants.CLIP_MODEL_REVISION,
         "transform": TRANSFORM_NAME,
@@ -223,20 +267,32 @@ def build_manifest(dataset: str, stride: int, frame_source: str) -> dict[str, An
         "layout": "(L, W * D), windows grid-major then row-major",
         "frame_source": frame_source,
     }
+    if cells != constants.STP_CELLS_NATIVE:  # the probe's manifests stay byte-identical
+        manifest["cells"] = cells
+    return manifest
 
 
-def cache_dir(dataset: str, stride: int) -> Path:
-    grids = "".join(str(g) for g in constants.TW_GRIDS)
-    return constants.TW_CACHE_DIR / f"{dataset}_s{stride}_g{grids}_ncc"
+def cache_dir(
+    dataset: str,
+    stride: int,
+    grids: tuple[int, ...] = constants.TW_GRIDS,
+    cells: str = constants.STP_CELLS_NATIVE,
+) -> Path:
+    tag = "".join(str(g) for g in grids)
+    suffix = "" if cells == constants.STP_CELLS_NATIVE else f"_{cells}"
+    return constants.TW_CACHE_DIR / f"{dataset}_s{stride}_g{tag}{suffix}_ncc"
 
 
 # --------------------------------------------------------------------------- frames
 
 
 def run_frames(args: argparse.Namespace, encoder: extract_clip_features.ImageEncoder) -> None:
-    out = args.output_dir or cache_dir(args.dataset, args.stride)
+    grids = tuple(args.grids)
+    out = args.output_dir or cache_dir(args.dataset, args.stride, grids, args.cells)
     extract_video_features.check_or_write_manifest(
-        out, build_manifest(args.dataset, args.stride, FRAME_SOURCE_FOLDERS), args.force
+        out,
+        build_manifest(args.dataset, args.stride, FRAME_SOURCE_FOLDERS, grids, args.cells),
+        args.force,
     )
     device = resolve_device(args.device)
     folders = select_ids(
@@ -249,9 +305,12 @@ def run_frames(args: argparse.Namespace, encoder: extract_clip_features.ImageEnc
     progress = Progress(len(pending))
     for video_id, folder in pending:
         paths = list_frame_images(folder, args.frames_subdir)[:: args.stride]
-        windows = encode_windows(paths, encoder, device, args.frames_per_batch)
+        windows = encode_windows(
+            paths, encoder, device, args.frames_per_batch, grids, args.cells
+        )
         gate = gate_rows(
-            windows, np.load(args.clip_dir / f"{video_id}.npy"), constants.DOTA_CAP_MEAN_COS
+            windows, np.load(args.clip_dir / f"{video_id}.npy"), constants.DOTA_CAP_MEAN_COS,
+            grids,
         )
         if gate["reason"] != OK:
             raise ValueError(f"{video_id}: window cache disagrees with its CLIP rows: {gate}")
@@ -278,6 +337,8 @@ class CapExtractor:
     frames_per_batch: int
     report: dict[str, dict[str, Any]]
     save_report: Callable[[], None]
+    grids: tuple[int, ...] = constants.TW_GRIDS
+    cells: str = constants.STP_CELLS_NATIVE
 
     def __call__(self, ready_dir: Path) -> None:
         for folder in sorted(p for p in ready_dir.iterdir() if p.is_dir()):
@@ -293,9 +354,11 @@ class CapExtractor:
         farm = rebuild_folder(self.farm / dota_id, cap_paths, clip["frame_map"])
         try:
             paths = list_frame_images(farm)[:: self.stride]
-            windows = encode_windows(paths, self.encoder, self.device, self.frames_per_batch)
+            windows = encode_windows(
+                paths, self.encoder, self.device, self.frames_per_batch, self.grids, self.cells
+            )
             clip_rows = np.load(self.dota_clip_dir / f"{dota_id}.npy")[:: self.stride]
-            gate = gate_rows(windows, clip_rows)
+            gate = gate_rows(windows, clip_rows, grids=self.grids)
             if gate["reason"] == OK:
                 save_array(self.out_dir / f"{dota_id}.npy", flatten(windows))
         finally:
@@ -306,10 +369,13 @@ class CapExtractor:
 
 def run_cap(args: argparse.Namespace, encoder: extract_clip_features.ImageEncoder) -> None:
     alignment = json.loads(args.alignment.read_text(encoding="utf-8"))
-    out = args.output_dir or cache_dir(constants.DOTA_CAP_DATASET, args.stride)
+    grids = tuple(args.grids)
+    out = args.output_dir or cache_dir(constants.DOTA_CAP_DATASET, args.stride, grids, args.cells)
     source = f"{FRAME_SOURCE_CAP} (alignment sha256 {file_sha256(args.alignment)})"
     extract_video_features.check_or_write_manifest(
-        out, build_manifest(constants.DOTA_CAP_DATASET, args.stride, source), args.force
+        out,
+        build_manifest(constants.DOTA_CAP_DATASET, args.stride, source, grids, args.cells),
+        args.force,
     )
     report: dict[str, dict[str, Any]] = (
         json.loads(args.report.read_text(encoding="utf-8")) if args.report.exists() else {}
@@ -334,6 +400,7 @@ def run_cap(args: argparse.Namespace, encoder: extract_clip_features.ImageEncode
         farm=args.work_dir / FARM_DIR, device=resolve_device(args.device),
         subdir=args.frames_subdir, stride=args.stride, frames_per_batch=args.frames_per_batch,
         report=report, save_report=lambda: write_json_atomic(args.report, report),
+        grids=grids, cells=args.cells,
     )
     LOGGER.info("Window-encoding %d DoTA clips from %d CAP videos", len(todo), len(by_cap))
     stream_video_batches(
@@ -341,6 +408,53 @@ def run_cap(args: argparse.Namespace, encoder: extract_clip_features.ImageEncode
         args.max_batch_gb * constants.BYTES_PER_GB, extractor, keep_ids=set(by_cap),
     )
     shutil.rmtree(args.work_dir, ignore_errors=True)
+
+
+# --------------------------------------------------------------------------- archive
+
+
+def run_archive(args: argparse.Namespace, encoder: extract_clip_features.ImageEncoder) -> None:
+    """DoTA-CAP clips from ``{dota_id}.zip`` frame archives: unpack, encode, gate, save."""
+    grids = tuple(args.grids)
+    out = args.output_dir or cache_dir(constants.DOTA_CAP_DATASET, args.stride, grids, args.cells)
+    manifest_path = args.archive_dir / constants.DOTA_CAP_FRAMES_MANIFEST
+    if not manifest_path.is_file():
+        raise FileNotFoundError(f"{manifest_path} missing: run dota_cap_frames verify first")
+    archive = json.loads(manifest_path.read_text(encoding="utf-8"))
+    # same frames as the stream, so the same frame_source string -> one manifest for both paths
+    source = f"{FRAME_SOURCE_CAP} (alignment sha256 {archive['alignment_sha256']})"
+    extract_video_features.check_or_write_manifest(
+        out,
+        build_manifest(constants.DOTA_CAP_DATASET, args.stride, source, grids, args.cells),
+        args.force,
+    )
+    report: dict[str, dict[str, Any]] = (
+        json.loads(args.report.read_text(encoding="utf-8")) if args.report.exists() else {}
+    )
+    todo = sorted(
+        v for v in read_ids_file(args.dota_ids_file)
+        if args.force or not is_complete(out / f"{v}.npy")
+    )
+    device = resolve_device(args.device)
+    progress = Progress(len(todo))
+    for dota_id in todo:
+        folder = dota_cap_frames.unpack(
+            dota_cap_frames.archive_path(args.archive_dir, dota_id), args.work_dir / dota_id
+        )
+        try:
+            paths = list_frame_images(folder)[:: args.stride]
+            windows = encode_windows(
+                paths, encoder, device, args.frames_per_batch, grids, args.cells
+            )
+            clip_rows = np.load(args.dota_clip_dir / f"{dota_id}.npy")[:: args.stride]
+            gate = gate_rows(windows, clip_rows, grids=grids)
+            if gate["reason"] == OK:
+                save_array(out / f"{dota_id}.npy", flatten(windows))
+        finally:
+            shutil.rmtree(folder, ignore_errors=True)
+        report[dota_id] = gate
+        write_json_atomic(args.report, report)
+        LOGGER.info("%s: %s -- %s", dota_id, gate, progress.step())
 
 
 # --------------------------------------------------------------------------- CLI
@@ -372,10 +486,23 @@ def build_arg_parser() -> argparse.ArgumentParser:
     cap.add_argument("--max-batch-gb", type=float, default=constants.MMAU_STREAM_BATCH_GB)
     cap.add_argument("--stride", type=int, default=constants.TW_DOTA_STRIDE)
 
-    for p in (frames, cap):
+    arc = sub.add_parser("archive", help="DoTA-CAP clips from dota_cap_frames archives (no stream)")
+    arc.add_argument("--archive-dir", type=Path, required=True, help="{dota_id}.zip frame archives")
+    arc.add_argument("--work-dir", type=Path, required=True, help="VM disk, not Drive")
+    arc.add_argument("--dota-clip-dir", type=Path, required=True, help="DoTA_s1_ncc (row gate)")
+    arc.add_argument("--dota-ids-file", type=Path, required=True)
+    arc.add_argument("--report", type=Path, required=True, help="per-clip JSON, resumable")
+    arc.add_argument("--stride", type=int, default=constants.TW_DOTA_STRIDE)
+
+    for p in (frames, cap, arc):
         p.add_argument("--output-dir", type=Path, default=None,
                        help="default: cache/clip_windows/<dataset>_s<stride>_g<grids>_ncc")
         p.add_argument("--frames-per-batch", type=int, default=constants.TW_FRAMES_PER_BATCH)
+        p.add_argument("--grids", type=int, nargs="+", default=list(constants.TW_GRIDS),
+                       help="grid sizes; must include 1 (the gate). STP: 1 7")
+        p.add_argument("--cells", choices=constants.STP_CELL_SOURCES,
+                       default=constants.STP_CELLS_NATIVE,
+                       help="cut cells from the native frame (probe) or its 224^2 squash (STP)")
         p.add_argument("--device", default="auto")
         p.add_argument("--force", action="store_true",
                        help="rewrite the manifest / re-extract existing files")
@@ -388,6 +515,8 @@ def main(argv: list[str] | None = None) -> None:
     encoder = extract_clip_features.load_pretrained_encoder(resolve_device(args.device))
     if args.command == "frames":
         run_frames(args, encoder)
+    elif args.command == "archive":
+        run_archive(args, encoder)
     else:
         run_cap(args, encoder)
 

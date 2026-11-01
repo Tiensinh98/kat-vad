@@ -875,3 +875,44 @@ V5_MIN_GAIN = 0.01  # S2-7 (iii): point >= +0.01
 V5_T95_N3 = 4.303  # S2-7: t(0.975, df = 2), the paired seed t (printed, never gates)
 V5_NEXAR_GUARD_MARGIN = 0.01  # S2-9: nexar_val crop endpoint R - R1 >= -0.01 (seed mean)
 V5_F2_WEIGHT = V2_FINAL_FUSION_PRIMARY  # S2-14: v2's beyond-position f_2 = z(y) + 2 z(p_T2)
+
+# ---------------------------------------------------------------------------
+# LaGoVAD-STP (core/docs/final/ proposal §3.2, build notes core/docs/final/STP_BUILD.md)
+# ---------------------------------------------------------------------------
+STP_GRID = 7  # §3.2.2: 7 x 7 grid of 32 x 32 windows on the 224 x 224 resize
+STP_PATCHES = STP_GRID * STP_GRID  # 49 patch features per sampled frame
+STP_TOP_K = 12  # §3.2.2 / §3.3: STPrompt's K, fixed (K-search is ablation R10)
+STP_ATTN_DIM = 128  # §3.2.2: W_q, W_k in R^{128 x 512}
+STP_MOTION_RAW = "raw"  # Mo = ||2P_t - P_{t-1} - P_{t+1}|| on L2-normalised patches (Eq. 1)
+STP_MOTION_EGO = "ego"  # ablation R7: the frame-mean change subtracted first
+STP_MOTIONS = (STP_MOTION_RAW, STP_MOTION_EGO)
+STP_CELLS_RESIZED = "resized224"  # §3.2.2 default: cells cut from the 224^2 squash of the frame
+STP_CELLS_NATIVE = "native"  # side ablation "crop resolution": cells cut from the native frame
+STP_CELL_SOURCES = (STP_CELLS_RESIZED, STP_CELLS_NATIVE)
+STP_WINDOW_GRIDS = (1, STP_GRID)  # 1 x 1 = the CLS row itself (gated against the CLIP cache)
+STP_PATCH_DIM = CLIP_FEATURE_DIM  # patch features live in CLIP's image-embedding space
+STP_PATCH_WIDTH = STP_TOP_K * STP_PATCH_DIM  # columns the selected patches add to an input row
+STP_STORE_DTYPE = "float16"
+STP_PATCH_CACHE_DIRNAME = "clip_patches"  # under CACHE_ROOT: <dataset>_s<stride>_k<K>_<motion>
+STP_PATCH_MANIFEST_FILENAME = VIDEO_MANIFEST_FILENAME  # check_or_write_manifest
+STP_INDEX_SUBDIR = "idx"  # per video (L, K) int16 selected-patch indices (evidence maps)
+STP_MAGNITUDE_SUBDIR = "mo"  # per video (L, 49) float16 motion magnitudes
+STP_NORM_EPS = 1e-6  # L2 normalisation of patch features before Mo
+STP_PROMPT_RELEASED = "released"  # LaGoVAD's 32 soft prompts, 16 before + 16 after the text
+STP_PROMPT_PREFIX = "prefix"  # §3.2.3: l learnable context vectors before the text (CoOp)
+STP_PROMPTS = (STP_PROMPT_RELEASED, STP_PROMPT_PREFIX)
+STP_PREFIX_LEN = 8  # §3.2.3: l = 8 (l-search is a side ablation)
+STP_PREFIX_INIT_STD = 0.02  # §3.2.4: e_i ~ N(0, 0.02^2)
+STP_NEXAR_STRIDE = V5_NEXAR_TRAIN_STRIDE  # training rows s1[::8], the rows of v2 Nexar A2's bake
+STP_DOTA_STRIDE = V2_E1_STRIDE_BC  # protocol B rows s1[::3] on DoTA-CAP
+STP_FRAMES_PER_BATCH = 16  # frames per CLIP call (x 50 windows)
+STP_OUTPUT_DIRNAME = "stp"  # under OUTPUT_ROOT: <arm>/s<seed>/ + eval/ + REPORTS/
+STP_CONTROL_ARM = V5_CONTROL_ROW  # every contrast is arm - R1 (v5 Stage 1's motion-stream host)
+STP_ARMS = {  # arm -> stp.* overrides beyond the host (v2 Nexar A2's recipe, W_u motion)
+    "R4": {"sa2": True, "text_prompt": STP_PROMPT_RELEASED},  # SA² only (prefix OFF)
+    "R5": {"sa2": False, "text_prompt": STP_PROMPT_PREFIX},  # prefix only (no patches)
+    "R6": {"sa2": True, "text_prompt": STP_PROMPT_PREFIX},  # full STP (prefix ON)
+}
+STP_SEEDS = V5_RUN_SEEDS  # 2024-2026; the first run is s2024 only (preliminary)
+DOTA_CAP_FRAMES_DIRNAME = "DoTA_CAP_frames"  # under DATA_ROOT: {dota_id}.zip, DoTA-native frames
+DOTA_CAP_FRAMES_MANIFEST = "frames_manifest.json"  # written by dota_cap_frames verify on PASS

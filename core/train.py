@@ -47,6 +47,7 @@ from core.data.definitions import (
     verbalize_class_name,
 )
 from core.data.knn_cache import load_knn_cache
+from core.data.stp_patches import check_patch_cache
 from core.data.v2_inputs import check_input_manifest
 from core.data.v5_grids import change_lag, read_grid_geometry
 from core.device import resolve_device
@@ -61,6 +62,7 @@ from core.losses.mil import abnormal_bottomk_loss, mil_loss, multi_class_mil_los
 from core.losses.smil import spatial_mil_loss
 from core.models.kat_vad import KATVAD
 from core.models.mqr import query_entropy
+from core.models.sa2 import attention_entropy
 from core.models.text_encoding import (
     TEXT_ENCODER_CHOICES,
     TEXT_ENCODER_CLIP,
@@ -305,6 +307,15 @@ class Trainer:
         if self.model.motion_residual is not None:
             losses["motion_share"] = outputs["motion_share"]
             losses["w_u_norm"] = self.model.motion_residual.weight_norm()
+        # LaGoVAD-STP (proposal §3.3 stage 3): SA² entropy / log K (1 = still uniform), ||W_q||
+        # (0 = attention never moved) and the prompt norm -- logged from step 0, never in `total`
+        if "stp_attn" in outputs and self.model.sa2 is not None:
+            losses["stp_entropy"] = attention_entropy(outputs["stp_attn"], mask)
+            losses["stp_wq_norm"] = self.model.sa2.query_norm()
+        text_model = self.model.clip_text_model
+        stp_arm = self.cfg.stp.sa2 or self.cfg.stp.text_prompt == constants.STP_PROMPT_PREFIX
+        if stp_arm and text_model is not None and text_model.prompt_embedding is not None:
+            losses["prompt_norm"] = text_model.prompt_embedding.weight.detach().norm()
         # v5 (PREREG_V5 §2): per-query attention entropy (S1-G6, logged only) and L_sMIL (S2-6)
         if "v5_attn" in outputs:
             for m, ent in enumerate(query_entropy(outputs["v5_attn"], mask)):
@@ -717,6 +728,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default=None,
         help="v5: V7 grid cache of the training sources (+ v5_head.npz); needs v5.readout",
     )
+    parser.add_argument(
+        "--patch-dir",
+        type=Path,
+        default=None,
+        help="STP: selected CLIP patch cache of the training sources; needs stp.sa2=true",
+    )
     parser.add_argument("--log-every", type=int, default=10)
     return parser
 
@@ -744,6 +761,18 @@ def v5_grid_lag(cfg: Config, grid_dir: Path | None) -> int | None:
     return change_lag(geometry.stride, geometry.frame_step)
 
 
+def stp_patch_dir(cfg: Config, patch_dir: Path | None) -> Path | None:
+    """Check ``--patch-dir`` against ``cfg.stp``: same stride, motion prior and K (lesson C2)."""
+    if not cfg.stp.sa2:
+        if patch_dir is not None:
+            raise ValueError("--patch-dir given but stp.sa2=false: the patches would be ignored")
+        return None
+    if patch_dir is None:
+        raise ValueError("stp.sa2=true needs --patch-dir")
+    check_patch_cache(patch_dir, cfg.data.frame_stride, cfg.stp.motion, cfg.stp.top_k)
+    return patch_dir
+
+
 def build_trainer(
     cfg: Config,
     output_dir: Path,
@@ -754,6 +783,7 @@ def build_trainer(
     text_encoder: str = TEXT_ENCODER_CLIP,
     log_every: int = 10,
     grid_dir: Path | None = None,
+    patch_dir: Path | None = None,
 ) -> Trainer:
     """Dataset + model + :class:`Trainer` from one config, the way training does.
 
@@ -786,6 +816,7 @@ def build_trainer(
         seed=cfg.train.seed,
         grid_dir=grid_dir if cfg.v5.readout != constants.V5_READOUT_OFF else None,
         grid_lag=grid_lag,
+        patch_dir=stp_patch_dir(cfg, patch_dir),
     )
     class_names = load_class_names(data_dir)
 
@@ -836,6 +867,7 @@ def main(argv: list[str] | None = None) -> None:
         text_encoder=args.text_encoder,
         log_every=args.log_every,
         grid_dir=args.grid_dir,
+        patch_dir=args.patch_dir,
     )
     if args.resume is not None:
         trainer.load_checkpoint(args.resume)

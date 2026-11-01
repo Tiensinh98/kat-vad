@@ -23,7 +23,7 @@ import torch
 from torch import Tensor, nn
 
 from core import constants
-from core.config import validate_v2, validate_v5
+from core.config import validate_stp, validate_v2, validate_v5
 from core.data.collate import padding_mask
 from core.kip.kip_module import KIP
 from core.models.clip_text import SoftPromptCLIPTextModel
@@ -31,6 +31,7 @@ from core.models.fusion import CoAttentionFusion
 from core.models.heads import BinaryHead, MultiClassHead
 from core.models.motion_residual import MotionResidual
 from core.models.mqr import GridReadout, SpatialMILHead
+from core.models.sa2 import SpatialAttentionAggregation
 from core.models.temporal_encoder import TemporalEncoder
 
 if TYPE_CHECKING:
@@ -63,6 +64,7 @@ class KATVAD(nn.Module):
         motion_dim: int = 0,
         grid_readout: GridReadout | None = None,
         smil_head: SpatialMILHead | None = None,
+        sa2: SpatialAttentionAggregation | None = None,
     ) -> None:
         super().__init__()
         # v2 motion stream (architecture §5): absent unless motion_dim > 0, so every
@@ -76,6 +78,12 @@ class KATVAD(nn.Module):
             raise ValueError("a v5 grid readout feeds the v2 motion path (motion_dim > 0)")
         self.grid_readout = grid_readout
         self.smil_head = smil_head
+        # LaGoVAD-STP (proposal §3.2.2): the K selected CLIP patch features are the last columns
+        # of each row; absent unless stp.sa2, so every earlier checkpoint loads unchanged.
+        if sa2 is not None and grid_readout is not None:
+            raise ValueError("SA² and the v5 grid readout cannot be combined")
+        self.sa2 = sa2
+        self.hidden_dim = hidden_dim
         self.temporal_encoder = TemporalEncoder(
             hidden_size=hidden_dim,
             num_layers=temporal_layers,
@@ -104,6 +112,7 @@ class KATVAD(nn.Module):
         """Build from :class:`core.config.Config`; ``load_clip`` pulls HF weights."""
         validate_v2(cfg)
         validate_v5(cfg)
+        validate_stp(cfg)
         v5 = cfg.v5
         grid_readout = smil_head = None
         if v5.readout != constants.V5_READOUT_OFF:
@@ -115,8 +124,11 @@ class KATVAD(nn.Module):
         if load_clip:
             from transformers import AutoTokenizer
 
+            prefix = cfg.stp.text_prompt == constants.STP_PROMPT_PREFIX
             clip_text_model = SoftPromptCLIPTextModel(
-                constants.CLIP_MODEL_NAME, cfg.model.num_soft_prompts
+                constants.CLIP_MODEL_NAME,
+                cfg.stp.prefix_len if prefix else cfg.model.num_soft_prompts,
+                layout=cfg.stp.text_prompt,
             )
             tokenizer = AutoTokenizer.from_pretrained(
                 constants.CLIP_MODEL_NAME, revision=constants.CLIP_MODEL_REVISION
@@ -145,6 +157,11 @@ class KATVAD(nn.Module):
             motion_dim=cfg.model.motion_dim,
             grid_readout=grid_readout,
             smil_head=smil_head,
+            sa2=(
+                SpatialAttentionAggregation(cfg.model.hidden_dim, cfg.stp.top_k)
+                if cfg.stp.sa2
+                else None
+            ),
         )
 
     def encode_text(self, texts: list[str], use_soft_prompt: bool = True) -> Tensor:
@@ -212,6 +229,27 @@ class KATVAD(nn.Module):
             outputs["v5_smil"] = self.smil_head(out.z)
         return torch.cat([rows[..., :hidden], out.motion], dim=-1)
 
+    def _stp_rows(self, rows: Tensor, mask: Tensor, outputs: dict[str, Tensor]) -> Tensor:
+        """STP: ``[c ; u ; P_sel]`` -> ``[c + x^AS ; u]`` (proposal §3.2.2, Eq. 3).
+
+        ``u`` (the motion columns, possibly none) passes through untouched; the motion fusion
+        ``x_t = c~_t + W_u u_t`` then runs on ``c~`` (proposal §3.1, with ``W_u`` in place of
+        ``tanh(alpha) W LN``: ``STP_BUILD.md`` D1).
+        """
+        assert self.sa2 is not None  # nosec B101 - caller checks
+        width = self.sa2.width
+        base = rows.shape[-1] - width
+        motion_dim = 0 if self.motion_residual is None else self.motion_residual.motion_dim
+        if base != self.hidden_dim + motion_dim:
+            raise ValueError(
+                f"STP rows have {rows.shape[-1]} columns, expected {self.hidden_dim} (CLIP) + "
+                f"{motion_dim} (motion) + {width} (top-{self.sa2.top_k} patches) -- "
+                "is the patch cache appended (--patch-dir)?"
+            )
+        out = self.sa2(rows[..., : self.hidden_dim], rows[..., base:], mask)
+        outputs["stp_attn"] = out.attn
+        return torch.cat([out.features, rows[..., self.hidden_dim : base]], dim=-1)
+
     def forward(
         self,
         v_feat: Tensor,
@@ -233,6 +271,8 @@ class KATVAD(nn.Module):
         outputs: dict[str, Tensor] = {}
         if self.grid_readout is not None:
             v_feat = self._grid_rows(v_feat, outputs)
+        if self.sa2 is not None:
+            v_feat = self._stp_rows(v_feat, mask, outputs)
         if self.motion_residual is not None:
             # v2 A2/A3: rows are [x ; c*u~/sigma_u] -> h = x + W_u(...)  (architecture §5)
             v_feat, outputs["motion_share"] = self.motion_residual(v_feat, mask)

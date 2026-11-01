@@ -31,6 +31,7 @@ from torch.utils.data import Dataset
 from core import constants
 from core.config import DVSConfig
 from core.data.msad import ABNORMAL_CLASS, NORMAL_CLASS
+from core.data.stp_patches import stp_rows
 from core.data.synthesis import choose_filler_ids, compose_sequence, truncate_sample
 from core.data.v5_grids import v5_rows
 from core.data.windows import FeatureSlicer, load_windows
@@ -64,6 +65,7 @@ class DVSFeatureDataset(Dataset[dict[str, Any]]):
         seed: int = constants.SEED,
         grid_dir: Path | None = None,
         grid_lag: int | None = None,
+        patch_dir: Path | None = None,
     ) -> None:
         self.clip_dir = clip_dir
         self.flow_dir = flow_dir
@@ -73,6 +75,9 @@ class DVSFeatureDataset(Dataset[dict[str, Any]]):
         self.grid_lag = grid_lag
         if grid_lag is not None and grid_dir is None:
             raise ValueError("grid_lag needs grid_dir")
+        # LaGoVAD-STP: each item's selected CLIP patches (chosen per source video, so before
+        # DVS splicing) are appended after the host columns (core.data.stp_patches)
+        self.patch_dir = patch_dir
         self.slicer = FeatureSlicer(load_windows(data_dir))
         self.dvs = dvs if dvs is not None else DVSConfig()
         self.vis_max_len = vis_max_len
@@ -115,6 +120,8 @@ class DVSFeatureDataset(Dataset[dict[str, Any]]):
         if self.grid_dir is not None:
             grid = self.slicer.load(self.grid_dir, video_id, mmap=True)
             rows = v5_rows(rows, grid, self.grid_lag)
+        if self.patch_dir is not None:
+            rows = stp_rows(rows, self.slicer.load(self.patch_dir, video_id, mmap=True))
         return torch.from_numpy(rows.astype(np.float32, copy=False))
 
     def _load_flow(self, video_id: str, length: int) -> Tensor:

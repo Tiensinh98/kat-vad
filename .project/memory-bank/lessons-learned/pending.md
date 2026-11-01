@@ -2146,3 +2146,12 @@ a planted in-box signal (expect GO) before any real number exists.
 **Rule:** Set a cross-cache tolerance from a measured cross-environment spread, or do not gate on it; never reuse a within-pass threshold.
 **Files:** `core/tools/v5_stage1.py` (`run_extract`), `core/docs/v5/PREREG_V5.md` §2.4 B9.
 **Gate status.** One occurrence; candidate.
+
+## (ca) [MEDIUM] Code - A `[-n:]` slice is the whole tensor when n can be 0 (2026-11-01)
+**Triggers:** soft prompt, post_num, slice, negative index, prefix layout, zero length, layout option
+**Problem:** adding the STP prefix layout (all prompts before the text, `post_num = 0`) to `SoftPromptCLIPTextModel` would have run `hidden_states[b, s:s+0] = soft_embed[b, -0:]`, i.e. assign all `l` prompts into an empty slot (shape error, or silent overwrite if shapes broadcast); caught while reading, before a run.
+**Bad:** `x[b, start : start + n] = src[b, -n:]` with `n` derived from a config that can make it 0.
+**Good:** `if n: x[b, start : start + n] = src[b, src.shape[1] - n :]` -- guard the zero case explicitly.
+**Rule:** Guard every negative-offset slice whose length comes from a config; `-0:` means "from the start".
+**Files:** `core/models/clip_text.py` (`_insert_soft_prompts`), `core/tests/test_stp.py::TestPrefix`.
+**Gate status.** Zero occurrences in a run (caught in review); candidate.

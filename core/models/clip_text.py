@@ -4,6 +4,13 @@ Wraps a frozen HF ``CLIPTextModel`` and injects ``num_soft_prompts`` learnable
 embeddings around the tokenized text: ``[BOS, pre-prompts, tokens, post-prompts,
 EOS...]``. Only the prompt embedding table is trainable.
 
+Two layouts (``stp.text_prompt``):
+
+* ``released`` -- the baseline's: half the prompts before the text, half after it, default
+  ``nn.Embedding`` init. Every pre-STP checkpoint.
+* ``prefix`` -- LaGoVAD-STP's learnable prefix (proposal §3.2.3, CoOp): all prompts before the
+  text, ``[BOS, e_1 .. e_l, tokens, EOS]``, ``e_i ~ N(0, 0.02^2)`` (§3.2.4).
+
 The CLIP model can be injected (``clip_model=``) so unit tests run on a tiny
 random-weight config with no download; production code uses ``from_pretrained``.
 """
@@ -37,9 +44,13 @@ class SoftPromptCLIPTextModel(nn.Module):
         model_name_or_path: str = constants.CLIP_MODEL_NAME,
         num_soft_prompts: int = constants.NUM_SOFT_PROMPTS,
         clip_model: CLIPTextModel | None = None,
+        layout: str = constants.STP_PROMPT_RELEASED,
     ) -> None:
         super().__init__()
+        if layout not in constants.STP_PROMPTS:
+            raise ValueError(f"layout must be one of {constants.STP_PROMPTS}, got {layout!r}")
         self.num_soft_prompts = num_soft_prompts
+        self.layout = layout
         if clip_model is not None:
             self.model = clip_model
         elif model_name_or_path == constants.CLIP_MODEL_NAME:
@@ -56,6 +67,8 @@ class SoftPromptCLIPTextModel(nn.Module):
             if num_soft_prompts > 0
             else None
         )
+        if self.prompt_embedding is not None and layout == constants.STP_PROMPT_PREFIX:
+            nn.init.normal_(self.prompt_embedding.weight, std=constants.STP_PREFIX_INIT_STD)
         for param in self.model.parameters():
             param.requires_grad = False
 
@@ -78,8 +91,11 @@ class SoftPromptCLIPTextModel(nn.Module):
         if self.prompt_embedding is None:
             raise RuntimeError("_insert_soft_prompts called without prompt embeddings")
         batch, seq_len = input_ids.shape
-        pre_num = self.num_soft_prompts // 2
-        post_num = self.num_soft_prompts // 2
+        if self.layout == constants.STP_PROMPT_PREFIX:
+            pre_num, post_num = self.num_soft_prompts, 0
+        else:
+            pre_num = self.num_soft_prompts // 2
+            post_num = self.num_soft_prompts // 2
         content_lengths = input_ids.argmax(dim=-1) - 1  # (B,)
 
         soft_ids = torch.arange(self.num_soft_prompts, device=input_ids.device)
@@ -99,9 +115,10 @@ class SoftPromptCLIPTextModel(nn.Module):
 
         expanded_mask = attention_mask.new_zeros(expanded_ids.shape)
         for b in range(batch):
-            post_start = 1 + pre_num + int(content_lengths[b])
-            hidden_states[b, post_start : post_start + post_num] = soft_embed[b, -post_num:]
-            expanded_ids[b, post_start : post_start + post_num] = SOFT_PROMPT_SENTINEL_ID
+            if post_num:  # the prefix layout leaves the text's own EOS in place
+                post_start = 1 + pre_num + int(content_lengths[b])
+                hidden_states[b, post_start : post_start + post_num] = soft_embed[b, -post_num:]
+                expanded_ids[b, post_start : post_start + post_num] = SOFT_PROMPT_SENTINEL_ID
             expanded_mask[b, : int(expanded_ids[b].argmax()) + 1] = 1
         return hidden_states, expanded_ids, expanded_mask
 

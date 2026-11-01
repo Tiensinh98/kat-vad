@@ -172,6 +172,24 @@ class V5Config:
 
 
 @dataclass
+class STPConfig:
+    """LaGoVAD-STP's novel component (proposal ``core/docs/final/`` §3.2).
+
+    ``sa2`` adds Spatial Attention Aggregation to the CLIP branch: each input row then also
+    carries the ``top_k`` motion-selected patch features of its frame (selected offline by
+    ``core.tools.stp_patches`` with the ``motion`` prior), and ``c~_t = c_t + x^AS_t`` replaces
+    ``c_t``. ``text_prompt`` picks the learnable text context: LaGoVAD's released split soft
+    prompts or the CoOp prefix of ``prefix_len`` vectors. Defaults = every pre-STP model.
+    """
+
+    sa2: bool = False
+    top_k: int = constants.STP_TOP_K
+    motion: str = constants.STP_MOTION_RAW  # raw | ego (R7); must match the patch cache
+    text_prompt: str = constants.STP_PROMPT_RELEASED  # released | prefix
+    prefix_len: int = constants.STP_PREFIX_LEN
+
+
+@dataclass
 class Config:
     """Top-level KAT-VAD configuration."""
 
@@ -183,6 +201,7 @@ class Config:
     train: TrainConfig = field(default_factory=TrainConfig)
     v2: V2Config = field(default_factory=V2Config)
     v5: V5Config = field(default_factory=V5Config)
+    stp: STPConfig = field(default_factory=STPConfig)
 
     def to_dict(self) -> dict[str, Any]:
         return dataclasses.asdict(self)
@@ -310,3 +329,30 @@ def validate_v5(cfg: Config) -> None:
         v5.queries != 1 or v5.keys != constants.V5_KEYS_CONTENT or v5.smil_weight > 0
     ):
         raise ValueError("v5.readout=mean (R1) has no queries, change keys or sMIL term")
+
+
+def validate_stp(cfg: Config) -> None:
+    """Fail loud on an STP config no arm defines (proposal §3.2, ``STP_BUILD.md``).
+
+    SA² reads the CLIP columns of an input row, so it cannot sit on a CRN-normalised row (the
+    element-wise sum must stay in CLIP's embedding space) or beside the v5 grid readout.
+    """
+    stp = cfg.stp
+    if stp.text_prompt not in constants.STP_PROMPTS:
+        raise ValueError(
+            f"stp.text_prompt must be one of {constants.STP_PROMPTS}, got {stp.text_prompt!r}"
+        )
+    if stp.motion not in constants.STP_MOTIONS:
+        raise ValueError(f"stp.motion must be one of {constants.STP_MOTIONS}, got {stp.motion!r}")
+    if stp.prefix_len < 1:
+        raise ValueError(f"stp.prefix_len must be >= 1, got {stp.prefix_len}")
+    if not stp.sa2:
+        return
+    if not 1 <= stp.top_k <= constants.STP_PATCHES:
+        raise ValueError(f"stp.top_k must be in [1, {constants.STP_PATCHES}], got {stp.top_k}")
+    if cfg.v2.crn != constants.V2_OFF:
+        raise ValueError("stp.sa2 adds CLIP patch features to c_t: it needs v2.crn=none")
+    if cfg.v5.readout != constants.V5_READOUT_OFF:
+        raise ValueError("stp.sa2 and the v5 grid readout cannot be combined")
+    if cfg.kip.enabled:
+        raise ValueError("stp.sa2 requires kip.enabled=false")
