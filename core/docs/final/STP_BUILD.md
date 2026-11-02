@@ -123,3 +123,36 @@ is a per-clip mean with a 95 % source-video cluster bootstrap, all / ego-involve
   R7 is not licensed by D-2.
 
 Paste `REPORTS/stp_diag_prompt.md` and `REPORTS/stp_diag_pointing.md` back.
+
+### 5.1 Read-out (2026-11-02, s2024, 1,749 steps; raw `outputs/v_final/stp/REPORTS/stp_diag_{prompt,pointing}.{md,json}`)
+
+Rules in §5 applied as written; nothing below changes a §3 verdict. The first run stays
+`no difference shown — PRELIMINARY (n = 1 seed)`.
+
+**D-1 → D1-noise** (both R4 and R6; init reproduced, ‖θ₀‖ 126.421272 / 1.261225 = logged step 0).
+R6 prefix: SNR **0.136** (< the 0.184 noise SNR), RMS Δ / Σ lr 0.016, grad RMS 9.3e-3 (≈ W_u's 9.3e-3),
+share √v̂ < 10 eps 0. The prefix moved 0.045 (3.6 % of ‖θ₀‖, cos 0.9994), so `prompt_norm`
+1.2612 → 1.2616 was a poor monitor, but the movement is not coherent. Reference rows sit near the
+noise SNR too: SA² 0.20 / 0.22, **W_u 0.22** (a row known to matter in v2), R4 prompt 0.28.
+* Licensed by the rule: **no prefix LR multiplier** (it would random-walk).
+* **Not licensed:** "the objective gives the prefix no signal", "the prefix has no effect". The 2×
+  noise-SNR threshold does not separate "no signal" from "small batch + slow drift" — W_u fails it
+  too. Writable: *the prefix did not demonstrably train in 1,749 steps at 1 seed, so R6 − R4 does
+  not measure it.*
+
+**D-2 → "selection points at the agent": YES; "selection sits on the border": NO; R7 not licensed.**
+DoTA-CAP-dev (ego-involved 321 / not 248), raw Mo, top-12: lift − pre-anomaly **+0.132 [+0.122, +0.142]**
+(lift +0.196); border −0.080 [−0.087, −0.073], bottom row −0.082, centre 3×3 +0.052 — the selection
+avoids the border (the border-tile hypothesis for the wrong-way H1 split is refuted). Non-ego
+(ii): raw +0.1007 [+0.086, +0.115] vs ego-compensated +0.1004 [+0.086, +0.115] → CIs overlap → no R7.
+Mo's own training-free reads: ρ +0.505, top-1 hit − chance +0.314, macro global 0.718 / top-K 0.713.
+* **Printed, post-hoc, 1 seed (never a verdict):** (ii) is larger on ego-involved (+0.160
+  [+0.144, +0.176]) than non-ego (+0.101 [+0.086, +0.115]) — the direction of the H1 split in
+  R4 − R1 (+0.012 ego, −0.013 non-ego).
+* **Reading:** the selected patches carry where-information, yet R4 − R1 ≈ +0.001. A plausible but
+  untested cause is SA² staying ≈ selection + average (entropy ≈ 0.90 of log K); `p_T2` 0.822 also
+  stays above every arm.
+
+**Outcome:** neither follow-up arm (prefix LR multiplier, R7) is licensed. Closed with this record
+(option A, user 2026-11-02). Any further arm (e.g. making SA² leave the average) needs its own rule
+written before its number.
