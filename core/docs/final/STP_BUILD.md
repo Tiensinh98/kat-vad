@@ -74,3 +74,52 @@ original CAP JPEG bytes, all 1,129 clips), built **once** on CPU by `colab/final
 (`core/tools/dota_cap_frames.py pack` + `verify`). `clip_windows archive` reads it with the same gate as
 `clip_windows cap`, so no later tool streams the CAP tars.
 Paste `REPORTS/stp_readout.md` back. Tests: `core/tests/test_stp.py`.
+
+## 5. First-run diagnostics D-1 / D-2 (rules written 2026-11-02, before any diagnostic number)
+
+**Why.** The first run (s2024, `outputs/v_final/stp/REPORTS/stp_readout.md`, 2026-11-02) read
+**"no difference shown — PRELIMINARY"** on all three contrasts: R4 − R1 +0.0009 [−0.0093, +0.0106],
+R6 − R1 +0.0022 [−0.0083, +0.0122], R6 − R4 +0.0013 [−0.0045, +0.0073]; `p_T2` 0.822 above every arm.
+Two training logs make the contrasts hard to read: R6's prefix `prompt_norm` moved **1.2612 → 1.2616**
+(init N(0, 0.02²) over 8 × 512 ⇒ ≈ 1.28), and SA² entropy ended at **0.91 / 0.90** of log K (≈ 9.6 of
+12 patches effective). The printed H1 split went the wrong way: R4 − R1 **+0.012 [+0.001, +0.020]** on
+ego-involved clips, **−0.013 [−0.031, +0.004]** on the others. Both diagnostics are printed only: they
+change no §3 verdict and decide only what the next arm may be (each next arm gets its own rule first).
+Tool `core/tools/stp_diag.py`, notebook `colab/final/stp_diag.ipynb` (CPU), tests
+`core/tests/test_stp_diag.py`.
+
+**D-1 — did the prompt train?** (`stp_diag prompt`, R4 and R6 s2024.) θ₀ is rebuilt the way
+`core.train.main` builds it (`set_global_seed`, then `KATVAD.from_config`); it counts as reproduced iff
+its norm equals the run's batch-0 `prompt_norm` to `STP_DIAG_INIT_NORM_RTOL` = 1e-4. Read from AdamW's
+state: grad RMS √v̂ (per coordinate, bias-corrected), `SNR = mean|m̂| / mean √v̂` (zero-mean noise gives
+`√((1 − β₁)/(1 + β₁))·√(2/π)` ≈ 0.184 at β₁ = 0.9), and the per-coordinate RMS displacement over the LR
+budget `Σ lr_s` (1 = the full Adam step every step, same direction). Reading of the **R6 prefix** row,
+first match wins:
+
+| reading | condition | what it licenses next |
+|---|---|---|
+| INIT NOT REPRODUCED | norm check fails | Adam columns only; no displacement claim |
+| **D1-dead** | ≥ 50 % of coordinates with √v̂ < 10·eps | a code fix of the gradient path (no LR change) |
+| **D1-noise** | SNR < 2 × the noise SNR | "the objective gives the prefix no consistent signal"; an LR multiplier is **not** licensed (it would random-walk) |
+| **D1-lr** | coherent, RMS Δ / Σ lr < 0.1 | an amendment with a prefix LR multiplier + a mechanics gate on the logs |
+| **D1-moved** | otherwise | `prompt_norm` was a misleading monitor; R6 − R4 stands as measured |
+
+`W_q` (SA²) and `W_u` rows are printed beside as references (both left zero and reached ‖·‖ ≈ 1.4).
+
+**D-2 — do the top-12 motion patches point at the anomaly?** (`stp_diag pointing`, DoTA-CAP-dev
+patch cache `idx/` + `mo/`, the window cache for the ego-compensated Mo, DoTA boxes.) Row k ↔ native
+frame 3k; box masks by `v5_stage0.tile_weights` on the 7 × 7 grid of the 224² squash. Per clip:
+(i) **lift** = share of the top-12 tiles touching a box − the box's tile share, on anomaly rows with a
+box; (ii) **lift − pre** = lift minus the same read on pre-anomaly rows under the first anomaly mask
+(Amendment 1's control for growing / centred boxes); (iii) **region excess** of the top-12 over all
+rows: border ring − 24/49, bottom row − 7/49, centre 3 × 3 − 9/49; (iv) Mo's own v5 Stage 0 reads (ρ,
+top-1 hit − chance, hit − pre, training-free macro of the frame-mean and top-12-mean Mo). Every value
+is a per-clip mean with a 95 % source-video cluster bootstrap, all / ego-involved / not. Readings:
+
+* **"selection points at the agent"** iff (ii)'s low bound > 0 on all clips;
+* **"selection sits on the border"** iff the border excess's low bound > 0;
+* the ego-compensated Mo (= arm R7's selection) is **worth an arm** only if its (ii) on
+  non-ego-involved clips beats the raw Mo's by a margin whose cluster CIs do not overlap; otherwise
+  R7 is not licensed by D-2.
+
+Paste `REPORTS/stp_diag_prompt.md` and `REPORTS/stp_diag_pointing.md` back.

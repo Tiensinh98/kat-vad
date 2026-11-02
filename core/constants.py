@@ -914,5 +914,10 @@ STP_ARMS = {  # arm -> stp.* overrides beyond the host (v2 Nexar A2's recipe, W_
     "R6": {"sa2": True, "text_prompt": STP_PROMPT_PREFIX},  # full STP (prefix ON)
 }
 STP_SEEDS = V5_RUN_SEEDS  # 2024-2026; the first run is s2024 only (preliminary)
+# STP_BUILD.md §5 -- first-run diagnostics (core.tools.stp_diag), printed, never gating
+STP_DIAG_INIT_NORM_RTOL = 1e-4  # D-1: rebuilt ||theta_0|| vs metrics.jsonl's first prompt_norm
+STP_DIAG_DEAD_SHARE = 0.5  # D-1: >= half the prompt coordinates with sqrt(v_hat) < 10 eps = dead
+STP_DIAG_NOISE_FACTOR = 2.0  # D-1: SNR below 2x the zero-mean-noise SNR = sign-incoherent
+STP_DIAG_MOVED = 0.1  # D-1: RMS displacement / sum(lr) below this = the LR budget was not used
 DOTA_CAP_FRAMES_DIRNAME = "DoTA_CAP_frames"  # under DATA_ROOT: {dota_id}.zip, DoTA-native frames
 DOTA_CAP_FRAMES_MANIFEST = "frames_manifest.json"  # written by dota_cap_frames verify on PASS
