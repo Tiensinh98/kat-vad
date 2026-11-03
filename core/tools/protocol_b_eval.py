@@ -201,7 +201,9 @@ def score_checkpoint(
     baked = check_baked_stride(args.input_dir, args.stride)
     class_names = load_class_names(args.data_dir)
     grid = eval_grid(cfg.v5.readout, cfg.v5.keys, args.grid_dir, args.stride)
-    patches = eval_patches(cfg.stp.sa2, cfg.stp.motion, cfg.stp.top_k, args.patch_dir, args.stride)
+    patches = eval_patches(
+        cfg.stp.sa2, cfg.stp.motion, cfg.stp.top_k, args.patch_dir, args.stride, cfg.stp.mo_token
+    )
     protocol = Protocol(args.stride, None)
     native: dict[str, np.ndarray] = {}
     for video_id in ids:

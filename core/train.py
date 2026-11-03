@@ -47,7 +47,7 @@ from core.data.definitions import (
     verbalize_class_name,
 )
 from core.data.knn_cache import load_knn_cache
-from core.data.stp_patches import check_patch_cache
+from core.data.stp_patches import check_mo_dir, check_patch_cache
 from core.data.v2_inputs import check_input_manifest
 from core.data.v5_grids import change_lag, read_grid_geometry
 from core.device import resolve_device
@@ -339,6 +339,8 @@ class Trainer:
         if "stp_attn" in outputs and self.model.sa2 is not None:
             losses["stp_entropy"] = attention_entropy(outputs["stp_attn"], mask)
             losses["stp_wq_norm"] = self.model.sa2.query_norm()
+        if self.model.mo_proj is not None:  # L1mo: ||W_m||_F, logged only (LOCAL_STEP1B.md)
+            losses["mo_proj_norm"] = self.model.mo_proj.weight.detach().norm()
         text_model = self.model.clip_text_model
         stp_arm = self.cfg.stp.sa2 or self.cfg.stp.text_prompt == constants.STP_PROMPT_PREFIX
         if self.model.local_branch:  # LOCAL_STEP1.md §2: no text path, so no prompt to watch
@@ -802,6 +804,8 @@ def stp_patch_dir(cfg: Config, patch_dir: Path | None) -> Path | None:
     if patch_dir is None:
         raise ValueError("stp.sa2=true needs --patch-dir")
     check_patch_cache(patch_dir, cfg.data.frame_stride, cfg.stp.motion, cfg.stp.top_k)
+    if cfg.stp.mo_token:
+        check_mo_dir(patch_dir)
     return patch_dir
 
 
@@ -849,6 +853,7 @@ def build_trainer(
         grid_dir=grid_dir if cfg.v5.readout != constants.V5_READOUT_OFF else None,
         grid_lag=grid_lag,
         patch_dir=stp_patch_dir(cfg, patch_dir),
+        patch_mo=cfg.stp.mo_token,
     )
     class_names = load_class_names(data_dir)
 

@@ -14,6 +14,8 @@ written before any L1 number.
   D2 (Spearman of per-clip AUCs and the share of clips each row wins by >= ``LOCAL_D2_MARGIN``);
   the mean per-clip Spearman of each row's scores with the cubic position prior ``p_T2`` (if
   given); training diagnostics from ``metrics.jsonl`` (``mil`` beside W0's 0.1760).
+* ``--local-name L1mo`` reads the L1mo arm (``LOCAL_STEP1B.md``, same gates); ``--ref L1 DIR``
+  prints L1's row and L1mo - L1 beside them, never deciding.
 * One seed per row => every sentence is **PRELIMINARY (n = 1 seed)** and adopts nothing.
 
 CLI::
@@ -46,11 +48,11 @@ LOGGER = logging.getLogger(__name__)
 
 READOUT_NAME = "local_readout"
 L0, L0B, L1 = constants.LOCAL_CONTROL_ARM, constants.LOCAL_ENSEMBLE_ARM, constants.LOCAL_ARM
-FUSED_ENS, FUSED_LOC = f"{L0}+{L0B}", f"{L0}+{L1}"
+FUSED_ENS = f"{L0}+{L0B}"
 LABEL = "PRELIMINARY (n = 1 seed)"
 VERDICT_PASS = "STEP 1 PASS"
-VERDICT_REDUNDANT = "G1 pass, G2/G3 fail: L1 learns, but adds no more than a second host seed"
-VERDICT_OVERFIT = "G1 FAIL with the overfit tell: L1's mil ends below W0's"
+VERDICT_REDUNDANT = "G1 pass, G2/G3 fail: the local arm learns but adds no more than a host seed"
+VERDICT_OVERFIT = "G1 FAIL with the overfit tell: the local arm's mil ends below W0's"
 VERDICT_WEAK = "G1 FAIL without the overfit tell: the patch input itself is weak"
 
 
@@ -152,7 +154,9 @@ def _last(diag: dict[str, Any] | None, key: str) -> float | None:
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
-    dirs = {L0: args.l0, L0B: args.l0b, L1: args.l1}
+    local = args.local_name  # L1 (LOCAL_STEP1.md) or L1mo (LOCAL_STEP1B.md)
+    fused_loc = f"{L0}+{local}"
+    dirs = {L0: args.l0, L0B: args.l0b, local: args.l1}
     scores: dict[str, dict[str, np.ndarray]] = {}
     labels: dict[str, np.ndarray] | None = None
     for name, d in dirs.items():
@@ -163,24 +167,24 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             raise ValueError(f"{name}: labels differ from {L0}'s -- not the same clip set")
     assert labels is not None  # nosec B101 - three rows were read
     scores[FUSED_ENS] = fuse(scores[L0], scores[L0B])
-    scores[FUSED_LOC] = fuse(scores[L0], scores[L1])
+    scores[fused_loc] = fuse(scores[L0], scores[local])
     aucs = {name: clip_aucs(s, {v: labels[v] for v in s}) for name, s in scores.items()}
 
     records = parse_metadata(args.metadata, read_split_ids(args.split_file))
     ego = {r.video_id: r.is_ego for r in records}
 
-    l1_macro = ci(aucs[L1])
+    l1_macro = ci(aucs[local])
     g1 = bool(
         l1_macro is not None
         and l1_macro["low"] > constants.LOCAL_G1_FLOOR
         and l1_macro["mean"] > constants.LOCAL_G1_MO_REF
     )
-    g2_ci = ci(paired(aucs[FUSED_LOC], aucs[FUSED_ENS]))
+    g2_ci = ci(paired(aucs[fused_loc], aucs[FUSED_ENS]))
     g2 = sentence(g2_ci) == GAIN
-    g3_ci = ci(oracle_gain(aucs[L0], aucs[L1], aucs[L0B]))
+    g3_ci = ci(oracle_gain(aucs[L0], aucs[local], aucs[L0B]))
     g3 = bool(g3_ci is not None and g3_ci["low"] > 0)
 
-    runs = {L0: args.l0_run, L0B: args.l0b_run, L1: args.l1_run}
+    runs = {L0: args.l0_run, L0B: args.l0b_run, local: args.l1_run}
     diagnostics = {
         name: run_diagnostics(Path(d)) for name, d in runs.items() if d is not None
     }
@@ -190,6 +194,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "rule": "core/docs/final/LOCAL_STEP1.md §4-§5",
         "set": "DoTA-CAP (n/1397) dev, protocol B",
         "label": LABEL,
+        "names": {"local": local, "fused_loc": fused_loc},
         "fusion": f"{constants.LOCAL_FUSE_WEIGHT} minmax(a) + "
         f"{1 - constants.LOCAL_FUSE_WEIGHT} minmax(b), per clip, native frames",
         "rows": {name: ci(a) for name, a in aucs.items()},
@@ -200,22 +205,28 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "G3": {"ci": g3_ci, "pass": g3},
         },
         "contrasts": {
-            f"{FUSED_LOC} - {FUSED_ENS} (G2)": contrast(aucs[FUSED_LOC], aucs[FUSED_ENS], ego),
-            f"{L1} - {L0}": contrast(aucs[L1], aucs[L0], ego),
-            f"{FUSED_LOC} - {L0}": contrast(aucs[FUSED_LOC], aucs[L0], ego),
+            f"{fused_loc} - {FUSED_ENS} (G2)": contrast(aucs[fused_loc], aucs[FUSED_ENS], ego),
+            f"{local} - {L0}": contrast(aucs[local], aucs[L0], ego),
+            f"{fused_loc} - {L0}": contrast(aucs[fused_loc], aucs[L0], ego),
             f"{FUSED_ENS} - {L0}": contrast(aucs[FUSED_ENS], aucs[L0], ego),
             f"{L0B} - {L0} (seed spread)": contrast(aucs[L0B], aucs[L0], ego),
         },
-        "d2": {L1: d2_reads(aucs[L1], aucs[L0]), L0B: d2_reads(aucs[L0B], aucs[L0])},
+        "d2": {local: d2_reads(aucs[local], aucs[L0]), L0B: d2_reads(aucs[L0B], aucs[L0])},
         "position_rho": (
-            {name: position_rho(scores[name], prior) for name in (L0, L0B, L1)}
+            {name: position_rho(scores[name], prior) for name in (L0, L0B, local)}
             if prior is not None else None
         ),
         "p_T2_cap_dev": constants.V5_P_T2_CAP_DEV,
         "diagnostics": diagnostics,
         "w0_mil_last": constants.LOCAL_W0_MIL_LAST,
-        "verdict": verdict(g1, g2, g3, _last(diagnostics.get(L1), "mil")),
+        "verdict": verdict(g1, g2, g3, _last(diagnostics.get(local), "mil")),
     }
+    if args.ref is not None:  # printed only: an earlier local arm, e.g. L1 beside L1mo
+        ref_name, ref_dir = args.ref[0], Path(args.ref[1])
+        ref_scores, ref_labels = read_clip_scores(ref_dir / CLIP_SCORES_NPZ)
+        ref_aucs = clip_aucs(ref_scores, ref_labels)
+        result["rows"][f"{ref_name} (printed)"] = ci(ref_aucs)
+        result["contrasts"][f"{local} - {ref_name}"] = contrast(aucs[local], ref_aucs, ego)
     args.out_dir.mkdir(parents=True, exist_ok=True)
     write_json_atomic(args.out_dir / f"{READOUT_NAME}.json", result)
     write_text_atomic(args.out_dir / f"{READOUT_NAME}.md", render_markdown(result))
@@ -241,8 +252,9 @@ def _diag(d: dict[str, Any] | None, key: str) -> str:
 
 def render_markdown(r: dict[str, Any]) -> str:
     g = r["gates"]
+    local, fused_loc = r["names"]["local"], r["names"]["fused_loc"]
     lines = [
-        f"# LaGoVAD-OSTP Step 1 read-out — {r['set']} — **{r['label']}**",
+        f"# LaGoVAD-OSTP Step 1 read-out ({local}) — {r['set']} — **{r['label']}**",
         "",
         f"Rule: `{r['rule']}`. Fusion: {r['fusion']}.",
         "",
@@ -250,11 +262,11 @@ def render_markdown(r: dict[str, Any]) -> str:
         "",
         "| gate | read | bar | pass |",
         "|---|---|---|---|",
-        f"| G1 L1 alone | {_ci(g['G1']['ci'], signed=False)} | low > {g['G1']['floor']}, "
+        f"| G1 {local} alone | {_ci(g['G1']['ci'], signed=False)} | low > {g['G1']['floor']}, "
         f"mean > {g['G1']['mo_ref']} | {g['G1']['pass']} |",
-        f"| G2 ({FUSED_LOC}) - ({FUSED_ENS}) | {_ci(g['G2']['ci'])} | low > 0, mean ≥ "
+        f"| G2 ({fused_loc}) - ({FUSED_ENS}) | {_ci(g['G2']['ci'])} | low > 0, mean ≥ "
         f"{constants.V5_MIN_GAIN} | {g['G2']['pass']} |",
-        f"| G3 oracle max({L0},{L1}) - max({L0},{L0B}) | {_ci(g['G3']['ci'])} | low > 0 | "
+        f"| G3 oracle max({L0},{local}) - max({L0},{L0B}) | {_ci(g['G3']['ci'])} | low > 0 | "
         f"{g['G3']['pass']} |",
         "",
         "| row | macro [95 % cluster CI] |",
@@ -321,6 +333,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--l0-run", type=Path, default=None, help=f"{L0}'s run dir (metrics.jsonl)")
     parser.add_argument("--l0b-run", type=Path, default=None, help=f"{L0B}'s run dir")
     parser.add_argument("--l1-run", type=Path, default=None, help=f"{L1}'s run dir")
+    parser.add_argument("--local-name", default=L1,
+                        help=f"name of the local arm in --l1 ({L1} or {constants.LOCAL_MO_ARM})")
+    parser.add_argument("--ref", nargs=2, metavar=("NAME", "DIR"), default=None,
+                        help="printed only: an earlier local arm's protocol_b_eval out dir")
     parser.add_argument("--position", type=Path, default=None,
                         help="position_prior.npz of p_T2 on the same split (printed only)")
     parser.add_argument("--metadata", type=Path, required=True, help="DoTA metadata_val.json")

@@ -940,12 +940,17 @@ LOCAL_OUTPUT_DIRNAME = "local"  # under OUTPUT_ROOT: <arm>/s<seed>/ + eval/ + RE
 LOCAL_CONTROL_ARM = "L0"  # = W0 s2024 (core/docs/final/WU_ARMS.md), trained by this branch's code
 LOCAL_ENSEMBLE_ARM = "L0b"  # W0's exact recipe on another seed: the "free ensemble" control
 LOCAL_ARM = "L1"  # the patch-only local branch
-LOCAL_SEEDS = {LOCAL_CONTROL_ARM: 2024, LOCAL_ENSEMBLE_ARM: 2025, LOCAL_ARM: 2024}
+LOCAL_MO_ARM = "L1mo"  # core/docs/final/LOCAL_STEP1B.md: L1 + its motion magnitudes in the token
+LOCAL_SEEDS = {  # L1mo shares L1's seed, so L1mo - L1 isolates m_t
+    LOCAL_CONTROL_ARM: 2024, LOCAL_ENSEMBLE_ARM: 2025, LOCAL_ARM: 2024, LOCAL_MO_ARM: 2024,
+}
 LOCAL_ARMS = {  # arm -> config overrides on top of the host (v2 Nexar A2's recipe = W0's command)
     LOCAL_CONTROL_ARM: {},
     LOCAL_ENSEMBLE_ARM: {},
     LOCAL_ARM: {"stp.sa2": True, "stp.branch": STP_BRANCH_LOCAL},
+    LOCAL_MO_ARM: {"stp.sa2": True, "stp.branch": STP_BRANCH_LOCAL, "stp.mo_token": True},
 }
+STP_MO_STATS = 2  # m_t = [Mo of the K selected, decreasing ; mean_j Mo ; std_j Mo] -> K + 2 values
 LOCAL_FUSE_WEIGHT = 0.5  # late fusion, fixed before any number: 0.5 minmax(a) + 0.5 minmax(b)
 LOCAL_G1_FLOOR = 0.60  # G1: L1's macro CI low must clear this (proposal D1, user-approved)
 LOCAL_G1_MO_REF = 0.7132  # G1: L1's mean must beat the training-free raw-Mo top-K read (D-2)

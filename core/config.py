@@ -194,6 +194,9 @@ class STPConfig:
     # host = SA² inside the host (R4 / R6); local = SA² alone as its own detector (L1,
     # core/docs/final/LOCAL_STEP1.md): own RoFormer + one conv head, no text, no u, no c_t input
     branch: str = constants.STP_BRANCH_HOST
+    # local branch only (L1mo, core/docs/final/LOCAL_STEP1B.md): the token also carries the
+    # selected patches' motion magnitudes, token_t = x^AS_t + W_m LN(m_t), m_t in R^{K+2}
+    mo_token: bool = False
 
 
 @dataclass
@@ -361,6 +364,8 @@ def validate_stp(cfg: Config) -> None:
         raise ValueError(f"stp.prefix_len must be >= 1, got {stp.prefix_len}")
     if stp.branch not in constants.STP_BRANCHES:
         raise ValueError(f"stp.branch must be one of {constants.STP_BRANCHES}, got {stp.branch!r}")
+    if stp.mo_token and stp.branch != constants.STP_BRANCH_LOCAL:
+        raise ValueError("stp.mo_token is a local-branch input (LOCAL_STEP1B.md): stp.branch=local")
     if stp.branch == constants.STP_BRANCH_LOCAL:
         # LOCAL_STEP1.md §2: the local branch reads patches only and has no text path
         if not stp.sa2:

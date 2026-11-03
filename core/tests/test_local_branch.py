@@ -13,6 +13,7 @@ import torch
 
 from core import constants
 from core.config import Config, load_config, validate_stp
+from core.data import stp_patches as stp_data
 from core.data.collate import collate_variable_length
 from core.data.dataset import DVSFeatureDataset
 from core.data.stp_patches import stp_arm
@@ -230,6 +231,7 @@ class TestReadout:
         args = argparse.Namespace(
             l0=l0, l0b=l0b, l1=l1, l0_run=None, l0b_run=None, l1_run=run_dir,
             position=None, metadata=meta, split_file=split, out_dir=tmp_path / "rep",
+            local_name="L1", ref=None,
         )
         result = local_readout.run(args)
         assert result["gates"]["G1"]["pass"] and result["gates"]["G2"]["pass"]
@@ -246,7 +248,145 @@ class TestReadout:
         meta, split = _metadata(tmp_path, ["v_000"])
         args = argparse.Namespace(
             l0=a, l0b=b, l1=a, l0_run=None, l0b_run=None, l1_run=None, position=None,
-            metadata=meta, split_file=split, out_dir=tmp_path / "rep",
+            metadata=meta, split_file=split, out_dir=tmp_path / "rep", local_name="L1", ref=None,
         )
         with pytest.raises(ValueError, match="labels differ"):
             local_readout.run(args)
+
+
+# ---------------------------------------------------------------- L1mo (LOCAL_STEP1B.md)
+MO_W = K + constants.STP_MO_STATS
+
+
+def _mo_rows(steps: int = 6, seed: int = 0) -> tuple[torch.Tensor, torch.Tensor]:
+    c, u, p = _rows(steps, seed)
+    m = torch.randn(1, steps, MO_W, generator=torch.Generator().manual_seed(seed + 7))
+    return torch.cat([c, u, p, m], -1), torch.cat([c, u, p], -1)
+
+
+class TestMoToken:
+    def test_config(self) -> None:
+        cfg = _cfg(constants.LOCAL_MO_ARM)
+        validate_stp(cfg)
+        assert cfg.stp.mo_token and cfg.stp.branch == constants.STP_BRANCH_LOCAL
+        assert stp_arm(cfg.stp)["stp_mo_token"] is True
+        assert "stp_mo_token" not in stp_arm(_cfg().stp)
+        with pytest.raises(ValueError, match="mo_token"):
+            validate_stp(load_config(None, ["kip.enabled=false", "stp.sa2=true",
+                                            "stp.mo_token=true"]))
+        with pytest.raises(ValueError, match="mo_token"):
+            KATVAD(sa2=SpatialAttentionAggregation(), mo_token=True)
+
+    def test_mo_summary(self) -> None:
+        mo = np.arange(2 * 49, dtype=np.float32).reshape(2, 49)[:, ::-1].copy()
+        out = stp_data.mo_summary(mo, K)
+        assert out.shape == (2, MO_W)
+        np.testing.assert_allclose(out[0, :K], np.arange(48, 48 - K, -1))
+        np.testing.assert_allclose(out[:, K], mo.mean(1))
+        np.testing.assert_allclose(out[:, K + 1], mo.std(1), rtol=1e-6)
+        # the K largest are exactly the Mo of the patches select_top_k keeps
+        _, idx = stp_data.select_top_k(np.zeros((2, 49, 1)), mo, K)
+        np.testing.assert_allclose(out[:, :K], np.take_along_axis(mo, idx, 1))
+        with pytest.raises(ValueError, match="magnitude"):
+            stp_data.mo_summary(np.zeros(49), K)
+
+    def test_rows_append_m(self) -> None:
+        rows, patches, mo = np.zeros((3, BASE)), np.zeros((3, K * D)), np.ones((3, 49))
+        assert stp_data.stp_rows(rows, patches, mo).shape == (3, BASE + K * D + MO_W)
+        with pytest.raises(ValueError, match="C13"):
+            stp_data.stp_rows(rows, patches, np.ones((4, 49)))
+
+    def test_model_shapes_and_new_parameters(self) -> None:
+        l1 = KATVAD.from_config(_cfg())
+        mo = KATVAD.from_config(_cfg(constants.LOCAL_MO_ARM))
+        assert mo.mo_proj is not None and mo.mo_norm is not None
+        assert tuple(mo.mo_proj.weight.shape) == (constants.HIDDEN_DIM, MO_W)
+        extra = sum(p.numel() for p in mo.parameters()) - sum(p.numel() for p in l1.parameters())
+        assert extra == constants.HIDDEN_DIM * (K + 3) + 2 * MO_W  # D(K+3) + 2(K+2)
+        assert l1.mo_proj is None and l1.mo_width == 0
+
+    def test_token_is_patch_mean_plus_projected_m(self) -> None:
+        model = KATVAD.from_config(_cfg(constants.LOCAL_MO_ARM)).eval()
+        assert model.mo_proj is not None and model.mo_norm is not None
+        rows, _ = _mo_rows()
+        lengths = torch.tensor([6])
+        out = model(rows, lengths, class_feats=torch.randn(3, D))
+        p = rows[..., BASE : BASE + K * D].view(1, 6, K, D).mean(-2)
+        token = p + model.mo_proj(model.mo_norm(rows[..., BASE + K * D :]))
+        torch.testing.assert_close(out["vis_feats"], model.temporal_encoder(token, lengths))
+
+    def test_m_changes_the_score_and_width_is_checked(self) -> None:
+        model = KATVAD.from_config(_cfg(constants.LOCAL_MO_ARM)).eval()
+        rows, no_m = _mo_rows()
+        lengths, text = torch.tensor([6]), torch.randn(3, D)
+        other = rows.clone()
+        other[..., -MO_W:] = torch.randn(1, 6, MO_W)
+        a = model(rows, lengths, class_feats=text)["cls_bin_logits"]
+        b = model(other, lengths, class_feats=text)["cls_bin_logits"]
+        assert not torch.allclose(a, b)
+        with pytest.raises(ValueError, match="m_t"):
+            model(no_m, lengths, class_feats=text)
+
+    def test_eval_patches_read_mo(self, tmp_path: Path) -> None:
+        _, _, patch_dir = _stp_fixture(tmp_path)
+        with pytest.raises(ValueError, match="mo/"):
+            stp_data.eval_patches(True, "raw", K, patch_dir, constants.FRAME_STRIDE, True)
+        (patch_dir / constants.STP_MAGNITUDE_SUBDIR).mkdir()
+        vid = next(patch_dir.glob("*.npy")).stem
+        n = len(np.load(patch_dir / f"{vid}.npy"))
+        np.save(patch_dir / constants.STP_MAGNITUDE_SUBDIR / f"{vid}.npy",
+                np.ones((n, 49), dtype=np.float16))
+        ev = stp_data.eval_patches(True, "raw", K, patch_dir, constants.FRAME_STRIDE, True)
+        assert ev is not None
+        assert ev.append(np.zeros((n, BASE)), vid).shape == (n, BASE + K * D + MO_W)
+
+    def test_training(self, tmp_path: Path) -> None:
+        data_dir, a2_dir, patch_dir = _stp_fixture(tmp_path)
+        mo_dir = patch_dir / constants.STP_MAGNITUDE_SUBDIR
+        mo_dir.mkdir()
+        rng = np.random.default_rng(3)
+        for path in patch_dir.glob("*.npy"):
+            n = len(np.load(path))
+            np.save(mo_dir / path.name, rng.random((n, 49)).astype(np.float16))
+        cfg = _cfg(constants.LOCAL_MO_ARM)
+        cfg.train.batch_size, cfg.train.num_epochs = 4, 1
+        set_global_seed(cfg.train.seed)
+        dataset = DVSFeatureDataset(
+            data_dir=data_dir, clip_dir=a2_dir, dvs=cfg.dvs, require_flow=False,
+            seed=cfg.train.seed, patch_dir=stp_patch_dir(cfg, patch_dir), patch_mo=True,
+        )
+        assert dataset[0]["v_feat"].shape[-1] == BASE + K * D + MO_W
+        model = KATVAD.from_config(cfg)
+        trainer = Trainer(
+            cfg=cfg, model=model, dataset=dataset, class_names=load_class_names(data_dir),
+            text_encode_fn=make_text_encoder(model, "stub", CPU, dim=constants.HIDDEN_DIM),
+            output_dir=tmp_path / "out", device=CPU,
+        )
+        losses = trainer.compute_losses(collate_variable_length([dataset[i] for i in range(4)]))
+        assert torch.isfinite(losses["total"]) and float(losses["mo_proj_norm"]) > 0
+        losses["total"].backward()
+        assert model.mo_proj is not None and model.mo_proj.weight.grad is not None
+
+    def test_patch_dir_needs_mo(self, tmp_path: Path) -> None:
+        _, _, patch_dir = _stp_fixture(tmp_path)
+        with pytest.raises(ValueError, match="mo/"):
+            stp_patch_dir(_cfg(constants.LOCAL_MO_ARM), patch_dir)
+
+    def test_readout_name_and_ref(self, tmp_path: Path) -> None:
+        rng = np.random.default_rng(0)
+        ids = [f"vid{i:03d}_{j:03d}" for i in range(10) for j in range(2)]
+        labels = {v: (np.arange(20) >= 10).astype(np.int64) for v in ids}
+        rows = {name: _write_row(tmp_path, name,
+                                 {v: labels[v] + rng.normal(0, s, 20) for v in ids}, labels)
+                for name, s in (("L0", 1.0), ("L0b", 1.0), ("L1", 2.0), ("L1mo", 0.5))}
+        meta, split = _metadata(tmp_path, ids)
+        args = argparse.Namespace(
+            l0=rows["L0"], l0b=rows["L0b"], l1=rows["L1mo"], l0_run=None, l0b_run=None,
+            l1_run=None, position=None, metadata=meta, split_file=split,
+            out_dir=tmp_path / "rep", local_name="L1mo", ref=["L1", str(rows["L1"])],
+        )
+        result = local_readout.run(args)
+        assert "L0+L1mo" in result["rows"] and "L1 (printed)" in result["rows"]
+        assert "L1mo - L1" in result["contrasts"]
+        md = (tmp_path / "rep" / "local_readout.md").read_text()
+        assert "G1 L1mo alone" in md and "max(L0,L1mo)" in md

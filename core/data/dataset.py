@@ -66,6 +66,7 @@ class DVSFeatureDataset(Dataset[dict[str, Any]]):
         grid_dir: Path | None = None,
         grid_lag: int | None = None,
         patch_dir: Path | None = None,
+        patch_mo: bool = False,
     ) -> None:
         self.clip_dir = clip_dir
         self.flow_dir = flow_dir
@@ -78,6 +79,10 @@ class DVSFeatureDataset(Dataset[dict[str, Any]]):
         # LaGoVAD-STP: each item's selected CLIP patches (chosen per source video, so before
         # DVS splicing) are appended after the host columns (core.data.stp_patches)
         self.patch_dir = patch_dir
+        # L1mo (LOCAL_STEP1B.md): m_t from mo/ beside the patches, sliced by the same window
+        if patch_mo and patch_dir is None:
+            raise ValueError("patch_mo needs patch_dir")
+        self.patch_mo = patch_mo
         self.slicer = FeatureSlicer(load_windows(data_dir))
         self.dvs = dvs if dvs is not None else DVSConfig()
         self.vis_max_len = vis_max_len
@@ -121,7 +126,14 @@ class DVSFeatureDataset(Dataset[dict[str, Any]]):
             grid = self.slicer.load(self.grid_dir, video_id, mmap=True)
             rows = v5_rows(rows, grid, self.grid_lag)
         if self.patch_dir is not None:
-            rows = stp_rows(rows, self.slicer.load(self.patch_dir, video_id, mmap=True))
+            magnitude = (
+                self.slicer.load(self.patch_dir / constants.STP_MAGNITUDE_SUBDIR, video_id)
+                if self.patch_mo
+                else None
+            )
+            rows = stp_rows(
+                rows, self.slicer.load(self.patch_dir, video_id, mmap=True), magnitude
+            )
         return torch.from_numpy(rows.astype(np.float32, copy=False))
 
     def _load_flow(self, video_id: str, length: int) -> Tensor:

@@ -68,6 +68,7 @@ class KATVAD(nn.Module):
         motion_init_std: float = 0.0,
         motion_init_seed: int = 0,
         local_branch: bool = False,
+        mo_token: bool = False,
     ) -> None:
         super().__init__()
         # LaGoVAD-OSTP Step 1 (core/docs/final/LOCAL_STEP1.md §2): the model is the patch-only
@@ -76,6 +77,13 @@ class KATVAD(nn.Module):
         if local_branch and sa2 is None:
             raise ValueError("the local branch is SA² alone: it needs an SA² module")
         self.local_branch = local_branch
+        # L1mo (core/docs/final/LOCAL_STEP1B.md): token_t = x^AS_t + W_m LN(m_t), m_t in R^{K+2}
+        # (the selected patches' Mo, decreasing, + the frame's mean and std Mo) as the last columns
+        if mo_token and not local_branch:
+            raise ValueError("mo_token is a local-branch input (LOCAL_STEP1B.md)")
+        self.mo_width = sa2.top_k + constants.STP_MO_STATS if mo_token and sa2 is not None else 0
+        self.mo_norm = nn.LayerNorm(self.mo_width) if mo_token else None
+        self.mo_proj = nn.Linear(self.mo_width, hidden_dim) if mo_token else None
         # columns of u in an input row; MotionResidual is absent in the local branch (u unused)
         self.row_motion_dim = motion_dim
         # v2 motion stream (architecture §5): absent unless motion_dim > 0, so every
@@ -186,6 +194,7 @@ class KATVAD(nn.Module):
                 else None
             ),
             local_branch=cfg.stp.branch == constants.STP_BRANCH_LOCAL,
+            mo_token=cfg.stp.mo_token,
         )
 
     def encode_text(self, texts: list[str], use_soft_prompt: bool = True) -> Tensor:
@@ -269,14 +278,15 @@ class KATVAD(nn.Module):
         return torch.cat([out.features, rows[..., self.hidden_dim : base]], dim=-1)
 
     def _patch_base(self, rows: Tensor) -> int:
-        """First column of the selected patches in a ``[c ; u ; P_sel]`` row (checked)."""
+        """First column of the selected patches in a ``[c ; u ; P_sel (; m)]`` row (checked)."""
         assert self.sa2 is not None  # nosec B101 - caller checks
         width = self.sa2.width
-        base = rows.shape[-1] - width
+        base = rows.shape[-1] - width - self.mo_width
         if base != self.hidden_dim + self.row_motion_dim:
+            mo = f" + {self.mo_width} (m_t)" if self.mo_width else ""
             raise ValueError(
                 f"STP rows have {rows.shape[-1]} columns, expected {self.hidden_dim} (CLIP) + "
-                f"{self.row_motion_dim} (motion) + {width} (top-{self.sa2.top_k} patches) -- "
+                f"{self.row_motion_dim} (motion) + {width} (top-{self.sa2.top_k} patches){mo} -- "
                 "is the patch cache appended (--patch-dir)?"
             )
         return base
@@ -292,8 +302,13 @@ class KATVAD(nn.Module):
         """
         assert self.sa2 is not None  # nosec B101 - __init__ checks
         base = self._patch_base(rows)
-        out = self.sa2(rows[..., : self.hidden_dim], rows[..., base:], mask, add_cls=False)
-        vt = self.temporal_encoder(out.features, lengths)
+        end = base + self.sa2.width
+        out = self.sa2(rows[..., : self.hidden_dim], rows[..., base:end], mask, add_cls=False)
+        token = out.features
+        if self.mo_proj is not None and self.mo_norm is not None:  # L1mo, LOCAL_STEP1B.md §2
+            magnitude = self.mo_proj(self.mo_norm(rows[..., end:]))
+            token = token + magnitude * mask[..., None].to(token.dtype)
+        vt = self.temporal_encoder(token, lengths)
         outputs = {"stp_attn": out.attn, "vis_feats": vt}
         if class_feats is not None:
             outputs["cls_bin_logits"] = self.bin_head(before_fused=vt)

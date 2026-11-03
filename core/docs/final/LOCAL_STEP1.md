@@ -86,3 +86,33 @@ adds `stp_branch` only for non-host arms (every earlier read-out keeps its prove
 `STP_BRANCH*`, `core/tools/local_readout.py`, tests `core/tests/test_local_branch.py`. Host paths (R4 / R6 / W0) are
 unchanged: `_stp_rows` now reads the motion width from `row_motion_dim`, which equals `MotionResidual.motion_dim`
 whenever the latter exists.
+
+## 7. Read-out (2026-11-03) — **G1 FAIL without the overfit tell — PRELIMINARY (n = 1 seed)**
+
+Raw: `Thesis-Final/outputs/local/REPORTS/local_readout.md` (untracked). DoTA-CAP (n/1397) dev, protocol B, 569 clips.
+
+| row | macro [95 % cluster CI] |
+|---|---|
+| L0 (W0 s2024) | 0.8110 [0.7948, 0.8269] |
+| L0b (W0 recipe s2025) | 0.8058 [0.7895, 0.8221] |
+| **L1** | **0.6122** [0.5976, 0.6268] |
+| L0+L0b | 0.8127 [0.7968, 0.8283] |
+| L0+L1 | 0.7634 [0.7480, 0.7785] |
+
+| gate | read | pass |
+|---|---|---|
+| G1 | 0.6122, low 0.5976 (bar 0.60) and mean 0.10 below the training-free Mo read 0.7132 | **no** |
+| G2 (L0+L1) − (L0+L0b) | −0.0493 [−0.0584, −0.0402] (cost shown) | **no** |
+| G3 oracle | +0.0003 [−0.0064, +0.0071] | **no** |
+
+Printed: L1 − L0 −0.199 [−0.219, −0.179]; free ensemble (L0+L0b) − L0 +0.0017 [−0.002, +0.006]; seed spread
+L0b − L0 −0.005. D2: Spearman of per-clip AUC with L0 — L1 0.259, L0b 0.887; clips won by ≥ 0.05 — L1 12.0 % vs L0
+76.8 %, L0b 16.7 % vs 20.2 %. `p_T2` per-clip ρ — L0 0.561, L0b 0.557, **L1 0.152**. Training: `mil` L0 0.694 →
+0.176, L0b 0.710 → 0.179, **L1 0.717 → 0.591** (underfit, not the WL overfit); SA² entropy 1.0 → 0.947, ‖W_q‖ 0 → 1.73.
+
+**Reading.** L1 is different from the host (ρ 0.26) and does not track position (ρ 0.15), but is weak: it cannot fit
+Nexar (mil 0.59) and loses to L0 on 77 % of clips; even a per-clip oracle gains nothing over a second host seed.
+**Not licensed:** "patches / objects are useless", "two branches are wrong", anything about YOLO / OPF / native
+resolution. **Post-hoc (printed, not a verdict):** L1's token carries the *content* of the 12 Mo-selected patches but
+not the Mo values themselves, while the G1 reference 0.7132 *is* those values; Step 1B (`LOCAL_STEP1B.md`) tests
+this one omission before any re-extraction.
