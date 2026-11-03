@@ -933,3 +933,13 @@ WU_ARMS = {  # arm -> config overrides on top of the host (v2 Nexar A2's recipe,
 WU_SEEDS = V5_RUN_SEEDS  # 2024-2026; the first run is s2024 only (preliminary)
 DOTA_CAP_FRAMES_DIRNAME = "DoTA_CAP_frames"  # under DATA_ROOT: {dota_id}.zip, DoTA-native frames
 DOTA_CAP_FRAMES_MANIFEST = "frames_manifest.json"  # written by dota_cap_frames verify on PASS
+# core/docs/final/ZS_TAD_DADA.md -- zero-shot TAD / DADA-2000: Nexar-trained host vs SA² (s2024)
+ZS_OUTPUT_DIRNAME = "zs"  # under OUTPUT_ROOT: eval/<tad|dada>/<arm>/ + REPORTS/
+ZS_FRAMES_DIRNAME = "ZS_frames"  # <drive data>/<this>/<dataset>/{id}.zip: the s8 row frames only
+ZS_FRAMES_MANIFEST = DOTA_CAP_FRAMES_MANIFEST  # written by zs_frames verify on PASS
+ZS_STRIDE = FRAME_STRIDE  # TAD (§26) and DADA whole (D-N20) are read at s8
+ZS_CONTROL_ARM = WU_CONTROL_ARM  # W0 = v2 Nexar A2 s2024 bit for bit (DoTA-CAP-dev 0.8110072)
+ZS_SA2_ARM = "R4"  # SA² + released prompts (prefix OFF)
+ZS_ARMS = (ZS_CONTROL_ARM, ZS_SA2_ARM)
+ZS_SEED = STP_SEEDS[0]  # 2024 only -> every sentence is PRELIMINARY (n = 1 seed)
+ZS_REPRO_TOL = 1e-3  # |W0 - v2 A2 s2024| macro above this is flagged (same function, same seed)

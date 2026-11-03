@@ -40,6 +40,7 @@ from core import constants
 from core.config import load_config
 from core.data.dataset import FeatureEvalDataset
 from core.data.definitions import dataset_abbr, item_verbalizer
+from core.data.stp_patches import eval_patches
 from core.data.v2_inputs import check_input_manifest
 from core.device import resolve_device
 from core.inference import (
@@ -137,6 +138,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         default=constants.SCORE_NORM_AUTO,
                         help="per-video score pooling before the micro metric "
                              "(auto: minmax if every eval video is abnormal)")
+    parser.add_argument("--patch-dir", type=Path, default=None,
+                        help="LaGoVAD-STP: the selected-patch cache of these videos "
+                             "(stp_patches select), required iff the checkpoint has stp.sa2")
+    parser.add_argument("--patch-stride", type=int, default=None,
+                        help="stride the patch cache must have been built at "
+                             "(default: data.frame_stride, as core.train checks it)")
     return parser
 
 
@@ -150,13 +157,20 @@ def main(argv: list[str] | None = None) -> None:
     data_dir = args.data_dir if args.data_dir else constants.DATA_ROOT / dataset_name
     clip_dir = args.clip_dir if args.clip_dir else constants.CLIP_CACHE_DIR / dataset_name
 
-    dataset = FeatureEvalDataset(data_dir, clip_dir)
     class_names = load_class_names(data_dir)
     model = load_model_for_scoring(
         cfg, device, args.ckpt, args.baseline_ckpt, args.text_encoder, args.overrides
     )
     # cfg.v2 now comes from the checkpoint (ARCH_SECTIONS): score it on the input it trained on.
     check_input_manifest(clip_dir, cfg.v2.crn, cfg.v2.motion)
+    # cfg.stp too: an SA² checkpoint needs its patch cache, any other refuses one (C2)
+    patches = eval_patches(
+        cfg.stp.sa2, cfg.stp.motion, cfg.stp.top_k, args.patch_dir,
+        args.patch_stride if args.patch_stride is not None else cfg.data.frame_stride,
+    )
+    dataset = FeatureEvalDataset(
+        data_dir, clip_dir, patches.patch_dir if patches is not None else None
+    )
     text_encode_fn = make_text_encoder(model, args.text_encoder, device, dim=cfg.model.hidden_dim)
     # Seeded **per item**, not per run (lesson C30). Definition sampling is
     # per-window, so one shared RNG makes every clip's conditioning depend on

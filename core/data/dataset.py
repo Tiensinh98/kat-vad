@@ -197,8 +197,11 @@ class DVSFeatureDataset(Dataset[dict[str, Any]]):
 class FeatureEvalDataset(Dataset[dict[str, Any]]):
     """Frame-labeled test videos at full length (sliding-window eval in §10)."""
 
-    def __init__(self, data_dir: Path, clip_dir: Path) -> None:
+    def __init__(self, data_dir: Path, clip_dir: Path, patch_dir: Path | None = None) -> None:
         self.clip_dir = clip_dir
+        # LaGoVAD-STP: the video's selected CLIP patches appended after the host columns,
+        # row-aligned with ``clip_dir`` (core.data.stp_patches); None = pre-STP rows, unchanged
+        self.patch_dir = patch_dir
         self.slicer = FeatureSlicer(load_windows(data_dir))
         frame_labels: dict[str, list[int]] = _load_json(
             data_dir / constants.FRAME_LABELS_TEST_FILENAME
@@ -213,9 +216,10 @@ class FeatureEvalDataset(Dataset[dict[str, Any]]):
 
     def __getitem__(self, index: int) -> dict[str, Any]:
         video_id = self.video_ids[index]
-        features = torch.from_numpy(
-            self.slicer.load(self.clip_dir, video_id).astype(np.float32)
-        )
+        rows = self.slicer.load(self.clip_dir, video_id)
+        if self.patch_dir is not None:
+            rows = stp_rows(rows, self.slicer.load(self.patch_dir, video_id, mmap=True))
+        features = torch.from_numpy(rows.astype(np.float32))
         labels = torch.tensor(self.frame_labels[video_id], dtype=torch.float32)
         length = min(len(features), len(labels))
         if len(features) != len(labels):

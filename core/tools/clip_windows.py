@@ -29,6 +29,9 @@ Two subcommands:
               map (:func:`core.tools.dota_cap.rebuild_folder`), encodes it at stride 3.
 ``archive`` -- DoTA-CAP from the per-clip frame archive (``core.tools.dota_cap_frames pack``):
               the same rebuilt frames, same gate, no tar stream.
+``packed`` -- zero-shot TAD / DADA from ``core.tools.zs_frames`` archives, which hold **only the
+              row frames** (``frames[::stride]``): every entry is a row, the manifest's stride is
+              the archive's, and each video is gated against its own CLIP rows like ``frames``.
 
 CLI::
 
@@ -88,6 +91,7 @@ TRANSFORM_NAME = "grid cells of the full frame, each squash224 + CLIP norm (no_c
 FEATURE_NAME = "CLIPVisionModelWithProjection.image_embeds per window"
 FRAME_SOURCE_CAP = "CAP-DATA frames rebuilt by the frozen DoTA-CAP frame map"
 FRAME_SOURCE_FOLDERS = "per-video frame folders"
+FRAME_SOURCE_PACKED = "zs_frames archives: the row frames of each video, original bytes"
 GATE_FAILED = "global_window_cos"
 ROWS_MISMATCH = "rows_mismatch"
 CAP_FRAMES_MISMATCH = "cap_frames_mismatch"
@@ -457,6 +461,51 @@ def run_archive(args: argparse.Namespace, encoder: extract_clip_features.ImageEn
         LOGGER.info("%s: %s -- %s", dota_id, gate, progress.step())
 
 
+# --------------------------------------------------------------------------- packed
+
+
+def run_packed(args: argparse.Namespace, encoder: extract_clip_features.ImageEncoder) -> None:
+    """``{id}.zip`` row-frame archives (``zs_frames``): unpack, encode every entry, gate, save."""
+    grids = tuple(args.grids)
+    manifest_path = args.archive_dir / constants.ZS_FRAMES_MANIFEST
+    if not manifest_path.is_file():
+        raise FileNotFoundError(f"{manifest_path} missing: run zs_frames verify first")
+    archive = json.loads(manifest_path.read_text(encoding="utf-8"))
+    dataset, stride = str(archive["dataset"]), int(archive["stride"])
+    out = args.output_dir or cache_dir(dataset, stride, grids, args.cells)
+    source = f"{FRAME_SOURCE_PACKED} (ids sha1 {archive['ids_sha1']})"
+    extract_video_features.check_or_write_manifest(
+        out, build_manifest(dataset, stride, source, grids, args.cells), args.force
+    )
+    report: dict[str, dict[str, Any]] = (
+        json.loads(args.report.read_text(encoding="utf-8")) if args.report.exists() else {}
+    )
+    todo = sorted(
+        v for v in read_ids_file(args.ids_file) if args.force or not is_complete(out / f"{v}.npy")
+    )
+    device = resolve_device(args.device)
+    progress = Progress(len(todo))
+    for video_id in todo:
+        folder = dota_cap_frames.unpack(
+            dota_cap_frames.archive_path(args.archive_dir, video_id), args.work_dir / video_id
+        )
+        try:
+            windows = encode_windows(
+                list_frame_images(folder), encoder, device, args.frames_per_batch, grids,
+                args.cells,
+            )
+            # same pixels as the CLIP cache -> the per-video mean is gated too (T2's rule)
+            gate = gate_rows(windows, np.load(args.clip_dir / f"{video_id}.npy"),
+                             constants.DOTA_CAP_MEAN_COS, grids)
+            if gate["reason"] == OK:
+                save_array(out / f"{video_id}.npy", flatten(windows))
+        finally:
+            shutil.rmtree(folder, ignore_errors=True)
+        report[video_id] = gate
+        write_json_atomic(args.report, report)
+        LOGGER.info("%s: %s -- %s", video_id, gate, progress.step())
+
+
 # --------------------------------------------------------------------------- CLI
 
 
@@ -494,7 +543,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
     arc.add_argument("--report", type=Path, required=True, help="per-clip JSON, resumable")
     arc.add_argument("--stride", type=int, default=constants.TW_DOTA_STRIDE)
 
-    for p in (frames, cap, arc):
+    packed = sub.add_parser("packed", help="zs_frames row-frame archives (TAD / DADA zero-shot)")
+    packed.add_argument("--archive-dir", type=Path, required=True, help="{id}.zip + manifest")
+    packed.add_argument("--work-dir", type=Path, required=True, help="VM disk, not Drive")
+    packed.add_argument("--clip-dir", type=Path, required=True,
+                        help="the CLIP _ncc cache the archive was verified against (row gate)")
+    packed.add_argument("--ids-file", type=Path, required=True)
+    packed.add_argument("--report", type=Path, required=True, help="per-video JSON, resumable")
+
+    for p in (frames, cap, arc, packed):
         p.add_argument("--output-dir", type=Path, default=None,
                        help="default: cache/clip_windows/<dataset>_s<stride>_g<grids>_ncc")
         p.add_argument("--frames-per-batch", type=int, default=constants.TW_FRAMES_PER_BATCH)
@@ -517,6 +574,8 @@ def main(argv: list[str] | None = None) -> None:
         run_frames(args, encoder)
     elif args.command == "archive":
         run_archive(args, encoder)
+    elif args.command == "packed":
+        run_packed(args, encoder)
     else:
         run_cap(args, encoder)
 

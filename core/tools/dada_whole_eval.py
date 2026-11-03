@@ -19,6 +19,9 @@ CLI::
         --census data/DADA2000_orig/counts/resolved_census.json \\
         --input-dir cache/v2/A3_R2_S/DADA2000_orig_test_nexar --data-dir data/Nexar_window \\
         --out-dir outputs/v2_nexar_window/eval/dada/A3
+
+An SA² checkpoint (LaGoVAD-STP, ``stp.sa2``) also needs ``--patch-dir``: the sources' selected
+patch cache at the same stride (``stp_patches select``), appended after the input rows.
 """
 
 from __future__ import annotations
@@ -34,6 +37,7 @@ import torch
 
 from core import constants
 from core.data.dada_origin import load_counts
+from core.data.stp_patches import EvalPatches, eval_patches, stp_arm
 from core.data.v2_inputs import check_input_manifest
 from core.device import resolve_device
 from core.tools.kill_switch_probe import source_labels, write_json_atomic, write_text_atomic
@@ -109,21 +113,33 @@ def summarize(per_run: dict[str, Curves], labels: Curves, seed: int) -> dict[str
 # ---------------------------------------------------------------------------
 # scoring
 # ---------------------------------------------------------------------------
+def source_rows(input_dir: Path, video_id: str, patches: EvalPatches | None) -> np.ndarray:
+    """One source's model input: its cached rows, plus its STP patch columns if any."""
+    rows = np.ascontiguousarray(np.load(input_dir / f"{video_id}.npy"), dtype=np.float32)
+    return rows if patches is None else patches.append(rows, video_id)
+
+
 def score_run(
-    run: Run, ids: list[str], input_dir: Path, data_dir: Path, device: torch.device
-) -> tuple[Curves, int, dict[str, str]]:
+    run: Run,
+    ids: list[str],
+    input_dir: Path,
+    data_dir: Path,
+    device: torch.device,
+    patch_dir: Path | None = None,
+    stride: int = constants.NEXAR_ZS_DADA_STRIDE,
+) -> tuple[Curves, int, dict[str, Any]]:
     """Step curves of every source for one checkpoint, after the K4 input check."""
     model, step, text_encode_fn, cfg = load_finished_model(run, device)
     check_input_manifest(input_dir, cfg.v2.crn, cfg.v2.motion)
+    patches = eval_patches(cfg.stp.sa2, cfg.stp.motion, cfg.stp.top_k, patch_dir, stride)
     class_names = load_class_names(data_dir)
     whole = Protocol(1, None)  # every cached (stride-8) row, whole video
     curves: Curves = {}
     for video_id in ids:
-        feats = torch.from_numpy(np.ascontiguousarray(np.load(input_dir / f"{video_id}.npy"),
-                                                      dtype=np.float32))
+        feats = torch.from_numpy(source_rows(input_dir, video_id, patches))
         curves[video_id] = score_steps(model, feats, text_encode_fn, class_names, video_id, whole)
     LOGGER.info("%s (step %d): scored %d DADA sources", run.name, step, len(curves))
-    return curves, step, {"crn": cfg.v2.crn, "motion": cfg.v2.motion}
+    return curves, step, {"crn": cfg.v2.crn, "motion": cfg.v2.motion, **stp_arm(cfg.stp)}
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
@@ -140,10 +156,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     device = resolve_device(args.device)
     per_run: dict[str, Curves] = {}
     steps: dict[str, int] = {}
-    arms: dict[str, dict[str, str]] = {}
+    arms: dict[str, dict[str, Any]] = {}
     for name, ckpt in args.run:
         per_run[name], steps[name], arms[name] = score_run(
-            Run(name, Path(ckpt)), ids, args.input_dir, args.data_dir, device
+            Run(name, Path(ckpt)), ids, args.input_dir, args.data_dir, device,
+            args.patch_dir, args.stride,
         )
     if len({json.dumps(a, sort_keys=True) for a in arms.values()}) != 1:
         raise ValueError(f"checkpoints of different arms cannot be seed-averaged: {arms}")
@@ -152,6 +169,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "protocol": f"whole source video, every s{args.stride} row, labels = annotation span",
         "set": "DADA-2000 original: the sources of T2-test's windows",
         "input_dir": str(args.input_dir),
+        "patch_dir": str(args.patch_dir) if args.patch_dir is not None else None,
         "arm": next(iter(arms.values())),
         "checkpoints": dict(args.run),
         "global_steps": steps,
@@ -200,6 +218,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         help="per-source s8 rows: plain CLIP (A0) or the arm's baked cache")
     parser.add_argument("--data-dir", type=Path, required=True, help="training dir (defs.json)")
     parser.add_argument("--stride", type=int, default=constants.NEXAR_ZS_DADA_STRIDE)
+    parser.add_argument("--patch-dir", type=Path, default=None,
+                        help="LaGoVAD-STP: the sources' selected-patch cache (SA² checkpoints)")
     parser.add_argument("--seed", type=int, default=constants.SEED, help="bootstrap seed")
     parser.add_argument("--device", default="auto")
     parser.add_argument("--out-dir", type=Path, required=True)

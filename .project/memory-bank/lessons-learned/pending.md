@@ -2155,3 +2155,12 @@ a planted in-box signal (expect GO) before any real number exists.
 **Rule:** Guard every negative-offset slice whose length comes from a config; `-0:` means "from the start".
 **Files:** `core/models/clip_text.py` (`_insert_soft_prompts`), `core/tests/test_stp.py::TestPrefix`.
 **Gate status.** Zero occurrences in a run (caught in review); candidate.
+
+## (cb) [MEDIUM] I/O - Archive only the frames that become rows before a GPU extraction (2026-11-03)
+**Triggers:** frame archive, zip on Drive, 7z, row frames, stride, GPU idle, extraction, SA² patches, prestrided
+**Problem:** SA² patches for DADA zero-shot needed only `frames[::8]` of 370 sources, but the K / text-window notebooks extracted whole sources (≈ 18 GiB of PNG through the Drive mount) inside the GPU session, so the GPU idled during I/O; caught at planning, before a run.
+**Bad:** `7z x DADA2000.zip 'DADA2000/{t}/{v}/images/*'` per shard inside the GPU notebook, then `clip_windows frames --stride 8`.
+**Good:** a CPU notebook lists the archive once, extracts only the row frames (`zs_frames dada-plan` → `7z x @list`), packs `{id}.zip` with the row stride in a verified manifest; the GPU notebook unpacks ≈ 2 GB and gates the 1×1 cell against the CLIP rows.
+**Rule:** Pack exactly the row frames on CPU, record their stride in the archive manifest, and let the GPU job read only that archive.
+**Files:** `core/tools/zs_frames.py`, `core/tools/clip_windows.py` (`run_packed`), `colab/final/zs_pack_frames.ipynb`.
+**Gate status.** Zero occurrences in a run (design); candidate.
