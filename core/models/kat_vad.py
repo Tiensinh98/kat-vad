@@ -65,12 +65,17 @@ class KATVAD(nn.Module):
         grid_readout: GridReadout | None = None,
         smil_head: SpatialMILHead | None = None,
         sa2: SpatialAttentionAggregation | None = None,
+        motion_init_std: float = 0.0,
+        motion_init_seed: int = 0,
     ) -> None:
         super().__init__()
         # v2 motion stream (architecture §5): absent unless motion_dim > 0, so every
-        # v1 / A0 / A1 checkpoint builds -- and loads -- exactly as before.
+        # v1 / A0 / A1 checkpoint builds -- and loads -- exactly as before. W_u starts at
+        # zero unless motion_init_std > 0 (core/docs/final/WU_ARMS.md, arm WI).
         self.motion_residual = (
-            MotionResidual(hidden_dim, motion_dim) if motion_dim > 0 else None
+            MotionResidual(hidden_dim, motion_dim, motion_init_std, motion_init_seed)
+            if motion_dim > 0
+            else None
         )
         # v5 (PREREG_V5 §2): the motion term comes from a readout of the V7 grid appended to
         # each row; absent unless v5.readout != none, so v1 / v2 checkpoints load unchanged.
@@ -155,6 +160,8 @@ class KATVAD(nn.Module):
             clip_text_model=clip_text_model,
             tokenizer=tokenizer,
             motion_dim=cfg.model.motion_dim,
+            motion_init_std=cfg.model.motion_init_std,
+            motion_init_seed=cfg.train.seed,
             grid_readout=grid_readout,
             smil_head=smil_head,
             sa2=(

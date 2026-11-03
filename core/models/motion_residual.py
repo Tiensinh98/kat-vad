@@ -24,15 +24,27 @@ from core import constants
 class MotionResidual(nn.Module):
     """Split ``[x ; u]`` rows and return ``x + W_u u`` plus the motion share."""
 
-    def __init__(self, hidden_dim: int, motion_dim: int) -> None:
+    def __init__(
+        self, hidden_dim: int, motion_dim: int, init_std: float = 0.0, init_seed: int = 0
+    ) -> None:
         super().__init__()
         if motion_dim <= 0:
             raise ValueError(f"motion_dim must be positive, got {motion_dim}")
+        if init_std < 0:
+            raise ValueError(f"init_std must be >= 0, got {init_std}")
         self.hidden_dim = hidden_dim
         self.motion_dim = motion_dim
         self.proj = nn.Linear(motion_dim, hidden_dim)
         nn.init.zeros_(self.proj.weight)
         nn.init.zeros_(self.proj.bias)
+        if init_std > 0:
+            # a private generator: the global RNG stream (and so every other module's init
+            # and the data order) stays identical to the zero-init control (WU_ARMS.md)
+            generator = torch.Generator().manual_seed(init_seed)
+            with torch.no_grad():
+                self.proj.weight.copy_(
+                    torch.randn(self.proj.weight.shape, generator=generator) * init_std
+                )
 
     def forward(self, rows: Tensor, mask: Tensor | None = None) -> tuple[Tensor, Tensor]:
         """``rows (B, L, hidden+motion)`` -> ``h (B, L, hidden)`` and ``rho_u`` (scalar).

@@ -45,6 +45,8 @@ class ModelConfig:
     # v2 motion stream (architecture §5): width d_v of the pre-scaled motion columns
     # appended to each input row. 0 = no motion stream (A0/A1, every v1 checkpoint).
     motion_dim: int = 0
+    # W_u init (core/docs/final/WU_ARMS.md): 0 = zero-init (every shipped arm); > 0 = N(0, std^2)
+    motion_init_std: float = 0.0
 
 
 @dataclass
@@ -141,6 +143,8 @@ class TrainConfig:
     device: str = "auto"
     stage0_warmup: bool = False
     stage05_hntune: bool = False
+    # learning-rate multiplier of W_u alone (core/docs/final/WU_ARMS.md); 1 = one group, as shipped
+    motion_lr_mult: float = 1.0
 
 
 @dataclass
@@ -298,6 +302,12 @@ def validate_v2(cfg: Config) -> None:
             )
     if cfg.kip.enabled and (has_motion or v2.crn != constants.V2_OFF):
         raise ValueError("v2 inputs (v2.crn / v2.motion) require kip.enabled=false")
+    if cfg.model.motion_init_std < 0:
+        raise ValueError(f"model.motion_init_std must be >= 0, got {cfg.model.motion_init_std}")
+    if cfg.train.motion_lr_mult <= 0:
+        raise ValueError(f"train.motion_lr_mult must be > 0, got {cfg.train.motion_lr_mult}")
+    if not has_motion and (cfg.model.motion_init_std > 0 or cfg.train.motion_lr_mult != 1.0):
+        raise ValueError("model.motion_init_std / train.motion_lr_mult need a motion stream (W_u)")
 
 
 def validate_v5(cfg: Config) -> None:

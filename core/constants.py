@@ -919,5 +919,17 @@ STP_DIAG_INIT_NORM_RTOL = 1e-4  # D-1: rebuilt ||theta_0|| vs metrics.jsonl's fi
 STP_DIAG_DEAD_SHARE = 0.5  # D-1: >= half the prompt coordinates with sqrt(v_hat) < 10 eps = dead
 STP_DIAG_NOISE_FACTOR = 2.0  # D-1: SNR below 2x the zero-mean-noise SNR = sign-incoherent
 STP_DIAG_MOVED = 0.1  # D-1: RMS displacement / sum(lr) below this = the LR budget was not used
+# core/docs/final/WU_ARMS.md -- the motion-fusion matrix W_u: non-zero init / its own learning rate
+WU_OUTPUT_DIRNAME = "wu"  # under OUTPUT_ROOT: <arm>/s<seed>/ + eval/ + REPORTS/
+WU_INIT_STD = 0.003  # learned ||W_u||_F 1.41 (STP R4/R6 s2024) / sqrt(512 * 384) = 0.0032
+WU_LR_MULT = 10.0  # one tenth of 1: the budget rule of the Nov 2 proposal §3.5.1 (5e-5 -> 5e-4)
+WU_CONTROL_ARM = "W0"  # same code path, W_u zero-init, LR x1: every contrast is arm - W0
+WU_ARMS = {  # arm -> config overrides on top of the host (v2 Nexar A2's recipe, stp off)
+    "W0": {},  # control: the shipped host
+    "WI": {"model.motion_init_std": WU_INIT_STD},  # W_u ~ N(0, 0.003^2), same LR
+    "WL": {"train.motion_lr_mult": WU_LR_MULT},  # W_u zero-init, LR x10 on W_u only
+    "WIL": {"model.motion_init_std": WU_INIT_STD, "train.motion_lr_mult": WU_LR_MULT},  # optional
+}
+WU_SEEDS = V5_RUN_SEEDS  # 2024-2026; the first run is s2024 only (preliminary)
 DOTA_CAP_FRAMES_DIRNAME = "DoTA_CAP_frames"  # under DATA_ROOT: {dota_id}.zip, DoTA-native frames
 DOTA_CAP_FRAMES_MANIFEST = "frames_manifest.json"  # written by dota_cap_frames verify on PASS

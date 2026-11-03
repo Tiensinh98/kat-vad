@@ -41,6 +41,9 @@ from core.tools.protocol_b_eval import CLIP_AUCS_JSON, READOUT_JSON
 LOGGER = logging.getLogger(__name__)
 
 READOUT_NAME = "stp_readout"
+DEFAULT_TITLE = "LaGoVAD-STP read-out"
+DEFAULT_RULE = "core/docs/final/STP_BUILD.md §3"
+DEFAULT_CONTROL_NOTE = "(v5 Stage 1 motion-stream host)"
 PREFIX_OFF, PREFIX_ON = "R4", "R6"
 DIAG_KEYS = ("stp_entropy", "stp_wq_norm", "prompt_norm", "motion_share", "w_u_norm", "mil")
 GAIN, COST, NONE = "gain shown", "cost shown", "no difference shown"
@@ -111,7 +114,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     preliminary = n_seeds < len(constants.STP_SEEDS)
 
     result: dict[str, Any] = {
-        "rule": "core/docs/final/STP_BUILD.md §3",
+        "rule": args.rule,
+        "title": args.title,
+        "control_note": args.control_note,
         "set": "DoTA-CAP (n/1397) dev, protocol B",
         "control": control_name,
         "seeds": args.seeds,
@@ -143,14 +148,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             aucs[PREFIX_ON], aucs[PREFIX_OFF], ego
         )
     if args.runs_root is not None:
-        for name, _ in args.arm:
+        for name in rows:
             for seed in args.seeds:
                 diag = run_diagnostics(args.runs_root / name / f"s{seed}")
                 if diag is not None:
                     result["diagnostics"][f"{name}/s{seed}"] = diag
     args.out_dir.mkdir(parents=True, exist_ok=True)
-    write_json_atomic(args.out_dir / f"{READOUT_NAME}.json", result)
-    write_text_atomic(args.out_dir / f"{READOUT_NAME}.md", render_markdown(result))
+    write_json_atomic(args.out_dir / f"{args.name}.json", result)
+    write_text_atomic(args.out_dir / f"{args.name}.md", render_markdown(result))
     return result
 
 
@@ -171,9 +176,10 @@ def _diag(d: dict[str, Any], key: str) -> str:
 
 def render_markdown(r: dict[str, Any]) -> str:
     lines = [
-        f"# LaGoVAD-STP read-out — {r['set']} — **{r['label']}**",
+        f"# {r.get('title', DEFAULT_TITLE)} — {r['set']} — **{r['label']}**",
         "",
-        f"Rule: `{r['rule']}`. Control = **{r['control']}** (v5 Stage 1 motion-stream host). "
+        f"Rule: `{r['rule']}`. Control = **{r['control']}** "
+        f"{r.get('control_note', DEFAULT_CONTROL_NOTE)}. "
         f"Seeds: {', '.join(map(str, r['seeds']))}.",
         "",
         "| row | macro [95 % cluster CI] | per-run macro | t/N ruler | arm |",
@@ -200,14 +206,14 @@ def render_markdown(r: dict[str, Any]) -> str:
             "",
             "Training diagnostics (first → last logged batch):",
             "",
-            "| run | step | SA² entropy / log K | ‖W_q‖ | prompt norm | rho_u | mil |",
-            "|---|---|---|---|---|---|---|",
+            "| run | step | SA² entropy / log K | ‖W_q‖ | prompt norm | rho_u | ‖W_u‖ | mil |",
+            "|---|---|---|---|---|---|---|---|",
         ]
         for name, d in r["diagnostics"].items():
             lines.append(
                 f"| {name} | {d['last_step']} | {_diag(d, 'stp_entropy')} | "
                 f"{_diag(d, 'stp_wq_norm')} | {_diag(d, 'prompt_norm')} | "
-                f"{_diag(d, 'motion_share')} | {_diag(d, 'mil')} |"
+                f"{_diag(d, 'motion_share')} | {_diag(d, 'w_u_norm')} | {_diag(d, 'mil')} |"
             )
     return "\n".join(lines) + "\n"
 
@@ -224,6 +230,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--metadata", type=Path, required=True, help="DoTA metadata_val.json")
     parser.add_argument("--split-file", type=Path, required=True, help="DoTA val_split.txt")
     parser.add_argument("--out-dir", type=Path, required=True)
+    parser.add_argument("--name", default=READOUT_NAME, help="output file stem")
+    parser.add_argument("--title", default=DEFAULT_TITLE)
+    parser.add_argument("--rule", default=DEFAULT_RULE, help="the document that holds the rule")
+    parser.add_argument("--control-note", default=DEFAULT_CONTROL_NOTE)
     return parser
 
 

@@ -88,6 +88,30 @@ def set_global_seed(seed: int) -> None:
     torch.manual_seed(seed)
 
 
+def optimizer_param_groups(
+    model: KATVAD, learning_rate: float, motion_lr_mult: float
+) -> list[Any]:
+    """The trainable parameters, as AdamW takes them (core/docs/final/WU_ARMS.md).
+
+    ``motion_lr_mult == 1`` returns the flat list the trainer always used (one group, so the
+    default path is unchanged). Otherwise ``W_u`` (weight + bias) is split into its own group at
+    ``learning_rate * motion_lr_mult``; group 0 keeps the base rate, and ``LambdaLR`` applies
+    the same warm-up / cosine factor to both.
+    """
+    trainable = [p for p in model.parameters() if p.requires_grad]
+    if motion_lr_mult == 1.0:
+        return trainable
+    if model.motion_residual is None:
+        raise ValueError("train.motion_lr_mult != 1 needs a motion stream (W_u)")
+    motion = [p for p in model.motion_residual.parameters() if p.requires_grad]
+    motion_ids = {id(p) for p in motion}
+    rest = [p for p in trainable if id(p) not in motion_ids]
+    groups: list[Any] = [{"params": rest, "lr": learning_rate}]
+    if motion:
+        groups.append({"params": motion, "lr": learning_rate * motion_lr_mult})
+    return groups
+
+
 def warm_start_model(
     model: torch.nn.Module, path: Path, *, flag: str = "--init-weights"
 ) -> None:
@@ -209,9 +233,12 @@ class Trainer:
             for name, param in self.model.named_parameters():
                 param.requires_grad = name.startswith("kip.")
 
-        trainable = [p for p in self.model.parameters() if p.requires_grad]
         self.optimizer = AdamW(
-            trainable, lr=cfg.train.learning_rate, weight_decay=cfg.train.weight_decay
+            optimizer_param_groups(
+                self.model, cfg.train.learning_rate, cfg.train.motion_lr_mult
+            ),
+            lr=cfg.train.learning_rate,
+            weight_decay=cfg.train.weight_decay,
         )
         steps_per_epoch = math.ceil(
             math.ceil(len(dataset) / cfg.train.batch_size) / cfg.train.grad_accum_steps
