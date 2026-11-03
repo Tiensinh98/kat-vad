@@ -2155,3 +2155,12 @@ a planted in-box signal (expect GO) before any real number exists.
 **Rule:** Guard every negative-offset slice whose length comes from a config; `-0:` means "from the start".
 **Files:** `core/models/clip_text.py` (`_insert_soft_prompts`), `core/tests/test_stp.py::TestPrefix`.
 **Gate status.** Zero occurrences in a run (caught in review); candidate.
+
+## (cb) [MEDIUM] Experiment design - A late-fusion gain needs a same-recipe second-seed control (2026-11-03)
+**Triggers:** late fusion, two branches, ensemble, branch blend, fused score, oracle bound, D3, local branch
+**Problem:** the Nov 3 OSTP proposal judged its two-branch model (L7) against the host alone (L0); averaging any two separately trained models lowers per-clip noise, so L7 > L0 cannot separate "the local branch carries new evidence" from "two models beat one", and the per-clip oracle max(L0, X) beats L0 even for a pure-noise X.
+**Bad:** `gain = macro(fuse(L0, L1)) - macro(L0)`; `oracle = mean(max(auc_L0, auc_L1)) - macro(L0)`.
+**Good:** `gain = macro(fuse(L0, L1)) - macro(fuse(L0, L0_seed2))`; `oracle = mean(max(L0, L1) - max(L0, L0_seed2))`, same fusion rule.
+**Rule:** Judge every fused or oracle read against the same fusion of the host with a second seed of itself.
+**Files:** `core/tools/local_readout.py` (`fuse`, `oracle_gain`), `core/docs/final/LOCAL_STEP1.md` §1/§4.
+**Gate status.** Design catch before any run; candidate.

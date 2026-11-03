@@ -28,7 +28,7 @@ from core.data.collate import padding_mask
 from core.kip.kip_module import KIP
 from core.models.clip_text import SoftPromptCLIPTextModel
 from core.models.fusion import CoAttentionFusion
-from core.models.heads import BinaryHead, MultiClassHead
+from core.models.heads import BIN_HEAD_VANILLA, BinaryHead, MultiClassHead
 from core.models.motion_residual import MotionResidual
 from core.models.mqr import GridReadout, SpatialMILHead
 from core.models.sa2 import SpatialAttentionAggregation
@@ -67,14 +67,31 @@ class KATVAD(nn.Module):
         sa2: SpatialAttentionAggregation | None = None,
         motion_init_std: float = 0.0,
         motion_init_seed: int = 0,
+        local_branch: bool = False,
+        mo_token: bool = False,
     ) -> None:
         super().__init__()
+        # LaGoVAD-OSTP Step 1 (core/docs/final/LOCAL_STEP1.md §2): the model is the patch-only
+        # local branch L1 -- SA²'s x^AS alone -> its own RoFormer -> one conv head. The rows still
+        # carry [c ; u ; P_sel] (the host's caches), but u is never read and c is only SA²'s query.
+        if local_branch and sa2 is None:
+            raise ValueError("the local branch is SA² alone: it needs an SA² module")
+        self.local_branch = local_branch
+        # L1mo (core/docs/final/LOCAL_STEP1B.md): token_t = x^AS_t + W_m LN(m_t), m_t in R^{K+2}
+        # (the selected patches' Mo, decreasing, + the frame's mean and std Mo) as the last columns
+        if mo_token and not local_branch:
+            raise ValueError("mo_token is a local-branch input (LOCAL_STEP1B.md)")
+        self.mo_width = sa2.top_k + constants.STP_MO_STATS if mo_token and sa2 is not None else 0
+        self.mo_norm = nn.LayerNorm(self.mo_width) if mo_token else None
+        self.mo_proj = nn.Linear(self.mo_width, hidden_dim) if mo_token else None
+        # columns of u in an input row; MotionResidual is absent in the local branch (u unused)
+        self.row_motion_dim = motion_dim
         # v2 motion stream (architecture §5): absent unless motion_dim > 0, so every
         # v1 / A0 / A1 checkpoint builds -- and loads -- exactly as before. W_u starts at
         # zero unless motion_init_std > 0 (core/docs/final/WU_ARMS.md, arm WI).
         self.motion_residual = (
             MotionResidual(hidden_dim, motion_dim, motion_init_std, motion_init_seed)
-            if motion_dim > 0
+            if motion_dim > 0 and not local_branch
             else None
         )
         # v5 (PREREG_V5 §2): the motion term comes from a readout of the V7 grid appended to
@@ -99,16 +116,23 @@ class KATVAD(nn.Module):
         )
         self.kip = kip
         self.kip_on_raw_features = kip_on_raw_features
-        self.fusion = CoAttentionFusion(
-            d_model=hidden_dim, nhead=fusion_heads, num_layers=fusion_num_layers
+        # the local branch is class-agnostic: no co-attention, no H_mul, one pre-fusion conv head
+        self.fusion: CoAttentionFusion | None = (
+            None
+            if local_branch
+            else CoAttentionFusion(
+                d_model=hidden_dim, nhead=fusion_heads, num_layers=fusion_num_layers
+            )
         )
         self.bin_head = BinaryHead(
-            bin_head_type=bin_head_type,
+            bin_head_type=BIN_HEAD_VANILLA if local_branch else bin_head_type,
             d_model=hidden_dim,
             num_layers=score_head_layers,
             kernel_size=score_head_kernel,
         )
-        self.sim_head = MultiClassHead(temperature_init=multiclass_temp)
+        self.sim_head: MultiClassHead | None = (
+            None if local_branch else MultiClassHead(temperature_init=multiclass_temp)
+        )
         self.clip_text_model = clip_text_model
         self.tokenizer = tokenizer
 
@@ -169,6 +193,8 @@ class KATVAD(nn.Module):
                 if cfg.stp.sa2
                 else None
             ),
+            local_branch=cfg.stp.branch == constants.STP_BRANCH_LOCAL,
+            mo_token=cfg.stp.mo_token,
         )
 
     def encode_text(self, texts: list[str], use_soft_prompt: bool = True) -> Tensor:
@@ -202,6 +228,8 @@ class KATVAD(nn.Module):
         self, vis_feats: Tensor, txt_feats: Tensor, lengths: Tensor
     ) -> tuple[Tensor, Tensor]:
         """Fusion + both heads for one text-feature set (``(C, E)``)."""
+        if self.fusion is None or self.sim_head is None:
+            raise RuntimeError("the local branch has no text path (LOCAL_STEP1.md §2)")
         expanded_txt = txt_feats[None, :, :].expand(vis_feats.shape[0], -1, -1)
         v_fused, t_fused = self.fusion(vis_feats, expanded_txt, lengths)
         bin_logits = self.bin_head(before_fused=vis_feats, after_fused=v_fused)
@@ -244,18 +272,47 @@ class KATVAD(nn.Module):
         ``tanh(alpha) W LN``: ``STP_BUILD.md`` D1).
         """
         assert self.sa2 is not None  # nosec B101 - caller checks
-        width = self.sa2.width
-        base = rows.shape[-1] - width
-        motion_dim = 0 if self.motion_residual is None else self.motion_residual.motion_dim
-        if base != self.hidden_dim + motion_dim:
-            raise ValueError(
-                f"STP rows have {rows.shape[-1]} columns, expected {self.hidden_dim} (CLIP) + "
-                f"{motion_dim} (motion) + {width} (top-{self.sa2.top_k} patches) -- "
-                "is the patch cache appended (--patch-dir)?"
-            )
+        base = self._patch_base(rows)
         out = self.sa2(rows[..., : self.hidden_dim], rows[..., base:], mask)
         outputs["stp_attn"] = out.attn
         return torch.cat([out.features, rows[..., self.hidden_dim : base]], dim=-1)
+
+    def _patch_base(self, rows: Tensor) -> int:
+        """First column of the selected patches in a ``[c ; u ; P_sel (; m)]`` row (checked)."""
+        assert self.sa2 is not None  # nosec B101 - caller checks
+        width = self.sa2.width
+        base = rows.shape[-1] - width - self.mo_width
+        if base != self.hidden_dim + self.row_motion_dim:
+            mo = f" + {self.mo_width} (m_t)" if self.mo_width else ""
+            raise ValueError(
+                f"STP rows have {rows.shape[-1]} columns, expected {self.hidden_dim} (CLIP) + "
+                f"{self.row_motion_dim} (motion) + {width} (top-{self.sa2.top_k} patches){mo} -- "
+                "is the patch cache appended (--patch-dir)?"
+            )
+        return base
+
+    def _local_forward(
+        self, rows: Tensor, lengths: Tensor, mask: Tensor, class_feats: Tensor | None
+    ) -> dict[str, Tensor]:
+        """L1 (LOCAL_STEP1.md §2): ``x^AS_t`` -> own RoFormer -> one conv head.
+
+        ``c_t`` is SA²'s query only and ``u`` is never read, so the branch sees no global
+        evidence. The logit is emitted under the host's key ``cls_bin_logits`` whenever class
+        features are passed (the trainer and every scorer do), but no text reaches it.
+        """
+        assert self.sa2 is not None  # nosec B101 - __init__ checks
+        base = self._patch_base(rows)
+        end = base + self.sa2.width
+        out = self.sa2(rows[..., : self.hidden_dim], rows[..., base:end], mask, add_cls=False)
+        token = out.features
+        if self.mo_proj is not None and self.mo_norm is not None:  # L1mo, LOCAL_STEP1B.md §2
+            magnitude = self.mo_proj(self.mo_norm(rows[..., end:]))
+            token = token + magnitude * mask[..., None].to(token.dtype)
+        vt = self.temporal_encoder(token, lengths)
+        outputs = {"stp_attn": out.attn, "vis_feats": vt}
+        if class_feats is not None:
+            outputs["cls_bin_logits"] = self.bin_head(before_fused=vt)
+        return outputs
 
     def forward(
         self,
@@ -275,6 +332,8 @@ class KATVAD(nn.Module):
         ``cls_bin_logits``/``cls_sim_mat`` (+ ``cap_*`` for captions).
         """
         mask = padding_mask(v_feat_l, v_feat.shape[1]).to(v_feat.device)
+        if self.local_branch:
+            return self._local_forward(v_feat, v_feat_l, mask, class_feats)
         outputs: dict[str, Tensor] = {}
         if self.grid_readout is not None:
             v_feat = self._grid_rows(v_feat, outputs)

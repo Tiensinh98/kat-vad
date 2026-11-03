@@ -47,7 +47,7 @@ from core.data.definitions import (
     verbalize_class_name,
 )
 from core.data.knn_cache import load_knn_cache
-from core.data.stp_patches import check_patch_cache
+from core.data.stp_patches import check_mo_dir, check_patch_cache
 from core.data.v2_inputs import check_input_manifest
 from core.data.v5_grids import change_lag, read_grid_geometry
 from core.device import resolve_device
@@ -339,8 +339,12 @@ class Trainer:
         if "stp_attn" in outputs and self.model.sa2 is not None:
             losses["stp_entropy"] = attention_entropy(outputs["stp_attn"], mask)
             losses["stp_wq_norm"] = self.model.sa2.query_norm()
+        if self.model.mo_proj is not None:  # L1mo: ||W_m||_F, logged only (LOCAL_STEP1B.md)
+            losses["mo_proj_norm"] = self.model.mo_proj.weight.detach().norm()
         text_model = self.model.clip_text_model
         stp_arm = self.cfg.stp.sa2 or self.cfg.stp.text_prompt == constants.STP_PROMPT_PREFIX
+        if self.model.local_branch:  # LOCAL_STEP1.md §2: no text path, so no prompt to watch
+            stp_arm = False
         if stp_arm and text_model is not None and text_model.prompt_embedding is not None:
             losses["prompt_norm"] = text_model.prompt_embedding.weight.detach().norm()
         # v5 (PREREG_V5 §2): per-query attention entropy (S1-G6, logged only) and L_sMIL (S2-6)
@@ -420,18 +424,19 @@ class Trainer:
                     topk_pct=loss_cfg.sup_mil_topk_pct,
                 )
 
-        # L_MIL-align (multi-class)
-        loss_mul = multi_class_mil_loss(
-            outputs["cls_sim_mat"], cls_idx, lengths, topk_pct=loss_cfg.mul_mil_topk_pct
-        )
-        if "cap_sim_mat" in outputs and cap_labels is not None:
-            loss_mul = loss_mul + multi_class_mil_loss(
-                outputs["cap_sim_mat"],
-                cap_labels,
-                lengths,
-                topk_pct=loss_cfg.mul_mil_topk_pct,
+        # L_MIL-align (multi-class); the local branch (LOCAL_STEP1.md §2) has no H_mul
+        if "cls_sim_mat" in outputs:
+            loss_mul = multi_class_mil_loss(
+                outputs["cls_sim_mat"], cls_idx, lengths, topk_pct=loss_cfg.mul_mil_topk_pct
             )
-        losses["mul_mil"] = loss_mul
+            if "cap_sim_mat" in outputs and cap_labels is not None:
+                loss_mul = loss_mul + multi_class_mil_loss(
+                    outputs["cap_sim_mat"],
+                    cap_labels,
+                    lengths,
+                    topk_pct=loss_cfg.mul_mil_topk_pct,
+                )
+            losses["mul_mil"] = loss_mul
 
         # L_neg (caption contrastive with hard-negative mining)
         if (
@@ -475,7 +480,9 @@ class Trainer:
                 topk_pct=loss_cfg.mil_topk_pct,
             )
 
-        total = losses["mil"] + loss_cfg.mul_weight * losses["mul_mil"]
+        total = losses["mil"]
+        if "mul_mil" in losses:
+            total = total + loss_cfg.mul_weight * losses["mul_mil"]
         if "bottomk" in losses:
             total = total + loss_cfg.bottomk_weight * losses["bottomk"]
         if "dvs_sup" in losses:
@@ -797,6 +804,8 @@ def stp_patch_dir(cfg: Config, patch_dir: Path | None) -> Path | None:
     if patch_dir is None:
         raise ValueError("stp.sa2=true needs --patch-dir")
     check_patch_cache(patch_dir, cfg.data.frame_stride, cfg.stp.motion, cfg.stp.top_k)
+    if cfg.stp.mo_token:
+        check_mo_dir(patch_dir)
     return patch_dir
 
 
@@ -844,6 +853,7 @@ def build_trainer(
         grid_dir=grid_dir if cfg.v5.readout != constants.V5_READOUT_OFF else None,
         grid_lag=grid_lag,
         patch_dir=stp_patch_dir(cfg, patch_dir),
+        patch_mo=cfg.stp.mo_token,
     )
     class_names = load_class_names(data_dir)
 

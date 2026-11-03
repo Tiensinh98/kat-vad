@@ -55,11 +55,18 @@ class SpatialAttentionAggregation(nn.Module):
         """Columns the selected patches occupy at the end of an input row."""
         return self.top_k * self.feature_dim
 
-    def forward(self, cls: Tensor, patches: Tensor, mask: Tensor | None = None) -> SA2Output:
+    def forward(
+        self,
+        cls: Tensor,
+        patches: Tensor,
+        mask: Tensor | None = None,
+        add_cls: bool = True,
+    ) -> SA2Output:
         """``cls (B, L, D)``, ``patches (B, L, K * D)`` -> ``c~`` and the attention.
 
         ``mask`` (``(B, L)``, 1 = valid) zeroes ``x^AS`` on padded steps, so a padded row stays
-        exactly what the host model sees there.
+        exactly what the host model sees there. ``add_cls=False`` returns ``x^AS`` alone (the
+        local branch, ``LOCAL_STEP1.md`` §2): ``c_t`` is then only the query, never an input.
         """
         if patches.shape[-1] != self.width:
             raise ValueError(
@@ -73,7 +80,7 @@ class SpatialAttentionAggregation(nn.Module):
         x_as = (attn.unsqueeze(-1) * p).sum(-2)
         if mask is not None:
             x_as = x_as.masked_fill(~mask.bool()[..., None], 0.0)
-        return SA2Output(cls + x_as, attn)
+        return SA2Output(cls + x_as if add_cls else x_as, attn)
 
     def query_norm(self) -> Tensor:
         """``||W_q||_F`` (detached): 0 until the attention leaves its uniform start."""

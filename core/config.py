@@ -191,6 +191,12 @@ class STPConfig:
     motion: str = constants.STP_MOTION_RAW  # raw | ego (R7); must match the patch cache
     text_prompt: str = constants.STP_PROMPT_RELEASED  # released | prefix
     prefix_len: int = constants.STP_PREFIX_LEN
+    # host = SA² inside the host (R4 / R6); local = SA² alone as its own detector (L1,
+    # core/docs/final/LOCAL_STEP1.md): own RoFormer + one conv head, no text, no u, no c_t input
+    branch: str = constants.STP_BRANCH_HOST
+    # local branch only (L1mo, core/docs/final/LOCAL_STEP1B.md): the token also carries the
+    # selected patches' motion magnitudes, token_t = x^AS_t + W_m LN(m_t), m_t in R^{K+2}
+    mo_token: bool = False
 
 
 @dataclass
@@ -356,6 +362,18 @@ def validate_stp(cfg: Config) -> None:
         raise ValueError(f"stp.motion must be one of {constants.STP_MOTIONS}, got {stp.motion!r}")
     if stp.prefix_len < 1:
         raise ValueError(f"stp.prefix_len must be >= 1, got {stp.prefix_len}")
+    if stp.branch not in constants.STP_BRANCHES:
+        raise ValueError(f"stp.branch must be one of {constants.STP_BRANCHES}, got {stp.branch!r}")
+    if stp.mo_token and stp.branch != constants.STP_BRANCH_LOCAL:
+        raise ValueError("stp.mo_token is a local-branch input (LOCAL_STEP1B.md): stp.branch=local")
+    if stp.branch == constants.STP_BRANCH_LOCAL:
+        # LOCAL_STEP1.md §2: the local branch reads patches only and has no text path
+        if not stp.sa2:
+            raise ValueError("stp.branch=local is SA² alone: it needs stp.sa2=true")
+        if stp.text_prompt != constants.STP_PROMPT_RELEASED:
+            raise ValueError("stp.branch=local has no text path: a prefix would never train")
+        if cfg.loss.captions_from_definitions:
+            raise ValueError("stp.branch=local has no text path: captions_from_definitions=false")
     if not stp.sa2:
         return
     if not 1 <= stp.top_k <= constants.STP_PATCHES:

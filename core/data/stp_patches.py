@@ -119,13 +119,34 @@ def check_patch_cache(patch_dir: Path, stride: int, motion: str, top_k: int) -> 
     return manifest
 
 
-def stp_rows(rows: np.ndarray, patches: np.ndarray) -> np.ndarray:
-    """One item's host rows with its selected patch features appended, float32."""
+def mo_summary(magnitude: np.ndarray, top_k: int) -> np.ndarray:
+    """``(L, 49)`` Mo -> ``m_t`` ``(L, K + 2)``: the K largest (decreasing), mean, std.
+
+    The K largest are the magnitudes of exactly the K patches the cache selected (same
+    ``argsort(-Mo)``), so ``m_t`` says how strongly the patches in ``x^AS_t`` changed
+    (``core/docs/final/LOCAL_STEP1B.md`` §2).
+    """
+    mo = np.asarray(magnitude, dtype=np.float32)
+    if mo.ndim != 2 or not 1 <= top_k <= mo.shape[1]:
+        raise ValueError(f"magnitude must be (L, P >= {top_k}), got shape {mo.shape}")
+    top = -np.sort(-mo, axis=1)[:, :top_k]
+    stats = np.stack([mo.mean(axis=1), mo.std(axis=1)], axis=1)
+    out: np.ndarray = np.concatenate([top, stats], axis=1)
+    return out
+
+
+def stp_rows(
+    rows: np.ndarray, patches: np.ndarray, magnitude: np.ndarray | None = None
+) -> np.ndarray:
+    """One item's host rows with its selected patch features (and ``m_t``) appended, float32."""
     if len(patches) != len(rows):
         raise ValueError(f"patch rows {len(patches)} != input rows {len(rows)} (lesson C13)")
-    out: np.ndarray = np.concatenate(
-        [np.asarray(rows, dtype=np.float32), np.asarray(patches, dtype=np.float32)], axis=1
-    )
+    parts = [np.asarray(rows, dtype=np.float32), np.asarray(patches, dtype=np.float32)]
+    if magnitude is not None:
+        if len(magnitude) != len(rows):
+            raise ValueError(f"mo rows {len(magnitude)} != input rows {len(rows)} (lesson C13)")
+        parts.append(mo_summary(magnitude, patches.shape[1] // constants.STP_PATCH_DIM))
+    out: np.ndarray = np.concatenate(parts, axis=1)
     return out
 
 
@@ -134,14 +155,26 @@ class EvalPatches:
     """What an eval tool needs to append one checkpoint's patch columns to its clips."""
 
     patch_dir: Path
+    mo_token: bool = False
 
     def append(self, rows: np.ndarray, video_id: str) -> np.ndarray:
-        """Whole-clip rows (already at the cache's stride) -> STP rows."""
-        return stp_rows(rows, np.load(self.patch_dir / f"{video_id}.npy", mmap_mode="r"))
+        """Whole-clip rows (already at the cache's stride) -> STP rows (+ ``m_t`` for L1mo)."""
+        magnitude = (
+            np.load(self.patch_dir / constants.STP_MAGNITUDE_SUBDIR / f"{video_id}.npy")
+            if self.mo_token
+            else None
+        )
+        patches = np.load(self.patch_dir / f"{video_id}.npy", mmap_mode="r")
+        return stp_rows(rows, patches, magnitude)
 
 
 def eval_patches(
-    sa2: bool, motion: str, top_k: int, patch_dir: Path | None, stride: int
+    sa2: bool,
+    motion: str,
+    top_k: int,
+    patch_dir: Path | None,
+    stride: int,
+    mo_token: bool = False,
 ) -> EvalPatches | None:
     """``None`` for a checkpoint without SA²; refuses a missing or mismatched cache and back."""
     if not sa2:
@@ -151,27 +184,42 @@ def eval_patches(
     if patch_dir is None:
         raise ValueError("checkpoint has stp.sa2=true: pass its patch cache (--patch-dir)")
     check_patch_cache(patch_dir, stride, motion, top_k)
-    return EvalPatches(patch_dir)
+    if mo_token:
+        check_mo_dir(patch_dir)
+    return EvalPatches(patch_dir, mo_token)
+
+
+def check_mo_dir(patch_dir: Path) -> None:
+    """``stp.mo_token`` reads ``mo/`` beside the patches: refuse a cache without it."""
+    if not (patch_dir / constants.STP_MAGNITUDE_SUBDIR).is_dir():
+        raise ValueError(f"stp.mo_token needs {patch_dir}/{constants.STP_MAGNITUDE_SUBDIR}/")
 
 
 def stp_arm(stp: Any) -> dict[str, Any]:
     """A checkpoint's ``cfg.stp`` as read-out provenance (empty for a pre-STP checkpoint)."""
     if not stp.sa2 and stp.text_prompt == constants.STP_PROMPT_RELEASED:
         return {}
-    return {
+    arm = {
         "stp_sa2": stp.sa2,
         "stp_top_k": stp.top_k if stp.sa2 else None,
         "stp_motion": stp.motion if stp.sa2 else None,
         "stp_text_prompt": stp.text_prompt,
     }
+    if stp.branch != constants.STP_BRANCH_HOST:  # host arms keep their pre-L1 provenance keys
+        arm["stp_branch"] = stp.branch
+    if stp.mo_token:
+        arm["stp_mo_token"] = True
+    return arm
 
 
 __all__ = [
     "EvalPatches",
     "build_manifest",
     "cache_dir",
+    "check_mo_dir",
     "check_patch_cache",
     "eval_patches",
+    "mo_summary",
     "motion_magnitude",
     "read_manifest",
     "select_top_k",
