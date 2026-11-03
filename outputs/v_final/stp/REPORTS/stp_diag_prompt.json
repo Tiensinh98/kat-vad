@@ -1,0 +1,151 @@
+{
+  "rule": "core/docs/final/STP_BUILD.md \u00a75",
+  "runs": {
+    "R4": {
+      "global_step": 1749,
+      "lr_budget": 0.043775,
+      "reading": "D1-noise: gradient alive but sign-incoherent -- an LR multiplier would random-walk",
+      "rows": {
+        "prompt": {
+          "adam_state": true,
+          "adam_step": 1745.0,
+          "budget_used": 0.03795609316900441,
+          "cos_final_init": 0.9999986779638586,
+          "displacement": 0.21267558124456548,
+          "eps": 1e-08,
+          "grad_rms": 9.528212040264205e-05,
+          "grad_rms_median": 5.294125228045721e-05,
+          "init_reproduced": true,
+          "keys": [
+            "clip_text_model.prompt_embedding.weight"
+          ],
+          "logged_norm_step0": 126.42127227783203,
+          "noise_snr": 0.18304727206058022,
+          "norm_final": 126.36658421799608,
+          "norm_init": 126.42127175200764,
+          "numel": 16384,
+          "rms_step_per_coord": 0.0016615279784731683,
+          "share_below_10eps": 0.0,
+          "snr": 0.276276376859454
+        },
+        "sa2": {
+          "adam_state": true,
+          "adam_step": 1745.0,
+          "budget_used": 0.12704422527750006,
+          "cos_final_init": 0.9903465319660082,
+          "displacement": 2.0134277368414915,
+          "eps": 1e-08,
+          "grad_rms": 0.00038756320115773256,
+          "grad_rms_median": 0.00023086052597985133,
+          "keys": [
+            "sa2.w_q.weight",
+            "sa2.w_k.weight"
+          ],
+          "noise_snr": 0.18304727206058022,
+          "norm_final": 14.516485509263353,
+          "norm_init": 14.305569029549517,
+          "numel": 131072,
+          "rms_step_per_coord": 0.005561360961522565,
+          "share_below_10eps": 0.0,
+          "snr": 0.21567217297320443
+        },
+        "w_u": {
+          "adam_state": true,
+          "adam_step": 1745.0,
+          "budget_used": 0.07241588917196952,
+          "cos_final_init": null,
+          "displacement": 1.4074253451592693,
+          "eps": 1e-08,
+          "grad_rms": 0.009652758743649396,
+          "grad_rms_median": 0.006686102883066752,
+          "keys": [
+            "motion_residual.proj.weight",
+            "motion_residual.proj.bias"
+          ],
+          "noise_snr": 0.18304727206058022,
+          "norm_final": 1.4074253451592693,
+          "norm_init": 0.0,
+          "numel": 197120,
+          "rms_step_per_coord": 0.0031700055485029657,
+          "share_below_10eps": 0.0,
+          "snr": 0.22046499198891137
+        }
+      },
+      "run_dir": "/content/stp_diag/runs/R4",
+      "text_prompt": "released"
+    },
+    "R6": {
+      "global_step": 1749,
+      "lr_budget": 0.043775,
+      "reading": "D1-noise: gradient alive but sign-incoherent -- an LR multiplier would random-walk",
+      "rows": {
+        "prompt": {
+          "adam_state": true,
+          "adam_step": 1745.0,
+          "budget_used": 0.016228552271642528,
+          "cos_final_init": 0.9993504472018792,
+          "displacement": 0.0454659120442337,
+          "eps": 1e-08,
+          "grad_rms": 0.00924999321986624,
+          "grad_rms_median": 0.007732595343249424,
+          "init_reproduced": true,
+          "keys": [
+            "clip_text_model.prompt_embedding.weight"
+          ],
+          "logged_norm_step0": 1.2612254619598389,
+          "noise_snr": 0.18304727206058022,
+          "norm_final": 1.2615666166521513,
+          "norm_init": 1.2612254144938224,
+          "numel": 4096,
+          "rms_step_per_coord": 0.0007104048756911517,
+          "share_below_10eps": 0.0,
+          "snr": 0.13577315766630996
+        },
+        "sa2": {
+          "adam_state": true,
+          "adam_step": 1745.0,
+          "budget_used": 0.1348035428099413,
+          "cos_final_init": 0.9891334989617148,
+          "displacement": 2.13639928556522,
+          "eps": 1e-08,
+          "grad_rms": 0.00041416546728050593,
+          "grad_rms_median": 0.0002492313428285153,
+          "keys": [
+            "sa2.w_q.weight",
+            "sa2.w_k.weight"
+          ],
+          "noise_snr": 0.18304727206058022,
+          "norm_final": 14.524200442518469,
+          "norm_init": 14.299422249151872,
+          "numel": 131072,
+          "rms_step_per_coord": 0.005901025086505181,
+          "share_below_10eps": 0.0,
+          "snr": 0.19527395850055176
+        },
+        "w_u": {
+          "adam_state": true,
+          "adam_step": 1745.0,
+          "budget_used": 0.0738448299007946,
+          "cos_final_init": null,
+          "displacement": 1.4351972529750066,
+          "eps": 1e-08,
+          "grad_rms": 0.009341666713661132,
+          "grad_rms_median": 0.006687354110025909,
+          "keys": [
+            "motion_residual.proj.weight",
+            "motion_residual.proj.bias"
+          ],
+          "noise_snr": 0.18304727206058022,
+          "norm_final": 1.4351972529750066,
+          "norm_init": 0.0,
+          "numel": 197120,
+          "rms_step_per_coord": 0.003232557428907284,
+          "share_below_10eps": 0.0,
+          "snr": 0.2204799482830932
+        }
+      },
+      "run_dir": "/content/stp_diag/runs/R6",
+      "text_prompt": "prefix"
+    }
+  }
+}

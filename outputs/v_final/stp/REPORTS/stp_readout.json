@@ -1,0 +1,233 @@
+{
+  "contrasts": {
+    "R4 - R1": {
+      "all": {
+        "clips": 569,
+        "clusters": 91,
+        "high": 0.010631893345154405,
+        "low": -0.00928229030023645,
+        "mean": 0.000923456048721392
+      },
+      "ego": {
+        "clips": 321,
+        "clusters": 79,
+        "high": 0.019974353595641856,
+        "low": 0.0014320812883750534,
+        "mean": 0.011591945768122511
+      },
+      "non_ego": {
+        "clips": 248,
+        "clusters": 80,
+        "high": 0.004204533698754509,
+        "low": -0.03072402812478503,
+        "mean": -0.012885355241309895
+      },
+      "sentence": "no difference shown"
+    },
+    "R6 - R1": {
+      "all": {
+        "clips": 569,
+        "clusters": 91,
+        "high": 0.012199191877945598,
+        "low": -0.008291764880165507,
+        "mean": 0.002233269964884198
+      },
+      "ego": {
+        "clips": 321,
+        "clusters": 79,
+        "high": 0.01891440885098622,
+        "low": -0.0011512377793957973,
+        "mean": 0.009225838724746175
+      },
+      "non_ego": {
+        "clips": 248,
+        "clusters": 80,
+        "high": 0.010013021980462049,
+        "low": -0.024508895564477714,
+        "mean": -0.006817595244453281
+      },
+      "sentence": "no difference shown"
+    },
+    "R6 - R4 (prefix ON - OFF)": {
+      "all": {
+        "clips": 569,
+        "clusters": 91,
+        "high": 0.0072833679046611114,
+        "low": -0.004465254467554734,
+        "mean": 0.0013098139161628062
+      },
+      "ego": {
+        "clips": 321,
+        "clusters": 79,
+        "high": 0.003776395342786943,
+        "low": -0.008698458174835246,
+        "mean": -0.0023661070433763365
+      },
+      "non_ego": {
+        "clips": 248,
+        "clusters": 80,
+        "high": 0.017199758964993137,
+        "low": -0.004342353778327021,
+        "mean": 0.006067759996856615
+      },
+      "sentence": "no difference shown"
+    }
+  },
+  "control": "R1",
+  "diagnostics": {
+    "R4/s2024": {
+      "last_step": 1749,
+      "mil": {
+        "first": 0.7256648540496826,
+        "last": 0.22784502804279327
+      },
+      "motion_share": {
+        "first": 0.0,
+        "last": 0.09090355038642883
+      },
+      "prompt_norm": {
+        "first": 126.42127227783203,
+        "last": 126.36658477783203
+      },
+      "stp_entropy": {
+        "first": 1.0000001192092896,
+        "last": 0.9110540747642517
+      },
+      "stp_wq_norm": {
+        "first": 0.0,
+        "last": 1.4333369731903076
+      },
+      "w_u_norm": {
+        "first": 0.0,
+        "last": 1.4072860479354858
+      }
+    },
+    "R6/s2024": {
+      "last_step": 1749,
+      "mil": {
+        "first": 0.9563531875610352,
+        "last": 0.22667326033115387
+      },
+      "motion_share": {
+        "first": 0.0,
+        "last": 0.09527913480997086
+      },
+      "prompt_norm": {
+        "first": 1.2612254619598389,
+        "last": 1.2615666389465332
+      },
+      "stp_entropy": {
+        "first": 1.0000001192092896,
+        "last": 0.8961272835731506
+      },
+      "stp_wq_norm": {
+        "first": 0.0,
+        "last": 1.5173271894454956
+      },
+      "w_u_norm": {
+        "first": 0.0,
+        "last": 1.4350636005401611
+      }
+    }
+  },
+  "label": "PRELIMINARY (n = 1 seed)",
+  "p_T2_cap_dev": 0.822,
+  "preliminary": true,
+  "rows": {
+    "R1": {
+      "arm": {
+        "crn": "none",
+        "motion": "vit_s_k710_dl_from_giant",
+        "v5_keys": "content",
+        "v5_queries": 1,
+        "v5_readout": "mean",
+        "v5_smil_weight": 0.0
+      },
+      "global_steps": {
+        "s2024": 1749
+      },
+      "macro": {
+        "clips": 569,
+        "clusters": 91,
+        "high": 0.8259838205015861,
+        "low": 0.7941715462578331,
+        "mean": 0.810195687446355
+      },
+      "per_run_macro": {
+        "s2024": 0.810195687446355
+      },
+      "position_ruler": {
+        "clips": 569,
+        "clusters": 91,
+        "high": 0.5764967326968747,
+        "low": 0.5379905922012269,
+        "mean": 0.5573060693077054
+      }
+    },
+    "R4": {
+      "arm": {
+        "crn": "none",
+        "motion": "vit_s_k710_dl_from_giant",
+        "stp_motion": "raw",
+        "stp_sa2": true,
+        "stp_text_prompt": "released",
+        "stp_top_k": 12
+      },
+      "global_steps": {
+        "s2024": 1749
+      },
+      "macro": {
+        "clips": 569,
+        "clusters": 91,
+        "high": 0.8293456935929528,
+        "low": 0.79270649042998,
+        "mean": 0.8111191434950765
+      },
+      "per_run_macro": {
+        "s2024": 0.8111191434950765
+      },
+      "position_ruler": {
+        "clips": 569,
+        "clusters": 91,
+        "high": 0.5764967326968747,
+        "low": 0.5379905922012269,
+        "mean": 0.5573060693077054
+      }
+    },
+    "R6": {
+      "arm": {
+        "crn": "none",
+        "motion": "vit_s_k710_dl_from_giant",
+        "stp_motion": "raw",
+        "stp_sa2": true,
+        "stp_text_prompt": "prefix",
+        "stp_top_k": 12
+      },
+      "global_steps": {
+        "s2024": 1749
+      },
+      "macro": {
+        "clips": 569,
+        "clusters": 91,
+        "high": 0.8302464571915417,
+        "low": 0.7943875269132797,
+        "mean": 0.8124289574112392
+      },
+      "per_run_macro": {
+        "s2024": 0.8124289574112392
+      },
+      "position_ruler": {
+        "clips": 569,
+        "clusters": 91,
+        "high": 0.5764967326968747,
+        "low": 0.5379905922012269,
+        "mean": 0.5573060693077054
+      }
+    }
+  },
+  "rule": "core/docs/final/STP_BUILD.md \u00a73",
+  "seeds": [
+    2024
+  ],
+  "set": "DoTA-CAP (n/1397) dev, protocol B"
+}
