@@ -158,12 +158,15 @@ def stp_arm(stp: Any) -> dict[str, Any]:
     """A checkpoint's ``cfg.stp`` as read-out provenance (empty for a pre-STP checkpoint)."""
     if not stp.sa2 and stp.text_prompt == constants.STP_PROMPT_RELEASED:
         return {}
-    return {
+    arm = {
         "stp_sa2": stp.sa2,
         "stp_top_k": stp.top_k if stp.sa2 else None,
         "stp_motion": stp.motion if stp.sa2 else None,
         "stp_text_prompt": stp.text_prompt,
     }
+    if stp.branch != constants.STP_BRANCH_HOST:  # host arms keep their pre-L1 provenance keys
+        arm["stp_branch"] = stp.branch
+    return arm
 
 
 __all__ = [

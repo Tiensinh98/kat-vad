@@ -195,7 +195,10 @@ def sliding_window_scores(
         lengths = torch.tensor([window.shape[1]], device=device)
         outputs = model(window, lengths, class_feats=class_feats_fn())
         bin_parts.append(outputs["cls_bin_logits"][0].sigmoid().cpu())
-        sim_parts.append(outputs["cls_sim_mat"][0].sigmoid().cpu())
+        if "cls_sim_mat" in outputs:
+            sim_parts.append(outputs["cls_sim_mat"][0].sigmoid().cpu())
+        else:  # the local branch (LOCAL_STEP1.md §2) has no H_mul: an empty (L, 0) block
+            sim_parts.append(torch.zeros(window.shape[1], 0))
     return torch.cat(bin_parts, dim=0)[:length], torch.cat(sim_parts, dim=0)[:length]
 
 

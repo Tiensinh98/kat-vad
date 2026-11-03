@@ -931,5 +931,25 @@ WU_ARMS = {  # arm -> config overrides on top of the host (v2 Nexar A2's recipe,
     "WIL": {"model.motion_init_std": WU_INIT_STD, "train.motion_lr_mult": WU_LR_MULT},  # optional
 }
 WU_SEEDS = V5_RUN_SEEDS  # 2024-2026; the first run is s2024 only (preliminary)
+# core/docs/final/LOCAL_STEP1.md -- Step 1 of the Nov 3 proposal: a patch-only local branch (L1)
+# trained alone, late-fused with the host (L0) and judged against a second host seed (L0b)
+STP_BRANCH_HOST = "host"  # SA² output summed into c_t inside the host (R4 / R6)
+STP_BRANCH_LOCAL = "local"  # SA² output alone -> own RoFormer -> conv head; no text / u / c_t
+STP_BRANCHES = (STP_BRANCH_HOST, STP_BRANCH_LOCAL)
+LOCAL_OUTPUT_DIRNAME = "local"  # under OUTPUT_ROOT: <arm>/s<seed>/ + eval/ + REPORTS/
+LOCAL_CONTROL_ARM = "L0"  # = W0 s2024 (core/docs/final/WU_ARMS.md), trained by this branch's code
+LOCAL_ENSEMBLE_ARM = "L0b"  # W0's exact recipe on another seed: the "free ensemble" control
+LOCAL_ARM = "L1"  # the patch-only local branch
+LOCAL_SEEDS = {LOCAL_CONTROL_ARM: 2024, LOCAL_ENSEMBLE_ARM: 2025, LOCAL_ARM: 2024}
+LOCAL_ARMS = {  # arm -> config overrides on top of the host (v2 Nexar A2's recipe = W0's command)
+    LOCAL_CONTROL_ARM: {},
+    LOCAL_ENSEMBLE_ARM: {},
+    LOCAL_ARM: {"stp.sa2": True, "stp.branch": STP_BRANCH_LOCAL},
+}
+LOCAL_FUSE_WEIGHT = 0.5  # late fusion, fixed before any number: 0.5 minmax(a) + 0.5 minmax(b)
+LOCAL_G1_FLOOR = 0.60  # G1: L1's macro CI low must clear this (proposal D1, user-approved)
+LOCAL_G1_MO_REF = 0.7132  # G1: L1's mean must beat the training-free raw-Mo top-K read (D-2)
+LOCAL_D2_MARGIN = 0.05  # D2 (printed): a clip "won" by one row when its AUC leads by >= this
+LOCAL_W0_MIL_LAST = 0.1760  # printed: W0 s2024's last-batch mil (wu_readout.md), the overfit ref
 DOTA_CAP_FRAMES_DIRNAME = "DoTA_CAP_frames"  # under DATA_ROOT: {dota_id}.zip, DoTA-native frames
 DOTA_CAP_FRAMES_MANIFEST = "frames_manifest.json"  # written by dota_cap_frames verify on PASS
