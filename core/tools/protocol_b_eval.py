@@ -54,6 +54,7 @@ from core.tools.rate_matched_eval import (
     Run,
     load_finished_model,
     native_labels,
+    runs_from_args,
     score_steps,
     seed_average,
     to_native,
@@ -222,7 +223,7 @@ def score_checkpoint(
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
     check_split(args.split, args.final, "protocol_b_eval")
-    runs = [Run(name, Path(ckpt)) for name, ckpt in args.run]
+    runs = runs_from_args(args.run, args.baseline)
     device = resolve_device(args.device)
     split_ids = load_split(args.split, args.split_dir, final=args.final)
     excluded = excluded_for(args.split, args.exclude_featureless)
@@ -265,6 +266,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "arm": next(iter(arms.values())),
         "runs": sorted(per_run),
         "checkpoints": {r.name: str(r.ckpt) for r in runs},
+        "released_baseline": any(r.baseline for r in runs),
         "global_steps": steps,
         "macro": ci(aucs),
         "per_run_macro": {
@@ -311,8 +313,12 @@ def render_markdown(readout: dict[str, Any]) -> str:
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n", 1)[0])
     parser.add_argument(
-        "--run", nargs=2, action="append", required=True, metavar=("NAME", "CKPT"),
+        "--run", nargs=2, action="append", default=None, metavar=("NAME", "CKPT"),
         help="finished checkpoint, metrics.jsonl beside it (repeat per seed; one arm only)",
+    )
+    parser.add_argument(
+        "--baseline", nargs=2, action="append", default=None, metavar=("NAME", "CKPT"),
+        help="LaGoVAD's released best.ckpt instead of --run (KIP off, plain CLIP --input-dir)",
     )
     parser.add_argument("--input-dir", type=Path, required=True,
                         help="DoTA_s1_ncc (A0) or a baked `apply --stride` DoTA cache (A1-A3)")

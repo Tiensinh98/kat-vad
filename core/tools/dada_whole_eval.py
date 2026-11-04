@@ -20,6 +20,9 @@ CLI::
         --input-dir cache/v2/A3_R2_S/DADA2000_orig_test_nexar --data-dir data/Nexar_window \\
         --out-dir outputs/v2_nexar_window/eval/dada/A3
 
+``--baseline NAME best.ckpt`` scores LaGoVAD's released checkpoint instead (KIP off, no J10) on the
+plain CLIP cache; the input check refuses a baked cache for it.
+
 An SA² checkpoint (LaGoVAD-STP, ``stp.sa2``) also needs ``--patch-dir``: the sources' selected
 patch cache at the same stride (``stp_patches select``), appended after the input rows.
 """
@@ -42,7 +45,13 @@ from core.data.v2_inputs import check_input_manifest
 from core.device import resolve_device
 from core.tools.kill_switch_probe import source_labels, write_json_atomic, write_text_atomic
 from core.tools.protocol_b_eval import write_clip_scores
-from core.tools.rate_matched_eval import Protocol, Run, load_finished_model, score_steps
+from core.tools.rate_matched_eval import (
+    Protocol,
+    Run,
+    load_finished_model,
+    runs_from_args,
+    score_steps,
+)
 from core.tools.tadz_readout import bootstrap, clip_aucs, micro, seed_average, video_auc
 from core.train import load_class_names
 
@@ -157,10 +166,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     per_run: dict[str, Curves] = {}
     steps: dict[str, int] = {}
     arms: dict[str, dict[str, Any]] = {}
-    for name, ckpt in args.run:
-        per_run[name], steps[name], arms[name] = score_run(
-            Run(name, Path(ckpt)), ids, args.input_dir, args.data_dir, device,
-            args.patch_dir, args.stride,
+    for r in runs_from_args(args.run, args.baseline):
+        per_run[r.name], steps[r.name], arms[r.name] = score_run(
+            r, ids, args.input_dir, args.data_dir, device, args.patch_dir, args.stride,
         )
     if len({json.dumps(a, sort_keys=True) for a in arms.values()}) != 1:
         raise ValueError(f"checkpoints of different arms cannot be seed-averaged: {arms}")
@@ -171,7 +179,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "input_dir": str(args.input_dir),
         "patch_dir": str(args.patch_dir) if args.patch_dir is not None else None,
         "arm": next(iter(arms.values())),
-        "checkpoints": dict(args.run),
+        "checkpoints": dict(args.run or args.baseline),
+        "released_baseline": bool(args.baseline),
         "global_steps": steps,
         **{k: v for k, v in summary.items() if k not in ("clip_aucs", "averaged")},
     }
@@ -208,8 +217,12 @@ def render_markdown(r: dict[str, Any]) -> str:
 
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n", 1)[0])
-    parser.add_argument("--run", nargs=2, action="append", required=True,
+    parser.add_argument("--run", nargs=2, action="append", default=None,
                         metavar=("NAME", "CKPT"), help="one finished checkpoint (repeat per seed)")
+    parser.add_argument("--baseline", nargs=2, action="append", default=None,
+                        metavar=("NAME", "CKPT"),
+                        help="LaGoVAD's released best.ckpt instead of --run "
+                             "(KIP off; --input-dir = the plain CLIP s8 cache)")
     parser.add_argument("--t2-dir", type=Path, required=True,
                         help="the PARENT T2 dir (meta.json names T2-test's sources)")
     parser.add_argument("--annotation", type=Path, required=True, help="dada标注.xlsx")

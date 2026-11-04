@@ -80,10 +80,16 @@ PROTOCOLS = {
 
 @dataclass(frozen=True)
 class Run:
-    """One checkpoint to re-score."""
+    """One checkpoint to re-score.
+
+    ``baseline`` marks LaGoVAD's released ``best.ckpt`` (``core.models.ckpt_compat``): it has no
+    ``global_step`` and no ``metrics.jsonl``, so J10 does not apply, and it is built KIP-off on
+    the plain CLIP input (the reproduction gates' recipe, TAD_SETUP §8.1).
+    """
 
     name: str
     ckpt: Path
+    baseline: bool = False
 
 
 @dataclass(frozen=True)
@@ -262,6 +268,8 @@ def load_finished_model(
     The returned config carries the checkpoint's ``model`` / ``kip`` / ``v2`` sections, so a
     caller can check the input cache against the arm the checkpoint was trained as (K4).
     """
+    if run.baseline:
+        return load_released_model(run, device)
     payload = torch.load(run.ckpt, map_location="cpu", weights_only=False)  # nosec B614 - own ckpt
     step = int(payload.get("global_step", -1)) if isinstance(payload, dict) else -1
     del payload
@@ -270,6 +278,38 @@ def load_finished_model(
     model = load_model_for_scoring(cfg, device, run.ckpt, None, TEXT_ENCODER_CLIP, DOTA_OVERRIDES)
     text_encode_fn = make_text_encoder(model, TEXT_ENCODER_CLIP, device, dim=cfg.model.hidden_dim)
     return model, step, text_encode_fn, cfg
+
+
+def load_released_model(
+    run: Run, device: torch.device
+) -> tuple[KATVAD, int, TextEncodeFn, Config]:
+    """LaGoVAD's released checkpoint in eval mode, KIP off; step = ``RELEASED_CKPT_STEP``.
+
+    The compat loader raises on any unknown, missing or mis-shaped key (C5), so a config that
+    does not describe LaGoVAD's architecture fails here, not as a plausible wrong score.
+    """
+    overrides = [*DOTA_OVERRIDES, *constants.RELEASED_CKPT_OVERRIDES]
+    cfg = load_config(None, overrides)
+    model = load_model_for_scoring(cfg, device, None, run.ckpt, TEXT_ENCODER_CLIP, overrides)
+    text_encode_fn = make_text_encoder(model, TEXT_ENCODER_CLIP, device, dim=cfg.model.hidden_dim)
+    LOGGER.info("%s: LaGoVAD released checkpoint %s (no J10: it has no global_step)",
+                run.name, run.ckpt)
+    return model, constants.RELEASED_CKPT_STEP, text_encode_fn, cfg
+
+
+def runs_from_args(
+    run: list[list[str]] | None, baseline: list[list[str]] | None
+) -> list[Run]:
+    """``--run`` (our finished checkpoints) xor ``--baseline`` (LaGoVAD released), never mixed.
+
+    One invocation scores one arm (its rows are seed-averaged), and the released checkpoint is
+    a different arm from every one of ours.
+    """
+    if bool(run) == bool(baseline):
+        raise ValueError("give --run (one arm's checkpoints) or --baseline (LaGoVAD), not both")
+    if baseline:
+        return [Run(name, Path(ckpt), baseline=True) for name, ckpt in baseline]
+    return [Run(name, Path(ckpt)) for name, ckpt in run or []]
 
 
 def score_run(

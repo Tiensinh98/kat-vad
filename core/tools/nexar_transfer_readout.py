@@ -92,7 +92,12 @@ def read_nexar(arm_dir: Path) -> ArmRead:
 
 
 def read_tad(arm_dir: Path, seeds: list[int], seed: int) -> ArmRead:
-    runs = {seed_name(s): tadz_readout.load_run(arm_dir / seed_name(s)) for s in seeds}
+    return read_tad_runs(arm_dir, [seed_name(s) for s in seeds], seed)
+
+
+def read_tad_runs(arm_dir: Path, names: list[str], seed: int) -> ArmRead:
+    """One arm's ``core.evaluate`` outputs under ``arm_dir/<name>/`` (a seed, or ``released``)."""
+    runs = {name: tadz_readout.load_run(arm_dir / name) for name in names}
     labels = tadz_readout.check_labels(runs)
     reads = tadz_readout.arm_reads({n: c for n, (c, _) in runs.items()}, labels, seed)
     rulers = tadz_readout.rulers(labels, None, seed)

@@ -943,3 +943,14 @@ ZS_SA2_ARM = "R4"  # SA² + released prompts (prefix OFF)
 ZS_ARMS = (ZS_CONTROL_ARM, ZS_SA2_ARM)
 ZS_SEED = STP_SEEDS[0]  # 2024 only -> every sentence is PRELIMINARY (n = 1 seed)
 ZS_REPRO_TOL = 1e-3  # |W0 - v2 A2 s2024| macro above this is flagged (same function, same seed)
+
+# --- LaGoVAD's released checkpoint read on v_final's zero-shot sets (ZS_TAD_DADA.md §7) ---
+RELEASED_CKPT_OVERRIDES = ("kip.enabled=false",)  # LaGoVAD has no KIP (Gate T0's recipe)
+RELEASED_CKPT_STEP = -1  # best.ckpt stores no global_step; J10 does not apply to it
+ZS_LAGOVAD_ARM = "LaGoVAD"  # the released-checkpoint row
+ZS_LAGOVAD_RUN = "released"  # its run name (it has no seed)
+ZS_LAGOVAD_OUTPUT_DIRNAME = "zs_lagovad"  # under OUTPUT_ROOT: eval/<dota|tad|dada>/ + REPORTS/
+ZS_LAGOVAD_T0_MICRO = 0.7912  # TAD Gate T0: the released ckpt's micro on TAD_ncc (TAD_SETUP §8.1)
+ZS_LAGOVAD_T0_TOL = 1e-3  # |micro - T0| above this: the checkpoint or TAD_ncc drifted -> stop
+ZS_LAGOVAD_INPUT_DIM = 512  # LaGoVAD reads the plain CLIP row = the first 512 columns of a bake
+ZS_LAGOVAD_INPUT_ATOL = 1e-3  # plain CLIP row vs the bake's CLIP columns (fp16 storage slack)

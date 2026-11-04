@@ -1,6 +1,6 @@
 # Zero-shot TAD / DADA-2000: SA² (R4) vs its host (W0), Nexar-trained, seed 2024
 
-Status: built 2026-11-03, not run. Rule written before any number. Runbooks:
+Status: built 2026-11-03; §3 read out 2026-11-04 (§6); §7 (LaGoVAD released) built, not run. Rule written before any number. Runbooks:
 `colab/final/zs_pack_frames.ipynb` (CPU, once) → `colab/final/zs_tad_dada_r4.ipynb` (GPU).
 
 ## 1. Question
@@ -69,6 +69,77 @@ frame rate is not verified here.
 (both refuse a mismatched cache through `eval_patches`, and an SA² checkpoint without one),
 `core/tools/zs_readout.py`, constants `ZS_*`. Tests `core/tests/test_zs_tad_dada.py`.
 
-## 6. Read-out
+## 6. Read-out (2026-11-04, `REPORTS/zs_readout.md`, PRELIMINARY n = 1 seed)
+
+Reproduction: W0 = v2 A2 s2024 on both sets (gap +0.00001 / +0.00000).
+
+| set | W0 macro | R4 macro | R4 − W0 (per video, 95 % cluster CI) | sentence |
+| --- | --- | --- | --- | --- |
+| TAD (60 two-class) | 0.6983 [0.622, 0.770] | 0.7220 [0.652, 0.789] | **+0.0237 [+0.0005, +0.0499]** | gain shown — PRELIMINARY |
+| DADA (370) | 0.7615 [0.737, 0.786] | 0.7579 [0.733, 0.782] | −0.0036 [−0.0161, +0.0089] | no difference shown — PRELIMINARY |
+
+Printed: TAD micro 0.603 → 0.717 and clip AUC 0.594 → 0.657 (most of R4's TAD change is
+clip-level); TAD middle ruler 0.683, DADA middle 0.734. R4 SA² entropy 0.911 of log K (still ≈
+selection + average), ‖W_q‖ 0 → 1.43. Caveats: the TAD low bound sits at +0.0005 and the CI
+omits seed variance (n = 1); never write "SA² improves transfer".
+
+## 7. LaGoVAD's released checkpoint on the same sets (rule written 2026-11-04, before any read)
+
+Authorized by the user on 2026-11-04 ("từ public checkpoint của LaGoVAD hãy thực hiện zeroshot
+trên DoTA-CAP-dev, DADA-2000"). LaGoVAD publishes no DADA-2000 number and no DoTA-CAP number;
+the released `best.ckpt` read by this project becomes the reference row (lesson 8b).
+Runbook `colab/final/zs_lagovad.ipynb` (CPU suffices); read-out `core.tools.zs_lagovad_readout`.
+
+**Disclosure.** The released checkpoint's TAD numbers are already on record (Gate T0: micro
+0.7912, macro 0.7579; clip AUC 0.769). It has **never** been read on DoTA-CAP-dev at protocol B
+or on DADA-2000 whole sources.
+
+### 7.1 What is read
+
+| set | LaGoVAD command | input | identical to W0 / R4 in |
+| --- | --- | --- | --- |
+| DoTA-CAP-dev | `protocol_b_eval --baseline released best.ckpt --split dota_cap_dev` (stride 3) | plain `DoTA_s1_ncc`, `[::3]` here | clip set, labels, stride, native-frame interpolation, definitions (`DoTA/labels_s8` `defs.json`) |
+| DADA-2000 | `dada_whole_eval --baseline released best.ckpt` | plain `cache/clip/DADA2000_orig` (s8) | 370 sources, labels, rows, definitions (`Nexar_window` `defs.json`) |
+| TAD | `core.evaluate --baseline-ckpt best.ckpt --set kip.enabled=false --set data.dataset=TAD` (re-run; = Gate T0) | plain `TAD_ncc` | §3's TAD protocol |
+
+* LaGoVAD = `best.ckpt`, **KIP off** (`RELEASED_CKPT_OVERRIDES`), no motion stream, no CRN, no SA²,
+  released prompts. The compat loader raises on any missing / unknown key (C5).
+* Printed, never deciding: LaGoVAD on DoTA-CAP-dev at **protocol A** (`--stride 8`), the rate its
+  checkpoint was gated at; protocol B is the table's protocol for every row.
+
+### 7.2 Contrasts and sentences
+
+* Per set, per item (DoTA: clip, cluster = source video; TAD / DADA: the video), Δ over the
+  two-class items all rows scored, 95 % cluster bootstrap (10,000 resamples, seed 2026).
+* `W0 − LaGoVAD`, `R4 − LaGoVAD`: low > 0 → **"above"**; high < 0 → **"below"**; else **"not
+  separated"** (§26 T6's wording). Each carries **"PRELIMINARY (n = 1 seed), not matched"**.
+* `R4 − W0`: §3's sentence. On TAD and DADA it reproduces §6; on DoTA-CAP-dev it is new (§6
+  of `STP_BUILD.md` contrasted R4 with R1, not W0).
+* Micro: DoTA per-clip min-max pooled (lesson 12), TAD / DADA raw pooled; rulers beside.
+
+### 7.3 Integrity (before any number is read)
+
+1. The plain CLIP rows LaGoVAD reads equal the first 512 columns of the arms' A2 bakes on every
+   item (`zs_lagovad_readout check-inputs`; DoTA `s1[::3]` vs `dota_cap_dev_s3_from_s1_nexar`,
+   DADA s8 vs `DADA2000_orig_test_sources_nexar`; A2 has no CRN so its CLIP columns are raw, `s = 1`).
+2. TAD micro re-read = Gate T0 0.7912 ± 0.001, or the read-out refuses to write (wrong
+   checkpoint, config or cache).
+3. Every row of a set covers the same two-class items, or the read-out refuses.
+
+### 7.4 Never write
+
+* "KAT-VAD / LaGoVAD-STP beats LaGoVAD" — not matched: LaGoVAD trained on PreVAD (large,
+  multi-domain), the arms on Nexar; n = 1 seed.
+* "LaGoVAD's DADA-2000 result" — write "LaGoVAD (released checkpoint, evaluated by us)".
+* That LaGoVAD's DADA read is zero-shot as a fact: PreVAD is web-collected and has not been
+  checked for DADA-2000 clips — write "zero-shot status not verified".
+* A DoTA-CAP number beside LaGoVAD's 62.60 or full DoTA (D14); a TAD micro beside 89.56 (C8b).
+
+Printed caveat (travels with the LaGoVAD row): the released checkpoint reads the arms' `_ncc`
+rows, and `RESULTS_NCC.md` measured it **lower** under `no_center_crop` than under centre crop
+on DoTA (macro −0.0170 [−0.0301, −0.0037]). Its row here may therefore sit slightly low; the
+transform is kept because a second cache would break the row-for-row input identity (§7.3-1, C2).
+
+### 7.5 Read-out
 
 Not run.

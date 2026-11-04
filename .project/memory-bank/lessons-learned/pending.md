@@ -2164,3 +2164,19 @@ a planted in-box signal (expect GO) before any real number exists.
 **Rule:** Pack exactly the row frames on CPU, record their stride in the archive manifest, and let the GPU job read only that archive.
 **Files:** `core/tools/zs_frames.py`, `core/tools/clip_windows.py` (`run_packed`), `colab/final/zs_pack_frames.ipynb`.
 **Gate status.** Zero occurrences in a run (design); candidate.
+
+---
+
+## P-ZS-L — A released baseline is a different arm: select it explicitly, never by a missing field
+
+**Observation (2026-11-04, `rate_matched_eval.runs_from_args`):** the v2 eval harnesses take
+`--run NAME CKPT` and gate every checkpoint on J10 (its `global_step` == the last
+`metrics.jsonl` step). LaGoVAD's `best.ckpt` has neither, so scoring it through `--run` would
+fail J10 — or, if J10 were loosened to "skip when absent", silently accept a half-trained ckpt of
+ours that lost its `global_step`. The fix is an explicit `--baseline` flag (xor `--run`) that
+picks the compat loader and the KIP-off config, plus an input check that the plain rows equal the
+bake's CLIP columns.
+
+**Why pending:** one occurrence; no defect was shipped (the risk was caught at design time).
+Promote if a second harness needs the same split.
+
