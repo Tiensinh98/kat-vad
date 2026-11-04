@@ -962,12 +962,12 @@ DAD_CLASSES = ("positive", "negative")
 DAD_ID_PREFIX = {"positive": "pos", "negative": "neg"}  # stems may repeat across the two dirs
 DAD_ANNOTATION_DIRNAME = "annotation"  # <data>/DAD/annotation/<stem>.txt
 DAD_ANNOTATION_COLUMNS = 8  # frame, track id, class, x1, y1, x2, y2, accident flag
-DAD_ASSUMED_FPS = 20  # the DAD paper's rate; every video is checked against it (census gate)
-DAD_FPS_TOL = 0.5  # |measured - 20| above this fails the census
-DAD_STRIDE = 5  # 0.25 s/step = the arms' training step (Nexar s8 at ~30 fps, 0.267 s), E1's logic
-DAD_VIDEOMAE_FRAME_STEP = 2  # 16 frames x 2 at 20 fps = the arms' causal 1.5 s (3 at 30 fps)
-DAD_FLAG_TIME_MIN_FRAME = 50  # census stops if the median first flagged frame (1-based) is below
-# this: the flag would mark object involvement from first sight, not accident time (ask the user)
+DAD_ASSUMED_FPS = 25  # measured by the census on all 466 test videos (2026-11-04; 20 was wrong)
+DAD_FPS_TOL = 0.5  # |measured - 25| above this fails the census
+DAD_STRIDE = 7  # 0.28 s/step at 25 fps, the nearest to the arms' training step (Nexar s8, 0.267 s)
+DAD_VIDEOMAE_FRAME_STEP = 3  # 16 x 3 frames at 25 fps = 1.8 s (T2 / Nexar step; user 2026-11-04)
+DAD_TOA_FRAME = 90  # accident = the last 10 frames (1-based 91-100, 0-based 90-99), the DAD
+# convention (DSA / UString); the annotation flag marks involved objects, not the accident time
 DAD_JPEG_QUALITY = 95  # decode mp4 -> one JPEG folder; CLIP, V2-S and the windows all read it
 DAD_CENSUS_FILENAME = "dad_census.json"
 DAD_MANIFEST_FILENAME = "dad_manifest.json"

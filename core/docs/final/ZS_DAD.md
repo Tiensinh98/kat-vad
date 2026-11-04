@@ -1,6 +1,6 @@
 # Zero-shot DAD: LaGoVAD (released ckpt) vs W0 (no SA²) vs R4 (SA²)
 
-Status: built 2026-11-04, not run. Rule written before any DAD number. Runbook
+Status: built 2026-11-04; census run 2026-11-04 → FAILED (25 fps, flag ≠ accident time) → **Amendment 1 (§7) replaces §1 labels, §2 stride / V2-S step and §3 gates**; not scored. Rule written before any DAD number. Runbook
 `colab/final/zs_dad.ipynb` (GPU for extraction). Authorized by the user on 2026-11-04 ("setup
 zero-shot trên DAD … LaGoVAD public checkpoint and SA² and no SA² as above … features stored in
 cache of Thesis-Final"). Companion of `ZS_TAD_DADA.md` §7 (same rows, same read-out tool).
@@ -67,3 +67,26 @@ released checkpoint's DAD read is zero-shot as a fact (PreVAD not checked for DA
 ## 6. Read-out
 
 Not run.
+
+## 7. Amendment 1 (2026-11-04, after the census, before any feature or score)
+
+**What the census measured** (`REPORTS/dad_census.json`, the only DAD output seen): 466 test videos
+(165 positive / 301 negative), every one **100 frames at 25.00 fps** (not 20); first flagged frame
+min 1 / **median 1** / max 86; flagged-frame counts 0…100 (most positives 100/100); flag runs not
+contiguous; one positive (`pos_000488`) has no flag. The flag therefore marks the **objects
+involved** in the accident from their first appearance, not the accident time. Under §1's rule most
+positives would be abnormal on every row and leave the macro (two-class videos only).
+
+**Authorized by the user on 2026-11-04** (choices offered with the census, before any feature
+existed): labels = the DAD convention; stride / V2-S step re-derived for 25 fps.
+
+| § | was | now | why |
+| --- | --- | --- | --- |
+| 1 labels | any object flag = 1 | **toa = 90**: positive 0-based frames 90–99 (1-based 91–100) abnormal; negatives normal; annotation parsed and printed only | the DAD convention (DSA, UString); the flag is involvement |
+| 2 stride | 5 (0.25 s at 20 fps) | **7** = 0.28 s at 25 fps; rows frames 0, 7, …, 98 (15), 2 abnormal (frames 91, 98) | nearest to the arms' 0.267 s |
+| 2 V2-S step | 2 (1.5 s at 20 fps) | **3** = 16 × 3 frames = 1.8 s at 25 fps | the T2 / Nexar step in frames (user's pick; step 2 would be 1.2 s) |
+| 3 gates | fps 20; positives flagged; negatives unflagged; median first flag ≥ 50 | **fps 25 ± 0.5; every positive > 90 frames**; flag statistics printed, never gating | the flag no longer defines anything |
+
+Caches and the data dir carry the stride in their name (`DAD_s7_*`), so nothing built under §2's
+s5 can be read by mistake. Every other choice of §2–§5 stands. Never write that the DAD positives'
+abnormal span was annotated per video: it is a fixed convention (the last 0.4 s).

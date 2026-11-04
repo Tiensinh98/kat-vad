@@ -23,6 +23,7 @@ ANN = "\n".join([
     "000001\t9\tcar\t318\t230\t426\t286\t0",
     *[f"{f:06d}\t1\tmotorbike\t640\t257\t694\t332\t{int(f >= 91)}" for f in range(2, 101)],
 ])
+ANN_INVOLVED = "\n".join(f"{f:06d}\t1\tcar\t1\t2\t3\t4\t1" for f in range(1, 101))
 ANN_UNFLAGGED = "\n".join(f"{f:06d}\t2\tcar\t1\t2\t3\t4\t0" for f in range(1, 101))
 
 
@@ -39,16 +40,17 @@ def _mp4(path: Path, frames: int, fps: int = constants.DAD_ASSUMED_FPS) -> None:
             out.mux(packet)
 
 
-def _dad_root(tmp_path: Path, neg_flag: bool = False, fps: int = 20) -> Path:
-    """pos 000001 (flagged 91-100), neg 000001 (shared stem), neg 000002 (own, unflagged)."""
+def _dad_root(tmp_path: Path, fps: int = constants.DAD_ASSUMED_FPS,
+             pos_frames: int = 100) -> Path:
+    """pos 000001 (flagged from frame 1, as in DAD), neg 000001 (shared stem), neg 000002."""
     root = tmp_path / "DAD"
-    _mp4(root / "videos" / "testing" / "positive" / "000001.mp4", 100, fps)
+    _mp4(root / "videos" / "testing" / "positive" / "000001.mp4", pos_frames, fps)
     for stem in ("000001", "000002"):
         _mp4(root / "videos" / "testing" / "negative" / f"{stem}.mp4", 100, fps)
     ann = root / constants.DAD_ANNOTATION_DIRNAME
     ann.mkdir(parents=True)
-    (ann / "000001.txt").write_text(ANN)
-    (ann / "000002.txt").write_text(ANN if neg_flag else ANN_UNFLAGGED)
+    (ann / "000001.txt").write_text(ANN_INVOLVED)
+    (ann / "000002.txt").write_text(ANN_UNFLAGGED)
     return root
 
 
@@ -61,44 +63,38 @@ class TestPieces:
         with pytest.raises(ValueError, match="out of range"):
             dad.parse_annotation("000001\t1\tcar\t1\t2\t3\t4\t2")
 
-    def test_labels_are_one_based_and_strided(self) -> None:
-        native = dad.native_labels(100, set(range(91, 101)))
-        assert native[:90].sum() == 0 and native[90:].sum() == 10
-        rows = dad.row_labels(native, 5)
-        assert len(rows) == 20 and rows[-2:] == [1, 1] and sum(rows) == 2
-        with pytest.raises(ValueError, match="past"):
-            dad.native_labels(10, {11})
+    def test_labels_follow_toa_not_the_flag(self) -> None:
+        native = dad.native_labels("positive", 100)
+        assert native[: constants.DAD_TOA_FRAME].sum() == 0 and native[90:].sum() == 10
+        assert dad.native_labels("negative", 100).sum() == 0
+        rows = dad.row_labels(native, constants.DAD_STRIDE)  # frames 0, 7, ..., 98
+        assert len(rows) == 15 and rows[-2:] == [1, 1] and sum(rows) == 2
+        with pytest.raises(ValueError, match="toa"):
+            dad.native_labels("positive", 90)
 
     def test_entry_reasons(self) -> None:
         r = dad.entry_reason
-        assert r("positive", 20.0, 100, True, {95}, 100) == dad.OK
-        assert r("positive", 25.0, 100, True, {95}, 100) == dad.FPS_MISMATCH
-        assert r("positive", 20.0, 100, False, set(), 0) == dad.NO_ANNOTATION
-        assert r("positive", 20.0, 100, True, set(), 100) == dad.NO_FLAG
-        assert r("negative", 20.0, 100, True, {95}, 100) == dad.NEGATIVE_FLAGGED
-        assert r("negative", 20.0, 100, False, set(), 0) == dad.OK
-        assert r("positive", 20.0, 90, True, {95}, 100) == dad.ANNOTATION_PAST_END
-
-    def test_flag_timing_gate(self) -> None:
-        early = {"pos_a": {"cls": "positive", "flagged": list(range(1, 101)), "frames": 100,
-                           "fps": 20.0, "reason": dad.OK}}
-        s = dad.summarize(early)
-        assert s["flag_timing_ok"] is False and s["pass"] is False  # involvement, not time
+        assert r("positive", 25.0, 100) == dad.OK
+        assert r("negative", 25.0, 100) == dad.OK
+        assert r("positive", 20.0, 100) == dad.FPS_MISMATCH
+        assert r("positive", 25.0, 90) == dad.TOO_SHORT
 
     def test_dad_uses_the_traffic_definitions(self) -> None:
         assert dataset_abbr(constants.DAD_DATASET) == dataset_abbr(constants.NEXAR_DATASET)
 
+    def test_protocol_geometry(self) -> None:
+        step = constants.DAD_STRIDE / constants.DAD_ASSUMED_FPS
+        assert step == pytest.approx(0.28)
+        span = (constants.VIDEOMAE_CLIP_FRAMES - 1) * constants.DAD_VIDEOMAE_FRAME_STEP
+        assert span / constants.DAD_ASSUMED_FPS == pytest.approx(1.8)
+
     def test_videomae_manifest_records_the_frame_step(self) -> None:
         sha = constants.VIDEOMAE_WEIGHTS_SHA256[constants.VIDEOMAE_ENCODER_S]
-        base = evf.build_manifest(constants.VIDEOMAE_ENCODER_S, 5, sha)
-        dad_m = evf.build_manifest(constants.VIDEOMAE_ENCODER_S, 5, sha,
-                                   clip_frame_step=constants.DAD_VIDEOMAE_FRAME_STEP,
+        base = evf.build_manifest(constants.VIDEOMAE_ENCODER_S, 7, sha)
+        dad_m = evf.build_manifest(constants.VIDEOMAE_ENCODER_S, 7, sha, clip_frame_step=2,
                                    assumed_fps=constants.DAD_ASSUMED_FPS)
         assert base["clip_frame_step"] == constants.VIDEOMAE_CLIP_FRAME_STEP
         assert {k for k in base if base[k] != dad_m[k]} == {"clip_frame_step", "assumed_fps"}
-        # 16 frames x 2 at 20 fps spans the same 1.5 s as 16 x 3 at 30 fps
-        span = (constants.VIDEOMAE_CLIP_FRAMES - 1) * constants.DAD_VIDEOMAE_FRAME_STEP
-        assert span / constants.DAD_ASSUMED_FPS == pytest.approx(1.5)
         args = evf.build_arg_parser().parse_args(
             ["--frames-dir", "f", "--dataset", "DAD", "--clip-frame-step", "2"])
         assert args.clip_frame_step == 2
@@ -111,15 +107,17 @@ class TestCensusPrepareDecode:
         dad.main(["census", "--root", str(root), "--out", str(out)])
         doc = json.loads(out.read_text())
         assert sorted(doc["videos"]) == ["neg_000001", "neg_000002", "pos_000001"]
-        assert doc["summary"]["first_flag_frame"]["median"] == 91
-        assert doc["summary"]["shared_stems"] == 1 and doc["videos"]["neg_000001"]["reason"] == "ok"
+        flags = doc["summary"]["printed_flag_stats"]
+        assert flags["first_flag_frame_median"] == 1 and flags["positives_flagged"] == 1
+        assert doc["summary"]["shared_stems"] == 1 and doc["summary"]["pass"] is True
 
         defs = tmp_path / "defs.json"
         defs.write_text(json.dumps(["Normal", "Abnormal"]))
         data = tmp_path / "data"
         dad.main(["prepare", "--census", str(out), "--defs", str(defs), "--out-dir", str(data)])
         labels = json.loads((data / constants.FRAME_LABELS_TEST_FILENAME).read_text())
-        assert labels["pos_000001"][-2:] == [1, 1] and sum(labels["neg_000001"]) == 0
+        assert labels["pos_000001"] == [0] * 13 + [1, 1]  # toa, though the flag covers all 100
+        assert sum(labels["neg_000001"]) == 0
         man = json.loads((data / constants.DAD_MANIFEST_FILENAME).read_text())
         assert (man["videos"], man["abnormal"], man["two_class_at_stride"]) == (3, 1, 1)
 
@@ -129,17 +127,17 @@ class TestCensusPrepareDecode:
         assert dad.decode_video(root / "videos/testing/positive/000001.mp4",
                                 frames / "pos_000001", 100) is False  # resumed
 
-    def test_census_fails_on_a_flagged_negative(self, tmp_path: Path) -> None:
-        root = _dad_root(tmp_path, neg_flag=True)
+    def test_census_fails_on_a_wrong_fps(self, tmp_path: Path) -> None:
+        root = _dad_root(tmp_path, fps=20)
         with pytest.raises(SystemExit, match="FAILED"):
             dad.main(["census", "--root", str(root), "--out", str(tmp_path / "c.json")])
         doc = json.loads((tmp_path / "c.json").read_text())
-        assert doc["videos"]["neg_000002"]["reason"] == dad.NEGATIVE_FLAGGED
+        assert doc["videos"]["pos_000001"]["reason"] == dad.FPS_MISMATCH
         with pytest.raises(ValueError, match="did not pass"):
-            dad.prepare(doc, tmp_path / "c.json", 5, tmp_path / "d")
+            dad.prepare(doc, tmp_path / "c.json", 7, tmp_path / "d")
 
-    def test_census_fails_on_a_wrong_fps(self, tmp_path: Path) -> None:
-        root = _dad_root(tmp_path, fps=30)
+    def test_census_fails_on_a_short_positive(self, tmp_path: Path) -> None:
+        root = _dad_root(tmp_path, pos_frames=80)
         with pytest.raises(SystemExit, match="FAILED"):
             dad.main(["census", "--root", str(root), "--out", str(tmp_path / "c.json")])
 

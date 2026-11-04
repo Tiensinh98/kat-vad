@@ -5,11 +5,12 @@ Rule: ``core/docs/final/ZS_DAD.md`` (written before any DAD number). Layout on D
     <data>/DAD/videos/testing/{positive,negative}/<stem>.mp4
     <data>/DAD/annotation/<stem>.txt     frame, track id, class, x1, y1, x2, y2, accident flag
 
-Video ids are ``pos_<stem>`` / ``neg_<stem>`` (the two folders may reuse a stem). A positive
-video's abnormal frames are the frames where **any** annotated object carries flag 1 (frame
-numbers are 1-based in the file); a negative video is all-normal and its annotation, if any,
-must carry no flag. The annotation dir is flat, so a stem present in both folders is attributed to
-the positive video (counted as ``shared_stems`` in the census).
+Video ids are ``pos_<stem>`` / ``neg_<stem>`` (the two folders may reuse a stem). **Labels follow
+the DAD convention, not the annotation flag** (ZS_DAD.md §1, user 2026-11-04): a positive video's
+accident is its last 10 frames (0-based ``DAD_TOA_FRAME`` onward); a negative is all-normal. The
+census measured that the flag marks the *involved objects* from their first appearance (median
+first flagged frame = 1), so the annotation is parsed and summarized only. The annotation dir is
+flat, so a stem present in both folders is attributed to the positive video.
 
 Subcommands::
 
@@ -50,12 +51,9 @@ LOGGER = logging.getLogger(__name__)
 
 FRAME_NAME = "{:05d}.jpg"
 OK = "ok"
-NO_ANNOTATION = "positive_without_annotation"
-NO_FLAG = "positive_without_flagged_frame"
-NEGATIVE_FLAGGED = "negative_with_flagged_frame"
 FPS_MISMATCH = "fps_mismatch"
-ANNOTATION_PAST_END = "annotation_frame_past_video_end"
-BAD_ANNOTATION = "unparseable_annotation"
+TOO_SHORT = "positive_shorter_than_toa"
+BAD_ANNOTATION = "unparseable_annotation"  # printed only: labels do not read the annotation
 
 
 # ---------------------------------------------------------------------------
@@ -85,13 +83,13 @@ def parse_annotation(text: str) -> tuple[set[int], int]:
     return flagged, last
 
 
-def native_labels(frames: int, flagged: set[int] | list[int]) -> np.ndarray:
-    """``(frames,)`` 0/1: frame ``f`` (1-based in the annotation) -> index ``f - 1``."""
+def native_labels(cls: str, frames: int, toa: int = constants.DAD_TOA_FRAME) -> np.ndarray:
+    """``(frames,)`` 0/1: a positive is abnormal from 0-based frame ``toa`` to its end."""
     labels = np.zeros(frames, dtype=np.int64)
-    for f in flagged:
-        if f > frames:
-            raise ValueError(f"flagged frame {f} past the video's {frames} frames")
-        labels[f - 1] = 1
+    if cls == "positive":
+        if frames <= toa:
+            raise ValueError(f"a positive video of {frames} frames has no frame past toa {toa}")
+        labels[toa:] = 1
     return labels
 
 
@@ -100,45 +98,36 @@ def row_labels(native: np.ndarray, stride: int) -> list[int]:
     return [int(x) for x in native[::stride]]
 
 
-def entry_reason(cls: str, fps: float, frames: int, annotated: bool, flagged: set[int],
-                 last: int) -> str:
+def entry_reason(cls: str, fps: float, frames: int) -> str:
     if abs(fps - constants.DAD_ASSUMED_FPS) > constants.DAD_FPS_TOL:
         return FPS_MISMATCH
-    if annotated and last > frames:
-        return ANNOTATION_PAST_END
-    if cls == "positive":
-        if not annotated:
-            return NO_ANNOTATION
-        if not flagged:
-            return NO_FLAG
-    elif flagged:
-        return NEGATIVE_FLAGGED
+    if cls == "positive" and frames <= constants.DAD_TOA_FRAME:
+        return TOO_SHORT
     return OK
 
 
 def summarize(entries: dict[str, dict[str, Any]]) -> dict[str, Any]:
-    """Counts, frame / fps spread, the flag timing, and the census verdict (ZS_DAD.md §3)."""
+    """Counts, frame / fps spread, the (printed) flag statistics, and the census verdict."""
     pos = [e for e in entries.values() if e["cls"] == "positive"]
     first = [min(e["flagged"]) for e in pos if e["flagged"]]
     bad = {v: e["reason"] for v, e in entries.items() if e["reason"] != OK}
-    median_first = statistics.median(first) if first else None
-    timing_ok = median_first is not None and median_first >= constants.DAD_FLAG_TIME_MIN_FRAME
     return {
         "videos": len(entries),
         "positive": len(pos),
         "negative": len(entries) - len(pos),
         "frames": sorted({e["frames"] for e in entries.values()}),
         "fps": sorted({round(e["fps"], 2) for e in entries.values()}),
-        "first_flag_frame": {"min": min(first, default=None), "median": median_first,
-                             "max": max(first, default=None)},
-        "flagged_frames": sorted({len(e["flagged"]) for e in pos}),
-        "flag_after_first_is_contiguous": all(
-            sorted(e["flagged"]) == list(range(min(e["flagged"]), max(e["flagged"]) + 1))
-            for e in pos if e["flagged"]),
+        "label_rule": f"positive: 0-based frames >= {constants.DAD_TOA_FRAME}; negative: none",
+        "printed_flag_stats": {
+            "first_flag_frame_median": statistics.median(first) if first else None,
+            "positives_flagged": len(first),
+            "negatives_flagged": sum(1 for e in entries.values()
+                                     if e["cls"] == "negative" and e["flagged"]),
+            "annotation_errors": sum(1 for e in entries.values() if e.get("annotation_error")),
+        },
         "shared_stems": sum(1 for e in entries.values() if e.get("shared_stem")),
         "failures": bad,
-        "flag_timing_ok": timing_ok,
-        "pass": not bad and timing_ok,
+        "pass": not bad,
     }
 
 
@@ -179,19 +168,18 @@ def census(root: Path) -> dict[str, Any]:
         shared = cls == "negative" and path.stem in positive_stems
         flagged: set[int] = set()
         last = 0
-        reason = None
+        error = None
         if ann.is_file() and not shared:
             try:
                 flagged, last = parse_annotation(ann.read_text(encoding="utf-8"))
             except ValueError as exc:
-                reason = f"{BAD_ANNOTATION}: {exc}"
+                error = f"{BAD_ANNOTATION}: {exc}"
         entries[vid] = {
             "cls": cls, "video": str(path.relative_to(root)), "frames": frames, "fps": fps,
             "annotated": ann.is_file() and not shared, "shared_stem": shared,
-            "flagged": sorted(flagged), "last_annotated": last,
+            "flagged": sorted(flagged), "last_annotated": last, "annotation_error": error,
+            "reason": entry_reason(cls, fps, frames),
         }
-        entries[vid]["reason"] = reason or entry_reason(
-            cls, fps, frames, entries[vid]["annotated"], flagged, last)
         LOGGER.info("%s: %d frames %.2f fps, %d flagged -> %s", vid, frames, fps, len(flagged),
                     entries[vid]["reason"])
     return {"root": str(root), "summary": summarize(entries), "videos": entries}
@@ -203,7 +191,7 @@ def prepare(census_doc: dict[str, Any], defs: Path, stride: int, out_dir: Path) 
     if not summary["pass"]:
         raise ValueError(f"the DAD census did not pass (ZS_DAD.md §3): {summary}")
     videos = census_doc["videos"]
-    labels = {v: row_labels(native_labels(e["frames"], e["flagged"]), stride)
+    labels = {v: row_labels(native_labels(e["cls"], e["frames"]), stride)
               for v, e in sorted(videos.items())}
     out_dir.mkdir(parents=True, exist_ok=True)
     write_json_atomic(out_dir / constants.FRAME_LABELS_TEST_FILENAME, labels)
@@ -214,7 +202,7 @@ def prepare(census_doc: dict[str, Any], defs: Path, stride: int, out_dir: Path) 
         "dataset": constants.DAD_DATASET, "stride": stride, "fps": constants.DAD_ASSUMED_FPS,
         "videos": len(labels), "abnormal": sum(1 for g in labels.values() if max(g) > 0),
         "two_class_at_stride": two_class, "ids_sha1": lines_sha1(sorted(labels)),
-        "label_rule": "rows = native[::stride]; native frame f-1 = 1 iff any object flag at f",
+        "label_rule": f"rows = native[::stride]; positive native[{constants.DAD_TOA_FRAME}:] = 1",
         "defs_from": str(defs),
     }
     write_json_atomic(out_dir / constants.DAD_MANIFEST_FILENAME, manifest)
