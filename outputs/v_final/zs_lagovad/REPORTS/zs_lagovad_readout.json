@@ -1,0 +1,377 @@
+{
+  "arm": "R4",
+  "baseline": "LaGoVAD",
+  "control": "W0",
+  "label": "PRELIMINARY (n = 1 seed)",
+  "rule": "core/docs/final/ZS_TAD_DADA.md \u00a77",
+  "seed": 2024,
+  "sets": {
+    "dada": {
+      "micro_note": "raw, pooled",
+      "rows": {
+        "LaGoVAD": {
+          "clip_auc": null,
+          "extra": {
+            "middle_ruler": {
+              "clips": 370,
+              "clusters": 370,
+              "high": 0.7593740793767018,
+              "low": 0.7076400644362505,
+              "mean": 0.7342313238639548
+            },
+            "monotone_ruler": {
+              "clips": 370,
+              "clusters": 370,
+              "high": 0.578161971730551,
+              "low": 0.5246651404989134,
+              "mean": 0.5514242805926071
+            }
+          },
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.6480376385008992,
+            "low": 0.5924833004630622,
+            "mean": 0.6202179109302967
+          },
+          "micro": 0.5387561040672906,
+          "per_seed": {
+            "released": 0.6202179109302967
+          }
+        },
+        "R4": {
+          "clip_auc": null,
+          "extra": {
+            "middle_ruler": {
+              "clips": 370,
+              "clusters": 370,
+              "high": 0.7593740793767018,
+              "low": 0.7076400644362505,
+              "mean": 0.7342313238639548
+            },
+            "monotone_ruler": {
+              "clips": 370,
+              "clusters": 370,
+              "high": 0.578161971730551,
+              "low": 0.5246651404989134,
+              "mean": 0.5514242805926071
+            }
+          },
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.7819851445806756,
+            "low": 0.7334104808776595,
+            "mean": 0.757932083272488
+          },
+          "micro": 0.7047806656839339,
+          "per_seed": {
+            "s2024": 0.757932083272488
+          }
+        },
+        "W0": {
+          "clip_auc": null,
+          "extra": {
+            "middle_ruler": {
+              "clips": 370,
+              "clusters": 370,
+              "high": 0.7593740793767018,
+              "low": 0.7076400644362505,
+              "mean": 0.7342313238639548
+            },
+            "monotone_ruler": {
+              "clips": 370,
+              "clusters": 370,
+              "high": 0.578161971730551,
+              "low": 0.5246651404989134,
+              "mean": 0.5514242805926071
+            }
+          },
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.7858713386524027,
+            "low": 0.7369120669552506,
+            "mean": 0.7614828911796907
+          },
+          "micro": 0.6981027731636915,
+          "per_seed": {
+            "s2024": 0.7614828911796907
+          }
+        }
+      },
+      "sa2_minus_host": {
+        "delta": {
+          "clips": 370,
+          "clusters": 370,
+          "high": 0.008880220539959238,
+          "low": -0.016117221584227407,
+          "mean": -0.0035508079072026242
+        },
+        "sentence": "no difference shown"
+      },
+      "title": "DADA-2000 \u00b7 370 T2-test sources, whole video, s8 (D-N20)",
+      "versus_lagovad": {
+        "R4": {
+          "delta": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.16963933682529742,
+            "low": 0.10566920460221052,
+            "mean": 0.13771417234219124
+          },
+          "sentence": "above"
+        },
+        "W0": {
+          "delta": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.1737694624424191,
+            "low": 0.10933253057048853,
+            "mean": 0.14126498024939385
+          },
+          "sentence": "above"
+        }
+      }
+    },
+    "dota": {
+      "lagovad_protocol_a": {
+        "macro": {
+          "clips": 569,
+          "clusters": 91,
+          "high": 0.6405480291640835,
+          "low": 0.5965574491102085,
+          "mean": 0.6185088511691842
+        },
+        "micro": 0.593221106929112
+      },
+      "micro_note": "per-clip min-max, pooled (lesson 12: DoTA-CAP is all-abnormal)",
+      "rows": {
+        "LaGoVAD": {
+          "clip_auc": null,
+          "extra": {
+            "position_ruler": {
+              "clips": 569,
+              "clusters": 91,
+              "high": 0.5764967326968747,
+              "low": 0.5379905922012269,
+              "mean": 0.5573060693077054
+            },
+            "stride": "B: s1[::3], whole clip, native frames (addendum \u00a78.1 J1-J5)"
+          },
+          "macro": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.6665744456217549,
+            "low": 0.6166245464250178,
+            "mean": 0.6417983519012194
+          },
+          "micro": 0.6104565787669445,
+          "per_seed": {
+            "released": 0.6417983519012194
+          }
+        },
+        "R4": {
+          "clip_auc": null,
+          "extra": {
+            "position_ruler": {
+              "clips": 569,
+              "clusters": 91,
+              "high": 0.5764967326968747,
+              "low": 0.5379905922012269,
+              "mean": 0.5573060693077054
+            },
+            "stride": "B: s1[::3], whole clip, native frames (addendum \u00a78.1 J1-J5)"
+          },
+          "macro": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.8293456935929528,
+            "low": 0.79270649042998,
+            "mean": 0.8111191434950765
+          },
+          "micro": 0.7291401378064648,
+          "per_seed": {
+            "s2024": 0.8111191434950765
+          }
+        },
+        "W0": {
+          "clip_auc": null,
+          "extra": {
+            "position_ruler": {
+              "clips": 569,
+              "clusters": 91,
+              "high": 0.5764967326968747,
+              "low": 0.5379905922012269,
+              "mean": 0.5573060693077054
+            },
+            "stride": "B: s1[::3], whole clip, native frames (addendum \u00a78.1 J1-J5)"
+          },
+          "macro": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.8269016022841477,
+            "low": 0.7948027117053982,
+            "mean": 0.8110072204788573
+          },
+          "micro": 0.7255014146410386,
+          "per_seed": {
+            "s2024": 0.8110072204788573
+          }
+        }
+      },
+      "sa2_minus_host": {
+        "delta": {
+          "clips": 569,
+          "clusters": 91,
+          "high": 0.009759810329127976,
+          "low": -0.00997589794751055,
+          "mean": 0.00011192301621922886
+        },
+        "sentence": "no difference shown"
+      },
+      "title": "DoTA-CAP-dev (n/1397) \u00b7 protocol B (s1[::3], whole clip, native frames)",
+      "versus_lagovad": {
+        "R4": {
+          "delta": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.19964977842829135,
+            "low": 0.1400096461905683,
+            "mean": 0.169320791593857
+          },
+          "sentence": "above"
+        },
+        "W0": {
+          "delta": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.19583402557549487,
+            "low": 0.14380606299023554,
+            "mean": 0.16920886857763778
+          },
+          "sentence": "above"
+        }
+      }
+    },
+    "tad": {
+      "micro_note": "raw, pooled (clip oracle 0.9226: measures clip classification)",
+      "rows": {
+        "LaGoVAD": {
+          "clip_auc": 0.7687499999999999,
+          "extra": {
+            "clip_oracle_micro": 0.9226451927769644,
+            "length_ruler_micro": 0.8967914836505612,
+            "middle_ruler": {
+              "clips": 60,
+              "clusters": 60,
+              "high": 0.7516989618701272,
+              "low": 0.6097132838245864,
+              "mean": 0.6831360343200663
+            }
+          },
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.814698013702664,
+            "low": 0.6955357359335499,
+            "mean": 0.7579100878624522
+          },
+          "micro": 0.7912286481210347,
+          "per_seed": {
+            "released": 0.7579100878624522
+          }
+        },
+        "R4": {
+          "clip_auc": 0.6566666666666667,
+          "extra": {
+            "clip_oracle_micro": 0.9226451927769644,
+            "length_ruler_micro": 0.8967914836505612,
+            "middle_ruler": {
+              "clips": 60,
+              "clusters": 60,
+              "high": 0.7516989618701272,
+              "low": 0.6097132838245864,
+              "mean": 0.6831360343200663
+            }
+          },
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.788857831628032,
+            "low": 0.6515439682040546,
+            "mean": 0.7220307423995538
+          },
+          "micro": 0.7167038189360663,
+          "per_seed": {
+            "s2024": 0.7220307423995538
+          }
+        },
+        "W0": {
+          "clip_auc": 0.5941666666666666,
+          "extra": {
+            "clip_oracle_micro": 0.9226451927769644,
+            "length_ruler_micro": 0.8967914836505612,
+            "middle_ruler": {
+              "clips": 60,
+              "clusters": 60,
+              "high": 0.7516989618701272,
+              "low": 0.6097132838245864,
+              "mean": 0.6831360343200663
+            }
+          },
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.7694691323894857,
+            "low": 0.622153601219876,
+            "mean": 0.69830287891366
+          },
+          "micro": 0.603422645192777,
+          "per_seed": {
+            "s2024": 0.69830287891366
+          }
+        }
+      },
+      "sa2_minus_host": {
+        "delta": {
+          "clips": 60,
+          "clusters": 60,
+          "high": 0.049900383433709804,
+          "low": 0.0005266334207701523,
+          "mean": 0.02372786348589365
+        },
+        "sentence": "gain shown"
+      },
+      "t0_check": {
+        "gap": 2.8648121034646756e-05,
+        "micro": 0.7912286481210347,
+        "pass": true,
+        "t0": 0.7912
+      },
+      "title": "TAD test \u00b7 100 videos, s8, raw scores (\u00a726)",
+      "versus_lagovad": {
+        "R4": {
+          "delta": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.04703392312556668,
+            "low": -0.11838196837641952,
+            "mean": -0.03587934546289831
+          },
+          "sentence": "not separated"
+        },
+        "W0": {
+          "delta": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.025887205673213134,
+            "low": -0.14595192117966108,
+            "mean": -0.05960720894879195
+          },
+          "sentence": "not separated"
+        }
+      }
+    }
+  }
+}

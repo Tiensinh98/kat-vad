@@ -1,0 +1,52 @@
+{
+  "abnormal_videos": 370,
+  "arm": {
+    "crn": "none",
+    "motion": "vit_s_k710_dl_from_giant",
+    "stp_motion": "raw",
+    "stp_sa2": true,
+    "stp_text_prompt": "released",
+    "stp_top_k": 12
+  },
+  "checkpoints": {
+    "s2024": "/content/drive/MyDrive/Thesis-Final/outputs/stp/R4/s2024/checkpoint_last.pt"
+  },
+  "global_steps": {
+    "s2024": 1749
+  },
+  "input_dir": "/content/zs/bake/dada",
+  "macro": {
+    "clips": 370,
+    "clusters": 370,
+    "high": 0.7819851445806756,
+    "low": 0.7334104808776595,
+    "mean": 0.757932083272488
+  },
+  "micro": 0.7047806656839339,
+  "middle_ruler_macro": {
+    "clips": 370,
+    "clusters": 370,
+    "high": 0.7593740793767018,
+    "low": 0.7076400644362505,
+    "mean": 0.7342313238639548
+  },
+  "monotone_ruler_macro": {
+    "clips": 370,
+    "clusters": 370,
+    "high": 0.578161971730551,
+    "low": 0.5246651404989134,
+    "mean": 0.5514242805926071
+  },
+  "patch_dir": "/content/zs/patch/dada",
+  "per_run_macro": {
+    "s2024": 0.757932083272488
+  },
+  "per_run_micro": {
+    "s2024": 0.7047806656839339
+  },
+  "protocol": "whole source video, every s8 row, labels = annotation span",
+  "set": "DADA-2000 original: the sources of T2-test's windows",
+  "two_class": 370,
+  "video_auc": null,
+  "videos": 370
+}
