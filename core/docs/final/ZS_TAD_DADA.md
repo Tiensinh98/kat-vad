@@ -1,6 +1,6 @@
 # Zero-shot TAD / DADA-2000: SA² (R4) vs its host (W0), Nexar-trained, seed 2024
 
-Status: built 2026-11-03; §3 read out 2026-11-04 (§6); §7 (LaGoVAD released) built, not run. Rule written before any number. Runbooks:
+Status: built 2026-11-03; §3 read out 2026-11-04 (§6); §7 (LaGoVAD released) read out 2026-11-04 (§7.5). Rule written before any number. Runbooks:
 `colab/final/zs_pack_frames.ipynb` (CPU, once) → `colab/final/zs_tad_dada_r4.ipynb` (GPU).
 
 ## 1. Question
@@ -140,6 +140,22 @@ rows, and `RESULTS_NCC.md` measured it **lower** under `no_center_crop` than und
 on DoTA (macro −0.0170 [−0.0301, −0.0037]). Its row here may therefore sit slightly low; the
 transform is kept because a second cache would break the row-for-row input identity (§7.3-1, C2).
 
-### 7.5 Read-out
+### 7.5 Read-out (2026-11-04, `REPORTS/zs_lagovad_readout.md`, PRELIMINARY n = 1 seed, not matched)
 
-Not run.
+Integrity: inputs identical row for row on all three sets; TAD micro 0.7912 vs T0 (gap +0.00003) PASS.
+
+| set | LaGoVAD macro | W0 macro | R4 macro | W0 − LaGoVAD | R4 − LaGoVAD | R4 − W0 |
+| --- | --- | --- | --- | --- | --- | --- |
+| DoTA-CAP-dev (569) | 0.6418 [0.617, 0.667] | 0.8110 [0.795, 0.827] | 0.8111 [0.793, 0.829] | +0.169 [+0.144, +0.196] above | +0.169 [+0.140, +0.200] above | +0.0001 [−0.010, +0.010] no diff |
+| TAD (60) | 0.7579 [0.696, 0.815] | 0.6983 [0.622, 0.770] | 0.7220 [0.652, 0.789] | −0.060 [−0.146, +0.026] not sep. | −0.036 [−0.118, +0.047] not sep. | +0.024 [+0.001, +0.050] gain |
+| DADA-2000 (370) | 0.6202 [0.593, 0.648] | 0.7615 [0.737, 0.786] | 0.7579 [0.733, 0.782] | +0.141 [+0.109, +0.174] above | +0.138 [+0.106, +0.170] above | −0.004 [−0.016, +0.009] no diff |
+
+Printed: micro LaGoVAD / W0 / R4 — DoTA (min-max) 0.611 / 0.726 / 0.729, TAD 0.791 / 0.603 / 0.717,
+DADA 0.539 / 0.698 / 0.705; TAD clip AUC 0.769 / 0.594 / 0.657. LaGoVAD DoTA-CAP-dev protocol A
+0.6185. Rulers: DoTA `t/N` 0.557 (cubic `p_T2` 0.822 on record, above every row); TAD middle
+0.683; DADA middle **0.734 — above LaGoVAD (0.620)**, below the arms by ≈ 0.027.
+
+Reading: the Nexar-trained arms sit far above the released checkpoint on both **dashcam** sets and
+are not separated from it (point estimate below) on **fixed-camera** TAD, where LaGoVAD also keeps
+a clear clip-level lead. The arms' training corpus is dashcam and LaGoVAD's is not, so the dashcam
+gap cannot be credited to the architecture (not matched). SA² changes nothing on DoTA / DADA.
