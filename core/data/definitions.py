@@ -40,6 +40,9 @@ DATASET_NAME_TO_ABBR = {
     # abnormal class under the same traffic definition set -- the text side does not change.
     "Nexar": "dada",
     "TAD": "tad",
+    # DAD (Dashcam Accident Dataset, zero-shot only, ZS_DAD.md): dashcam accidents, the same
+    # traffic definition set as DADA / Nexar.
+    "DAD": "dada",
 }
 
 

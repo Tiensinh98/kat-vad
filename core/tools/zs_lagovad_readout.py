@@ -7,6 +7,8 @@ DoTA-CAP-dev or DADA-2000). Pure aggregation -- no model is loaded. Inputs::
     <lagovad-root>/eval/dota/LaGoVAD/A/   protocol_b_eval --baseline --stride 8 (printed)
     <lagovad-root>/eval/tad/LaGoVAD/released/   core.evaluate --baseline-ckpt --save-scores
     <lagovad-root>/eval/dada/LaGoVAD/     dada_whole_eval --baseline
+    <lagovad-root>/eval/dad/{LaGoVAD/released, W0/s2024, R4/s2024}/   core.evaluate (optional,
+                                          ZS_DAD.md; the set is read when eval/dad/ exists)
     --dota W0 <dir> --dota R4 <dir>       the arms' DoTA-CAP-dev protocol-B reads (wu / stp)
     <zs-root>/eval/{tad,dada}/{W0,R4}/    the arms' zero-shot reads (zs_tad_dada_r4.ipynb)
 
@@ -60,18 +62,22 @@ RULE = "core/docs/final/ZS_TAD_DADA.md §7"
 LABEL = "PRELIMINARY (n = 1 seed)"
 EVAL_DIR = "eval"
 DOTA, TAD, DADA = "dota", "tad", "dada"
+DAD = constants.DAD_OUTPUT_SET
 SETS = (DOTA, TAD, DADA)
+OPTIONAL_SETS = (DAD,)  # read when <lagovad-root>/eval/<set>/ exists (ZS_DAD.md)
 PROTOCOL_B, PROTOCOL_A = "B", "A"
 SET_TITLE = {
     DOTA: "DoTA-CAP-dev (n/1397) · protocol B (s1[::3], whole clip, native frames)",
     TAD: "TAD test · 100 videos, s8, raw scores (§26)",
     DADA: "DADA-2000 · 370 T2-test sources, whole video, s8 (D-N20)",
+    DAD: f"DAD · testing split, whole video, s{constants.DAD_STRIDE} at 20 fps (ZS_DAD.md)",
 }
 ABOVE, BELOW, NOT_SEPARATED = "above", "below", "not separated"
 MICRO_NOTE = {
     DOTA: "per-clip min-max, pooled (lesson 12: DoTA-CAP is all-abnormal)",
     TAD: "raw, pooled (clip oracle 0.9226: measures clip classification)",
     DADA: "raw, pooled",
+    DAD: "raw, pooled (equal-length videos: the length ruler is uninformative)",
 }
 
 
@@ -195,6 +201,13 @@ def read_rows(args: argparse.Namespace, set_name: str) -> tuple[dict[str, ArmRea
             rows[arm] = read_tad_runs(args.zs_root / EVAL_DIR / TAD / arm,
                                       [f"s{args.seed}"], constants.V5_BOOTSTRAP_SEED)
         return rows, t0_check(rows[constants.ZS_LAGOVAD_ARM])
+    if set_name == DAD:  # every row is a core.evaluate output under eval/dad/<row>/<run>/
+        rows[constants.ZS_LAGOVAD_ARM] = read_tad_runs(
+            base, [constants.ZS_LAGOVAD_RUN], constants.V5_BOOTSTRAP_SEED, None)
+        for arm in constants.ZS_ARMS:
+            rows[arm] = read_tad_runs(base.parent / arm, [f"s{args.seed}"],
+                                      constants.V5_BOOTSTRAP_SEED, None)
+        return rows, None
     rows[constants.ZS_LAGOVAD_ARM] = read_dada(base)
     for arm in constants.ZS_ARMS:
         rows[arm] = read_dada(args.zs_root / EVAL_DIR / DADA / arm)
@@ -229,7 +242,9 @@ def summarize_set(set_name: str, rows: dict[str, ArmRead], printed: Any) -> dict
 def run(args: argparse.Namespace) -> dict[str, Any]:
     if not args.dota or {n for n, _ in args.dota} != set(constants.ZS_ARMS):
         raise ValueError(f"--dota must name each of {constants.ZS_ARMS} once")
-    sets = {s: summarize_set(s, *read_rows(args, s)) for s in SETS}
+    present = [*SETS, *(s for s in OPTIONAL_SETS
+                        if (args.lagovad_root / EVAL_DIR / s).is_dir())]
+    sets = {s: summarize_set(s, *read_rows(args, s)) for s in present}
     result: dict[str, Any] = {
         "rule": RULE, "label": LABEL, "seed": args.seed,
         "baseline": constants.ZS_LAGOVAD_ARM, "control": constants.ZS_CONTROL_ARM,
@@ -268,15 +283,14 @@ def render_markdown(r: dict[str, Any]) -> str:
         "",
         "## Summary (macro AUC [95 % cluster CI])",
         "",
-        "| row | " + " | ".join(r["sets"][s]["title"].split(" · ")[0] for s in SETS) + " |",
-        "|---|" + "---|" * len(SETS),
+        "| row | " + " | ".join(r["sets"][s]["title"].split(" · ")[0] for s in r["sets"]) + " |",
+        "|---|" + "---|" * len(r["sets"]),
     ]
     for name in (constants.ZS_LAGOVAD_ARM, *constants.ZS_ARMS):
-        cells = [_num(r["sets"][s]["rows"][name]["macro"]) for s in SETS]
+        cells = [_num(r["sets"][s]["rows"][name]["macro"]) for s in r["sets"]]
         lines.append(f"| {ROW_TITLE[name]} | " + " | ".join(cells) + " |")
     lines.append("")
-    for s_name in SETS:
-        s = r["sets"][s_name]
+    for s in r["sets"].values():
         lines += [
             f"## {s['title']}",
             "",

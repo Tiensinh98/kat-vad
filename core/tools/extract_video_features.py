@@ -170,8 +170,19 @@ def encode_clips(
     return torch.cat(chunks).numpy().astype(np.float32)
 
 
-def build_manifest(encoder_name: str, stride: int, weights_sha256: str) -> dict[str, Any]:
-    """Everything that makes two caches comparable (C2); compared on every rerun."""
+def build_manifest(
+    encoder_name: str,
+    stride: int,
+    weights_sha256: str,
+    *,
+    clip_frame_step: int = constants.VIDEOMAE_CLIP_FRAME_STEP,
+    assumed_fps: int = constants.DADA_ASSUMED_FPS,
+) -> dict[str, Any]:
+    """Everything that makes two caches comparable (C2); compared on every rerun.
+
+    ``clip_frame_step`` / ``assumed_fps`` keep the causal window at 1.5 s on another frame rate
+    (DAD: 2 at 20 fps); the defaults are the T2 / Nexar geometry, byte-identical manifests.
+    """
     return {
         "encoder": encoder_name,
         "repo_id": constants.VIDEOMAE_REPO_ID,
@@ -179,8 +190,8 @@ def build_manifest(encoder_name: str, stride: int, weights_sha256: str) -> dict[
         "weights_sha256": weights_sha256,
         "stride": stride,
         "clip_frames": constants.VIDEOMAE_CLIP_FRAMES,
-        "clip_frame_step": constants.VIDEOMAE_CLIP_FRAME_STEP,
-        "assumed_fps": constants.DADA_ASSUMED_FPS,
+        "clip_frame_step": clip_frame_step,
+        "assumed_fps": assumed_fps,
         "transform": TRANSFORM_NAME,
         "image_mean": list(constants.VIDEOMAE_IMAGE_MEAN),
         "image_std": list(constants.VIDEOMAE_IMAGE_STD),
@@ -218,6 +229,7 @@ def extract_frame_directory(
     force: bool = False,
     subdir: str | None = None,
     video_ids: set[str] | None = None,
+    clip_step: int = constants.VIDEOMAE_CLIP_FRAME_STEP,
 ) -> list[Path]:
     """Encode every (selected) per-video frame folder; resumable, atomic writes."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -234,7 +246,8 @@ def extract_frame_directory(
     started = time.monotonic()
     for video_id, folder in pending:
         target = output_dir / f"{video_id}.npy"
-        features = encode_frame_dir(folder, encoder, device, stride, batch_size, subdir)
+        features = encode_frame_dir(folder, encoder, device, stride, batch_size, subdir,
+                                    clip_step)
         save_array(target, features)
         written.append(target)
         steps += features.shape[0]
@@ -269,6 +282,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         help="default: cache/video/<encoder>/<dataset>_s<stride>_squash")
     parser.add_argument("--stride", type=int, default=constants.FRAME_STRIDE)
     parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument("--clip-frame-step", type=int, default=constants.VIDEOMAE_CLIP_FRAME_STEP,
+                        help="raw frames between the clip's 16 frames (3 at 30 fps, 2 at 20 fps "
+                             "= the same causal 1.5 s); recorded in the manifest")
+    parser.add_argument("--assumed-fps", type=int, default=constants.DADA_ASSUMED_FPS,
+                        help="frame rate the clip geometry assumes (manifest only)")
     parser.add_argument("--device", default="auto")
     parser.add_argument("--force", action="store_true",
                         help="re-extract existing files and rewrite the manifest")
@@ -282,7 +300,8 @@ def main(argv: list[str] | None = None) -> None:
     output_dir = args.output_dir or default_output_dir(args.encoder, args.dataset, args.stride)
     encoder = load_pretrained(args.encoder, device, args.weights)
     manifest = build_manifest(
-        args.encoder, args.stride, constants.VIDEOMAE_WEIGHTS_SHA256[args.encoder]
+        args.encoder, args.stride, constants.VIDEOMAE_WEIGHTS_SHA256[args.encoder],
+        clip_frame_step=args.clip_frame_step, assumed_fps=args.assumed_fps,
     )
     check_or_write_manifest(output_dir, manifest, args.force)
     LOGGER.info("Transform: %s, stride %d -> %s", TRANSFORM_NAME, args.stride, output_dir)
@@ -296,6 +315,7 @@ def main(argv: list[str] | None = None) -> None:
         force=args.force,
         subdir=args.frames_subdir,
         video_ids=read_ids_file(args.ids_file) if args.ids_file else None,
+        clip_step=args.clip_frame_step,
     )
 
 

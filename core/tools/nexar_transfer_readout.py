@@ -95,10 +95,19 @@ def read_tad(arm_dir: Path, seeds: list[int], seed: int) -> ArmRead:
     return read_tad_runs(arm_dir, [seed_name(s) for s in seeds], seed)
 
 
-def read_tad_runs(arm_dir: Path, names: list[str], seed: int) -> ArmRead:
-    """One arm's ``core.evaluate`` outputs under ``arm_dir/<name>/`` (a seed, or ``released``)."""
+def read_tad_runs(
+    arm_dir: Path,
+    names: list[str],
+    seed: int,
+    expect: tuple[int, int] | None = tadz_readout.TAD_PROTOCOL_SIZE,
+) -> ArmRead:
+    """One arm's ``core.evaluate`` outputs under ``arm_dir/<name>/`` (a seed, or ``released``).
+
+    Any ``core.evaluate --save-scores`` set reads this way; ``expect`` is TAD's protocol size
+    (``None`` for another set, e.g. DAD).
+    """
     runs = {name: tadz_readout.load_run(arm_dir / name) for name in names}
-    labels = tadz_readout.check_labels(runs)
+    labels = tadz_readout.check_labels(runs, expect)
     reads = tadz_readout.arm_reads({n: c for n, (c, _) in runs.items()}, labels, seed)
     rulers = tadz_readout.rulers(labels, None, seed)
     return {

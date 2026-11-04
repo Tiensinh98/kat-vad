@@ -61,8 +61,18 @@ def load_run(run_dir: Path) -> tuple[Curves, Curves]:
     return scores, labels
 
 
-def check_labels(runs: dict[str, tuple[Curves, Curves]]) -> Curves:
-    """T9(d): every run scored the same videos with identical labels; T9(b) the protocol size."""
+TAD_PROTOCOL_SIZE = (constants.V2_TADZ_VIDEOS, constants.V2_TADZ_ABNORMAL)
+
+
+def check_labels(
+    runs: dict[str, tuple[Curves, Curves]],
+    expect: tuple[int, int] | None = TAD_PROTOCOL_SIZE,
+) -> Curves:
+    """T9(d): every run scored the same videos with identical labels; T9(b) the protocol size.
+
+    ``expect`` = (videos, abnormal) of the protocol; ``None`` skips T9(b) for a set whose size
+    is checked elsewhere (DAD: its census).
+    """
     names = sorted(runs)
     reference = runs[names[0]][1]
     for name in names[1:]:
@@ -76,9 +86,9 @@ def check_labels(runs: dict[str, tuple[Curves, Curves]]) -> Curves:
         if short:
             raise ValueError(f"{name}: score length != label length on {short[:5]}")
     abnormal = sum(int(g.max() > 0) for g in reference.values())
-    if (len(reference), abnormal) != (constants.V2_TADZ_VIDEOS, constants.V2_TADZ_ABNORMAL):
+    if expect is not None and (len(reference), abnormal) != expect:
         raise ValueError(
-            f"TAD protocol is {constants.V2_TADZ_VIDEOS} videos / {constants.V2_TADZ_ABNORMAL} "
+            f"TAD protocol is {expect[0]} videos / {expect[1]} "
             f"abnormal, got {len(reference)} / {abnormal}"
         )
     return reference

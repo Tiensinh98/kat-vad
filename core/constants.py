@@ -954,3 +954,21 @@ ZS_LAGOVAD_T0_MICRO = 0.7912  # TAD Gate T0: the released ckpt's micro on TAD_nc
 ZS_LAGOVAD_T0_TOL = 1e-3  # |micro - T0| above this: the checkpoint or TAD_ncc drifted -> stop
 ZS_LAGOVAD_INPUT_DIM = 512  # LaGoVAD reads the plain CLIP row = the first 512 columns of a bake
 ZS_LAGOVAD_INPUT_ATOL = 1e-3  # plain CLIP row vs the bake's CLIP columns (fp16 storage slack)
+
+# --- DAD (Dashcam Accident Dataset) zero-shot: LaGoVAD / W0 / R4 (core/docs/final/ZS_DAD.md) ---
+DAD_DATASET = "DAD"
+DAD_SPLIT_DIRNAME = "testing"  # <data>/DAD/videos/testing/{positive,negative}/*.mp4
+DAD_CLASSES = ("positive", "negative")
+DAD_ID_PREFIX = {"positive": "pos", "negative": "neg"}  # stems may repeat across the two dirs
+DAD_ANNOTATION_DIRNAME = "annotation"  # <data>/DAD/annotation/<stem>.txt
+DAD_ANNOTATION_COLUMNS = 8  # frame, track id, class, x1, y1, x2, y2, accident flag
+DAD_ASSUMED_FPS = 20  # the DAD paper's rate; every video is checked against it (census gate)
+DAD_FPS_TOL = 0.5  # |measured - 20| above this fails the census
+DAD_STRIDE = 5  # 0.25 s/step = the arms' training step (Nexar s8 at ~30 fps, 0.267 s), E1's logic
+DAD_VIDEOMAE_FRAME_STEP = 2  # 16 frames x 2 at 20 fps = the arms' causal 1.5 s (3 at 30 fps)
+DAD_FLAG_TIME_MIN_FRAME = 50  # census stops if the median first flagged frame (1-based) is below
+# this: the flag would mark object involvement from first sight, not accident time (ask the user)
+DAD_JPEG_QUALITY = 95  # decode mp4 -> one JPEG folder; CLIP, V2-S and the windows all read it
+DAD_CENSUS_FILENAME = "dad_census.json"
+DAD_MANIFEST_FILENAME = "dad_manifest.json"
+DAD_OUTPUT_SET = "dad"  # <zs_lagovad root>/eval/dad/<row>/<run>/ (core.evaluate outputs)
