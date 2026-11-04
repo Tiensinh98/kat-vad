@@ -6,6 +6,119 @@
   "rule": "core/docs/final/ZS_TAD_DADA.md \u00a77",
   "seed": 2024,
   "sets": {
+    "dad": {
+      "micro_note": "raw, pooled (equal-length videos: the length ruler is uninformative)",
+      "rows": {
+        "LaGoVAD": {
+          "clip_auc": 0.5808114366253901,
+          "extra": {
+            "clip_oracle_micro": 0.838963963963964,
+            "length_ruler_micro": 0.5,
+            "middle_ruler": {
+              "clips": 165,
+              "clusters": 165,
+              "high": 0.15384615384615374,
+              "low": 0.15384615384615374,
+              "mean": 0.15384615384615374
+            }
+          },
+          "macro": {
+            "clips": 165,
+            "clusters": 165,
+            "high": 0.7016317016317015,
+            "low": 0.5881118881118882,
+            "mean": 0.6461538461538462
+          },
+          "micro": 0.5681149331149331,
+          "per_seed": {
+            "released": 0.6461538461538462
+          }
+        },
+        "R4": {
+          "clip_auc": 0.672928621765831,
+          "extra": {
+            "clip_oracle_micro": 0.838963963963964,
+            "length_ruler_micro": 0.5,
+            "middle_ruler": {
+              "clips": 165,
+              "clusters": 165,
+              "high": 0.15384615384615374,
+              "low": 0.15384615384615374,
+              "mean": 0.15384615384615374
+            }
+          },
+          "macro": {
+            "clips": 165,
+            "clusters": 165,
+            "high": 0.7962703962703963,
+            "low": 0.7174825174825175,
+            "mean": 0.7571095571095571
+          },
+          "micro": 0.7019505869505869,
+          "per_seed": {
+            "s2024": 0.7571095571095571
+          }
+        },
+        "W0": {
+          "clip_auc": 0.6451223195409242,
+          "extra": {
+            "clip_oracle_micro": 0.838963963963964,
+            "length_ruler_micro": 0.5,
+            "middle_ruler": {
+              "clips": 165,
+              "clusters": 165,
+              "high": 0.15384615384615374,
+              "low": 0.15384615384615374,
+              "mean": 0.15384615384615374
+            }
+          },
+          "macro": {
+            "clips": 165,
+            "clusters": 165,
+            "high": 0.7715617715617714,
+            "low": 0.6897435897435898,
+            "mean": 0.7317016317016317
+          },
+          "micro": 0.6693083993083992,
+          "per_seed": {
+            "s2024": 0.7317016317016317
+          }
+        }
+      },
+      "sa2_minus_host": {
+        "delta": {
+          "clips": 165,
+          "clusters": 165,
+          "high": 0.0592074592074592,
+          "low": -0.008391608391608388,
+          "mean": 0.025407925407925403
+        },
+        "sentence": "no difference shown"
+      },
+      "title": "DAD \u00b7 testing split, whole video, s7 at 20 fps (ZS_DAD.md)",
+      "versus_lagovad": {
+        "R4": {
+          "delta": {
+            "clips": 165,
+            "clusters": 165,
+            "high": 0.17575757575757575,
+            "low": 0.04662004662004662,
+            "mean": 0.11095571095571095
+          },
+          "sentence": "above"
+        },
+        "W0": {
+          "delta": {
+            "clips": 165,
+            "clusters": 165,
+            "high": 0.15174825174825177,
+            "low": 0.01958041958041957,
+            "mean": 0.08554778554778554
+          },
+          "sentence": "above"
+        }
+      }
+    },
     "dada": {
       "micro_note": "raw, pooled",
       "rows": {
