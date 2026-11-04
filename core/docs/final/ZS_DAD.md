@@ -1,6 +1,6 @@
 # Zero-shot DAD: LaGoVAD (released ckpt) vs W0 (no SA²) vs R4 (SA²)
 
-Status: built 2026-11-04; census run 2026-11-04 → FAILED (25 fps, flag ≠ accident time) → **Amendment 1 (§7) replaces §1 labels, §2 stride / V2-S step and §3 gates**; not scored. Rule written before any DAD number. Runbook
+Status: built 2026-11-04; census run 2026-11-04 → FAILED (25 fps, flag ≠ accident time) → **Amendment 1 (§7) replaces §1 labels, §2 stride / V2-S step and §3 gates**; **read out 2026-11-04 (§6), PRELIMINARY; Amendment 2 (§8) says what the macro does not measure.** Rule written before any DAD number. Runbook
 `colab/final/zs_dad.ipynb` (GPU for extraction). Authorized by the user on 2026-11-04 ("setup
 zero-shot trên DAD … LaGoVAD public checkpoint and SA² and no SA² as above … features stored in
 cache of Thesis-Final"). Companion of `ZS_TAD_DADA.md` §7 (same rows, same read-out tool).
@@ -66,7 +66,22 @@ released checkpoint's DAD read is zero-shot as a fact (PreVAD not checked for DA
 
 ## 6. Read-out
 
-Not run.
+**2026-11-04, PRELIMINARY (n = 1 seed, s2024), not matched.** Raw:
+`outputs/v_final/zs_lagovad/REPORTS/zs_lagovad_readout.md` and `eval/dad/`. All 466 videos scored,
+15 rows each; all 165 positives abnormal on exactly rows 13–14; V2-S manifest `clip_frame_step` 3,
+`stride` 7, `assumed_fps` 25 (read by the user on Drive). AP = `core.tools.zs_compare_table`.
+
+| row | macro [95 % CI] | micro | clip AUC | AP |
+| --- | --- | --- | --- | --- |
+| LaGoVAD (released ckpt) | 0.6462 [0.5881, 0.7016] | 0.5681 | 0.5808 | 0.0640 |
+| W0 (no SA²) | 0.7317 [0.6897, 0.7716] | 0.6693 | 0.6451 | 0.1102 |
+| R4 (SA²) | 0.7571 [0.7175, 0.7963] | 0.7020 | 0.6729 | 0.1385 |
+
+Sentences (§5): W0 − LaGoVAD **+0.0855 [+0.0196, +0.1517] above**; R4 − LaGoVAD
+**+0.1110 [+0.0466, +0.1758] above**; R4 − W0 **+0.0254 [−0.0084, +0.0592] no difference shown**.
+Clip oracle micro 0.8390, base rate 0.0472. **Read §8 before quoting the macro.**
+
+The four-set table is `ZS_COMPARISON.md`.
 
 ## 7. Amendment 1 (2026-11-04, after the census, before any feature or score)
 
@@ -90,3 +105,50 @@ existed): labels = the DAD convention; stride / V2-S step re-derived for 25 fps.
 Caches and the data dir carry the stride in their name (`DAD_s7_*`), so nothing built under §2's
 s5 can be read by mistake. Every other choice of §2–§5 stands. Never write that the DAD positives'
 abnormal span was annotated per video: it is a fixed convention (the last 0.4 s).
+
+## 8. Amendment 2 (2026-11-04, after the read-out): what the macro does not measure
+
+**Authorized by the user on 2026-11-04.** It changes no number and no sentence of §6; it adds what
+must be printed beside them. Everything below was computed **after seeing §6**, so it is printed,
+not gated. Tool: `core.tools.dad_position_diag` (report `REPORTS/dad_position_diag.{md,json}`).
+
+**The defect, in Amendment 1.** A fixed `toa = 90` makes the label a function of the row: every
+positive is abnormal on the same last two rows, so a no-pixel `t/N` ruler scores macro **1.000**.
+§5's rulers did not include it (the middle ruler printed 0.1538). The read-out now prints the
+monotone ruler for TAD and DAD.
+
+**Placebo: the same mask on the 301 negatives, which hold no accident.**
+
+| row | macro | placebo, all rows | macro, rows 7+ | placebo, rows 7+ |
+| --- | --- | --- | --- | --- |
+| LaGoVAD | 0.6462 | 0.5134 [0.4709, 0.5564] | 0.6439 | 0.5260 [0.4817, 0.5692] |
+| W0 | 0.7317 | **0.6260** [0.5933, 0.6586] | 0.5980 | 0.5042 [0.4648, 0.5432] |
+| R4 | 0.7571 | **0.6477** [0.6141, 0.6797] | 0.6530 | 0.5349 [0.4939, 0.5742] |
+
+W0 and R4 scores rise over the video without an accident; LaGoVAD's do not. On rows 7+ the placebo
+is near chance and neither arm's within-video macro stays above LaGoVAD's. The "above" sentences
+of §6 therefore come mainly from the opening rows.
+
+**Unproven mechanism.** Row 7 is the first whose causal V2-S window holds no repeated frame (45
+frames back at step 3, stride 7, `pad = clamp to frame 0`), and the negatives' mean curve flattens
+near there. LaGoVAD, with no motion input, has no ramp. This is a coincidence of timing and an
+absence, not a test: a pad-free read needs a re-extraction nobody has run, and a position trend
+learned on Nexar is not excluded. On a 4 s video, 7 of 15 rows are padded.
+
+**Same-position AUC: positive vs negative videos on the same rows** (position cannot help).
+
+| row | accident rows 13–14 | rows 7–12 | difference |
+| --- | --- | --- | --- |
+| LaGoVAD | 0.5881 [0.5339, 0.6419] | 0.5762 [0.5220, 0.6308] | +0.0118 [+0.0025, +0.0212] |
+| W0 | 0.6590 [0.6068, 0.7106] | 0.6363 [0.5823, 0.6884] | +0.0227 [+0.0058, +0.0396] |
+| R4 | 0.6871 [0.6355, 0.7379] | 0.6632 [0.6113, 0.7144] | +0.0238 [+0.0056, +0.0418] |
+
+Accident rows, paired: W0 − LaGoVAD +0.0709 [+0.0072, +0.1344]; R4 − LaGoVAD
++0.0990 [+0.0318, +0.1656]; R4 − W0 +0.0281 [+0.0001, +0.0557]. Most of the separation exists
+before the accident rows: this separates accident videos from normal ones, it does not localize.
+The R4 − W0 interval touches zero, is post-hoc, and **does not overturn §6's "no difference shown"**.
+
+**Write:** the §6 table with the ruler beside it, and "on DAD the macro cannot separate a reaction
+to the accident from a score that rises with time". **Never write:** that a DAD macro shows
+accident detection or localization; a gain for R4 on DAD; the same-position AUC as the set's
+primary metric (it was chosen after the numbers).

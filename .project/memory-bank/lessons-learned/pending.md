@@ -2165,6 +2165,24 @@ a planted in-box signal (expect GO) before any real number exists.
 **Files:** `core/tools/zs_frames.py`, `core/tools/clip_windows.py` (`run_packed`), `colab/final/zs_pack_frames.ipynb`.
 **Gate status.** Zero occurrences in a run (design); candidate.
 
+## (cc) [HIGH] Metrics - A fixed accident time makes the within-video macro a position test (2026-11-04)
+**Triggers:** toa, fixed label, DAD, macro AUC, monotone ruler, placebo, position, padding, causal window, short clips
+**Problem:** DAD's `toa = 90` puts every positive's label on the same last two rows, so a no-pixel `t/N` ruler scores macro 1.000 while the arms read 0.73–0.76, and the same mask on accident-free negatives reads 0.626 / 0.648 (LaGoVAD 0.513). The rule printed only the middle ruler (0.1538), which hid it; it surfaced only when the labels were read back.
+**Bad:** adopt a convention label (Amendment 1), keep the rule's rulers, read `arm − baseline` macro as detection.
+**Good:** before any score, compute the ruler the label construction favours; with fixed-position labels, print a placebo on the negatives and a same-position positive-vs-negative AUC beside the macro.
+**Rule:** Compute the no-pixel monotone AND middle rulers whenever a label construction changes; a ruler near 1.0 means the macro cannot be read as detection.
+**Files:** `core/tools/dad_position_diag.py`, `core/tools/nexar_transfer_readout.py:read_tad_runs`, `core/docs/final/ZS_DAD.md` §8.
+**Gate status.** One occurrence; reinforces the position-ruler rule (pending (ag)/(ah), (ar)). Candidate.
+
+## (cd) [MEDIUM] Notebooks - A one-attribute version guard passes a partial upload (2026-11-04)
+**Triggers:** Colab upload, Drive, per-file upload, stale code, version guard, KeyError at late step, hasattr
+**Problem:** `zs_dad.ipynb` guarded the upload with `hasattr(constants, 'DAD_STRIDE')` + one doc. The user uploads per file, `definitions.py` was older, and the run reached step 12 before `KeyError: Unknown dataset 'DAD'`; a stale `dad.py` would have produced wrong labels with no error. Diagnosed by the traceback's line number (52 vs 55 at HEAD).
+**Bad:** guard one symbol from one of the files a commit touched.
+**Good:** one guard that compares git blob hashes of every file the notebook depends on, in the setup cell.
+**Rule:** Gate a notebook's first cell on content hashes of the code it runs, not on one attribute.
+**Files:** `colab/final/zs_dad.ipynb` cell 2, `core/data/definitions.py`.
+**Gate status.** One occurrence, caught late, no wrong number shipped (labels read back correct). Guard not built yet (offered to the user).
+
 ---
 
 ## P-ZS-L — A released baseline is a different arm: select it explicitly, never by a missing field

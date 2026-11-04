@@ -70,7 +70,8 @@ SET_TITLE = {
     DOTA: "DoTA-CAP-dev (n/1397) · protocol B (s1[::3], whole clip, native frames)",
     TAD: "TAD test · 100 videos, s8, raw scores (§26)",
     DADA: "DADA-2000 · 370 T2-test sources, whole video, s8 (D-N20)",
-    DAD: f"DAD · testing split, whole video, s{constants.DAD_STRIDE} at 20 fps (ZS_DAD.md)",
+    DAD: (f"DAD · testing split, whole video, s{constants.DAD_STRIDE} at "
+          f"{constants.DAD_ASSUMED_FPS} fps (ZS_DAD.md)"),
 }
 ABOVE, BELOW, NOT_SEPARATED = "above", "below", "not separated"
 MICRO_NOTE = {

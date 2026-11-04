@@ -119,6 +119,7 @@ def read_tad_runs(
         "clip_auc": reads["video_auc"],
         "extra": {"clip_oracle_micro": rulers["clip_oracle_micro"],
                   "length_ruler_micro": rulers["length_ruler_micro"],
+                  "monotone_ruler": rulers["monotone_ruler_macro"],
                   "middle_ruler": rulers["middle_ruler_macro"]},
     }
 
