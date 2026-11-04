@@ -153,7 +153,7 @@ Integrity: inputs identical row for row on all three sets; TAD micro 0.7912 vs T
 Printed: micro LaGoVAD / W0 / R4 — DoTA (min-max) 0.611 / 0.726 / 0.729, TAD 0.791 / 0.603 / 0.717,
 DADA 0.539 / 0.698 / 0.705; TAD clip AUC 0.769 / 0.594 / 0.657. LaGoVAD DoTA-CAP-dev protocol A
 0.6185. Rulers: DoTA `t/N` 0.557 (cubic `p_T2` 0.822 on record, above every row); TAD middle
-0.683; DADA middle **0.734 — above LaGoVAD (0.620)**, below the arms by ≈ 0.027.
+0.683; DADA middle **0.734 — above LaGoVAD (0.620)**, below the arms by 0.024–0.027 (R4 / W0).
 
 Reading: the Nexar-trained arms sit far above the released checkpoint on both **dashcam** sets and
 are not separated from it (point estimate below) on **fixed-camera** TAD, where LaGoVAD also keeps

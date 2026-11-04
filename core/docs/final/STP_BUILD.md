@@ -3,7 +3,8 @@
 Source: `core/docs/final/Thesis proposal Deep learning-based traffic video anomaly detection.md`
 (§3.2 STP, §3.3 training, §4.5 ablation rows). This file records **what was built**, **where it
 deviates from the proposal**, and the **read-out rule for the first run**, written before any STP
-number exists. Status: built 2026-11-01, not run.
+number exists. Status: built 2026-11-01; first run read out 2026-11-02 (§3.1), diagnostics §5.1, zero-shot
+sets `ZS_TAD_DADA.md`.
 
 ## 1. What is built
 
@@ -65,6 +66,27 @@ Arms (`constants.STP_ARMS`): **R4** = SA², released prompts (prefix OFF); **R6*
   cubic position prior `p_T2` = 0.822, and the training diagnostics. An `stp_entropy` that stays at
   1.0 to the last step means SA² stayed "selection + average" (§3.2.4): the arm is still read, and
   reported as such.
+
+### 3.1 Read-out (2026-11-02, s2024, 1,749 steps; raw `outputs/v_final/stp/REPORTS/stp_readout.md`) — **PRELIMINARY (n = 1 seed)**
+
+DoTA-CAP (n/1397) dev, protocol B, 569 clips. R5 was not run. Printed: `p_T2` 0.8220 above every row; t/N ruler 0.5573.
+
+| row | macro [95 % cluster CI] |
+|---|---|
+| R1 (control) | 0.8102 [0.7942, 0.8260] |
+| R4 (SA², prefix OFF) | 0.8111 [0.7927, 0.8293] |
+| R6 (SA² + prefix) | 0.8124 [0.7944, 0.8302] |
+
+| contrast | Δ all | sentence | Δ ego (321) | Δ non-ego (248) |
+|---|---|---|---|---|
+| R4 − R1 | +0.0009 [−0.0093, +0.0106] | no difference shown | +0.0116 [+0.0014, +0.0200] | −0.0129 [−0.0307, +0.0042] |
+| R6 − R1 | +0.0022 [−0.0083, +0.0122] | no difference shown | +0.0092 [−0.0012, +0.0189] | −0.0068 [−0.0245, +0.0100] |
+| R6 − R4 (prefix) | +0.0013 [−0.0045, +0.0073] | no difference shown | −0.0024 [−0.0087, +0.0038] | +0.0061 [−0.0043, +0.0172] |
+
+Training: SA² entropy / log K 1.0 → 0.911 (R4), 0.896 (R6), still ≈ selection + average; ‖W_q‖ 0 → 1.43 / 1.52; ρ_u
+0 → 0.091 / 0.095; `mil` last 0.228 / 0.227. R6 `prompt_norm` 1.2612 → 1.2616: R6 − R4 does **not** measure the prefix
+(§5.1). Never write "SA² / the prefix has no effect". Against W0 (same host): R4 − W0 +0.0001 [−0.0100, +0.0098]
+(`ZS_TAD_DADA.md` §7.5).
 
 ## 4. How to run
 

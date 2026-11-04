@@ -63,3 +63,21 @@ One seed cannot separate a +0.01 gain from the seed spread (v2 A2 seeds spread 0
 **Not licensed by any outcome:** "the motion stream is under- / over-trained" without the mechanics above; any statement about
 SA², the prefix or OSTP; any claim beyond DoTA-CAP-dev at n = 1; a pick between WI and WL by their Δ.
 `stp_diag`'s D-1 budget for a `W_u` row assumes one LR; under WL its Σ lr must be multiplied by 10 before reading it.
+
+## 5. Read-out (s2024, 1,749 steps; raw `outputs/v_final/w_u/wu_readout.md`) — **closed, PRELIMINARY (n = 1 seed)**
+
+DoTA-CAP (n/1397) dev, protocol B, 569 clips. Printed: `p_T2` 0.8220 above every row.
+
+| row | macro [95 % cluster CI] | Δ vs W0 | sentence | ρ_u first → last | ‖W_u‖ first → last | `mil` first → last |
+|---|---|---|---|---|---|---|
+| **W0** | 0.8110 [0.7948, 0.8269] | — | control | 0 → 0.146 | 0 → 1.26 | 0.694 → 0.176 |
+| **WI** | 0.8106 [0.7948, 0.8260] | −0.0004 [−0.0032, +0.0021] | no difference shown | 0.058 → 0.157 | 1.33 → 1.84 | 0.695 → 0.177 |
+| **WL** | 0.7693 [0.7491, 0.7889] | **−0.0417 [−0.0538, −0.0297]** | **cost shown** | 0 → 0.570 | 0 → 6.58 | 0.694 → **0.061** |
+| R1 (printed) | 0.8102 [0.7942, 0.8260] | −0.0008 [−0.0026, +0.0009] | no difference shown | — | — | — |
+
+* **Control:** |W0 − R1| = 0.0008 < 0.01, no flag. W0 equals v2 Nexar A2 s2024 to the last digit (`ZS_TAD_DADA.md` §2). WIL was not run.
+* **Mechanics (§3), both arms tested their question:** WI ρ_u(0) = 0.058 < 0.5, so the init did not swamp CLIP; WL ‖W_u‖
+  last = 5.2× W0's, so the larger step was used. **Overfit tell fires on WL:** `mil` 0.061 vs 0.176 with a negative Δ.
+* **Printed by ego flag:** WL − W0 ego −0.0274 [−0.0395, −0.0159], non-ego −0.0602 [−0.0807, −0.0391]; WI − W0 both ∋ 0.
+* **Outcome (§4, row 2):** closed. `W_u`'s zero start and 5e-5 are not the limit at one seed; no further LR / init sweep.
+  This read supports H-0 over H-W at n = 1. Never write "the motion stream is over-trained" or a pick between WI and WL.
