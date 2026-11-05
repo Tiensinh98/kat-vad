@@ -176,3 +176,26 @@ Known before any probe number (arithmetic, not a measurement): at lr 5e-5 with 2
 and cosine decay over 1,749 steps, Σ lr ≈ 0.044, so no coordinate could have moved more than
 ≈ 0.044. β₁ starts at 1 on `z(Mo)` (`SV2_BETA_INIT`), so the scorer already started as the
 per-frame motion prior.
+
+### 8.3 W0D read-out (2026-11-05, seed 2024)
+
+| Set | W0 | W0D | SV2 | W0D − W0 | SV2 − W0D |
+| --- | --- | --- | --- | --- | --- |
+| DADA (per video) | 0.7615 | 0.7529 | 0.7133 | −0.0086 [−0.0204, +0.0027] none | **−0.0396 [−0.0555, −0.0238] cost** |
+| DoTA-CAP-dev (per clip) | 0.8110 | 0.8155 | 0.7848 | +0.0045 [−0.0021, +0.0110] none | **−0.0307 [−0.0430, −0.0183] cost** |
+
+**§8.2 on both sets: the cost is the spatial module's; dropout alone shows none, PRELIMINARY
+(n = 1 seed).** "None" for dropout is not "free" (§8.2).
+
+### 9.1 Probe `adam` read-out (2026-11-05, SV2 s2024, step 1,749, Σ lr 0.04378)
+
+Every SA²-v2 row reads **noise** by §9 (SNR < 2 × 0.183), none reads *dead* (no `√v̂` below
+10 eps), none reads *lr*. The one row that **moved** is `branch_head` (SNR 0.548, 0.52 of the
+budget), the training-only head on `x^AS`. SNR: β 0.14–0.24, γ 0.087, log T 0.030, b 0.137,
+`w` 0.079, `w_cell` 0.126, `layer` 0.136, `w_prior` 0.099; host `W_u` 0.152.
+
+Printed, not gating: Adam's moments are EMAs at the last step, where the cosine LR is ≈ 0, so the
+SNR describes the end of training. Displacement says some rows moved earlier more than a random
+walk would (log T 0.475, `w` 0.207 of the budget, against ≈ 0.05 for ±lr steps of random sign
+over 1,749 steps); `live` at init reads the start.
+
