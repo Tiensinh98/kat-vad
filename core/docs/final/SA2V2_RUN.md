@@ -97,3 +97,27 @@ is abnormal).
 
 Not separable in this run: SV2 also carries motion dropout 0.3 (D6), which W0 does not, so the
 cost is not attributed to the spatial module alone.
+
+### 7.2 DoTA-CAP-dev (2026-11-05, same checkpoint)
+
+Macro SV2 0.7848 [0.7681, 0.8016], W0 0.8110 [0.7949, 0.8271].
+**SV2 − W0 (per clip): −0.0262 [−0.0400, −0.0122] → cost shown, PRELIMINARY (n = 1 seed).**
+
+Maps (`v5_maps read`, 528 clips):
+
+| Map | hit − chance | lift − lift_pre | hit − centre | STAUC |
+| --- | --- | --- | --- | --- |
+| Mo (untrained) | +0.293 [+0.271, +0.316] | +0.250 | −0.010 [−0.051, +0.030] | 0.334 |
+| SV2 `q` | +0.148 [+0.120, +0.176] | +0.200 | **−0.154 [−0.201, −0.107]** | 0.284 |
+| centre | +0.303 | −0.024 | 0 | 0.268 |
+| uniform | −0.151 | −0.033 | −0.453 | 0.254 |
+
+No map points by the rule. SV2's hits sit on ego accidents (+0.283) and agents > 8 % of the frame
+(+0.319); non-ego −0.006, agents < 2 % ≈ 0 or below. The trained map is below the centre prior and
+below the untrained Mo map it was given as a prior (β for Mo stayed at init, §7.1). The AUC column
+is the same for every row, so it is not a property of the map and is not read.
+
+**Both endpoints show a cost and the map does not point. Second negative on tokens after R7t
+(`RESULTS_V5_R7.md`); §6 still applies.** C2 is not needed for this verdict (there is no positive
+movement to protect); it would only explain the mechanics.
+
