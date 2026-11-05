@@ -73,4 +73,27 @@ map on the same cells, with `v5_maps read` (same code as the earlier token test)
 
 ## 7. Results
 
-Not run.
+### 7.1 DADA-2000 (2026-11-05, seed 2024, read-out `REPORTS/sa2v2_readout.md`)
+
+| Row | Macro | Micro | Middle ruler (no pixels) |
+| --- | --- | --- | --- |
+| W0 | 0.7615 [0.7369, 0.7859] | 0.6981 | 0.7342 [0.7076, 0.7594] |
+| SV2 | 0.7133 [0.6883, 0.7379] | 0.6661 | same |
+
+**SV2 − W0 (per video): −0.0482 [−0.0674, −0.0290] → cost shown, PRELIMINARY (n = 1 seed).**
+Printed: SV2 − R4 −0.0446 [−0.0625, −0.0268]; SV2 sits below the middle ruler, W0 above it.
+Checks: W0 equals its stored read; dump vs frame read max |Δ| = 0. Clip AUC empty (every source
+is abnormal).
+
+* C1: head on `x^AS` 0.6488 vs on the cell mean 0.4855, Δ +0.1634 [+0.138, +0.189] → gain by
+  the rule. Caveat (§4): the mean is below chance, i.e. off the head's training distribution; and
+  the branch alone (0.649) is below both W0 and the middle ruler.
+* C3: top-3 `q` abnormal 0.553 vs normal 0.374, Δ +0.179 [+0.158, +0.199], 370 videos. DADA has
+  no boxes; this says nothing about where the map points.
+* Mechanics (C4 pending C2): β₂…β₄, γ moved ≤ 0.0035 from init, T 1.00 → 0.98, b unchanged; only
+  the feature term moved (‖w‖ 0 → 0.145, spread 1.0 → 3.2, entropy 0.83 → 0.62). `‖x^AS‖/‖c_t‖`
+  = 0.59. On training bags top-3 `q` rose on abnormal (0.53 → 0.66) and fell on normal
+  (0.55 → 0.35); whether C2 does the same is open.
+
+Not separable in this run: SV2 also carries motion dropout 0.3 (D6), which W0 does not, so the
+cost is not attributed to the spatial module alone.
