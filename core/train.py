@@ -539,6 +539,9 @@ class Trainer:
         gate = module.gate_value()
         if gate is not None:
             losses["sv2_gate"] = gate
+        if module.w_p is not None:
+            losses["sv2_patch_share"] = outputs["sv2_patch_share"]
+            losses["sv2_wp_norm"] = module.w_p.weight.detach().norm()
         for name, flag in (("abnormal", labels > 0), ("normal", labels <= 0)):
             if flag.any():
                 losses[f"sv2_top3q_{name}"] = top_q[flag].mean()

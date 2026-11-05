@@ -202,6 +202,8 @@ class STPConfig:
     # SV3 (SA2V2_RUN.md §10): c~ = c + tanh(g) x^AS, g = 0 at init, g at lr x gate_lr_mult
     sv2_gate: bool = False
     gate_lr_mult: float = constants.SV3_GATE_LR_MULT
+    # SV4 (SA2V2_RUN.md §11): c~ = c + W_p x^AS, W_p = 0 at init, base LR, module on a private RNG
+    sv2_proj: bool = False
 
 
 @dataclass
@@ -380,6 +382,10 @@ def validate_stp(cfg: Config) -> None:
         raise ValueError("stp.sv2_gate gates SA²-v2's x^AS: it needs stp.sa2v2=true")
     if stp.gate_lr_mult <= 0:
         raise ValueError(f"stp.gate_lr_mult must be > 0, got {stp.gate_lr_mult}")
+    if stp.sv2_proj and not stp.sa2v2:
+        raise ValueError("stp.sv2_proj projects SA²-v2's x^AS: it needs stp.sa2v2=true")
+    if stp.sv2_proj and stp.sv2_gate:
+        raise ValueError("stp.sv2_proj replaces stp.sv2_gate: pick one")
     if not stp.sa2 and not stp.sa2v2:
         return
     if not 1 <= stp.top_k <= constants.STP_PATCHES:

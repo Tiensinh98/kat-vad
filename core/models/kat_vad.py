@@ -41,6 +41,20 @@ if TYPE_CHECKING:
     from core.config import Config
 
 
+def _build_sa2v2(cfg: Config) -> SA2V2:
+    """SA²-v2 as the config asks. SV4 draws its init from a private RNG (SA2V2_RUN.md D13).
+
+    The module is built before the host, so its draws would shift the host's init and the data
+    order. SV4 restores the global stream, which makes W0D a paired control; SV2 and SV3 keep
+    their build, so their checkpoints and probe reads stay as they were.
+    """
+    if not cfg.stp.sv2_proj:
+        return SA2V2(cfg.model.hidden_dim, gate=cfg.stp.sv2_gate)
+    with torch.random.fork_rng(devices=[]):
+        torch.manual_seed(cfg.train.seed)
+        return SA2V2(cfg.model.hidden_dim, proj=True)
+
+
 class KATVAD(nn.Module):
     """LaGoVAD baseline + config-gated KIP splice."""
 
@@ -175,7 +189,7 @@ class KATVAD(nn.Module):
                 if cfg.stp.sa2
                 else None
             ),
-            sa2v2=SA2V2(cfg.model.hidden_dim, gate=cfg.stp.sv2_gate) if cfg.stp.sa2v2 else None,
+            sa2v2=_build_sa2v2(cfg) if cfg.stp.sa2v2 else None,
             motion_dropout=(
                 cfg.stp.motion_dropout if cfg.stp.sa2v2 else cfg.model.motion_dropout
             ),
@@ -289,6 +303,10 @@ class KATVAD(nn.Module):
         ratio = out.x_as.detach()[valid].norm() / rows[..., : self.hidden_dim][valid].norm()
         outputs |= {"sv2_attn": out.attn, "sv2_x_as": out.x_as, "sv2_xas_ratio": ratio,
                     "sv2_cell_logits": out.cell_logits, "sv2_spread": out.spread}
+        if self.sa2v2.w_p is not None:  # SV4: how much of c~ is W_p x^AS, as W_u's motion_share
+            cls = rows[..., : self.hidden_dim]
+            added = (out.features - cls).detach()[valid]
+            outputs["sv2_patch_share"] = added.norm() / cls[valid].norm()
         return torch.cat([out.features, rows[..., self.hidden_dim : base]], dim=-1)
 
     def _motion_mask(self, mask: Tensor) -> Tensor:

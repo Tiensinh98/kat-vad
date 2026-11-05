@@ -304,3 +304,62 @@ Limits:
 * The intervals resample videos or clips, not runs: no run-to-run noise, so no effect size.
 * **Still owed by §10.3:** `v5_maps read` on SV3. `colab/final/sv3_gate.ipynb` does not produce it.
 * C2 (`SV2_shuf`) was not read: `REPORTS/sa2v2_readout.md` still prints `pending`.
+
+## 11. Arm SV4: `W_p` on x^AS (dated note 2026-11-05, before any SV4 number)
+
+Written after §10.4 was read, on the user's choice. **Question:** if the patch stream enters the
+host the way the video stream does, through a learned zero-init matrix, does the cost of §10.4 go
+away? Post-hoc arm: it can explain §7–§10, never reverse them; it adopts nothing.
+
+**Prediction, recorded before the run:** "no difference shown" or "cost shown" on DADA, with `mil`
+below W0D's. Reason: across WL, SV2 and SV3 the cost came with a better training fit, and R4, which
+adds `x^AS` by a plain sum, shows no cost (`STP_BUILD.md` §3.1), so the form of the sum does not look
+like the cause. This pattern was noticed after the numbers and is not tested.
+
+### 11.1 Arm
+
+| Arm | What | Checkpoint |
+| --- | --- | --- |
+| **SV4** | `c̃ = c_t + W_p x^AS`, `W_p ∈ ℝ^{512×512}` + bias, both zero at init (`stp.sv2_proj=true`), in place of SV3's gate. Padded rows stay `c_t`. Everything else as SV3: scorer, priors, text term, `L_patch`, `L_branch` on the unprojected `x^AS`, motion dropout 0.3 | `outputs/sv2/SV4/s2024` |
+
+Same recipe as W0D, SV2 and SV3. Zero-shot reads with their protocols: DADA-2000 whole video and
+DoTA-CAP-dev protocol B.
+
+| # | Decision | Why |
+| --- | --- | --- |
+| D11 | `W_p` trains at the base LR, in the one AdamW group | As `W_u` at ×1, which reached `ρ_u` 0.15. WL (×10) cost −0.042 with `mil` 0.122 (last 100 steps), so ×10 is not the analogue of the host's path |
+| D12 | `W_p` has a bias, masked on padded rows | As `W_u` |
+| D13 | **SV4 builds the whole SA²-v2 module under a private RNG seeded with `train.seed`** (`torch.random.fork_rng`) | §10.4: SV3's step-1 losses differ from W0D's, because the module's init draws shift the host's init. With the fork, host init and data order equal W0D's, so W0D is a paired control. SV2 and SV3 keep their build, so their checkpoints and `sv2_probe` reads are unchanged |
+
+Known limits: D13 means SV4's scorer starts from other draws than SV3's, so SV4 − SV3 is not a
+one-change contrast (printed only). Pairing covers step 1; AMP and GPU rounding may still differ.
+
+### 11.2 Read-out
+
+Per set, §3's sentence on **SV4 − W0D** (primary); printed SV4 − SV3 and SV4 − W0.
+
+Mechanics, printed: share `‖W_p x^AS‖ / ‖c‖` (`sv2_patch_share`) and `‖W_p‖` (`sv2_wp_norm`). `W_p` is
+**used** iff the share's mean over the last 100 steps is ≥ 0.05 (`SV4_USED_SHARE`, ≈ ⅓ of W0's `ρ_u`
+0.152), else **unused**. Also `mil` over the last 100 steps vs W0D's (last-batch values cannot rank
+arms, `LOCAL_STEP1B.md` §5), and step-1 `mil` and `dvs_sup` vs W0D's, paired iff |Δ| ≤ 1e-3
+(`SV4_PAIRED_TOL`). "Overfit tell" = cost shown with `mil` below W0D's.
+
+### 11.3 Verdict sentence (per set; DADA decides, DoTA-CAP-dev printed beside)
+
+| `W_p` | SV4 − W0D | Sentence |
+| --- | --- | --- |
+| unused | not cost | `W_p` stays small: the host does not take `x^AS` under this objective |
+| unused | cost | cost with `W_p` unused (not through `x^AS`: read the mechanics) |
+| used | gain | used and helps |
+| used | no difference | used without a shown effect |
+| used | cost | used and costs |
+
+### 11.4 Stop rule (fixed now)
+
+| DADA | DoTA-CAP-dev | Next |
+| --- | --- | --- |
+| gain shown | not cost | its own rule first, then seeds 2025–2026 of SV4 and W0D; `v5_maps read` on SV4 |
+| anything else | any | **the token line closes: no further arm, gate, LR or fusion variant of SA²-v2 on tokens** |
+
+One seed: PRELIMINARY. "Unused" does not show the patches are useless, and no outcome licenses a
+claim about crops, objects or native resolution (§6).

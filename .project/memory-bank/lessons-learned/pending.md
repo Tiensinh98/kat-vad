@@ -2224,3 +2224,12 @@ Promote if a second harness needs the same split.
 **Rule:** Write both signs into the verdict table of any signed gate, and judge coherence from its trajectory, not from end-of-training EMAs.
 **Files:** core/tools/sv3_readout.py, core/tools/sv2_probe.py, core/docs/final/SA2V2_RUN.md §10.3–§10.4
 **Why pending:** one occurrence, caught at read-out; the verdict is unchanged. Promote on a second.
+
+## (ch) [MEDIUM] Experiments - A module built before the host unpairs its zero-init control (2026-11-05)
+**Triggers:** paired control, zero-init, from_config, RNG, fork_rng, step 0, W0D, init draws
+**Problem:** SV3 was declared equal to W0D at step 0, but `SA2V2` is built before the host and its init draws shift the host's init and the data order, so step-1 `mil` read 0.706 vs 0.695 and the "paired" control was one more seed.
+**Bad:** `sa2v2=SA2V2(...)` drawing from the global stream, plus a sentence saying the arm equals its control at step 0
+**Good:** build the new module under `torch.random.fork_rng(devices=[])` with its own seed, and test that host weights, the RNG state and the step-1 losses equal the control's
+**Rule:** Test a claim of "equals the control at step 0" on the first logged losses; build an added module on a private RNG.
+**Files:** core/models/kat_vad.py (`_build_sa2v2`), core/tests/test_sv4.py (`TestPairedWithW0D`), core/docs/final/SA2V2_RUN.md §10.4, D13
+**Why pending:** one occurrence, fixed for SV4 only; SV2 and SV3 keep their build so their reads stay reproducible. Promote on a second.
