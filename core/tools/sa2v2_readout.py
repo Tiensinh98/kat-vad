@@ -197,7 +197,7 @@ def render_markdown(r: dict[str, Any]) -> str:
     for name in ("w0", "sv2"):
         row = d[name]
         lines.append(f"| {name.upper()} | {_num(row['macro'])} | {_f(row['micro'])} | "
-                     f"{_f(row['clip_auc'])} | {_f(row['extra'].get('middle_ruler'))} |")
+                     f"{_f(row['clip_auc'])} | {_num(row['extra'].get('middle_ruler'))} |")
     verdict = f"{_ci(d['delta'])} → {d['sentence']}, {PRELIMINARY}"
     lines += ["", f"**SV2 - W0 (per video): {verdict}.**", ""]
     if "r4_printed" in d:

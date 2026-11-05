@@ -453,8 +453,9 @@ class TestTools:
             (d / sa2v2_readout.dada_whole_eval.CLIP_AUCS_JSON).write_text(json.dumps(aucs))
             (d / sa2v2_readout.dada_whole_eval.READOUT_JSON).write_text(json.dumps({
                 "per_run_macro": {"s2024": 0.7}, "macro": {"mean": 0.7, "low": 0.6, "high": 0.8},
-                "micro": 0.7, "video_auc": 0.5, "monotone_ruler_macro": 0.5,
-                "middle_ruler_macro": 0.7,
+                "micro": 0.7, "video_auc": 0.5,
+                "monotone_ruler_macro": {"mean": 0.5, "low": 0.4, "high": 0.6},
+                "middle_ruler_macro": {"mean": 0.7, "low": 0.6, "high": 0.8},
             }))
             write_clip_scores(d / sa2v2_readout.dada_whole_eval.CLIP_SCORES_NPZ, scores, labels)
         dump = tmp_path / "dump.npz"
@@ -484,3 +485,4 @@ class TestTools:
         assert r["c2_c4"]["sv2_gamma"]["exceeds"] is True
         md = (tmp_path / "rep" / "sa2v2_readout.md").read_text()
         assert "PRELIMINARY" in md and "runs after the DADA read" in md
+        assert "| 0.7000 [0.6000, 0.8000] |" in md
