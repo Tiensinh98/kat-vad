@@ -44,6 +44,34 @@ def mil_loss(
     )
 
 
+def patch_mil_loss(
+    cell_logits: Tensor,
+    frame_logits: Tensor,
+    labels: Tensor,
+    lengths: Tensor,
+    topk_pct: int | None = constants.MIL_TOPK_PCT,
+    top_cells: int = constants.SV2_TOP_CELLS,
+) -> tuple[Tensor, Tensor]:
+    """``L_patch``: the same selection in every bag (proposal §3.2.3).
+
+    Top-k steps by host frame score (no gradient through the choice), top-``top_cells`` cells
+    in each; BCE pushes them to the bag label, 1 or 0. Dense negatives could be met by
+    sharpening the map alone, so a normal bag gets exactly this selection too.
+
+    ``cell_logits (B, T, P)``, ``frame_logits (B, T)``, ``labels (B,)``, ``lengths (B,)``.
+    Returns the loss and each bag's mean selected ``q`` (detached, for the C3 read).
+    """
+    losses, means = [], []
+    for b in range(cell_logits.shape[0]):
+        n = int(lengths[b])
+        steps = frame_logits[b, :n].detach().topk(_topk_k(n, topk_pct, None)).indices
+        chosen = cell_logits[b, steps].topk(top_cells, dim=-1).values
+        losses.append(F.binary_cross_entropy_with_logits(chosen, chosen.new_full(
+            chosen.shape, float(labels[b]))))
+        means.append(chosen.detach().sigmoid().mean())
+    return torch.stack(losses).mean(), torch.stack(means)
+
+
 def abnormal_bottomk_loss(
     logits: Tensor,
     labels: Tensor,

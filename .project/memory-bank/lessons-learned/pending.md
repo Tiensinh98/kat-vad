@@ -2198,3 +2198,11 @@ bake's CLIP columns.
 **Why pending:** one occurrence; no defect was shipped (the risk was caught at design time).
 Promote if a second harness needs the same split.
 
+## (ce) [HIGH] Models - The host's text features are not in CLIP's image space (2026-11-05)
+**Triggers:** text_projection, pooler_output, CLIPTextModel, cosine, image_embeds, tau, text term
+**Problem:** `SoftPromptCLIPTextModel` returns `CLIPTextModel.pooler_output`, which skips `text_projection`, while cached CLIP rows and patch tokens are projected `image_embeds`. Both are 512-d, so a direct cosine runs and is meaningless.
+**Bad:** `cos(P, class_feats[i])`
+**Good:** `cos(P, class_feats[i] @ text_projection.T)`, with the frozen matrix stored as a buffer (`core/models/sa2v2.py`, `SA2V2.text_delta`)
+**Rule:** Project text features through CLIP's `text_projection` before comparing them with image features.
+**Files:** core/models/clip_text.py:194 (`clip_text_projection`), core/models/sa2v2.py
+**Why pending:** caught at design time, before any SV2 run; no number was affected. The host's fusion uses these features on purpose and is left alone. Promote on a second occurrence.

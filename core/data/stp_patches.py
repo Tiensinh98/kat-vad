@@ -31,8 +31,8 @@ import numpy as np
 from core import constants
 
 
-def motion_magnitude(patches: np.ndarray, motion: str = constants.STP_MOTION_RAW) -> np.ndarray:
-    """``(L, 49, D)`` patch features of one video -> ``(L, 49)`` Mo (STPrompt Eq. 1)."""
+def patch_change(patches: np.ndarray, motion: str = constants.STP_MOTION_RAW) -> np.ndarray:
+    """``(L, 49, D)`` patch features of one video -> ``(L, 49, D)`` change ``D_{t,j}``."""
     if motion not in constants.STP_MOTIONS:
         raise ValueError(f"motion must be one of {constants.STP_MOTIONS}, got {motion!r}")
     p = np.asarray(patches, dtype=np.float32)
@@ -44,7 +44,13 @@ def motion_magnitude(patches: np.ndarray, motion: str = constants.STP_MOTION_RAW
     change = 2 * unit - prev - nxt
     if motion == constants.STP_MOTION_EGO:
         change = change - change.mean(axis=1, keepdims=True)
-    out: np.ndarray = np.linalg.norm(change, axis=-1)
+    out: np.ndarray = change
+    return out
+
+
+def motion_magnitude(patches: np.ndarray, motion: str = constants.STP_MOTION_RAW) -> np.ndarray:
+    """``(L, 49, D)`` patch features of one video -> ``(L, 49)`` Mo (STPrompt Eq. 1)."""
+    out: np.ndarray = np.linalg.norm(patch_change(patches, motion), axis=-1)
     return out
 
 
@@ -129,6 +135,79 @@ def stp_rows(rows: np.ndarray, patches: np.ndarray) -> np.ndarray:
     return out
 
 
+def pool_token_grid(grid: np.ndarray) -> np.ndarray:
+    """``(L, 14, 14, D)`` patch tokens (any flat layout of them) -> ``(L, 49, D)`` float32."""
+    side, pool = constants.SV2_GRID, constants.SV2_POOL
+    tokens = np.asarray(grid, dtype=np.float32).reshape(
+        len(grid), side, pool, side, pool, constants.SV2_DIM
+    )
+    out: np.ndarray = tokens.mean(axis=(2, 4)).reshape(
+        len(grid), constants.SV2_CELLS, constants.SV2_DIM
+    )
+    return out
+
+
+def cell_columns(stored: np.ndarray, start: int = 0, stop: int | None = None) -> np.ndarray:
+    """Rows ``[start, stop)`` of a source's ``(L, 49 * D)`` cells -> ``[P ; D]``, float32.
+
+    ``D`` reads one row beyond the window on each side, so it equals the whole source's ``D``
+    and neither a window cut nor a later DVS splice reads as motion (proposal §3.2.2).
+    """
+    end = len(stored) if stop is None else stop
+    first, last = max(start - 1, 0), min(end + 1, len(stored))
+    cells = np.asarray(stored[first:last], dtype=np.float32).reshape(
+        last - first, constants.SV2_CELLS, constants.SV2_DIM
+    )
+    change = patch_change(cells)
+    keep = slice(start - first, end - first)
+    count = end - start
+    out: np.ndarray = np.concatenate(
+        [cells[keep].reshape(count, -1), change[keep].reshape(count, -1)], axis=1
+    )
+    return out
+
+
+def cell_manifest(dataset: str, stride: int, source: str) -> dict[str, Any]:
+    """Everything that makes two SA²-v2 cell caches interchangeable (C2 / C13)."""
+    return {
+        "kind": constants.SV2_CACHE_DIRNAME,
+        "dataset": dataset,
+        "stride": stride,
+        "grid": constants.SV2_GRID,
+        "source_grid": constants.SV2_SOURCE_GRID,
+        "model": constants.CLIP_MODEL_NAME,
+        "revision": constants.CLIP_MODEL_REVISION,
+        "feature": "visual_projection(post_layernorm(patch tokens)), 2 x 2 mean, squash224",
+        "dtype": constants.SV2_STORE_DTYPE,
+        "layout": "(L, 49 * 512), row-major grid",
+        "source": source,
+    }
+
+
+def cell_cache_dir(dataset: str, stride: int) -> Path:
+    name = f"{dataset}_s{stride}_g{constants.SV2_GRID}"
+    return constants.CACHE_ROOT / constants.SV2_CACHE_DIRNAME / name
+
+
+def check_cell_cache(cell_dir: Path, stride: int) -> dict[str, Any]:
+    """Refuse a cache of another kind, stride or grid (lesson C2)."""
+    manifest = read_manifest(cell_dir)
+    want = {"kind": constants.SV2_CACHE_DIRNAME, "stride": stride, "grid": constants.SV2_GRID}
+    got = {k: manifest.get(k) for k in want}
+    if got != want:
+        raise ValueError(f"{cell_dir} is {got}; this run needs {want}")
+    return manifest
+
+
+def read_level_stats(cell_dir: Path) -> dict[str, Any]:
+    """``m, s`` of Mo and rho, written by ``sa2v2_cells stats`` on the training cache."""
+    path = cell_dir / constants.SV2_LEVEL_FILENAME
+    if not path.is_file():
+        raise FileNotFoundError(f"{path} missing: run sa2v2_cells stats on the training cells")
+    stats: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+    return stats
+
+
 @dataclass(frozen=True)
 class EvalPatches:
     """What an eval tool needs to append one checkpoint's patch columns to its clips."""
@@ -138,6 +217,15 @@ class EvalPatches:
     def append(self, rows: np.ndarray, video_id: str) -> np.ndarray:
         """Whole-clip rows (already at the cache's stride) -> STP rows."""
         return stp_rows(rows, np.load(self.patch_dir / f"{video_id}.npy", mmap_mode="r"))
+
+
+@dataclass(frozen=True)
+class EvalCells(EvalPatches):
+    """SA²-v2's columns: the whole source's pooled tokens and their change."""
+
+    def append(self, rows: np.ndarray, video_id: str) -> np.ndarray:
+        stored = np.load(self.patch_dir / f"{video_id}.npy", mmap_mode="r")
+        return stp_rows(rows, cell_columns(stored))
 
 
 def eval_patches(
@@ -154,8 +242,20 @@ def eval_patches(
     return EvalPatches(patch_dir)
 
 
+def stp_eval_inputs(stp: Any, patch_dir: Path | None, stride: int) -> EvalPatches | None:
+    """What one checkpoint's ``cfg.stp`` appends to its rows; refuses a missing or wrong cache."""
+    if not stp.sa2v2:
+        return eval_patches(stp.sa2, stp.motion, stp.top_k, patch_dir, stride)
+    if patch_dir is None:
+        raise ValueError("checkpoint has stp.sa2v2=true: pass its cell cache (--patch-dir)")
+    check_cell_cache(patch_dir, stride)
+    return EvalCells(patch_dir)
+
+
 def stp_arm(stp: Any) -> dict[str, Any]:
     """A checkpoint's ``cfg.stp`` as read-out provenance (empty for a pre-STP checkpoint)."""
+    if stp.sa2v2:
+        return {"stp_sa2v2": True, "stp_text_prompt": stp.text_prompt}
     if not stp.sa2 and stp.text_prompt == constants.STP_PROMPT_RELEASED:
         return {}
     return {
@@ -167,15 +267,24 @@ def stp_arm(stp: Any) -> dict[str, Any]:
 
 
 __all__ = [
+    "EvalCells",
     "EvalPatches",
     "build_manifest",
     "cache_dir",
+    "cell_cache_dir",
+    "cell_columns",
+    "cell_manifest",
+    "check_cell_cache",
     "check_patch_cache",
     "eval_patches",
     "motion_magnitude",
+    "patch_change",
+    "pool_token_grid",
+    "read_level_stats",
     "read_manifest",
     "select_top_k",
     "select_video",
     "stp_arm",
+    "stp_eval_inputs",
     "stp_rows",
 ]

@@ -42,7 +42,7 @@ import torch
 
 from core import constants
 from core.data.dota import parse_metadata, read_split_ids
-from core.data.stp_patches import eval_patches, stp_arm
+from core.data.stp_patches import stp_arm, stp_eval_inputs
 from core.data.v2_inputs import check_input_manifest, read_input_manifest
 from core.data.v2_splits import dota_group, load_split
 from core.data.v5_grids import eval_grid, v5_arm
@@ -202,7 +202,7 @@ def score_checkpoint(
     baked = check_baked_stride(args.input_dir, args.stride)
     class_names = load_class_names(args.data_dir)
     grid = eval_grid(cfg.v5.readout, cfg.v5.keys, args.grid_dir, args.stride)
-    patches = eval_patches(cfg.stp.sa2, cfg.stp.motion, cfg.stp.top_k, args.patch_dir, args.stride)
+    patches = stp_eval_inputs(cfg.stp, args.patch_dir, args.stride)
     protocol = Protocol(args.stride, None)
     native: dict[str, np.ndarray] = {}
     for video_id in ids:

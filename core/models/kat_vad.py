@@ -26,12 +26,13 @@ from core import constants
 from core.config import validate_stp, validate_v2, validate_v5
 from core.data.collate import padding_mask
 from core.kip.kip_module import KIP
-from core.models.clip_text import SoftPromptCLIPTextModel
+from core.models.clip_text import SoftPromptCLIPTextModel, clip_text_projection
 from core.models.fusion import CoAttentionFusion
 from core.models.heads import BinaryHead, MultiClassHead
 from core.models.motion_residual import MotionResidual
 from core.models.mqr import GridReadout, SpatialMILHead
 from core.models.sa2 import SpatialAttentionAggregation
+from core.models.sa2v2 import SA2V2
 from core.models.temporal_encoder import TemporalEncoder
 
 if TYPE_CHECKING:
@@ -67,6 +68,8 @@ class KATVAD(nn.Module):
         sa2: SpatialAttentionAggregation | None = None,
         motion_init_std: float = 0.0,
         motion_init_seed: int = 0,
+        sa2v2: SA2V2 | None = None,
+        motion_dropout: float = 0.0,
     ) -> None:
         super().__init__()
         # v2 motion stream (architecture §5): absent unless motion_dim > 0, so every
@@ -88,6 +91,9 @@ class KATVAD(nn.Module):
         if sa2 is not None and grid_readout is not None:
             raise ValueError("SA² and the v5 grid readout cannot be combined")
         self.sa2 = sa2
+        # SA²-v2 (rule core/docs/final/SA2V2_RUN.md): absent unless stp.sa2v2
+        self.sa2v2 = sa2v2
+        self.motion_dropout = motion_dropout
         self.hidden_dim = hidden_dim
         self.temporal_encoder = TemporalEncoder(
             hidden_size=hidden_dim,
@@ -138,7 +144,7 @@ class KATVAD(nn.Module):
             tokenizer = AutoTokenizer.from_pretrained(
                 constants.CLIP_MODEL_NAME, revision=constants.CLIP_MODEL_REVISION
             )
-        return cls(
+        model = cls(
             hidden_dim=cfg.model.hidden_dim,
             temporal_layers=cfg.model.temporal_layers,
             temporal_heads=cfg.model.temporal_heads,
@@ -169,7 +175,12 @@ class KATVAD(nn.Module):
                 if cfg.stp.sa2
                 else None
             ),
+            sa2v2=SA2V2(cfg.model.hidden_dim) if cfg.stp.sa2v2 else None,
+            motion_dropout=cfg.stp.motion_dropout if cfg.stp.sa2v2 else 0.0,
         )
+        if load_clip and model.sa2v2 is not None:
+            model.sa2v2.set_text_projection(clip_text_projection())  # rule D3
+        return model
 
     def encode_text(self, texts: list[str], use_soft_prompt: bool = True) -> Tensor:
         """Tokenize + encode class names/captions → ``(len(texts), D)``."""
@@ -257,6 +268,34 @@ class KATVAD(nn.Module):
         outputs["stp_attn"] = out.attn
         return torch.cat([out.features, rows[..., self.hidden_dim : base]], dim=-1)
 
+    def _sv2_rows(
+        self, rows: Tensor, mask: Tensor, class_feats: Tensor | None, outputs: dict[str, Tensor]
+    ) -> Tensor:
+        """SA²-v2: ``[c ; u ; P ; D]`` -> ``[c + x^AS ; u]`` (rule ``SA2V2_RUN.md``)."""
+        assert self.sa2v2 is not None  # nosec B101 - caller checks
+        if class_feats is None:
+            raise ValueError("SA²-v2 needs class_feats: its text term reads the definition")
+        base = rows.shape[-1] - self.sa2v2.width
+        motion_dim = 0 if self.motion_residual is None else self.motion_residual.motion_dim
+        if base != self.hidden_dim + motion_dim:
+            raise ValueError(
+                f"SA²-v2 rows have {rows.shape[-1]} columns, expected {self.hidden_dim} (CLIP) + "
+                f"{motion_dim} (motion) + {self.sa2v2.width} -- is the cell cache appended?"
+            )
+        out = self.sa2v2(rows[..., : self.hidden_dim], rows[..., base:], class_feats, mask)
+        valid = mask.bool()
+        ratio = out.x_as.detach()[valid].norm() / rows[..., : self.hidden_dim][valid].norm()
+        outputs |= {"sv2_attn": out.attn, "sv2_x_as": out.x_as, "sv2_xas_ratio": ratio,
+                    "sv2_cell_logits": out.cell_logits, "sv2_spread": out.spread}
+        return torch.cat([out.features, rows[..., self.hidden_dim : base]], dim=-1)
+
+    def _motion_mask(self, mask: Tensor) -> Tensor:
+        """Motion dropout: dropped bags read as padding to ``W_u``, so its whole term is zero."""
+        if not self.training or self.motion_dropout <= 0.0:
+            return mask
+        keep = torch.rand(mask.shape[0], device=mask.device) >= self.motion_dropout
+        return mask * keep.unsqueeze(1).to(mask.dtype)
+
     def forward(
         self,
         v_feat: Tensor,
@@ -280,9 +319,13 @@ class KATVAD(nn.Module):
             v_feat = self._grid_rows(v_feat, outputs)
         if self.sa2 is not None:
             v_feat = self._stp_rows(v_feat, mask, outputs)
+        if self.sa2v2 is not None:
+            v_feat = self._sv2_rows(v_feat, mask, class_feats, outputs)
         if self.motion_residual is not None:
             # v2 A2/A3: rows are [x ; c*u~/sigma_u] -> h = x + W_u(...)  (architecture §5)
-            v_feat, outputs["motion_share"] = self.motion_residual(v_feat, mask)
+            v_feat, outputs["motion_share"] = self.motion_residual(
+                v_feat, self._motion_mask(mask)
+            )
         vt = self.temporal_encoder(v_feat, v_feat_l)
 
         if self.kip is not None:

@@ -955,6 +955,45 @@ ZS_LAGOVAD_T0_TOL = 1e-3  # |micro - T0| above this: the checkpoint or TAD_ncc d
 ZS_LAGOVAD_INPUT_DIM = 512  # LaGoVAD reads the plain CLIP row = the first 512 columns of a bake
 ZS_LAGOVAD_INPUT_ATOL = 1e-3  # plain CLIP row vs the bake's CLIP columns (fp16 storage slack)
 
+# SA²-v2 on pooled CLIP patch tokens (proposal LaGoVAD-STP-V2 §3.2, rule docs/final/SA2V2_RUN.md)
+SV2_ARM = "SV2"  # proposal row R7: scorer + text term + L_patch + head + motion dropout
+SV2_SHUFFLED_ARM = "SV2_shuf"  # control C2: labels and class names permuted across bags
+SV2_SEED = ZS_SEED  # 2024 only -> every sentence is PRELIMINARY (n = 1 seed)
+SV2_SHUFFLE_SEED = 20261105  # the permutation of C2
+SV2_GRID = STP_GRID  # 7 x 7 cells
+SV2_CELLS = STP_PATCHES
+SV2_SOURCE_GRID = 14  # CLIP ViT-B/16 patch tokens at 224^2
+SV2_POOL = SV2_SOURCE_GRID // SV2_GRID  # each cell = the mean of 2 x 2 tokens
+SV2_DIM = STP_PATCH_DIM
+SV2_CELL_WIDTH = SV2_CELLS * SV2_DIM  # columns of P, and of D
+SV2_ROW_WIDTH = 2 * SV2_CELL_WIDTH  # [P ; D] appended to the host row
+SV2_CELL_INPUTS = 3  # [P ; P - c ; D]
+SV2_TOKEN_DIM = 256
+SV2_HEADS = 2
+SV2_FFN_DIM = 512
+SV2_PRIORS = 4  # z(Mo), z(rho), L(Mo), L(rho)
+SV2_RHO_K = 5
+SV2_BETA_INIT = (1.0, 0.0, 0.0, 0.0)  # starts as the per-frame motion prior
+SV2_BIAS_INIT = -2.0
+SV2_POS_INIT_STD = 0.02
+SV2_Z_EPS = 1e-6
+SV2_MIN_CLASSES = 2  # Normal + at least one category
+SV2_PATCH_WEIGHT = 0.2  # lambda_p
+SV2_BRANCH_WEIGHT = 0.3  # lambda_b
+SV2_MOTION_DROPOUT = 0.3  # share of training bags whose W_u term is zero
+SV2_TOP_CELLS = 3  # m: cells per selected step in L_patch
+SV2_CACHE_DIRNAME = "sv2_cells"  # under CACHE_ROOT: <dataset>_s<stride>_g7
+SV2_LEVEL_FILENAME = "level_stats.json"  # m, s of Mo and rho, Nexar training sources
+SV2_OUTPUT_DIRNAME = "sv2"  # under OUTPUT_ROOT: <arm>/s<seed>/ + eval/ + REPORTS/
+SV2_STORE_DTYPE = "float16"
+SV2_FRAMES_PER_BATCH = 64  # frames per CLIP call: one pass per frame
+SV2_G1_MAX_ABS = V5_G1_MAX_ABS  # projected CLS vs image_embeds
+SV2_DIAG_KEYS = (  # logged per batch, read by the controls C2-C4, never in the total
+    "sv2_beta1", "sv2_beta2", "sv2_beta3", "sv2_beta4", "sv2_gamma", "sv2_temperature",
+    "sv2_bias", "sv2_w_norm", "sv2_entropy", "sv2_spread", "sv2_xas_ratio",
+    "sv2_top3q_abnormal", "sv2_top3q_normal", "sv2_patch", "sv2_branch",
+)
+
 # --- DAD (Dashcam Accident Dataset) zero-shot: LaGoVAD / W0 / R4 (core/docs/final/ZS_DAD.md) ---
 DAD_DATASET = "DAD"
 DAD_SPLIT_DIRNAME = "testing"  # <data>/DAD/videos/testing/{positive,negative}/*.mp4

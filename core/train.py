@@ -47,7 +47,7 @@ from core.data.definitions import (
     verbalize_class_name,
 )
 from core.data.knn_cache import load_knn_cache
-from core.data.stp_patches import check_patch_cache
+from core.data.stp_patches import check_cell_cache, check_patch_cache, read_level_stats
 from core.data.v2_inputs import check_input_manifest
 from core.data.v5_grids import change_lag, read_grid_geometry
 from core.device import resolve_device
@@ -58,7 +58,12 @@ from core.kip.losses import (
 )
 from core.losses.contrastive import CapContrastLoss
 from core.losses.dvs import pseudo_sup_mil_loss, supervised_loss
-from core.losses.mil import abnormal_bottomk_loss, mil_loss, multi_class_mil_loss
+from core.losses.mil import (
+    abnormal_bottomk_loss,
+    mil_loss,
+    multi_class_mil_loss,
+    patch_mil_loss,
+)
 from core.losses.smil import spatial_mil_loss
 from core.models.kat_vad import KATVAD
 from core.models.mqr import query_entropy
@@ -490,8 +495,44 @@ class Trainer:
             total = total + loss_cfg.gamma_kin * losses["kin"]
         if "smil" in losses:
             total = total + self.cfg.v5.smil_weight * losses["smil"]
+        if self.model.sa2v2 is not None:
+            total = total + self._sv2_losses(outputs, losses, labels, lengths, mask)
         losses["total"] = total
         return losses
+
+    def _sv2_losses(
+        self,
+        outputs: dict[str, Tensor],
+        losses: dict[str, Tensor],
+        labels: Tensor,
+        lengths: Tensor,
+        mask: Tensor,
+    ) -> Tensor:
+        """SA²-v2's two training signals + the diagnostics of C2-C4 (rule ``SA2V2_RUN.md``)."""
+        module = self.model.sa2v2
+        assert module is not None  # nosec B101 - caller checks
+        stp, topk = self.cfg.stp, self.cfg.loss.mil_topk_pct
+        patch, top_q = patch_mil_loss(
+            outputs["sv2_cell_logits"], outputs["cls_bin_logits"], labels, lengths, topk
+        )
+        x_as = outputs["sv2_x_as"]
+        branch = mil_loss(module.branch_scores(x_as), labels, lengths, topk_pct=topk)
+        losses |= {
+            "sv2_patch": patch,
+            "sv2_branch": branch,
+            **{f"sv2_beta{i + 1}": b for i, b in enumerate(module.beta.detach())},
+            "sv2_gamma": module.gamma.detach(),
+            "sv2_temperature": module.log_temperature.detach().exp(),
+            "sv2_bias": module.bias.detach(),
+            "sv2_w_norm": module.w.weight.detach().norm(),
+            "sv2_entropy": attention_entropy(outputs["sv2_attn"], mask),
+            "sv2_spread": outputs["sv2_spread"],
+            "sv2_xas_ratio": outputs["sv2_xas_ratio"],
+        }
+        for name, flag in (("abnormal", labels > 0), ("normal", labels <= 0)):
+            if flag.any():
+                losses[f"sv2_top3q_{name}"] = top_q[flag].mean()
+        return stp.patch_weight * patch + stp.branch_weight * branch
 
     # ------------------------------------------------------------ checkpoints
     def _rng_payload(self) -> dict[str, Any]:
@@ -790,6 +831,11 @@ def v5_grid_lag(cfg: Config, grid_dir: Path | None) -> int | None:
 
 def stp_patch_dir(cfg: Config, patch_dir: Path | None) -> Path | None:
     """Check ``--patch-dir`` against ``cfg.stp``: same stride, motion prior and K (lesson C2)."""
+    if cfg.stp.sa2v2:
+        if patch_dir is None:
+            raise ValueError("stp.sa2v2=true needs --patch-dir (the cell cache)")
+        check_cell_cache(patch_dir, cfg.data.frame_stride)
+        return patch_dir
     if not cfg.stp.sa2:
         if patch_dir is not None:
             raise ValueError("--patch-dir given but stp.sa2=false: the patches would be ignored")
@@ -831,6 +877,7 @@ def build_trainer(
     knn_cache = load_knn_cache(knn_cache_path) if knn_cache_path else None
     grid_lag = v5_grid_lag(cfg, grid_dir)
     require_flow = cfg.kip.enabled
+    checked_patches = stp_patch_dir(cfg, patch_dir)
     dataset = DVSFeatureDataset(
         data_dir=data_dir,
         clip_dir=clip_dir,
@@ -843,13 +890,20 @@ def build_trainer(
         seed=cfg.train.seed,
         grid_dir=grid_dir if cfg.v5.readout != constants.V5_READOUT_OFF else None,
         grid_lag=grid_lag,
-        patch_dir=stp_patch_dir(cfg, patch_dir),
+        patch_dir=None if cfg.stp.sa2v2 else checked_patches,
+        cell_dir=checked_patches if cfg.stp.sa2v2 else None,
     )
     class_names = load_class_names(data_dir)
 
     device = resolve_device(cfg.train.device)
     needs_clip = text_encoder == TEXT_ENCODER_CLIP and cfg.train.stage == STAGE_FULL
     model = KATVAD.from_config(cfg, load_clip=needs_clip)
+    if model.sa2v2 is not None:
+        assert checked_patches is not None  # nosec B101 - stp_patch_dir refused None
+        level = read_level_stats(checked_patches)
+        model.sa2v2.set_level(
+            level["mo_mean"], level["mo_std"], level["rho_mean"], level["rho_std"]
+        )
     if model.grid_readout is not None:
         assert grid_dir is not None  # nosec B101 - v5_grid_lag refused a missing grid_dir
         model.grid_readout.load_head(grid_dir / constants.V5_HEAD_FILENAME)

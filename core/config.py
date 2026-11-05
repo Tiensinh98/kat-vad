@@ -191,6 +191,11 @@ class STPConfig:
     motion: str = constants.STP_MOTION_RAW  # raw | ego (R7); must match the patch cache
     text_prompt: str = constants.STP_PROMPT_RELEASED  # released | prefix
     prefix_len: int = constants.STP_PREFIX_LEN
+    # SA²-v2 (rule core/docs/final/SA2V2_RUN.md): rows carry 49 pooled tokens + their change
+    sa2v2: bool = False
+    patch_weight: float = constants.SV2_PATCH_WEIGHT
+    branch_weight: float = constants.SV2_BRANCH_WEIGHT
+    motion_dropout: float = constants.SV2_MOTION_DROPOUT
 
 
 @dataclass
@@ -356,10 +361,16 @@ def validate_stp(cfg: Config) -> None:
         raise ValueError(f"stp.motion must be one of {constants.STP_MOTIONS}, got {stp.motion!r}")
     if stp.prefix_len < 1:
         raise ValueError(f"stp.prefix_len must be >= 1, got {stp.prefix_len}")
-    if not stp.sa2:
+    if stp.sa2 and stp.sa2v2:
+        raise ValueError("stp.sa2 and stp.sa2v2 are two versions of one module: pick one")
+    if not stp.sa2 and not stp.sa2v2:
         return
     if not 1 <= stp.top_k <= constants.STP_PATCHES:
         raise ValueError(f"stp.top_k must be in [1, {constants.STP_PATCHES}], got {stp.top_k}")
+    if not 0.0 <= stp.motion_dropout < 1.0:
+        raise ValueError(f"stp.motion_dropout must be in [0, 1), got {stp.motion_dropout}")
+    if stp.sa2v2 and stp.motion_dropout > 0 and cfg.model.motion_dim == 0:
+        raise ValueError("stp.motion_dropout needs a motion stream (model.motion_dim > 0)")
     if cfg.v2.crn != constants.V2_OFF:
         raise ValueError("stp.sa2 adds CLIP patch features to c_t: it needs v2.crn=none")
     if cfg.v5.readout != constants.V5_READOUT_OFF:

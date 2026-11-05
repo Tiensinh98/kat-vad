@@ -40,7 +40,7 @@ import torch
 
 from core import constants
 from core.data.dada_origin import load_counts
-from core.data.stp_patches import EvalPatches, eval_patches, stp_arm
+from core.data.stp_patches import EvalPatches, stp_arm, stp_eval_inputs
 from core.data.v2_inputs import check_input_manifest
 from core.device import resolve_device
 from core.tools.kill_switch_probe import source_labels, write_json_atomic, write_text_atomic
@@ -140,7 +140,7 @@ def score_run(
     """Step curves of every source for one checkpoint, after the K4 input check."""
     model, step, text_encode_fn, cfg = load_finished_model(run, device)
     check_input_manifest(input_dir, cfg.v2.crn, cfg.v2.motion)
-    patches = eval_patches(cfg.stp.sa2, cfg.stp.motion, cfg.stp.top_k, patch_dir, stride)
+    patches = stp_eval_inputs(cfg.stp, patch_dir, stride)
     class_names = load_class_names(data_dir)
     whole = Protocol(1, None)  # every cached (stride-8) row, whole video
     curves: Curves = {}

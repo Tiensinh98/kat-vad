@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import torch
 from torch import Tensor, nn
-from transformers import CLIPTextModel
+from transformers import CLIPTextModel, CLIPTextModelWithProjection
 from transformers.modeling_attn_mask_utils import (
     _create_4d_causal_attention_mask,
     _prepare_4d_attention_mask,
@@ -184,4 +184,12 @@ class SoftPromptCLIPTextModel(nn.Module):
         )
 
 
-__all__ = ["SoftPromptCLIPTextModel"]
+def clip_text_projection(model_name: str = constants.CLIP_MODEL_NAME) -> Tensor:
+    """CLIP's frozen ``text_projection`` matrix: text features -> ``image_embeds`` space."""
+    model = CLIPTextModelWithProjection.from_pretrained(
+        model_name, revision=constants.CLIP_MODEL_REVISION, use_safetensors=True
+    )
+    return model.text_projection.weight.detach().clone()
+
+
+__all__ = ["SoftPromptCLIPTextModel", "clip_text_projection"]
