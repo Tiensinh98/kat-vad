@@ -199,6 +199,9 @@ class STPConfig:
     patch_weight: float = constants.SV2_PATCH_WEIGHT
     branch_weight: float = constants.SV2_BRANCH_WEIGHT
     motion_dropout: float = constants.SV2_MOTION_DROPOUT
+    # SV3 (SA2V2_RUN.md §10): c~ = c + tanh(g) x^AS, g = 0 at init, g at lr x gate_lr_mult
+    sv2_gate: bool = False
+    gate_lr_mult: float = constants.SV3_GATE_LR_MULT
 
 
 @dataclass
@@ -373,6 +376,10 @@ def validate_stp(cfg: Config) -> None:
         raise ValueError(f"stp.prefix_len must be >= 1, got {stp.prefix_len}")
     if stp.sa2 and stp.sa2v2:
         raise ValueError("stp.sa2 and stp.sa2v2 are two versions of one module: pick one")
+    if stp.sv2_gate and not stp.sa2v2:
+        raise ValueError("stp.sv2_gate gates SA²-v2's x^AS: it needs stp.sa2v2=true")
+    if stp.gate_lr_mult <= 0:
+        raise ValueError(f"stp.gate_lr_mult must be > 0, got {stp.gate_lr_mult}")
     if not stp.sa2 and not stp.sa2v2:
         return
     if not 1 <= stp.top_k <= constants.STP_PATCHES:

@@ -990,6 +990,12 @@ SV2_FRAMES_PER_BATCH = 64  # frames per CLIP call: one pass per frame
 SV2_G1_MAX_ABS = V5_G1_MAX_ABS  # projected CLS vs image_embeds
 W0D_ARM = "W0D"  # SA2V2_RUN.md §8: W0 + SV2's motion dropout, no spatial module
 W0D_MOTION_DROPOUT = SV2_MOTION_DROPOUT  # the same share SV2 trained with (rule D6)
+SV3_ARM = "SV3"  # SA2V2_RUN.md §10: SV2 with c~ = c + tanh(g) x^AS, g = 0 at init (= W0D at step 0)
+# Gate LR: Σ lr at the base rate is 0.04378 (§9.1), so tanh(g) could never pass 0.044. A
+# coherent gradient must be able to reach g = 1 (tanh 0.76): mult >= 1 / 0.04378 = 22.8 -> 25.
+# A sign-incoherent one random-walks ~ 25 * 5e-5 * sqrt(1749) = 0.05 (§10.2).
+SV3_GATE_LR_MULT = 25.0
+SV3_GATE_OPEN = 0.2  # |tanh g| at the last step >= this = "opened" (4x the random-walk reach)
 SV2_PROBE_DIRNAME = "probe"  # under OUTPUT_ROOT/sv2/: sv2_probe reads (§9)
 SV2_PROBE_BATCHES = 8  # batches of the real epoch-0 order per live read
 SV2_PROBE_SCALARS = ("beta", "gamma", "log_temperature", "bias")  # one row per coordinate
@@ -997,7 +1003,7 @@ SV2_PROBE_MODULES = ("w", "w_cell", "w_prior", "pos", "layer", "branch_head")
 SV2_DIAG_KEYS = (  # logged per batch, read by the controls C2-C4, never in the total
     "sv2_beta1", "sv2_beta2", "sv2_beta3", "sv2_beta4", "sv2_gamma", "sv2_temperature",
     "sv2_bias", "sv2_w_norm", "sv2_entropy", "sv2_spread", "sv2_xas_ratio",
-    "sv2_top3q_abnormal", "sv2_top3q_normal", "sv2_patch", "sv2_branch",
+    "sv2_top3q_abnormal", "sv2_top3q_normal", "sv2_patch", "sv2_branch", "sv2_gate",
 )
 
 # --- DAD (Dashcam Accident Dataset) zero-shot: LaGoVAD / W0 / R4 (core/docs/final/ZS_DAD.md) ---

@@ -199,3 +199,44 @@ SNR describes the end of training. Displacement says some rows moved earlier mor
 walk would (log T 0.475, `w` 0.207 of the budget, against ≈ 0.05 for ±lr steps of random sign
 over 1,749 steps); `live` at init reads the start.
 
+
+## 10. Arm SV3: gated x^AS (dated note 2026-11-05, before any SV3 number)
+
+Written after §7–§9 were read: §8.3 put SV2's cost on the spatial module, §9.1 read every
+scorer row as noise. SV3 asks whether that cost goes away, and whether the host takes `x^AS`,
+when it may refuse it. Post-hoc arm: it can explain §7, never reverse it; it adopts nothing.
+
+### 10.1 Arm
+
+| Arm | What | Checkpoint |
+| --- | --- | --- |
+| **SV3** | SV2 with `c̃ = c_t + tanh(g)·x^AS`, scalar `g = 0` at init (`stp.sv2_gate=true`). Everything else as SV2: scorer, priors, text term, `L_patch`, `L_branch` on the ungated `x^AS`, motion dropout 0.3 | `outputs/sv2/SV3/s2024` |
+
+At step 0 SV3's detection path equals W0D's (same host, same dropout, `x^AS` × 0), so **W0D is the
+control**. At `g = 0` no host loss reaches the scorer through `c̃`; the scorer learns from
+`L_patch` and `L_branch` alone until `g` moves.
+
+**D10. Gate LR = 25 × base, its own AdamW group** (`stp.gate_lr_mult`, `SV3_GATE_LR_MULT`).
+Derived, not tuned: Σ lr at the base rate is 0.04378 (§9.1), so at ×1 `|tanh g|` could never pass
+0.044 and the gate would read "shut" by construction. ×25 lets a coherent gradient reach `g ≈ 1`
+(1 / 0.04378 = 22.8 → 25); a sign-incoherent one random-walks ≈ 25 × 5e-5 × √1749 ≈ 0.05.
+
+### 10.2 Read-out
+
+Per set, §3's sentence on **SV3 − W0D** (primary), and printed **SV3 − SV2** (what the gate
+changed) and SV3 − W0. Gate: last logged `tanh(g)`; **opened** iff `|tanh g| ≥ 0.2`
+(`SV3_GATE_OPEN`, ≈ 4× the random-walk reach of §10.1), else **shut**.
+
+### 10.3 Verdict sentence (per set; DADA decides, DoTA-CAP-dev printed beside)
+
+| Gate | SV3 − W0D | Sentence |
+| --- | --- | --- |
+| shut | not cost | the module stays unused when the host may refuse it |
+| shut | cost | cost with a shut gate (not through `x^AS`: read the mechanics) |
+| opened | gain | opened and helps |
+| opened | no difference | opened without a shown effect |
+| opened | cost | opened and costs: training wants `x^AS`, transfer does not |
+
+One seed: PRELIMINARY. A shut gate does not show the module is useless, only that the host does
+not take it under this objective; "opened and helps" adopts nothing without seeds and a
+pre-registered confirmation. The pointing maps (`v5_maps read`) are read only if the gate opens.

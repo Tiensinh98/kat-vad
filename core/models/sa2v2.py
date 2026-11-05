@@ -8,6 +8,7 @@ priors are derived here, so the cache holds no derived tensors::
     u = W_cell [P ; P - c ; D] + e_pos + W_pi [z(Mo) ; z(rho) ; L(Mo) ; L(rho)],  H = Layer(u)
     l = beta . priors + gamma z(cos(P, tau_delta)) + w^T H
     q = sigma(l + b),  alpha = softmax(l / T),  x^AS = sum alpha P,  c~ = c + x^AS
+    (SV3: c~ = c + tanh(g) x^AS, g = 0 at init; x^AS itself, which L_branch reads, is ungated)
 
 Only valid rows pass through the encoder. ``tau_delta`` goes through CLIP's frozen text projection:
 the host's text features are not in ``image_embeds``' space, where ``P`` lives (rule D3).
@@ -61,8 +62,10 @@ def cell_priors(
 class SA2V2(nn.Module):
     """Patch encoder + scorer + the training-only head on ``x^AS`` (proposal §3.2.2-3.2.5)."""
 
-    def __init__(self, feature_dim: int = constants.SV2_DIM) -> None:
+    def __init__(self, feature_dim: int = constants.SV2_DIM, gate: bool = False) -> None:
         super().__init__()
+        # SV3 (SA2V2_RUN.md §10): absent unless gated, so every SV2 checkpoint loads unchanged
+        self.gate = nn.Parameter(torch.zeros(())) if gate else None
         self.feature_dim = feature_dim
         self.cells = constants.SV2_CELLS
         token = constants.SV2_TOKEN_DIM
@@ -168,7 +171,12 @@ class SA2V2(nn.Module):
         cell_logits = torch.zeros_like(attn)
         cell_logits[valid] = logits + self.bias
         spread = logits.detach().std(dim=-1, unbiased=False).mean()
-        return SA2V2Output(cls + x_as.to(cls.dtype), x_as, attn, cell_logits, spread)
+        added = x_as if self.gate is None else torch.tanh(self.gate) * x_as
+        return SA2V2Output(cls + added.to(cls.dtype), x_as, attn, cell_logits, spread)
+
+    def gate_value(self) -> Tensor | None:
+        """``tanh(g)``, detached; ``None`` for an ungated SV2."""
+        return None if self.gate is None else torch.tanh(self.gate.detach())
 
 
 __all__ = ["SA2V2", "SA2V2Output", "cell_priors", "zscore_cells"]

@@ -40,26 +40,45 @@ def attribution(drop: str, spatial: str) -> str:
     return "neither change alone shows a cost"
 
 
-def contrasts(items: dict[str, dict[str, float]], ci_fn: Any) -> dict[str, Any]:
+def paired_contrasts(
+    items: dict[str, dict[str, float]], ci_fn: Any, pairs: tuple[tuple[str, str, str], ...]
+) -> dict[str, Any]:
+    """``a - b`` per item with §3's sentence, for each ``(a, b, what)``."""
     out: dict[str, Any] = {}
-    for a, b, what in CONTRASTS:
+    for a, b, what in pairs:
         delta = ci_fn(paired(items[a], items[b]))
         out[f"{a}-{b}"] = {"what": what, "delta": delta, "sentence": sentence(delta)}
+    return out
+
+
+def contrasts(items: dict[str, dict[str, float]], ci_fn: Any) -> dict[str, Any]:
+    out = paired_contrasts(items, ci_fn, CONTRASTS)
     out["attribution"] = attribution(out["W0D-W0"]["sentence"], out["SV2-W0D"]["sentence"])
     return out
 
 
-def read_dada_set(dirs: dict[str, Path]) -> dict[str, Any]:
+def dada_items(dirs: dict[str, Path]) -> tuple[dict[str, Any], dict[str, dict[str, float]]]:
+    """Macro / micro per row and the per-video AUCs of every row."""
     reads = {name: read_dada(d) for name, d in dirs.items()}
-    return {"macro": {n: r["macro"] for n, r in reads.items()},
-            "micro": {n: r["micro"] for n, r in reads.items()},
-            **contrasts({n: r["items"] for n, r in reads.items()}, video_ci)}
+    head = {"macro": {n: r["macro"] for n, r in reads.items()},
+            "micro": {n: r["micro"] for n, r in reads.items()}}
+    return head, {n: r["items"] for n, r in reads.items()}
+
+
+def dota_items(dirs: dict[str, Path]) -> tuple[dict[str, Any], dict[str, dict[str, float]]]:
+    """Macro per row and the per-clip AUCs of every row (protocol B reads)."""
+    macro = {n: _json(d / "protocol_b_readout.json").get("macro") for n, d in dirs.items()}
+    return {"macro": macro}, {n: _json(d / "clip_aucs.json") for n, d in dirs.items()}
+
+
+def read_dada_set(dirs: dict[str, Path]) -> dict[str, Any]:
+    head, items = dada_items(dirs)
+    return {**head, **contrasts(items, video_ci)}
 
 
 def read_dota_set(dirs: dict[str, Path]) -> dict[str, Any]:
-    macro = {n: _json(d / "protocol_b_readout.json").get("macro") for n, d in dirs.items()}
-    items = {n: _json(d / "clip_aucs.json") for n, d in dirs.items()}
-    return {"macro": macro, **contrasts(items, dota_ci)}
+    head, items = dota_items(dirs)
+    return {**head, **contrasts(items, dota_ci)}
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:

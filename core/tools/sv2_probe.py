@@ -38,8 +38,15 @@ from core.models.kat_vad import KATVAD
 from core.models.sa2v2 import SA2V2
 from core.models.text_encoding import TEXT_ENCODER_CHOICES, TEXT_ENCODER_CLIP
 from core.tools.kill_switch_probe import write_json_atomic, write_text_atomic
-from core.tools.stp_diag import lr_budget, optimizer_state, param_stats, trainable_names
-from core.train import Trainer, build_trainer, epoch_permutation, set_global_seed, warm_start_model
+from core.tools.stp_diag import lr_budget, optimizer_state, param_stats
+from core.train import (
+    Trainer,
+    build_trainer,
+    epoch_permutation,
+    optimizer_param_groups,
+    set_global_seed,
+    warm_start_model,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -108,7 +115,23 @@ def merged_module_stats(
     return {"keys": keys, **param_stats(cat_f, cat_i, merged, budget)}
 
 
-def rebuild_init(cfg: Config, text_encoder: str) -> torch.nn.Module:
+def optimizer_names(model: KATVAD, cfg: Config) -> list[str]:
+    """Trainable names in the order AdamW holds them (its groups, as ``core.train`` builds them).
+
+    With one group this is ``named_parameters`` order; with a ``W_u`` or gate group the ids are
+    concatenated group by group, and a plain ``named_parameters`` zip would mislabel every row.
+    """
+    groups = optimizer_param_groups(
+        model, cfg.train.learning_rate, cfg.train.motion_lr_mult,
+        cfg.stp.gate_lr_mult if cfg.stp.sv2_gate else 1.0,
+    )
+    name_of = {id(p): n for n, p in model.named_parameters()}
+    if groups and isinstance(groups[0], dict):
+        return [name_of[id(p)] for g in groups for p in g["params"]]
+    return [name_of[id(p)] for p in groups]
+
+
+def rebuild_init(cfg: Config, text_encoder: str) -> KATVAD:
     """The model as ``core.train.build_trainer`` holds it before step 0 (seed, then build).
 
     Scalars and ``w`` start at constants, so their displacement is exact; the matrices' init is
@@ -139,7 +162,7 @@ def run_adam(args: argparse.Namespace) -> dict[str, Any]:
     payload = torch.load(run_dir / "checkpoint_last.pt", map_location="cpu",
                          weights_only=False)  # nosec B614 - own checkpoint
     init_model = rebuild_init(cfg, args.text_encoder)
-    names = trainable_names(init_model)
+    names = optimizer_names(init_model, cfg)
     init_sd = {k: v.detach().clone() for k, v in init_model.state_dict().items()}
     del init_model
     final_sd, opt = payload["model"], optimizer_state(payload, names)
@@ -149,6 +172,11 @@ def run_adam(args: argparse.Namespace) -> dict[str, Any]:
     for label, key, index in scalar_rows(names):
         rows[label] = {"keys": [key], "index": index,
                        **coordinate_stats(key, index, final_sd, init_sd, opt, budget)}
+    gate = PREFIX + "gate"
+    if gate in names:  # SV3: its own group, so its own budget (lr x gate_lr_mult)
+        mult = cfg.stp.gate_lr_mult
+        rows["gate"] = {"keys": [gate], "index": None, "lr_mult": mult,
+                        **coordinate_stats(gate, None, final_sd, init_sd, opt, budget * mult)}
     for name in constants.SV2_PROBE_MODULES:
         row = merged_module_stats(module_keys(names, f"{PREFIX}{name}."), final_sd, init_sd, opt,
                                   budget)

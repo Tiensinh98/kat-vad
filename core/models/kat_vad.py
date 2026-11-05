@@ -175,7 +175,7 @@ class KATVAD(nn.Module):
                 if cfg.stp.sa2
                 else None
             ),
-            sa2v2=SA2V2(cfg.model.hidden_dim) if cfg.stp.sa2v2 else None,
+            sa2v2=SA2V2(cfg.model.hidden_dim, gate=cfg.stp.sv2_gate) if cfg.stp.sa2v2 else None,
             motion_dropout=(
                 cfg.stp.motion_dropout if cfg.stp.sa2v2 else cfg.model.motion_dropout
             ),

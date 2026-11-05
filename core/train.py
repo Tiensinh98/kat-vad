@@ -94,26 +94,32 @@ def set_global_seed(seed: int) -> None:
 
 
 def optimizer_param_groups(
-    model: KATVAD, learning_rate: float, motion_lr_mult: float
+    model: KATVAD, learning_rate: float, motion_lr_mult: float, gate_lr_mult: float = 1.0
 ) -> list[Any]:
     """The trainable parameters, as AdamW takes them (core/docs/final/WU_ARMS.md).
 
-    ``motion_lr_mult == 1`` returns the flat list the trainer always used (one group, so the
-    default path is unchanged). Otherwise ``W_u`` (weight + bias) is split into its own group at
-    ``learning_rate * motion_lr_mult``; group 0 keeps the base rate, and ``LambdaLR`` applies
-    the same warm-up / cosine factor to both.
+    Both multipliers at 1 return the flat list the trainer always used (one group, so the
+    default path is unchanged). Otherwise ``W_u`` (weight + bias, ``motion_lr_mult``) and SV3's
+    gate ``g`` (``gate_lr_mult``, SA2V2_RUN.md §10) each get their own group at
+    ``learning_rate * mult``; group 0 keeps the base rate, and ``LambdaLR`` applies the same
+    warm-up / cosine factor to every group.
     """
     trainable = [p for p in model.parameters() if p.requires_grad]
-    if motion_lr_mult == 1.0:
+    special: list[tuple[list[Tensor], float]] = []
+    if motion_lr_mult != 1.0:
+        if model.motion_residual is None:
+            raise ValueError("train.motion_lr_mult != 1 needs a motion stream (W_u)")
+        motion = [p for p in model.motion_residual.parameters() if p.requires_grad]
+        if motion:
+            special.append((motion, motion_lr_mult))
+    if gate_lr_mult != 1.0 and model.sa2v2 is not None and model.sa2v2.gate is not None:
+        special.append(([model.sa2v2.gate], gate_lr_mult))
+    if not special:
         return trainable
-    if model.motion_residual is None:
-        raise ValueError("train.motion_lr_mult != 1 needs a motion stream (W_u)")
-    motion = [p for p in model.motion_residual.parameters() if p.requires_grad]
-    motion_ids = {id(p) for p in motion}
-    rest = [p for p in trainable if id(p) not in motion_ids]
+    ids = {id(p) for params, _ in special for p in params}
+    rest = [p for p in trainable if id(p) not in ids]
     groups: list[Any] = [{"params": rest, "lr": learning_rate}]
-    if motion:
-        groups.append({"params": motion, "lr": learning_rate * motion_lr_mult})
+    groups += [{"params": params, "lr": learning_rate * mult} for params, mult in special]
     return groups
 
 
@@ -240,7 +246,8 @@ class Trainer:
 
         self.optimizer = AdamW(
             optimizer_param_groups(
-                self.model, cfg.train.learning_rate, cfg.train.motion_lr_mult
+                self.model, cfg.train.learning_rate, cfg.train.motion_lr_mult,
+                cfg.stp.gate_lr_mult if cfg.stp.sv2_gate else 1.0,
             ),
             lr=cfg.train.learning_rate,
             weight_decay=cfg.train.weight_decay,
@@ -529,6 +536,9 @@ class Trainer:
             "sv2_spread": outputs["sv2_spread"],
             "sv2_xas_ratio": outputs["sv2_xas_ratio"],
         }
+        gate = module.gate_value()
+        if gate is not None:
+            losses["sv2_gate"] = gate
         for name, flag in (("abnormal", labels > 0), ("normal", labels <= 0)):
             if flag.any():
                 losses[f"sv2_top3q_{name}"] = top_q[flag].mean()
