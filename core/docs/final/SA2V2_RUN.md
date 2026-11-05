@@ -199,6 +199,23 @@ SNR describes the end of training. Displacement says some rows moved earlier mor
 walk would (log T 0.475, `w` 0.207 of the budget, against ≈ 0.05 for ±lr steps of random sign
 over 1,749 steps); `live` at init reads the start.
 
+### 9.2 Probe `live` read-out (recorded 2026-11-05, SV2 s2024, `REPORTS/probe/live_{init,final}/`)
+
+8 batches of epoch 0's order, fp32, train mode, no optimizer step. Printed only.
+
+| Quantity | Init | Final |
+| --- | --- | --- |
+| β₁ gradient, host (coherence) | −9.53e-03 (0.95) | −4.71e-04 ± 4.8e-02 (0.01) |
+| β₁ gradient, `L_patch` (coherence) | +3.63e-02 (0.73) | +8.18e-03 (0.56) |
+| ‖∇w‖ host / patch / branch | 0.068 / 0.219 / 0.001 | 1.027 / 0.175 / 0.083 |
+| cos(∇w) host, patch | −0.082 | +0.131 |
+| Cell spread prior / text / residual | 1.000 / 0.000 / 0.000 | 0.992 / 0.001 / 3.250 |
+
+* At init `L_patch` drives the scorer and pushes β₁ against the host, coherently. At the end the
+  host dominates `w`, and its gradient on the scalars is incoherent (coherence ≤ 0.39 on every β, γ).
+* The trained map is ranked by the residual, not by the priors, and the text term contributes
+  almost nothing (spread 0.001).
+
 
 ## 10. Arm SV3: gated x^AS (dated note 2026-11-05, before any SV3 number)
 
@@ -240,3 +257,50 @@ changed) and SV3 − W0. Gate: last logged `tanh(g)`; **opened** iff `|tanh g| �
 One seed: PRELIMINARY. A shut gate does not show the module is useless, only that the host does
 not take it under this objective; "opened and helps" adopts nothing without seeds and a
 pre-registered confirmation. The pointing maps (`v5_maps read`) are read only if the gate opens.
+
+### 10.4 Read-out (2026-11-05, seed 2024, `REPORTS/sv3_readout.md`)
+
+Gate `tanh(g)`: 0 → **−0.4843**, opened by the rule (|·| ≥ 0.2).
+
+| Set | W0 | W0D | SV2 | SV3 | SV3 − W0D (primary) | SV3 − SV2 |
+| --- | --- | --- | --- | --- | --- | --- |
+| DADA (per video) | 0.7615 | 0.7529 | 0.7133 | 0.7287 | **−0.0242 [−0.0383, −0.0103] cost** | +0.0154 [+0.0026, +0.0279] gain |
+| DoTA-CAP-dev (per clip) | 0.8110 | 0.8155 | 0.7848 | 0.7863 | **−0.0292 [−0.0396, −0.0187] cost** | +0.0015 [−0.0073, +0.0103] none |
+
+SV3 − W0: DADA −0.0328 [−0.0507, −0.0152], DoTA −0.0247 [−0.0359, −0.0134], both cost. Macros
+recomputed from `clip_aucs.json` match; checkpoint and `metrics.jsonl` both end at step 1,749.
+
+**§10.3 on both sets: opened and costs, PRELIMINARY (n = 1 seed). Third negative on tokens after
+R7t and SV2.** Adopts nothing. Against SV2's cost on W0D, the gate recovers ≈ 39 % on DADA
+(0.0154 / 0.0396) and ≈ 5 % on DoTA (0.0015 / 0.0307). SV3 sits below DADA's middle ruler
+(0.7287 vs 0.7342, intervals overlap).
+
+**Dated note on the rule's sentence (2026-11-05, after the read).** §10.3 did not consider the
+gate's sign. "Training wants `x^AS`" reads as adding it; here the host **subtracts** it. The verdict
+stands; read it as "training moved the coefficient to −0.48, transfer does not gain".
+
+Printed post hoc, none changes the verdict:
+
+* **The gate's motion is coherent.** Negative on 99.8 % of steps, |tanh g| ≥ 0.2 from step 543,
+  |g| = 0.53 ≈ 10 × the random walk of §10.1. The probe's `noise` label on the gate describes the
+  end of training (§9.1's caveat), not the trajectory. It flattens from step ≈ 1,200, when the LR
+  left allows |Δg| ≤ ≈ 0.05, so this is not evidence of an equilibrium.
+* **`x^AS` improves the training fit at either sign.** `mil`, steps 1,650–1,749: W0D 0.301, SV2
+  0.221 (coefficient +1), SV3 0.223 (−0.48); at steps 250–350, with the gate still small: 0.595,
+  0.557, 0.587. Together with the transfer cost this looks like overfitting through the token
+  channel, but no Nexar validation exists in this run: a hypothesis.
+* **The scorer's scalars are still at init**, as in SV2: β, γ within ≈ 0.0025; T 0.96. Map fit on
+  training bags as SV2: top-3 `q` abnormal 0.673, normal 0.333 (SV2 0.664, 0.347). `q` is flatter
+  (spread 1.75 vs 3.20, entropy 0.84 vs 0.62).
+* **Position.** Mean within-video Spearman of the score with the middle ruler, W0D / SV2 / SV3: DADA
+  0.364 / 0.300 / 0.311; DoTA 0.559 / 0.498 / 0.490. Part of the cost may be lost position
+  alignment rather than lost detection. Not tested.
+
+Limits:
+
+* **W0D is not a paired control in practice.** §10.1's "equals W0D at step 0" holds for the form of
+  the function only: step-1 `mil` 0.695 vs 0.706, `dvs_sup` 0.703 vs 0.551. Init and batch order were
+  not separated.
+* The intervals resample videos or clips, not runs: no run-to-run noise, so no effect size.
+* **Still owed by §10.3:** `v5_maps read` on SV3. `colab/final/sv3_gate.ipynb` does not produce it.
+* C2 (`SV2_shuf`) was not read: `REPORTS/sa2v2_readout.md` still prints `pending`.

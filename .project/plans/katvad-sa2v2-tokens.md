@@ -3,6 +3,10 @@
 Rule: `core/docs/final/SA2V2_RUN.md`. Decisions by the user, 2026-11-05: 7×7; no pilot; edit
 `KATVAD.forward`; DoTA-CAP-dev after DADA; C2 after the main read; C1 on DADA.
 
+**Status 2026-11-05:** SV2, W0D, probe and SV3 read out, all negative for the module
+(`SA2V2_RUN.md` §7, §8.3, §9, §10.4). C2 not read; SV3 maps owed. Closing is recommended, not yet
+decided by the user.
+
 ## Build
 
 1. Model `core/models/sa2v2.py`; splice `KATVAD._sv2_rows`, motion dropout mask; off by default.

@@ -2215,3 +2215,12 @@ Promote if a second harness needs the same split.
 **Rule:** Build read-out fixtures from the producer's own output shape, and assert on the rendered markdown, not only the JSON.
 **Files:** core/tools/sa2v2_readout.py:200, core/tests/test_sa2v2.py (`test_readout_end_to_end`)
 **Why pending:** one occurrence, fixed in `3bef13b` the same day; no number was affected (the crash came after every number was computed). Promote on a second.
+
+## (cg) [MEDIUM] Experiments - A signed gate's verdict must print its sign and its trajectory (2026-11-05)
+**Triggers:** gate, tanh, opened, verdict sentence, sv3_readout, sv2_probe, noise, SNR
+**Problem:** SV3's rule tested `|tanh g| ≥ 0.2`, so `tanh g = −0.484` printed "training wants x^AS" although the host subtracts `x^AS`; the end-of-training probe also labelled that gate `noise` although it was negative on 99.8 % of steps.
+**Bad:** `opened = abs(gate) >= 0.2` + a verdict sentence with no sign, and reading the gate from Adam's last-step moments
+**Good:** state the sign in the verdict, and read a gate from its logged trajectory (share of steps per sign, first crossing), with the probe's label beside it
+**Rule:** Write both signs into the verdict table of any signed gate, and judge coherence from its trajectory, not from end-of-training EMAs.
+**Files:** core/tools/sv3_readout.py, core/tools/sv2_probe.py, core/docs/final/SA2V2_RUN.md §10.3–§10.4
+**Why pending:** one occurrence, caught at read-out; the verdict is unchanged. Promote on a second.

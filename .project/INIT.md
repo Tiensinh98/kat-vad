@@ -18,6 +18,8 @@
 | `main` | KAT-VAD v1 (KIP: PMG head + frozen-MLP shift + motion-score head) | v1 copy |
 | `v2` | v1 code + the v2 build line (frozen VideoMAE V2 motion input + CRN, no KIP/RAFT) | v2 copy |
 | `v3` | v1 + KIP gate rebuild (`gate_type`, ECMR) | v3 copy |
+| `v_final` | LaGoVAD-STP line: W_u arms, STP, zero-shot TAD / DADA / DAD. Outputs `outputs/v_final/` = Drive `Thesis-Final/outputs/` | own copy |
+| `v_final_stp_v2` (from `v_final@72a624b`) | `v_final` + SA²-v2 on 7×7 tokens: arms SV2, W0D, SV3 (`core/docs/final/SA2V2_RUN.md`) | own copy |
 
 The memory bank is tracked per branch and the copies diverge on purpose — never merge them with "take theirs".
 
