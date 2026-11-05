@@ -4,7 +4,7 @@ Nov 4, 2026 · @Sinh Pham
 
 This proposal builds **LaGoVAD-STP v2**, a weakly supervised detector for road-traffic video anomalies that runs no LLM at training or inference. It starts from LaGoVAD (ICLR 2026) and adds a frozen VideoMAE V2-S motion stream, read as one 384-d global vector per step, as the permitted backbone change. Trained on Nexar dashcam video with bag-level labels (20-step windows, Section 3.3), this model already reaches **0.81 macro / 0.73 micro per-clip min-max AUC zero-shot on DoTA-CAP-dev** (569 clips, one seed), against 0.64 / 0.61 for the released LaGoVAD checkpoint read the same way. The comparison is not matched: the checkpoint was trained on PreVAD.
 
-The one novel component is **traffic spatio-temporal prompting (STP)**, adapted from STPrompt (ACM MM 2024). This version redesigns its visual part. In the first version, the SA² attention barely learned (its entropy fell only from 1.0 to about 0.91), and the first SA² added nothing measurable on top of the VideoMAE stream (+0.0001 macro, one seed). **SA²-v2** therefore scores all 49 CLIP crops of a frame with a learned scorer built from a fixed motion and outlier prior, a text-conditioned term and a learned residual. It pools the crops by softmax, and it is trained with patch-level multiple-instance learning (MIL), a branch-only head and motion dropout. The text side keeps the learnable prefix.
+The one novel component is **traffic spatio-temporal prompting (STP)**, adapted from STPrompt (ACM MM 2024). This version redesigns its visual part. In the first version, the SA² attention barely learned (its entropy fell only from 1.0 to about 0.91), and the first SA² added nothing measurable on top of the VideoMAE stream (+0.0001 macro, one seed). **SA²-v2** therefore scores all 49 CLIP crops of a frame with a learned scorer built from a fixed motion and outlier prior, a text-conditioned term and a learned residual. It pools the crops by softmax, and it is trained with patch-level multiple-instance learning (MIL) that applies one selection rule to every bag, a head that reads the pooled crops alone, and motion dropout. The text side keeps the learnable prefix.
 
 The claim under test: local, prior-guided and patch-supervised appearance evidence recovers small and distant traffic agents that one global CLIP vector dilutes, and the patch scores double as spatial evidence maps scored with DoTA's STAUC. Expect a modest change in overall AUC (STPrompt's own learned attention was worth about 0.3 AUC); the main tests are STAUC, the pointing game and the small-box and ego-uninvolved subsets of DoTA-CAP.
 
@@ -25,9 +25,9 @@ Only the visual part of STP changes. The LaGoVAD host, the VideoMAE motion strea
 |  | Old SA² (version 1) | SA²-v2 |
 | --- | --- | --- |
 | Crops used | 12, chosen by a hard motion top-K | all 49, weighted softly |
-| Weights | CLS-queried attention, W\_q zero-initialised (STPrompt's own attention appears to be parameter-free) | logits = fixed prior + text term + learned residual, z-scored per frame |
+| Weights | CLS-queried attention, W\_q zero-initialised (STPrompt's own attention appears to be parameter-free) | logits = fixed prior (per-frame and frame-level forms) + text term + learned residual; only the per-frame forms and the text term are z-scored |
 | Motion | selector only | selector and a learned input (ΔP) |
-| Supervision | host loss only | host loss + patch-level MIL + branch-only head + motion dropout |
+| Supervision | host loss only | host loss + symmetric patch-level MIL + head on x\_AS alone + motion dropout |
 | Extra parameters | about 0.13M | about 0.9M |
 | Output to the host | x\_AS: 512, summed with c\_t | x\_AS: 512, summed with c\_t (same) |
 | Spatial output | 7×7 attention map (weights) | 7×7 patch probability map |
@@ -36,12 +36,12 @@ Only the visual part of STP changes. The LaGoVAD host, the VideoMAE motion strea
 
 | Part | Input | Output | Learned |
 | --- | --- | --- | --- |
-| Cached inputs | P: 49×512; c\_t: 512; ΔP: 49×512; priors Mo, ρ: 49 each; text vector τ\_Δ: 512 | none | no |
+| Cached inputs | P: 49×512; c\_t: 512; ΔP: 49×512; priors Mo, ρ: 49 each, in a per-frame form z and a frame-level form L; text vector τ\_Δ: 512 | none | no |
 | A. Patch encoder | \[P\_j, P\_j − c\_t, ΔP\_j\] (1536 per crop) + grid position + priors | H: 49×256 | yes, about 0.9M parameters in A and B together |
-| B. Patch scorer | H, priors, cosine of each crop to τ\_Δ | logits ℓ: 49 | yes (three scalars + a linear residual head) |
+| B. Patch scorer | H, priors, cosine of each crop to τ\_Δ | logits ℓ: 49 | yes (five scalars + a linear residual head) |
 | C. Outputs | ℓ | map q: 7×7; pooled feature x\_AS: 512 | no extra parameters |
 | Patch-level MIL (training only) | q for all crops, bag label, host frame scores | patch loss | no |
-| Branch-only head (training only) | c̃\_t with the VideoMAE term off | one frame score per step | 513 parameters |
+| Head on x\_AS (training only) | x\_AS alone, without c\_t and without the VideoMAE term | one frame score per step | 513 parameters |
 | Motion dropout (training only) | VideoMAE term W\_u(c·ṽ\_t) | zeroed in 30% of training bags | no |
 | Definition flip (training only) | definition set Z and bag label | Z without the genuine class, label set to normal | no |
 
@@ -86,7 +86,7 @@ The purpose is a traffic anomaly detector that learns from cheap bag-level label
 The thesis builds this in two steps, matching the rule of one novel component on a possibly changed backbone:
 
 - **Backbone change (motion stream).** A frozen VideoMAE V2-S encoder (CVPR 2023), the strongest small masked-video encoder for traffic anomalies in Simple-TAD's comparison, feeds one 384-d vector per step into LaGoVAD through the zero-initialised projection W\_u. Preliminary result: zero-shot DoTA-CAP-dev **0.81 macro / 0.73 micro** per-clip min-max AUC (one seed); the Nexar-trained CLIP-only model reads 0.71 macro and the same model with VideoMAE 0.82 (5 seeds). Two attempts to extract more from this stream (MQR, LSP) added nothing, so it stays one global vector.
-- **Novel component (STP).** In the CLIP branch, **SA²-v2** weights all 49 crop features with a learned, text-conditioned, prior-biased scorer, trained with patch-level MIL so that the branch carries signal of its own; in the text branch, a learnable prefix gives every anomaly-class text a learned context.
+- **Novel component (STP).** In the CLIP branch, **SA²-v2** weights all 49 crop features with a learned, text-conditioned, prior-biased scorer, trained with patch-level MIL and a head of its own, so that the branch has a training signal that does not pass through the VideoMAE stream; in the text branch, a learnable prefix gives every anomaly-class text a learned context.
 
 Why SA² is redesigned. In the first version, SA²'s attention entropy fell only from 1.0 to about 0.91, and the gain over CLIP-only LaGoVAD came from the VideoMAE stream. Three causes are likely: re-weighting 12 near-identical crop features has almost no leverage on the pooled vector; a zero-initialised W\_q gives its key matrix zero gradient at the start; and the host loss reaches the module only through the VideoMAE-fused features and a sparse top-k MIL loss. SA²-v2 addresses these with a prior-biased scorer over all 49 crops and with losses that do not pass through the VideoMAE shortcut (Section 3.2).
 
@@ -111,7 +111,7 @@ Aims 1–2 are prerequisites; aims 3–5 map to the hypotheses below. "Supported
 | H3. The learnable prefix improves transfer without weakening language guidance | Zero-shot DoTA, DADA-2000 and TAD AUC; MSAD drift@5 (R9, R10) | R10 > R8 on zero-shot AUC, and drift@5 no worse |
 | H4. The patch maps point at the anomalous agents | STAUC and pointing game on the boxed DoTA-CAP clips (528 of the 569 dev clips) | SA²-v2's map beats a uniform map, a centre prior and the unweighted selection map (R3) |
 | H5. The gain holds across camera settings without hurting surveillance | TAD AUC\_O / AUC\_A; MSAD AUC / AP, its traffic slice and non-traffic scenes | Gains on TAD, the MSAD traffic slice and the dashcam sets; no significant drop on MSAD's non-traffic scenes |
-| H6. The patch branch carries signal of its own, beyond the VideoMAE stream | Branch-only run without the VideoMAE term (R8 branch-only against CLIP-only LaGoVAD, B1); uniform-replacement ΔAUC | Branch-only AUC above B1, and replacing SA²-v2's weights by uniform weights lowers AUC |
+| H6. The patch branch carries signal of its own, beyond the VideoMAE stream | The linear head on x^AS against the same head on the unweighted mean of the 49 crops; uniform-replacement ΔAUC; the branch-only run of R8 against CLIP-only LaGoVAD (B1), reported beside them | The head on x^AS beats the head on the mean, and replacing SA²-v2's weights by uniform weights lowers AUC |
 
 **Preliminary results so far (first SA², one seed).** On H1, the split runs against the hypothesis: first SA² minus host is +0.012 on ego-involved clips and −0.013 on ego-uninvolved clips. On H2, the ego-compensated prior points no better than the raw one. On H3, the prefix did not demonstrably train, so nothing is known yet. On H6, a patch-only local branch (without text) reached 0.61 macro, and 0.70 with its motion magnitudes in the token, and it underfit Nexar. Section 3.2.1 gives the numbers.
 
@@ -160,7 +160,7 @@ The proposed model is assembled from one baseline, one encoder, two source paper
 | --- | --- | --- | --- |
 | Host detector: CLIP stream, RoFormer, text co-attention, heads and losses | LaGoVAD (ICLR 2026), on VadCLIP's frozen-CLIP + MIL design (AAAI 2024) | Architecture and losses as released | Last-epoch checkpoints; Nexar setup (window bags, head kernel 3, top-k 5%); caption loss not used on Nexar |
 | Motion stream (backbone change) | VideoMAE V2 (CVPR 2023), chosen on the evidence of Simple-TAD (ICCV 2025 Workshops) | The frozen distilled ViT-S and a 16-frame clip at about 10 fps | Frozen, causal 1.5 s clip, one pooled 384-d vector per step, standardised with fixed statistics, fused through zero-initialised W\_u |
-| SA²-v2 in the CLIP branch (novel component, visual part) | STPrompt (ACM MM 2024) for window crops and the motion prior; LAVIDA (CVPR 2026) for the text-queried scoring, the outlier prior and the distractor idea | Window-crop CLIP patch features, second-order motion magnitude, element-wise sum with the frame feature; text-conditioned patch relevance; a within-frame outlier score; removing the genuine class from the definition | All 49 crops kept; prior-biased scorer with a learned residual; patch-level MIL with dense negatives; branch-only head; motion dropout; ego-compensated motion variant; maps scored with STAUC |
+| SA²-v2 in the CLIP branch (novel component, visual part) | STPrompt (ACM MM 2024) for window crops and the motion prior; LAVIDA (CVPR 2026) for the text-queried scoring, the outlier prior and the distractor idea | Window-crop CLIP patch features, second-order motion magnitude, element-wise sum with the frame feature; text-conditioned patch relevance; a within-frame outlier score; removing the genuine class from the definition | All 49 crops kept; prior-biased scorer with a learned residual; per-frame and frame-level forms of the priors; symmetric patch-level MIL; a head on the pooled crops alone; motion dropout; ego-compensated motion variant; maps scored with STAUC |
 | Learnable prefix in the text branch (novel component, text part) | STPrompt and VadCLIP, after CoOp (IJCV 2022) | l learnable context tokens prepended to each class text before the frozen CLIP text encoder | Applied to LaGoVAD's open-world definitions (class names and descriptions) in place of its released soft prompts |
 | Evidence-map evaluation | DoTA (IEEE TPAMI 2022) | STAUC code, anomalous-agent boxes and the ego-involved flag | Maps from SA²-v2's patch probabilities, scored under weak supervision |
 | Ego-motion diagnosis | DoTA's baselines; PromptTAD (IEEE RA-L 2025) | Frame-level methods are distracted by dynamic backgrounds and miss off-centre agents | Motivates the compensated-motion variant and the ego / box-size analyses |
@@ -252,7 +252,7 @@ Five gaps follow from the review. The thesis addresses each one, and its novelty
 
 1. **No motion-aware foundation features in weakly supervised traffic VAD.** LaGoVAD and VadCLIP read CLIP frames; the masked-video evidence of Simple-TAD comes from frame-level supervision. *Addressed by the motion stream (backbone change), which lifts Nexar-trained zero-shot DoTA-CAP-dev from 0.71 to 0.82 macro (5 seeds).*
 2. **The appearance branch still reads one global vector per frame.** Small, distant and ego-uninvolved agents are diluted, and the detector-free fix that works under weak labels, STPrompt's SA², has been tested only on static surveillance cameras, never on traffic, under ego-motion, or next to a motion stream. *Addressed by SA²-v2, with an ego-compensated motion variant.*
-3. **Learned patch attention under weak labels barely moves.** STPrompt's own ablation gives learned attention alone no gain over averaging, and in this thesis's first version the entropy fell only from 1.0 to about 0.91. Methods that localise well add patch-level supervision (the two 2026 preprints, LAVIDA's pixel masks). *Addressed by a prior-biased scorer, patch-level MIL with dense negatives from normal-labelled bags, a branch-only head and motion dropout; whether this changes the outcome is tested by hypotheses H2 and H6.*
+3. **Learned patch attention under weak labels barely moves.** STPrompt's own ablation gives learned attention alone no gain over averaging, and in this thesis's first version the entropy fell only from 1.0 to about 0.91. Methods that localise well add patch-level supervision (the two 2026 preprints, LAVIDA's pixel masks). *Addressed by a prior-biased scorer, symmetric patch-level MIL, a head on the pooled crops alone and motion dropout; whether this changes the outcome is tested by hypotheses H2 and H6.*
 4. **Weak supervision gives no spatial evidence on traffic data.** We found no weakly supervised traffic method that produces maps, and no report of STAUC under weak supervision. *Addressed by SA²-v2's patch probabilities, scored with STAUC and a pointing game, with no LLM.*
 5. **Traffic results are hard to compare.** Most rows are AUC-only, two TAD test lists circulate, and DoTA numbers mix four protocols. *Addressed by four split-consistent, multi-metric protocols with each row's protocol labelled (Section 4.4).*
 
@@ -363,25 +363,25 @@ Cached crop features, priors and the definition vector feed a learned encoder an
 D_{t,j} = 2\hat P_{t,j} - \hat P_{t-1,j} - \hat P_{t+1,j}, \qquad Mo_{t,j} = \lVert D_{t,j} \rVert_2, \qquad \rho_{t,j} = \frac{1}{k} \sum_{i \in \mathcal{N}_k(j)} \lVert \hat P_{t,j} - \hat P_{t,i} \rVert_2, \quad k = 5
 ```
 
-Mo is STPrompt's second-order motion magnitude (their Eq. 1); D\_{t,j} ∈ R^512 is kept as a learned input. ρ is a within-frame outlier score: the mean distance of a crop to its k nearest other crops in the same frame, high for crops unlike the rest. It is a simplification of the density idea in LAVIDA (Section 2.3.8). Both are z-scored per frame across the 49 crops: z(x)\_j = (x\_j − mean\_i x\_i) / (std\_i x\_i + ε).
+Mo is STPrompt's second-order motion magnitude (their Eq. 1); D\_{t,j} ∈ R^512 is kept as a learned input. ρ is a within-frame outlier score: the mean distance of a crop to its k nearest other crops in the same frame, high for crops unlike the rest. It is a simplification of the density idea in LAVIDA (Section 2.3.8). Each prior is used in two forms. The per-frame form is z-scored across the 49 crops, z(x)\_{t,j} = (x\_{t,j} − mean\_i x\_{t,i}) / (std\_i x\_{t,i} + ε), and says where in the frame a crop stands out. It removes the frame's overall level, so a frame with only compression noise and a frame with a collision have the same spread. The frame-level form keeps that level: L(x)\_{t,j} = (x\_{t,j} − m\_x) / s\_x, with m\_x and s\_x the mean and standard deviation of x over all crops and steps of the training split, frozen and reused on every test set. The level is worth keeping: Mo used directly as a frame score, with no training, reaches 0.713 macro on DoTA-CAP-dev (Section 3.2.1). It is also confounded on dashcam video, where ego-motion raises it, so neither form is assumed to be enough alone.
 
 - Text vector τ\_Δ ∈ R^512: the frozen CLIP text embedding of the anomaly definition (mean over its categories, with the learnable prefix) minus the embedding of "normal", both L2-normalised.
 
 **Block A: patch encoder (learned).** Each crop becomes a 256-d token and one Transformer layer lets the 49 tokens see each other:
 
 ```latex
-u_{t,j} = W_u\,[\,P_{t,j};\; P_{t,j} - c_t;\; D_{t,j}\,] + e^{pos}_j + W_\pi\,[\,z(Mo)_{t,j};\; z(\rho)_{t,j}\,], \qquad H_t = \mathrm{TransformerLayer}(u_t) \in \mathbb{R}^{49 \times 256}
+u_{t,j} = W_u\,[\,P_{t,j};\; P_{t,j} - c_t;\; D_{t,j}\,] + e^{pos}_j + W_\pi\,[\,z(Mo)_{t,j};\; z(\rho)_{t,j};\; L(Mo)_{t,j};\; L(\rho)_{t,j}\,], \qquad H_t = \mathrm{TransformerLayer}(u_t) \in \mathbb{R}^{49 \times 256}
 ```
 
-with W\_u ∈ R^{256×1536}, a learned position table e^{pos} ∈ R^{49×256}, W\_π ∈ R^{256×2}, and a pre-LN layer with 2 heads and FFN width 512. The term P − c\_t says what this crop has that the whole frame does not; ΔP lets the module learn its own use of motion instead of relying on a hard selection.
+with W\_u ∈ R^{256×1536}, a learned position table e^{pos} ∈ R^{49×256}, W\_π ∈ R^{256×4}, and a pre-LN layer with 2 heads and FFN width 512. The term P − c\_t says what this crop has that the whole frame does not; ΔP lets the module learn its own use of motion instead of relying on a hard selection.
 
 **Block B: patch scorer (learned).** One logit per crop, the sum of a prior term, a text term and a learned residual:
 
 ```latex
-\ell_{t,j} = \beta_1\, z(Mo)_{t,j} + \beta_2\, z(\rho)_{t,j} + \gamma\, z\big(\cos(P_{t,j}, \tau_\Delta)\big)_j + w^{\top} H_{t,j}
+\ell_{t,j} = \beta_1\, z(Mo)_{t,j} + \beta_2\, z(\rho)_{t,j} + \beta_3\, L(Mo)_{t,j} + \beta_4\, L(\rho)_{t,j} + \gamma\, z\big(\cos(P_{t,j}, \tau_\Delta)\big)_j + w^{\top} H_{t,j}
 ```
 
-The prior term starts as STPrompt's motion prior (β\_1 = 1, β\_2 = 0); the text term asks whether a crop looks more like the anomaly definition than like "normal" (γ starts at 0 and is learned); the residual is a linear read-out of H\_{t,j} (w starts at 0). Because every term is z-scored per frame, the logits have a usable spread from the first step, unlike the near-uniform weights that unit-norm cosine logits give (at most 1/√512 ≈ 0.044 apart).
+The prior term starts as STPrompt's motion prior (β\_1 = 1, β\_2 = β\_3 = β\_4 = 0); the text term asks whether a crop looks more like the anomaly definition than like "normal" (γ starts at 0 and is learned); the residual is a linear read-out of H\_{t,j} (w starts at 0). Only three terms are z-scored per frame (Mo, ρ and the cosine); the level terms and the residual w^⊤H are not. Because the starting term is z-scored, the logits have a usable spread from the first step, unlike the near-uniform weights that unit-norm cosine logits give (at most 1/√512 ≈ 0.044 apart).
 
 **Block C: two outputs from the logits (no extra parameters).**
 
@@ -389,7 +389,7 @@ The prior term starts as STPrompt's motion prior (β\_1 = 1, β\_2 = 0); the tex
 q_{t,j} = \sigma(\ell_{t,j} + b), \qquad \alpha_{t,j} = \operatorname{softmax}_j\!\big(\ell_{t,j}/T\big), \qquad x^{AS}_t = \sum_{j=1}^{49} \alpha_{t,j}\, P_{t,j}, \qquad \tilde c_t = c_t + x^{AS}_t
 ```
 
-q is the patch anomaly probability; reshaped to 7×7 it is the evidence map E\_t. α pools the raw CLIP crop features, so x^AS stays in CLIP's embedding space and the sum c̃\_t stays text-aligned. T = exp(s) is a learnable temperature (s starts at 0) and b a learnable bias (starts at −2). c̃\_t (512) goes to the motion fusion of Section 3.1 exactly as c\_t did before.
+q is the patch anomaly probability; reshaped to 7×7 it is the evidence map E\_t. α pools the raw CLIP crop features, so x^AS stays in CLIP's embedding space and the sum c̃\_t stays text-aligned. T = exp(s) is a learnable temperature (s starts at 0) and b a learnable bias (starts at −2). c̃\_t (512) goes to the motion fusion of Section 3.1 exactly as c\_t did before. The softmax ignores any shift shared by all crops of a frame, so the frame-wide part of the level terms reaches the map q but not x^AS; only the differences between crops enter α. A frame gate that passes the level on to the host is a side ablation, not the default.
 
 **Ego-compensated variant (ablation, not the default).** Forward ego-motion changes every crop, mostly on near-field road and frame edges. Subtracting the change shared by the whole frame before the motion prior keeps crops that move differently from the scene:
 
@@ -407,10 +407,24 @@ SA²-v2 adds no loss at test time. During training it adds three signals and one
 \mathcal{L} = \mathcal{L}_{host} + \lambda_p\, \mathcal{L}_{patch} + \lambda_b\, \mathcal{L}_{branch}
 ```
 
-- **Patch-level MIL (L\_patch).** Input: q for all crops of a bag, the bag label, and the host's frame scores. In a normal-labelled bag every crop of every step is pushed to 0, binary cross-entropy averaged over the T·49 crops: these are dense negatives, which SA²'s softmax over 12 never had. On Nexar such a bag is a pre- or post-event window of a positive video, because training uses positive videos only. In an abnormal bag, take the top-k steps by host frame score (the same k as the host's MIL, max(⌊L/5⌋, 1) on Nexar); in each, take the top-m = 3 crops by q and push them to 1. Default λ\_p = 0.2.
-- **Branch-only head (L\_branch).** Input: c̃\_t alone, without the VideoMAE term. A linear layer (513 parameters) gives one frame score per step, trained with the same top-k MIL loss. It is meant to force x^AS to carry signal without help from VideoMAE. Default λ\_b = 0.3.
+- **Patch-level MIL (L\_patch).** Input: q for all crops of a bag, the bag label, and the host's frame scores. The same selection applies to every bag: take the top-k steps by host frame score (the same k as the host's MIL, max(⌊L/5⌋, 1) on Nexar); in each, take the top-m = 3 crops by q. Binary cross-entropy pushes the selected crops to 1 in an abnormal bag and to 0 in a normal-labelled bag. On Nexar a normal-labelled bag is a pre- or post-event window of a positive video, because training uses positive videos only. The rule is symmetric on purpose. Pushing the top crops of abnormal bags up while pushing all crops of normal bags down can be satisfied by sharpening the map alone: raising β and lowering b lifts the top crops of every frame and lowers the rest, with or without any signal. Default λ\_p = 0.2.
+- **Head on x^AS (L\_branch).** Input: x^AS\_t alone, without c\_t and without the VideoMAE term. A linear layer (513 parameters) gives one frame score per step, trained with the same top-k MIL loss. A head on c̃\_t could lower its loss through c\_t, whatever x^AS holds, so this head gives x^AS a training signal that c\_t cannot satisfy. It does not force x^AS to help: that is measured by control C1 and by row R7. The head exists only in training, and the detection path keeps c̃\_t = c\_t + x^AS\_t. Default λ\_b = 0.3.
 - **Motion dropout.** In 30% of training bags the VideoMAE term W\_u(c·ṽ\_t) is set to zero, so the host cannot rely on it alone. Not used at test time.
 - **Definition flip (data change).** With probability 0.2, for an abnormal bag whose definition set Z holds other categories, remove the bag's own category from Z and set the label to normal. Input: Z and the label; output: the changed pair. It makes the text term matter, in the spirit of LAVIDA's distractor categories. For P3, where Z is {Normal, CarAccident}, distractor texts are borrowed from TAD's and MSAD's category lists. This must be checked against LaGoVAD's code first (it may already do this) and is its own ablation row.
+
+**Simulation of the patch-level loss.** The table shows why the negative term changed. It comes from a small simulation, not from video: Gaussian crop priors, only β and b trained, the two loss terms weighted equally, mean of 3 seeds. "Noise" means normal and abnormal frames share one distribution; "signal" means 3 crops of each abnormal frame are shifted by 3 standard deviations. "Raw" skips the per-frame z-score. β starts at 1.
+
+| Negative term | Prior | Data | Final β | Top-3 q, normal frames | Top-3 q, abnormal frames |
+| --- | --- | --- | --- | --- | --- |
+| All crops (dense) | z-scored | Noise | 4.53 | 0.89 | 0.89 |
+| All crops (dense) | z-scored | Signal | 4.40 | 0.80 | 0.91 |
+| All crops (dense) | Raw | Signal | 4.54 | 0.58 | 0.95 |
+| Dense + top-3 | z-scored | Noise | 1.52 | 0.62 | 0.62 |
+| Top-3 (symmetric) | z-scored | Noise | 0.00 | 0.50 | 0.50 |
+| Top-3 (symmetric) | z-scored | Signal | 1.95 | 0.40 | 0.60 |
+| Top-3 (symmetric) | Raw | Signal | 3.18 | 0.24 | 0.77 |
+
+With dense negatives, β rises and the top crops score high on pure noise, in normal frames as much as in abnormal ones. With the symmetric rule, β stays at about 0 on noise and rises only when there is signal. The simulation shows that the mechanism exists and that the rule removes it. It says nothing about the size of any effect on traffic video, and its signal keeps the frame level by construction, which favours the raw rows. It also means that a falling entropy or a rising β is not evidence that the module learned anything; those reads are compared with a shuffled-label run (Section 4.3).
 
 #### 3.2.4 Text part: learnable prefix
 
@@ -424,7 +438,7 @@ The prefix replaces LaGoVAD's released soft prompts, which sit half before and h
 
 #### 3.2.5 Initialisation
 
-- **Scorer.** β = (1, 0), γ = 0, w = 0, b = −2, s = 0. At the start the weights are a soft version of STPrompt's motion prior over all 49 crops. The zero start of w and γ is safe because their gradients depend on H and on z(cos), which are not zero; this differs from the zero W\_q of the first version, where the gradient to W\_k vanished.
+- **Scorer.** β = (1, 0, 0, 0), γ = 0, w = 0, b = −2, s = 0. At the start the weights are a soft version of STPrompt's motion prior over all 49 crops. The zero start of w and γ is safe because their gradients depend on H and on z(cos), which are not zero; this differs from the zero W\_q of the first version, where the gradient to W\_k vanished.
 - **Encoder.** Xavier for W\_u, W\_π and the Transformer layer; e^pos \~ N(0, 0.02²).
 - **Sum.** x^AS is added at full weight, as in STPrompt; every model is trained from scratch, so there is no pretrained starting point to protect. A zero-initialised gate tanh(γ\_s)·x^AS is a side ablation.
 - **Prefix.** e\_i \~ N(0, 0.02²), as in CoOp's generic initialisation; initialising from the word embeddings of "a dashcam video of" is a side ablation.
@@ -436,26 +450,29 @@ Six pieces of evidence point the same way:
 1. **A fixed prior does work under weak labels.** In STPrompt, motion selection adds 0.88 AUC on UCF-Crime and 0.76 on UBnormal over averaging, and is the only variant that helps on both datasets.
 2. **Traffic anomalies are small and local.** The ego-uninvolved gap of Simple-TAD (81.6–85.2 vs 89.9–90.7 AUC), PromptTAD's neglect of distant or off-centre objects and GS-MoE's small-region failure all show that global vectors miss them.
 3. **Region-level CLIP evidence helps.** Alert-CLIP moves CLIP's attention from context to the collided vehicles and lifts the VadCLIP framework on MSAD from 87.45 / 71.09 to 89.63 / 78.24, though with boxes (its box-supervised region loss alone adds only 0.32 AUC).
-4. **Patch-level supervision is where localisation gains come from.** The two 2026 preprints and LAVIDA all train a spatial module with its own spatial signal; SA²-v2 gets the same kind of signal from normal-labelled bags, where every crop is treated as a negative.
-5. **It adds what the host lacks.** The VideoMAE vector carries global motion and c\_t global appearance; SA²-v2 adds local appearance from separate CLIP passes, and a branch-only loss keeps it from being bypassed. MQR and LSP instead re-processed the same motion vector.
+4. **Patch-level supervision is where localisation gains come from.** The two 2026 preprints and LAVIDA all train a spatial module with its own spatial signal. SA²-v2 uses the same kind of signal, with one change: the two preprints treat all patches of a normal video as negatives, while SA²-v2 applies the same top-crop selection to normal-labelled and abnormal bags, because the dense form can be satisfied by sharpening alone (Section 3.2.3). Dense negatives stay as a side ablation.
+5. **It adds what the host lacks.** The VideoMAE vector carries global motion and c\_t global appearance; SA²-v2 adds local appearance from separate CLIP passes, and a head on x^AS alone gives it a training signal that does not pass through VideoMAE; whether that is enough is measured, not assumed. MQR and LSP instead re-processed the same motion vector.
 6. **Text quality matters in LaGoVAD.** Better definitions raise its UCF-Crime AUC from 80.44 (class names) to 81.12 (manual descriptions) and 83.03 (video-specific descriptions). A learned prefix adapts hand-written traffic definitions without an LLM.
 
-**Expectation.** STPrompt's learned attention was worth only about 0.3 AUC, so the overall AUC change may be small. The planned tests are STAUC, the pointing game, the small-box and ego-uninvolved subsets of DoTA, and the branch-only run (H4, H6).
+**Expectation.** STPrompt's learned attention was worth only about 0.3 AUC, so the overall AUC change may be small. The planned tests are STAUC, the pointing game, the small-box and ego-uninvolved subsets of DoTA, and the read of the head on x^AS (H4, H6).
 
 **Risks.**
 
 - Ego-motion: on dashcam video ρ may select road surface, hood or frame edges. For the motion prior this was measured and did not appear on DoTA-CAP-dev, and the ego-compensated variant did not change the pointing (Section 3.2.1).
 - ρ ranks objectness, not anomaly: near-field vehicles can look like dense background and the hood is always an outlier.
 - The patch branch may learn a source shortcut if CCD is added, since its crash clips and BDD100K normals come from different sources. Imported normal pools have already failed in this project (D2City and BDD-A failed the transfer probe with shortcut AUC 1.000), so Nexar stays the only training set until CCD passes the same probe.
+- Symmetric patch-level MIL on Nexar: a normal-labelled bag can be a window after the event, and its strongest crops may show the aftermath. The rule pushes exactly those crops to 0. The dense-negative row and pre-event-only negatives (side ablations) check this.
+- Frame-level priors: the frozen constants come from one training set, so the level may shift on another camera or dataset, and on dashcams it also follows ego-motion. The "Prior form" side ablation and the ego-compensated row read this; the design that keeps both forms has not been run on real data.
+- A head on x^AS alone can underfit: a patch-only local branch reached only 0.612 macro (Section 3.2.1). That would be a result about the crop features, not a reason to put c\_t back into this head.
 - Memory: 64 items × about 120 steps (six 20-step windows after synthesis, estimate; the limit is 512) × 49 crops × 512 features is about 0.4 GB in fp16 for the inputs alone; activations are not yet profiled, and chunking over steps or gradient checkpointing is the fallback.
 
 | Property | Motion-stream model (preliminary) | + STP v2 |
 | --- | --- | --- |
-| Extra parameters | — | about 0.93M (SA²-v2) + 4K (prefix, l = 8) + 513 (branch-only head, training only) |
+| Extra parameters | — | about 0.93M (SA²-v2) + 4K (prefix, l = 8) + 513 (head on x^AS, training only) |
 | Extra extraction compute | — | 49 CLIP ViT-B/16 passes per sampled frame (window crops), as in version 1 |
 | Storage per sampled frame (fp16) | 1 KB (c\_t) + 0.75 KB (v\_t) | + 49 KB (all 49 crop features); priors and ΔP are computed on the fly |
 | Spatial map | none | 7×7 per step |
-| Extra loss | — | patch-level MIL and branch-only loss (training only) |
+| Extra loss | — | patch-level MIL and the loss of the head on x^AS (training only) |
 | VideoMAE input | one 384-d vector per step | unchanged |
 | Extra cost at test time | — | the encoder layer on 49 tokens per step; no extra backbone passes beyond the crops |
 
@@ -481,9 +498,9 @@ Training uses bag-level labels only and one fixed schedule per protocol, so the 
 **Stages.**
 
 1. **Finish the diagnosis of the first SA² (cached features).** The signal, pointing and branch-only checks are done (Section 3.2.1). What remains from Section 4.3 (Step D) is the uniform-replacement ΔAUC, the leverage of the pooled feature and the candidate similarity.
-2. **Cache features.** The CLIP CLS features and the VideoMAE V2-S vector exist for the read sets. New: all 49 window-crop CLIP features per step for the 451 Nexar positive videos (the first SA²'s cache keeps 12). The motion difference D, the priors Mo and ρ and their z-scores are computed from the cached crops at load time, per source video.
+2. **Cache features.** The CLIP CLS features and the VideoMAE V2-S vector exist for the read sets. New: all 49 window-crop CLIP features per step for the 451 Nexar positive videos (the first SA²'s cache keeps 12). The motion difference D, the priors Mo and ρ and their z-scores are computed from the cached crops at load time, per source video. The constants of the frame-level form L are computed once on each protocol's training split, frozen and logged.
 3. **Train all models with one schedule.** Every row (LaGoVAD, motion stream, STP, ablations) uses the same seeds and schedule; the first run is one seed and its result is preliminary, and conclusions need 3 seeds. The scorer's zero-initialised terms mean SA²-v2 starts as a soft motion-prior pooling.
-4. **Monitor the learned parts.** Log, from the first step: the attention entropy of α; the gradient norms of w, γ and the encoder; the spread of the logits ℓ; the mean of q on normal and abnormal bags; the norm of the prefix vectors; and the uniform-replacement ΔAUC on the validation split every few epochs, so a learned part that does not move, as MQR's did not, is visible at once.
+4. **Monitor the learned parts.** Log, from the first step: the attention entropy of α; the gradient norms of w, γ and the encoder; the spread of the logits ℓ; the mean of q on normal and abnormal bags; the norm of the prefix vectors; and the uniform-replacement ΔAUC on the validation split every few epochs, so a learned part that does not move, as MQR's did not, is visible at once. Movement alone proves nothing: the same reads are logged for the shuffled-label control (Section 4.3).
 
 **Settings.** AdamW, batch 64, learning rate 5e-5 with 20 warm-up steps and a cosine schedule: 33 epochs of 53 steps (1,749 steps) on Nexar, weight decay 0.01. The first run fixes K = 12, l = 8 and a learning-rate multiplier of 1. The values λ\_p ∈ {0.05, 0.2, 0.5}, λ\_b ∈ {0.1, 0.3}, m ∈ {1, 3, 5}, k in ρ ∈ {3, 5, 8}, dropout p ∈ {0, 0.3} and l ∈ {4, 8, 16} can be chosen once on Nexar's validation split (225 videos) scored by macro AUC, then frozen for every protocol. No hyperparameter is chosen on a test list.
 
@@ -493,11 +510,11 @@ Training uses bag-level labels only and one fixed schedule per protocol, so the 
 
 ### 3.4 Inference
 
-At test time the model takes a video and an anomaly definition and returns a score and a 7×7 evidence map per sampled step. No LLM runs at any point, and none of the training-only parts (patch-level MIL, branch-only head, motion dropout, definition flip) is active.
+At test time the model takes a video and an anomaly definition and returns a score and a 7×7 evidence map per sampled step. No LLM runs at any point, and none of the training-only parts (patch-level MIL, head on x^AS, motion dropout, definition flip) is active.
 
 1. **Sample** frames per set: DoTA-CAP every third frame over the whole clip; DADA-2000 and TAD one frame in eight; DAD one in seven (0.28 s at 25 fps).
 2. **Encode** each sampled frame with frozen CLIP (CLS feature c\_t, no centre crop) and its 49 window crops with the same CLIP, and the causal 16-frame clip that ends on it with the frozen VideoMAE V2-S, pooled to one 384-d vector and standardised with the statistics of Nexar's training split.
-3. **Compute priors** from neighbouring steps: ΔP, Mo and ρ, z-scored per frame.
+3. **Compute priors** from neighbouring steps: ΔP, Mo and ρ, the last two in both forms (z-scored per frame, and standardised with the frozen constants of the training split).
 4. **Encode the definition** with the learned prefix and the frozen CLIP text encoder, giving τ\_Δ.
 5. **Score the crops** with SA²-v2: patch encoder (49×256), logits ℓ (49), evidence map q (7×7), weights α, pooled feature x^AS (512), and c̃\_t = c\_t + x^AS\_t.
 6. **Fuse** c̃\_t with the VideoMAE term through W\_u.
@@ -591,6 +608,15 @@ If D1 shows that uniform replacement costs nothing, the diagnosis is confirmed a
 | S3: where selection lands | Top-12 share in the border ring, bottom row and centre 3×3 against each region's share of the grid, for ρ (Mo: −0.080 / −0.082 / +0.052) | No excess on the border or bottom row | Exclude the bottom row (side ablation) |
 
 The remaining pilot needs no GPU if the DoTA-CAP-dev window cache is still on disk. A failure does not stop the plan: it decides which prior becomes the default before any training.
+
+**Controls for SA²-v2 (read with every SA²-v2 row that has the module).** They separate a module that learned from one that only moved. The readings are written down before any SA²-v2 run.
+
+| Control | What is measured | Reading |
+| --- | --- | --- |
+| C1: head on x^AS | The linear head on x^AS against the same head on the unweighted mean of the 49 crops, on the validation split | Above the mean: the learned weights add something to the pooled feature. About equal: x^AS is no more than an average |
+| C2: shuffled labels | One run with bag labels shuffled across bags; log entropy, β, γ, top-3 q and the logit spread | The real run's movement counts only where it exceeds this run's |
+| C3: q on normal bags | Top-3 q on normal-labelled against abnormal bags | About equal: the map has a peak in every frame and does not mark anomalies |
+| C4: learned coefficients | Final β\_1…β\_4 and γ, against their values in C2 | Which prior form and which term the scorer really uses; a coefficient within C2's range is not evidence |
 
 **Group A: reproduce LaGoVAD and the motion stream.**
 
@@ -690,9 +716,9 @@ The ablation ladder repeats STPrompt's own spatial ladder on traffic data (R1–
 | R2 | + first SA²: top-12 by motion, CLS-queried attention, W\_q zero-initialised (version 1) | The module as first built | Measured: about R0 (+0.0001); uniform-replacement ΔAUC still to measure (Step D) |
 | R3 | + motion top-12 selection + plain average | The fixed motion prior | Gain over R1, largest on ego-uninvolved and small-box clips |
 | R4 | + soft pooling over all 49 crops with logits ℓ = prior + learned residual (no text term, no new loss) | Scorer and leverage, without new supervision | About R3 or slightly above; entropy leaves its start |
-| R5 | R4 + patch-level MIL (dense negatives from normal-labelled bags) | Patch-level supervision | Gain over R4 on STAUC and small-box clips |
+| R5 | R4 + symmetric patch-level MIL (same top-crop selection in normal-labelled and abnormal bags) | Patch-level supervision | Gain over R4 on STAUC and small-box clips |
 | R6 | R5 + text term (γ·z(cos(P, τ\_Δ))) | Text-conditioned relevance | Small gain; larger on TAD categories and open-world definitions |
-| R7 | R6 + branch-only head + motion dropout | Shortcut control | Branch-only AUC (VideoMAE term off) above B1; full model about equal |
+| R7 | R6 + head on x^AS + motion dropout | Shortcut control | Head on x^AS above the same head on the crop mean (C1); full model about equal |
 | **R8** | **R7 + definition flip (full SA²-v2 visual part)** | Distractor signal | **Best visual variant; gains concentrated on ego-uninvolved and small-box clips** |
 | R9 | R0 + learnable prefix only | The text part alone | Small zero-shot gain; drift@5 no worse |
 | **R10** | **R8 + learnable prefix (full LaGoVAD-STP v2)** | Both parts together | **Best overall** |
@@ -702,14 +728,17 @@ The ablation ladder repeats STPrompt's own spatial ladder on traffic data (R1–
 | R14 | R10 with dense ClearCLIP patch tokens from one pass, pooled to 7×7, instead of 49 crops | Cost against quality | Somewhat below R10 at about 1/50 of the CLIP cost |
 | R15 | R10 with LaGoVAD's released 32 soft-prompt tokens instead of the prefix | Prefix form against the released prompts | At or below R10 |
 
-H1 holds if R8 beats R0 with larger gains on ego-uninvolved and small-box clips; H2 if R3 beats R1, R8 beats R3 and R11 ≥ R10 on dashcam sets; H3 if R10 beats R8 on zero-shot AUC without a worse drift@5; H4 if R8 or R10 beats a uniform map, a centre prior and R3's unweighted map on STAUC and the pointing game; H6 if the branch-only run of R8 beats B1 and uniform replacement lowers R8's AUC.
+H1 holds if R8 beats R0 with larger gains on ego-uninvolved and small-box clips; H2 if R3 beats R1, R8 beats R3 and R11 ≥ R10 on dashcam sets; H3 if R10 beats R8 on zero-shot AUC without a worse drift@5; H4 if R8 or R10 beats a uniform map, a centre prior and R3's unweighted map on STAUC and the pointing game; H6 if R8's head on x^AS beats the same head on the crop mean and uniform replacement lowers R8's AUC, with the branch-only run of R8 against B1 reported beside them.
 
 **Side ablations within the component.**
 
 - **Encoder depth:** the patch encoder with one Transformer layer (default), zero layers (scorer on projected tokens only), and two layers.
 - **Temperature:** learnable T (default) against T fixed at 1.
-- **Patch-level MIL:** top-m crops m ∈ {1, 3, 5} in abnormal bags; weight λ\_p ∈ {0.05, 0.2, 0.5}; normal-only negatives against both terms.
-- **Motion dropout:** p ∈ {0, 0.3}; and the branch-only head with and without the VideoMAE term.
+- **Patch-level MIL:** top-m crops m ∈ {1, 3, 5}; weight λ\_p ∈ {0.05, 0.2, 0.5}; negative term: symmetric top-m (default) against dense negatives over all crops, and against both; normal-labelled negatives from pre-event windows only; normal-only negatives against both terms.
+- **Prior form:** both forms (default) against per-frame z only and frame-level L only.
+- **Frame gate:** the default, where the frame level reaches only the map q, against a frame gate g\_t computed from the level that scales x^AS before the sum, so that the host also receives it.
+- **Head input:** head on x^AS alone (default) against a head on c̃\_t.
+- **Motion dropout:** p ∈ {0, 0.3}.
 - **Fusion:** plain element-wise sum (default, as in STPrompt) against a zero-initialised gate tanh(γ\_s)·x^AS\_t.
 - **Motion spacing:** neighbours at ±1 row (default: 0.27 s on Nexar, 0.30 s on DoTA-CAP) against ±2 rows.
 - **Crop resolution:** windows cut from the 224×224 resize only, as in STPrompt and the existing caches. Native-resolution crops are not planned: the line that asked for them stopped on the patch-only read of Section 3.2.1.
@@ -723,7 +752,7 @@ H1 holds if R8 beats R0 with larger gains on ego-uninvolved and small-box clips;
 1. **Where the gain lands.** DoTA ego-involved vs ego-uninvolved clips crossed with box-size bins and PromptTAD's small-object subset; the nine categories; TAD Accident, PedestrianOnRoad and the remaining categories pooled; the MSAD traffic slice against its non-traffic scenes; Nexar-only against Nexar + CCD training, if CCD passes its probe.
 2. **Spatial evidence.** STAUC and pointing game for SA²-v2's patch map q against a uniform map (R0), the unweighted selection map (R3), the weights α and a centre prior, with examples of successes and failures.
 3. **Selection behaviour.** Where the highest-logit crops land on dashcam vs fixed-camera video (the S3 statistic on test data), raw against ego-compensated motion, and how much of the logit comes from each of the prior, text and residual terms.
-4. **Learned parts.** Attention entropy over training (does α leave its start, unlike MQR's and the first SA²'s?); uniform-replacement ΔAUC; the branch-only run; and the prefix's effect on definition sensitivity: score change of accident frames when the definition includes or excludes accidents, and drift@5 on MSAD.
+4. **Learned parts.** Attention entropy over training (does α leave its start, unlike MQR's and the first SA²'s?); uniform-replacement ΔAUC; controls C1–C4; the branch-only run; and the prefix's effect on definition sensitivity: score change of accident frames when the definition includes or excludes accidents, and drift@5 on MSAD.
 5. **TAD definitions.** Main results with LaGoVAD's two-class TAD prompt against each of TAD's 7 categories with its own definition.
 6. **Cost.** Parameters, storage, peak training memory and measured frames per second for rows R0, R10 and R14.
 
