@@ -1,0 +1,126 @@
+{
+  "dada": {
+    "SV2-W0": {
+      "delta": {
+        "clips": 370,
+        "clusters": 370,
+        "high": -0.029034753083413124,
+        "low": -0.06744182255971805,
+        "mean": -0.04818558969891192
+      },
+      "sentence": "cost shown",
+      "what": "both (printed, = \u00a77)"
+    },
+    "SV2-W0D": {
+      "delta": {
+        "clips": 370,
+        "clusters": 370,
+        "high": -0.023789448157478167,
+        "low": -0.055547029930719506,
+        "mean": -0.03955529622608837
+      },
+      "sentence": "cost shown",
+      "what": "spatial module on W0D"
+    },
+    "W0D-W0": {
+      "delta": {
+        "clips": 370,
+        "clusters": 370,
+        "high": 0.0027085034815751167,
+        "low": -0.020440460663381416,
+        "mean": -0.008630293472823547
+      },
+      "sentence": "no difference shown",
+      "what": "dropout alone"
+    },
+    "attribution": "the cost is the spatial module's; dropout alone shows none",
+    "macro": {
+      "SV2": {
+        "clips": 370,
+        "clusters": 370,
+        "high": 0.7378994233327538,
+        "low": 0.6883433146133706,
+        "mean": 0.7132973014807786
+      },
+      "W0": {
+        "clips": 370,
+        "clusters": 370,
+        "high": 0.7858713386524027,
+        "low": 0.7369120669552506,
+        "mean": 0.7614828911796907
+      },
+      "W0D": {
+        "clips": 370,
+        "clusters": 370,
+        "high": 0.7772990530341113,
+        "low": 0.7283249673967773,
+        "mean": 0.7528525977068672
+      }
+    },
+    "micro": {
+      "SV2": 0.6660645585185065,
+      "W0": 0.6981027731636915,
+      "W0D": 0.6895142876347606
+    }
+  },
+  "dota": {
+    "SV2-W0": {
+      "delta": {
+        "clips": 569,
+        "clusters": 91,
+        "high": -0.012241115230333137,
+        "low": -0.03997177029252543,
+        "mean": -0.02615822320702874
+      },
+      "sentence": "cost shown",
+      "what": "both (printed, = \u00a77)"
+    },
+    "SV2-W0D": {
+      "delta": {
+        "clips": 569,
+        "clusters": 91,
+        "high": -0.01827655606631345,
+        "low": -0.04298790396101151,
+        "mean": -0.03065880580349762
+      },
+      "sentence": "cost shown",
+      "what": "spatial module on W0D"
+    },
+    "W0D-W0": {
+      "delta": {
+        "clips": 569,
+        "clusters": 91,
+        "high": 0.010988908413260837,
+        "low": -0.0021205860667472807,
+        "mean": 0.00450058259646888
+      },
+      "sentence": "no difference shown",
+      "what": "dropout alone"
+    },
+    "attribution": "the cost is the spatial module's; dropout alone shows none",
+    "macro": {
+      "SV2": {
+        "clips": 569,
+        "clusters": 91,
+        "high": 0.801598281237856,
+        "low": 0.7680700365024224,
+        "mean": 0.7848489972718284
+      },
+      "W0": {
+        "clips": 569,
+        "clusters": 91,
+        "high": 0.8271419266690798,
+        "low": 0.7949263292787997,
+        "mean": 0.8110072204788573
+      },
+      "W0D": {
+        "clips": 569,
+        "clusters": 91,
+        "high": 0.8315370286465662,
+        "low": 0.7994673835956884,
+        "mean": 0.815507803075326
+      }
+    }
+  },
+  "rule": "core/docs/final/SA2V2_RUN.md \u00a78"
+}
