@@ -47,6 +47,9 @@ class ModelConfig:
     motion_dim: int = 0
     # W_u init (core/docs/final/WU_ARMS.md): 0 = zero-init (every shipped arm); > 0 = N(0, std^2)
     motion_init_std: float = 0.0
+    # host motion dropout (SA2V2_RUN.md §8, arm W0D): share of training bags whose W_u term is
+    # zero, without SA²-v2. 0 = off (every other arm); SV2 uses stp.motion_dropout instead
+    motion_dropout: float = 0.0
 
 
 @dataclass
@@ -313,6 +316,13 @@ def validate_v2(cfg: Config) -> None:
         raise ValueError(f"train.motion_lr_mult must be > 0, got {cfg.train.motion_lr_mult}")
     if not has_motion and (cfg.model.motion_init_std > 0 or cfg.train.motion_lr_mult != 1.0):
         raise ValueError("model.motion_init_std / train.motion_lr_mult need a motion stream (W_u)")
+    if not 0.0 <= cfg.model.motion_dropout < 1.0:
+        raise ValueError(f"model.motion_dropout must be in [0, 1), got {cfg.model.motion_dropout}")
+    if cfg.model.motion_dropout > 0 and not has_motion:
+        raise ValueError("model.motion_dropout needs a motion stream (W_u)")
+    if cfg.model.motion_dropout > 0 and cfg.stp.sa2v2:
+        raise ValueError("stp.sa2v2 carries its own motion dropout (stp.motion_dropout): "
+                         "leave model.motion_dropout at 0")
 
 
 def validate_v5(cfg: Config) -> None:

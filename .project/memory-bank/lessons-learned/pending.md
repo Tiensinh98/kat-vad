@@ -2206,3 +2206,12 @@ Promote if a second harness needs the same split.
 **Rule:** Project text features through CLIP's `text_projection` before comparing them with image features.
 **Files:** core/models/clip_text.py:194 (`clip_text_projection`), core/models/sa2v2.py
 **Why pending:** caught at design time, before any SV2 run; no number was affected. The host's fusion uses these features on purpose and is left alone. Promote on a second occurrence.
+
+## (cf) [HIGH] Testing - A read-out fixture with a hand-written shape hides a format crash (2026-11-05)
+**Triggers:** fixture, readout, render_markdown, bootstrap, CI dict, middle_ruler, format
+**Problem:** `dada_whole_eval` writes `middle_ruler_macro` as a bootstrap `{mean, low, high}`; `sa2v2_readout` formatted it as a float, and its test fixture wrote a float, so the suite was green and the real read-out crashed on Colab after the GPU work.
+**Bad:** fixture `"middle_ruler_macro": 0.7` + `_f(row['extra']['middle_ruler'])`
+**Good:** fixture `{"mean": 0.7, "low": 0.6, "high": 0.8}` (the producer's shape) + `_num(...)`, and assert the rendered cell
+**Rule:** Build read-out fixtures from the producer's own output shape, and assert on the rendered markdown, not only the JSON.
+**Files:** core/tools/sa2v2_readout.py:200, core/tests/test_sa2v2.py (`test_readout_end_to_end`)
+**Why pending:** one occurrence, fixed in `3bef13b` the same day; no number was affected (the crash came after every number was computed). Promote on a second.

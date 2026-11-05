@@ -121,3 +121,58 @@ is the same for every row, so it is not a property of the map and is not read.
 (`RESULTS_V5_R7.md`); §6 still applies.** C2 is not needed for this verdict (there is no positive
 movement to protect); it would only explain the mechanics.
 
+
+## 8. Arm W0D: is SV2's cost motion dropout's? (dated note 2026-11-05, before any W0D number)
+
+Written after §7.1–§7.2 were read, so W0D is a post-hoc **attribution** arm: it can explain §7,
+never reverse it, and it adopts nothing.
+
+### 8.1 Arm
+
+| Arm | What | Checkpoint |
+| --- | --- | --- |
+| **W0D** | W0 + `model.motion_dropout = 0.3` (= SV2's `stp.motion_dropout`, rule D6: the whole `W_u` term zero on 30 % of training bags). No SA²-v2, no cell cache | `outputs/sv2/W0D/s2024` |
+
+Same recipe as W0 and SV2 (v2 A2 s2024, 1,749 steps); the notebook asserts that the config differs
+from v2 A2 s2024 in `model.motion_dropout` only. Read with W0's own protocols: `dada_whole_eval`
+on the A2 bake (no `--patch-dir`), protocol B on DoTA-CAP-dev.
+
+Known difference beyond the dropout: the mask draws `torch.rand` from the global RNG, as SV2's does,
+so batch-level randomness after the first draw differs from W0's. Same mechanism as SV2, so
+W0D − W0 carries it and SV2 − W0D does not.
+
+### 8.2 Read-out
+
+Per set, with §3's sentence and intervals: **W0D − W0** (dropout alone) and **SV2 − W0D**
+(spatial module on the dropout host); SV2 − W0 printed (= §7).
+
+| W0D − W0 | SV2 − W0D | Sentence |
+| --- | --- | --- |
+| cost shown | not cost | the cost is motion dropout's; the spatial module shows none on top |
+| not cost | cost shown | the cost is the spatial module's; dropout alone shows none |
+| cost shown | cost shown | both carry a cost |
+| not cost | not cost | neither change alone shows a cost |
+
+DADA decides; DoTA-CAP-dev is read the same way and printed beside. One seed: PRELIMINARY, and
+"not cost" never reads as "free".
+
+## 9. Probe: why did β, γ, T, b not move? (dated note 2026-11-05, before any probe number)
+
+`core/tools/sv2_probe.py`. Printed only; it changes no verdict of §7 and decides what a next arm
+may change.
+
+* **`adam`** on SV2's `checkpoint_last.pt`: per scalar coordinate (β₁…β₄, γ, log T, b) and per
+  module (`w`, `w_cell`, `w_prior`, `pos`, `layer`, `branch_head`, `W_u`): RMS displacement / Σ lr,
+  gradient RMS, share of `√v̂` < 10 eps, SNR beside the zero-mean-noise SNR. Reading (thresholds of
+  `STP_BUILD.md` §5 D-1): *dead* (≥ half below 10 eps) → the gradient path is the defect;
+  *noise* (SNR < 2× noise) → a larger LR would random-walk; *lr* (coherent, < 0.1 of the budget
+  used) → the LR budget is the limit; *moved* otherwise.
+* **`live`** at init and at the final checkpoint, 8 batches of epoch 0's order, fp32, train mode:
+  each scalar's gradient from `host`, `λ_p L_patch`, `λ_b L_branch`, `total` (mean ± std,
+  coherence |mean|/rms); ‖∇w‖ per term and the cosines between terms; and the per-frame spread
+  across cells of `β·priors`, `γ z(cos)`, `wᵀH` and `l`.
+
+Known before any probe number (arithmetic, not a measurement): at lr 5e-5 with 20 warm-up steps
+and cosine decay over 1,749 steps, Σ lr ≈ 0.044, so no coordinate could have moved more than
+≈ 0.044. β₁ starts at 1 on `z(Mo)` (`SV2_BETA_INIT`), so the scorer already started as the
+per-frame motion prior.

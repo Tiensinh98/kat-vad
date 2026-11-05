@@ -176,7 +176,9 @@ class KATVAD(nn.Module):
                 else None
             ),
             sa2v2=SA2V2(cfg.model.hidden_dim) if cfg.stp.sa2v2 else None,
-            motion_dropout=cfg.stp.motion_dropout if cfg.stp.sa2v2 else 0.0,
+            motion_dropout=(
+                cfg.stp.motion_dropout if cfg.stp.sa2v2 else cfg.model.motion_dropout
+            ),
         )
         if load_clip and model.sa2v2 is not None:
             model.sa2v2.set_text_projection(clip_text_projection())  # rule D3

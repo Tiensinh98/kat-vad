@@ -988,6 +988,12 @@ SV2_OUTPUT_DIRNAME = "sv2"  # under OUTPUT_ROOT: <arm>/s<seed>/ + eval/ + REPORT
 SV2_STORE_DTYPE = "float16"
 SV2_FRAMES_PER_BATCH = 64  # frames per CLIP call: one pass per frame
 SV2_G1_MAX_ABS = V5_G1_MAX_ABS  # projected CLS vs image_embeds
+W0D_ARM = "W0D"  # SA2V2_RUN.md §8: W0 + SV2's motion dropout, no spatial module
+W0D_MOTION_DROPOUT = SV2_MOTION_DROPOUT  # the same share SV2 trained with (rule D6)
+SV2_PROBE_DIRNAME = "probe"  # under OUTPUT_ROOT/sv2/: sv2_probe reads (§9)
+SV2_PROBE_BATCHES = 8  # batches of the real epoch-0 order per live read
+SV2_PROBE_SCALARS = ("beta", "gamma", "log_temperature", "bias")  # one row per coordinate
+SV2_PROBE_MODULES = ("w", "w_cell", "w_prior", "pos", "layer", "branch_head")
 SV2_DIAG_KEYS = (  # logged per batch, read by the controls C2-C4, never in the total
     "sv2_beta1", "sv2_beta2", "sv2_beta3", "sv2_beta4", "sv2_gamma", "sv2_temperature",
     "sv2_bias", "sv2_w_norm", "sv2_entropy", "sv2_spread", "sv2_xas_ratio",
