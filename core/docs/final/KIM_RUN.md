@@ -107,7 +107,10 @@ already sees the whole 20-step bag, so the kernel sets the curve's smoothing, no
   (`dota_cap_dev_s3_from_s1_nexar`); DADA-2000 370 T2-test sources, s8 whole video, raw
   (`A2_S/DADA2000_orig_test_sources_nexar`); TAD 100 (macro over 60), s8, raw (`A2_S/TAD_s8_nexar`).
   Nexar val (225) for diagnostics.
-- Pilot checkpoint: W0 s2024 (`Thesis-Final/outputs/wu/W0/s2024`).
+- Pilot checkpoint: W0 s2024 (`Thesis-Final/outputs/wu/W0/s2024`). *Dated note 2026-11-06 (before any number):*
+  if that checkpoint is gone from Drive, v2 Nexar A2 s2024 (`Thesis-V2/outputs/v2_nexar_window/A2/s2024`) is
+  used instead — the same function (`ZS_TAD_DADA.md` §2: equal to the last digit). A W0 read missing from
+  Drive is re-read from that checkpoint with the same protocol into `outputs/kim/eval/<set>/W0`.
 - Gates before any read: J10 (ckpt `global_step` == last `metrics.jsonl` step == 1,749); config diff
   K0 vs W0 = `dvs.theta`, `dvs.theta_ego` only; K-row vs K0 = the `kim` section only; input-cache identity
   checks as the zero-shot read-outs.
