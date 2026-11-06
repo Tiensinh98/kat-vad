@@ -51,6 +51,7 @@ from core.data.stp_patches import check_cell_cache, check_patch_cache, read_leve
 from core.data.v2_inputs import check_input_manifest
 from core.data.v5_grids import change_lag, read_grid_geometry
 from core.device import resolve_device
+from core.kim.losses import kim_anchors, kim_mil_loss, kim_nkc_loss, normal_steps
 from core.kip.losses import (
     kinematic_loss,
     kip_alignment_loss,
@@ -504,6 +505,8 @@ class Trainer:
             total = total + self.cfg.v5.smil_weight * losses["smil"]
         if self.model.sa2v2 is not None:
             total = total + self._sv2_losses(outputs, losses, labels, lengths, mask)
+        if self.model.kim is not None:
+            total = total + self._kim_losses(outputs, losses, labels, lengths, mask)
         losses["total"] = total
         return losses
 
@@ -546,6 +549,54 @@ class Trainer:
             if flag.any():
                 losses[f"sv2_top3q_{name}"] = top_q[flag].mean()
         return stp.patch_weight * patch + stp.branch_weight * branch
+
+    def _kim_losses(
+        self,
+        outputs: dict[str, Tensor],
+        losses: dict[str, Tensor],
+        labels: Tensor,
+        lengths: Tensor,
+        mask: Tensor,
+    ) -> Tensor:
+        """KIM's ``kim_mil`` (+ ``kim_nkc`` and the prototype update on K5), rule ``KIM_RUN.md``.
+
+        NKC and the prototype update start at ``kim.warmup_steps`` (D11); the update runs after
+        the loss, so this step's NKC reads the prototypes the previous steps built.
+        """
+        module = self.model.kim
+        assert module is not None  # nosec B101 - caller checks
+        kim, topk = self.cfg.kim, self.cfg.loss.mil_topk_pct
+        score, feats = outputs["kim_score"], outputs["kim_feat"]
+        losses["kim_mil"] = kim_mil_loss(score, labels, lengths, topk)
+        total = kim.mil_weight * losses["kim_mil"]
+        anchors = kim_anchors(score, labels, lengths, topk, kim.anchor_thresh)
+        # share of the abnormal bags' top-k slots that pass kim.anchor_thresh (|A| / slots)
+        slots = sum(
+            max(1, int(n) // topk) for n, y in zip(lengths.tolist(), labels.tolist(), strict=True)
+            if y >= 0.5 and n > 0
+        )
+        losses |= {
+            "kim_w_out_norm": module.w_out_norm(),
+            "kim_w_state_norm": module.w_state_norm(),
+            "kim_vel_gate": outputs["kim_vel_gate"],
+            "kim_acc_gate": outputs["kim_acc_gate"],
+            "kim_scale": outputs["kim_scale"].mean(),
+            "kim_anchor_share": score.new_tensor(float(anchors.sum()) / max(1, slots)),
+        }
+        if module.use_prototypes:
+            negatives = normal_steps(labels, mask)
+            if self.global_step >= kim.warmup_steps:
+                if module.prototypes_ready:
+                    losses["kim_nkc"] = kim_nkc_loss(
+                        feats, anchors, negatives, module.prototypes,
+                        kim.nkc_negatives, kim.nkc_temp,
+                    )
+                    total = total + kim.nkc_weight * losses["kim_nkc"]
+                if self.model.training:
+                    module.update_prototypes(feats, negatives, anchors, kim.proto_momentum)
+            losses["kim_proto_cos"] = module.prototype_cosine()
+            losses["kim_proto_ready"] = score.new_tensor(float(module.prototypes_ready))
+        return total
 
     # ------------------------------------------------------------ checkpoints
     def _rng_payload(self) -> dict[str, Any]:

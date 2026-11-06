@@ -1029,3 +1029,25 @@ DAD_JPEG_QUALITY = 95  # decode mp4 -> one JPEG folder; CLIP, V2-S and the windo
 DAD_CENSUS_FILENAME = "dad_census.json"
 DAD_MANIFEST_FILENAME = "dad_manifest.json"
 DAD_OUTPUT_SET = "dad"  # <zs_lagovad root>/eval/dad/<row>/<run>/ (core.evaluate outputs)
+
+# --- LaGoVAD-KIM (rule core/docs/final/KIM_RUN.md) ---------------------------------------------
+# Proposal symbols are NOT code names here (KIM_RUN.md §1): L_kin -> kim_mil (the KIP v1 "kin"
+# loss keeps its name), p_t -> state, u_t -> vel, a_t -> acc, k_t -> kin_feat, W_p -> state_proj.
+KIM_WIDTH = 128  # width of each of state / vel / acc (proposal §3.2.2: three 128-d features)
+KIM_SCORER_HIDDEN = 128  # W_1: 384 -> 128, W_2: 128 -> 2 (proposal §3.2.5 parameter count)
+KIM_GATE_KERNEL = 3  # gate convolution kernel, zero padding (IAM)
+KIM_EPS = 1e-6  # added to kim_scale before dividing (D6)
+KIM_MIL_WEIGHT = 1.0  # lambda_k (D12)
+KIM_NKC_WEIGHT = 0.1  # lambda_c (D12)
+KIM_NKC_TEMP = 0.1  # NKC temperature (D12)
+KIM_NKC_NEGATIVES = 16  # M (D12)
+KIM_ANCHOR_THRESH = 0.5  # alpha (D12)
+KIM_PROTO_MOMENTUM = 0.1  # beta (D12)
+KIM_WARMUP_STEPS = 219  # round(5 / 40 * 1,749): NKC + prototype updates start here (D11)
+KIM_CLASSES = 2  # binary normal / abnormal (proposal §3.2.1)
+KIM_ARMS = ("K0", "K0k9", "K2", "K5")  # first pass (KIM_RUN.md §3); K0k9 = host kernel 9
+KIM_HOST_KERNEL_K9 = 9  # K0k9's model.score_head_kernel (KIM_RUN.md §3.1)
+KIM_DIAG_KEYS = (  # logged per batch, never in the total
+    "kim_w_out_norm", "kim_w_state_norm", "kim_vel_gate", "kim_acc_gate", "kim_scale",
+    "kim_anchor_share", "kim_proto_cos", "kim_proto_ready",
+)

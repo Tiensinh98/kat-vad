@@ -2242,3 +2242,21 @@ Promote if a second harness needs the same split.
 **Rule:** Compare a learned map with its own untrained init on the localisation metric before reporting that it learned; list the diagnostics C2 separates and those it does not.
 **Files:** core/tools/sa2v2_readout.py (`beyond_control`), core/docs/final/SA2V2_RUN.md §12.1
 **Why pending:** one occurrence (SA²-v2); related pattern in `LOCAL_STEP1B.md` (L1mo vs Mo). Promote on a second.
+
+## (cj) [MEDIUM] Docs - A proposal symbol that the code already owns becomes a silent second meaning (2026-11-06)
+**Triggers:** proposal, notation, L_kin, kin, u, p, W_p, R4, B, loss name, config key, read-out column
+**Problem:** the LaGoVAD-KIM proposal reused `L_kin` (code: KIP v1's `losses["kin"]` with a consistency term), `u` (code: the VideoMAE vector), `p` (records: the position prior), `W_p` (SV4) and row names R4 / B (STP's SA² arm, A3-ign / protocol B); writing the proposal's names into code or a read-out would have put two quantities under one label.
+**Bad:** `losses["kin"] = kim_mil(...)` or a read-out row "R4" for LAS-VAD's contrast next to `ZS_COMPARISON`'s "LaGoVAD + R4" (= SA²)
+**Good:** a notation table in the rule doc mapping every proposal symbol to a code name that is new to the tree (`kim_mil`, `vel`, `state`, arms K*), written before the build
+**Rule:** Grep every symbol and row name of a new proposal against code, config keys and read-outs before building; rename the clashing ones in code, never in the proposal.
+**Files:** core/docs/final/KIM_RUN.md §1, core/constants.py (`KIM_*`)
+**Why pending:** one occurrence, caught before the build. Promote on a second.
+
+## (ck) [MEDIUM] Config - `dvs.theta = 1` stops the splice, not L_dvs (2026-11-06)
+**Triggers:** DVS off, theta, dynamic video synthesis, dvs_sup, dvs_rows, pseudo labels, normal bags
+**Problem:** "DVS off" via `dvs.theta = dvs.theta_ego = 1.0` removes every filler and seam, but `train.py` still runs `dvs_sup` / `dvs_sup_mil` on every label-0 bag (`dvs_rows = labels < 0.5 | is_synth`) as a dense all-zero BCE.
+**Bad:** writing "L_dvs off" for a `theta = 1` run
+**Good:** "synthesis off; L_dvs keeps its normal-bag part" (or also set `loss.pseudo_sup_weight = pseudo_sup_mil_weight = 0` and say so)
+**Rule:** Say which half of L_dvs a run keeps whenever `dvs.theta` is changed.
+**Files:** core/train.py (`dvs_rows`), core/data/dataset.py:177, core/tests/test_kim.py (`dvs_sup` assert)
+**Why pending:** one occurrence, caught before any run. Promote on a second.

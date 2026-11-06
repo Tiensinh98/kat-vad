@@ -207,6 +207,27 @@ class STPConfig:
 
 
 @dataclass
+class KIMConfig:
+    """LaGoVAD-KIM's novel component (rule ``core/docs/final/KIM_RUN.md``).
+
+    KIM reads ``v^t`` (the RoFormer output) and returns ``v^t + W_out k_t`` in KIP's slot. With
+    ``enabled`` false (default) the model, its loss keys and its state dict are unchanged.
+    ``prototypes`` false = arm K2 (no confidence weighting, no NKC); true = arm K5.
+    """
+
+    enabled: bool = False
+    prototypes: bool = False
+    width: int = constants.KIM_WIDTH
+    mil_weight: float = constants.KIM_MIL_WEIGHT
+    nkc_weight: float = constants.KIM_NKC_WEIGHT
+    nkc_temp: float = constants.KIM_NKC_TEMP
+    nkc_negatives: int = constants.KIM_NKC_NEGATIVES
+    anchor_thresh: float = constants.KIM_ANCHOR_THRESH
+    proto_momentum: float = constants.KIM_PROTO_MOMENTUM
+    warmup_steps: int = constants.KIM_WARMUP_STEPS
+
+
+@dataclass
 class Config:
     """Top-level KAT-VAD configuration."""
 
@@ -219,6 +240,7 @@ class Config:
     v2: V2Config = field(default_factory=V2Config)
     v5: V5Config = field(default_factory=V5Config)
     stp: STPConfig = field(default_factory=STPConfig)
+    kim: KIMConfig = field(default_factory=KIMConfig)
 
     def to_dict(self) -> dict[str, Any]:
         return dataclasses.asdict(self)
@@ -400,3 +422,33 @@ def validate_stp(cfg: Config) -> None:
         raise ValueError("stp.sa2 and the v5 grid readout cannot be combined")
     if cfg.kip.enabled:
         raise ValueError("stp.sa2 requires kip.enabled=false")
+
+
+def validate_kim(cfg: Config) -> None:
+    """Fail loud on a KIM config no arm defines (``KIM_RUN.md`` §2 D15)."""
+    kim = cfg.kim
+    if kim.width < 1:
+        raise ValueError(f"kim.width must be >= 1, got {kim.width}")
+    for name in ("mil_weight", "nkc_weight"):
+        if getattr(kim, name) < 0:
+            raise ValueError(f"kim.{name} must be >= 0, got {getattr(kim, name)}")
+    if kim.nkc_temp <= 0:
+        raise ValueError(f"kim.nkc_temp must be > 0, got {kim.nkc_temp}")
+    if kim.nkc_negatives < 1:
+        raise ValueError(f"kim.nkc_negatives must be >= 1, got {kim.nkc_negatives}")
+    if not 0.0 <= kim.anchor_thresh < 1.0:
+        raise ValueError(f"kim.anchor_thresh must be in [0, 1), got {kim.anchor_thresh}")
+    if not 0.0 < kim.proto_momentum <= 1.0:
+        raise ValueError(f"kim.proto_momentum must be in (0, 1], got {kim.proto_momentum}")
+    if kim.warmup_steps < 0:
+        raise ValueError(f"kim.warmup_steps must be >= 0, got {kim.warmup_steps}")
+    if not kim.enabled:
+        if kim.prototypes:
+            raise ValueError("kim.prototypes needs kim.enabled=true")
+        return
+    if cfg.kip.enabled:
+        raise ValueError("kim.enabled takes KIP's slot: it needs kip.enabled=false")
+    if cfg.stp.sa2 or cfg.stp.sa2v2:
+        raise ValueError("kim.enabled cannot be combined with stp.sa2 / stp.sa2v2")
+    if cfg.v5.readout != constants.V5_READOUT_OFF:
+        raise ValueError("kim.enabled cannot be combined with the v5 grid readout")

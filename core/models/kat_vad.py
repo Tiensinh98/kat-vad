@@ -23,8 +23,9 @@ import torch
 from torch import Tensor, nn
 
 from core import constants
-from core.config import validate_stp, validate_v2, validate_v5
+from core.config import validate_kim, validate_stp, validate_v2, validate_v5
 from core.data.collate import padding_mask
+from core.kim.module import KIM
 from core.kip.kip_module import KIP
 from core.models.clip_text import SoftPromptCLIPTextModel, clip_text_projection
 from core.models.fusion import CoAttentionFusion
@@ -53,6 +54,13 @@ def _build_sa2v2(cfg: Config) -> SA2V2:
     with torch.random.fork_rng(devices=[]):
         torch.manual_seed(cfg.train.seed)
         return SA2V2(cfg.model.hidden_dim, proj=True)
+
+
+def _build_kim(cfg: Config) -> KIM:
+    """KIM under a private RNG (``KIM_RUN.md`` D13): host init and data order equal K0's."""
+    with torch.random.fork_rng(devices=[]):
+        torch.manual_seed(cfg.train.seed)
+        return KIM(cfg.model.hidden_dim, cfg.kim.width, prototypes=cfg.kim.prototypes)
 
 
 class KATVAD(nn.Module):
@@ -84,6 +92,7 @@ class KATVAD(nn.Module):
         motion_init_seed: int = 0,
         sa2v2: SA2V2 | None = None,
         motion_dropout: float = 0.0,
+        kim: KIM | None = None,
     ) -> None:
         super().__init__()
         # v2 motion stream (architecture §5): absent unless motion_dim > 0, so every
@@ -119,6 +128,10 @@ class KATVAD(nn.Module):
         )
         self.kip = kip
         self.kip_on_raw_features = kip_on_raw_features
+        # LaGoVAD-KIM (rule core/docs/final/KIM_RUN.md): KIP's slot; absent unless kim.enabled
+        if kim is not None and kip is not None:
+            raise ValueError("KIM takes KIP's slot: build with one of them")
+        self.kim = kim
         self.fusion = CoAttentionFusion(
             d_model=hidden_dim, nhead=fusion_heads, num_layers=fusion_num_layers
         )
@@ -138,6 +151,7 @@ class KATVAD(nn.Module):
         validate_v2(cfg)
         validate_v5(cfg)
         validate_stp(cfg)
+        validate_kim(cfg)
         v5 = cfg.v5
         grid_readout = smil_head = None
         if v5.readout != constants.V5_READOUT_OFF:
@@ -193,6 +207,7 @@ class KATVAD(nn.Module):
             motion_dropout=(
                 cfg.stp.motion_dropout if cfg.stp.sa2v2 else cfg.model.motion_dropout
             ),
+            kim=_build_kim(cfg) if cfg.kim.enabled else None,
         )
         if load_clip and model.sa2v2 is not None:
             model.sa2v2.set_text_projection(clip_text_projection())  # rule D3
@@ -356,6 +371,18 @@ class KATVAD(nn.Module):
             outputs["eo_hat"] = eo_hat
             outputs["motion_scores"] = motion_scores
             vis_feats = vk
+        elif self.kim is not None:
+            kim_out = self.kim(vt, mask)
+            outputs |= {
+                "vt": vt,
+                "kim_feat": kim_out.kin_feat,
+                "kim_logits": kim_out.logits,
+                "kim_score": kim_out.score,
+                "kim_scale": kim_out.scale,
+                "kim_vel_gate": kim_out.vel_gate,
+                "kim_acc_gate": kim_out.acc_gate,
+            }
+            vis_feats = kim_out.features
         else:
             vis_feats = vt
         outputs["vis_feats"] = vis_feats

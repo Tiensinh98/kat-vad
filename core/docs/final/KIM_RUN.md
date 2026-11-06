@@ -2,7 +2,7 @@
 
 > Branch `v_final_las_vad`. Proposal: `core/docs/final/Thesis proposal … (LaGoVAD-KIM.md`.
 > Plan: `.project/plans/katvad-kim.md`. **Status: RULE, written 2026-11-06 before any KIM number.
-> Nothing is built; nothing has been run.** Every later change to this file is a dated note
+> K-1 BUILT 2026-11-06 (`core/kim/`, wiring, `core/tests/test_kim.py`); nothing has been run.** Every later change to this file is a dated note
 > below the text it changes, never an edit of a rule after its number is seen.
 
 ## 0. Scope: what KIM may touch
@@ -73,6 +73,7 @@ smoothing. No KIP number is KIM evidence.
 | Arm | = proposal | Config delta vs W0 | First pass |
 |---|---|---|---|
 | **K0** | R0 | D2 only | yes |
+| **K0k9** | — (host check, §3.1) | D2 + `model.score_head_kernel=9` | yes, **before** K2 / K5 |
 | **K2** | R2 | D2 + `kim.enabled`, no prototypes, `kim_nkc` off | yes |
 | **K5** | R5 | D2 + full KIM (prototypes + NKC) | yes |
 | Kcap | R-cap | K5 with `kin_feat` = MLP(LN(vt)), same width and losses | if K5 not a cost |
@@ -80,7 +81,23 @@ smoothing. No KIP number is KIM evidence.
 | K6, K7, K8 | R6, R7, R8 | order ladder; input `vt`/`x`/`clip`; no mask | if K5 not a cost |
 | K1, K3, K9–K15 | R1, R3, R9–R15 | as proposal §4.5 | by budget |
 
-Seed s2024 first; seeds 2025/2026 for K0/K2/K5/Kcap only after §5's continue verdict.
+Seed s2024 first; seeds 2025/2026 for K0/K2/K5/Kcap only after §6's continue verdict.
+
+### 3.1 K0k9 — host head kernel (added 2026-11-06, before any K number; user)
+
+Question: does LaGoVAD's kernel 9 beat the inherited kernel 3 on the KIM host? Kernel 3 was derived for
+20-step bags (`constants.DADA_ORIGIN_SCORE_HEAD_KERNEL`, C27: kernel 9 spans 45 % of a 20-step bag); no
+9-vs-3 run exists on Nexar. Indirect evidence for 3: E1 (same kernel 3, DoTA footprint 2.4 s at s8 vs
+0.9 s at s3 → s3 +0.033 macro); kernel 9 at s3 = 2.7 s. RoFormer (window 25 = ±12 per layer, 2 layers)
+already sees the whole 20-step bag, so the kernel sets the curve's smoothing, not its context.
+
+- Arm: K0 + `model.score_head_kernel=9`, s2024, same data, same endpoints, read with §6's labels.
+- **Decision (fixed now):** K0k9 − K0 **gain on both endpoints** (DoTA-CAP-dev and DADA) → the host of
+  every K row becomes kernel 9 (K0k9 is then the control; K2 / K5 run on it). Any other outcome → kernel 3
+  stays. One read, no kernel sweep (5 / 7 not run).
+- **Prediction:** no difference or cost on DoTA-CAP-dev (smoother curve, short accidents), no
+  difference on DADA.
+- Printed: train `mil` last epoch, `p` / `t/N`, TAD macro.
 
 ## 4. Inputs (existing; nothing re-extracted)
 
