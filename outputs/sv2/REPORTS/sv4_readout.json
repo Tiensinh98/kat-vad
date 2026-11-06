@@ -1,0 +1,171 @@
+{
+  "dada": {
+    "SV4-SV3": {
+      "delta": {
+        "clips": 370,
+        "clusters": 370,
+        "high": 0.02412006830226608,
+        "low": -0.0031780944591765156,
+        "mean": 0.010287402322343217
+      },
+      "sentence": "no difference shown",
+      "what": "matrix vs gate (printed; other scorer draws, D13)"
+    },
+    "SV4-W0": {
+      "delta": {
+        "clips": 370,
+        "clusters": 370,
+        "high": -0.007229298014677048,
+        "low": -0.03786313241067341,
+        "mean": -0.0225168983951679
+      },
+      "sentence": "cost shown",
+      "what": "printed"
+    },
+    "SV4-W0D": {
+      "delta": {
+        "clips": 370,
+        "clusters": 370,
+        "high": -0.000693005947747325,
+        "low": -0.027445675299180104,
+        "mean": -0.013886604922344352
+      },
+      "sentence": "cost shown",
+      "what": "W_p module on the dropout host (primary)"
+    },
+    "macro": {
+      "SV3": {
+        "clips": 370,
+        "clusters": 370,
+        "high": 0.7532760869935505,
+        "low": 0.7034856916568262,
+        "mean": 0.7286785904621795
+      },
+      "SV4": {
+        "clips": 370,
+        "clusters": 370,
+        "high": 0.7619628113769477,
+        "low": 0.7146361915078061,
+        "mean": 0.7389659927845227
+      },
+      "W0": {
+        "clips": 370,
+        "clusters": 370,
+        "high": 0.7858713386524027,
+        "low": 0.7369120669552506,
+        "mean": 0.7614828911796907
+      },
+      "W0D": {
+        "clips": 370,
+        "clusters": 370,
+        "high": 0.7772990530341113,
+        "low": 0.7283249673967773,
+        "mean": 0.7528525977068672
+      }
+    },
+    "micro": {
+      "SV3": 0.6747540947945581,
+      "SV4": 0.6680201633311263,
+      "W0": 0.6981027731636915,
+      "W0D": 0.6895142876347606
+    },
+    "middle_ruler": {
+      "clips": 370,
+      "clusters": 370,
+      "high": 0.7593740793767018,
+      "low": 0.7076400644362505,
+      "mean": 0.7342313238639548
+    },
+    "overfit_tell": true,
+    "verdict": "used and costs"
+  },
+  "dota": {
+    "SV4-SV3": {
+      "delta": {
+        "clips": 569,
+        "clusters": 91,
+        "high": 0.033361083990232326,
+        "low": 0.012174049724240509,
+        "mean": 0.022892858100158443
+      },
+      "sentence": "gain shown",
+      "what": "matrix vs gate (printed; other scorer draws, D13)"
+    },
+    "SV4-W0": {
+      "delta": {
+        "clips": 569,
+        "clusters": 91,
+        "high": 0.009002682798164326,
+        "low": -0.012663904470884543,
+        "mean": -0.0017989504551929982
+      },
+      "sentence": "no difference shown",
+      "what": "printed"
+    },
+    "SV4-W0D": {
+      "delta": {
+        "clips": 569,
+        "clusters": 91,
+        "high": 0.0026072471291833216,
+        "low": -0.015315596280750764,
+        "mean": -0.0062995330516618766
+      },
+      "sentence": "no difference shown",
+      "what": "W_p module on the dropout host (primary)"
+    },
+    "macro": {
+      "SV3": {
+        "clips": 569,
+        "clusters": 91,
+        "high": 0.8032232949619421,
+        "low": 0.7691706314634699,
+        "mean": 0.7863154119235057
+      },
+      "SV4": {
+        "clips": 569,
+        "clusters": 91,
+        "high": 0.8255585954298436,
+        "low": 0.7927843922390382,
+        "mean": 0.8092082700236642
+      },
+      "W0": {
+        "clips": 569,
+        "clusters": 91,
+        "high": 0.8271419266690798,
+        "low": 0.7949263292787997,
+        "mean": 0.8110072204788573
+      },
+      "W0D": {
+        "clips": 569,
+        "clusters": 91,
+        "high": 0.8315370286465662,
+        "low": 0.7994673835956884,
+        "mean": 0.815507803075326
+      }
+    },
+    "overfit_tell": false,
+    "verdict": "used without a shown effect"
+  },
+  "mechanics": {
+    "mil_tail": {
+      "sv4": 0.18128304723650218,
+      "w0d": 0.300306264013052
+    },
+    "paired": false,
+    "share_tail": 0.12470518134534359,
+    "step1": {
+      "dvs_sup": {
+        "sv4": 0.7038519382476807,
+        "w0d": 0.7029737234115601
+      },
+      "mil": {
+        "sv4": 0.6905879974365234,
+        "w0d": 0.6949664354324341
+      }
+    },
+    "used": true,
+    "wp_norm_tail": 1.3727660858631134
+  },
+  "next": "the token line closes: no further arm, gate, LR or fusion variant on tokens",
+  "rule": "core/docs/final/SA2V2_RUN.md \u00a711"
+}
