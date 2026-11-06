@@ -157,7 +157,17 @@ Stop rule written in K-0: K5 − K0 cost on both endpoints → close the line, n
 differs from the host's logit average, recorded as a deviation-free choice in `KIM_RUN.md`).
 U2 = **Nexar only, no CCD** (P3 = Nexar; CCD rows, CCD onset and Nexar+CCD comparisons leave scope;
 onset analysis uses Nexar event times + DoTA-CAP-dev anomaly start). U3 = **pilot on Nexar val**.
-U4–U6: explained to the user, waiting.
+U4 = **no training on TAD (nor MSAD: Nexar only)**; TAD = zero-shot test only, as `ZS_TAD_DADA.md`.
+U6 (pilot) = **Step 0 reads DoTA-CAP-dev, DADA-2000 T2-test (370 sources) and TAD test**, with the W0
+s2024 ckpt on the existing A2 Nexar-stat bakes (`dota_cap_dev_s3_from_s1_nexar`,
+`A2_S/DADA2000_orig_test_sources_nexar`, `A2_S/TAD_s8_nexar`). These are KIM's endpoints, so the pilot's
+decision rule is frozen in `KIM_RUN.md` before it runs and its read is disclosed as "seen before KIM
+training" in every KIM read-out. Nexar val printed beside.
+**DVS OFF for every KIM row and its control** (user: cleanest KIM path): `dvs.theta = dvs.theta_ego = 1.0`
+→ no splice, no `dvs_sup` / `dvs_sup_mil`, no seam. Consequences: D-2 (`segment_ids`) and D-3 (per-segment
+ρ) are dropped (ρ per video, mask = padding only); D-5 negatives = label-0 bags only; D-6 anchors = top-k
+of label-1 bags only; **K0 is no longer W0** → new control **K0 = W0 with DVS off**, retrained (W0 printed
+beside); KP3 (seam check) dropped. Shot cuts (U5): not built — no TAD/MSAD training, Nexar has ~none.
 
 - **[U1]** KIM MIL: average top-k logits (host code) or top-k probabilities (proposal)?
 - **[U2]** CCD: download + adapter now, or Nexar-only like every v_final row?
