@@ -2233,3 +2233,12 @@ Promote if a second harness needs the same split.
 **Rule:** Test a claim of "equals the control at step 0" on the first logged losses; build an added module on a private RNG.
 **Files:** core/models/kat_vad.py (`_build_sa2v2`), core/tests/test_sv4.py (`TestPairedWithW0D`), core/docs/final/SA2V2_RUN.md §10.4, D13
 **Why pending:** one occurrence, fixed for SV4 only; SV2 and SV3 keep their build so their reads stay reproducible. Promote on a second.
+
+## (ci) [MEDIUM] Experiments - A learned module that moves with the labels is not thereby a module that points (2026-11-06)
+**Triggers:** C2, shuffled labels, entropy, spread, evidence map, STAUC, untrained prior, moved further
+**Problem:** SA²-v2's entropy, spread and top-3 `q` beat the shuffled-label run (the module learned) while its map scored STAUC 0.284 against 0.334 for the untrained Mo it started from; "the module learned" and "the map is right" are two different reads.
+**Bad:** reading falling entropy, or a column "moved further than the shuffled run" (displacement of 0.001–0.02 on β/γ/T/b), as evidence the module found the target
+**Good:** pair every C2 movement with the pointing read against the training-free prior it started from, and cite only the diagnostics that exceed C2 by a margin
+**Rule:** Compare a learned map with its own untrained init on the localisation metric before reporting that it learned; list the diagnostics C2 separates and those it does not.
+**Files:** core/tools/sa2v2_readout.py (`beyond_control`), core/docs/final/SA2V2_RUN.md §12.1
+**Why pending:** one occurrence (SA²-v2); related pattern in `LOCAL_STEP1B.md` (L1mo vs Mo). Promote on a second.

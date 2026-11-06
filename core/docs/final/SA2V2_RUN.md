@@ -363,3 +363,89 @@ arms, `LOCAL_STEP1B.md` §5), and step-1 `mil` and `dvs_sup` vs W0D's, paired if
 
 One seed: PRELIMINARY. "Unused" does not show the patches are useless, and no outcome licenses a
 claim about crops, objects or native resolution (§6).
+
+### 11.5 Read-out (2026-11-06, seed 2024, `REPORTS/sv4_readout.md`)
+
+`W_p` **used**: share `‖W_p x^AS‖ / ‖c‖` over the last 100 steps 0.1247 (bar 0.05), `‖W_p‖` 1.3728. `mil`,
+last 100 steps: SV4 0.1813, W0D 0.3003. **Not a paired control in practice** even with D13: step-1 `mil` 0.69059 vs
+0.69497 and `dvs_sup` 0.70385 vs 0.70297 (|Δ| > `SV4_PAIRED_TOL` 1e-3).
+
+| Set | W0 | W0D | SV3 | SV4 | SV4 − W0D (primary) | SV4 − SV3 (printed) |
+| --- | --- | --- | --- | --- | --- | --- |
+| DADA (per video) | 0.7615 | 0.7529 | 0.7287 | 0.7390 | **−0.0139 [−0.0274, −0.0007] cost** | +0.0103 [−0.0032, +0.0241] none |
+| DoTA-CAP-dev (per clip) | 0.8110 | 0.8155 | 0.7863 | 0.8092 | −0.0063 [−0.0153, +0.0026] none | +0.0229 [+0.0122, +0.0334] gain |
+
+SV4 − W0: DADA −0.0225 [−0.0379, −0.0072] cost, DoTA −0.0018 [−0.0127, +0.0090] none. SV4's middle ruler
+(no pixels) on DADA 0.7342 [0.7076, 0.7594].
+
+**§11.3: DADA "used and costs" (overfit tell: yes, `mil` below W0D's); DoTA-CAP-dev "used without a shown
+effect" (overfit tell: no). PRELIMINARY (n = 1 seed). Prediction of §11 (no difference or cost, `mil` below W0D's)
+held.** The DADA interval's upper bound is −0.0007: the cost is barely shown and unpaired at step 1, so read it as
+"no evidence that the matrix helps", not as a size.
+
+**§11.4 fires ("anything else"): the token line closes.** See §12.
+
+## 12. Control C2 (`SV2_shuf`) and closing the token line (2026-11-06)
+
+### 12.1 C2 read-out (seed 2024, `REPORTS/sa2v2_readout.md`, `outputs/v_final/sv2/SV2_shuf/s2024`)
+
+Run check: checkpoint and `metrics.jsonl` both end at step 1,749 (`verified.json`). The permutation lives in the
+staged data (`shuffle_report.json`, not pushed): `config.yaml` has **no shuffle marker** and still shows
+`knn_filler_ratio: 0.5` (as SV2's does), so "labels were shuffled" is read from the losses, not from the config.
+The host cannot fit the permuted labels: `mil` over steps 1,650–1,749 0.717 (SV2 0.221, W0D 0.300), `sv2_branch`
+0.692 ≈ ln 2.
+
+First → mean of the last tenth of training:
+
+| Diagnostic | SV2 | SV2_shuf | Reading |
+| --- | --- | --- | --- |
+| entropy of α | 0.828 → **0.625** | 0.828 → **0.960** | label-driven |
+| logit spread | 1.00 → **3.20** | 1.00 → 0.63 | label-driven |
+| top-3 `q` abnormal / normal | 0.533 / 0.547 → **0.663 / 0.348** | 0.529 / 0.527 → 0.514 / 0.490 | label-driven |
+| `sv2_patch` / `sv2_branch` | 0.742 / 0.693 → **0.545 / 0.606** | 0.731 / 0.693 → 0.678 / 0.692 | label-driven |
+| `sv2_w_norm` | 0 → 0.145 | 0 → 0.063 | label-driven |
+| β₁…β₄, γ, T, b | each moves ≤ 0.02 | each moves ≤ 0.01 | **not separable from noise** |
+
+The read-out tool's last column ("moved further than shuffled?") compares absolute displacement, so it prints
+`True` for β₁, β₃, γ, T and b on movements of 0.001–0.02. **Do not cite that column for the scalars**: only the
+rows above the last one carry a margin over C2. C1 (head on `x^AS` 0.649 vs 0.486 on the cell mean; the mean head
+is below chance, a caveat) and C3 (top-3 `q` abnormal − normal rows +0.179 over 370 videos) are as in §7.1.
+
+**Reading (PRELIMINARY, n = 1 seed).** SA²-v2 **did learn a label-dependent map**: entropy, spread, top-3 `q` and
+the two module losses move in the real run and not in the permuted one. What it learned sits in the residual
+`wᵀH` (§9.2: spread 3.25 vs priors 0.99, text 0.001); the scalar terms stayed at their start in both runs.
+That map does not point (§7.2): SV2 hit − chance on boxes > 8 % +0.319 (Mo +0.316) and ego-involved +0.283, but
+non-ego −0.006 and boxes < 0.5 % −0.032 (Mo +0.060 on the latter), STAUC 0.2844 vs the untrained Mo 0.3343. The
+subsets where it fails are the ones H1 targets.
+
+What C2 does **not** show: that the label-driven structure is a shortcut (a map that separates abnormal from
+normal bags is also what a good map would do); that the fit is not overfit (the permuted run does not memorise
+in 1,749 steps either, so the fall in `mil` is not capacity alone); or why the map misses small and non-ego
+agents. The "learned something other than the agent's location" reading is a hypothesis; the position and ego
+correlation of the map peak was not measured.
+
+### 12.2 The token line closes
+
+By §11.4 (SV4: DADA not a gain). **No further arm, gate, LR or fusion variant of SA²-v2 on 7×7 tokens.** Record:
+
+| Arm | What | DADA vs W0D | DoTA-CAP-dev vs W0D |
+| --- | --- | --- | --- |
+| SV2 | module, `c̃ = c + x^AS` | −0.0396 cost | −0.0307 cost |
+| SV3 | `tanh(g)` gate (g → −0.48) | −0.0242 cost | −0.0292 cost |
+| SV4 | zero-init `W_p` | −0.0139 cost (barely) | −0.0063 none |
+
+Together with R7t (`RESULTS_V5_R7.md`) and the separate-branch line on crops (`LOCAL_STEP1.md` §7,
+`LOCAL_STEP1B.md` §5: L1 0.612, L1mo 0.704 against the training-free Mo 0.7132), every learned local branch
+trained here on Nexar's bag labels ended no better than the training-free motion prior. n = 1 seed in every
+row except the earlier crops reads; the intervals resample videos or clips, not runs.
+
+**Not licensed by any outcome:** "patches / tokens are useless"; any claim about crops, objects, native
+resolution or a larger training set; "SA²-v2 did not learn" (C2 shows it did); the size of any cost. **Still open
+and not gating:** the SV3 maps (§10.3), and an optional free read of where the SV2 map peaks (frame position,
+ego flag) on the existing outputs.
+
+**Implication for the thesis claim (a decision for the user, not made here).** On the 528 boxed clips the
+training-free Mo map has the highest STAUC (0.3343, against SV2 0.2844, centre 0.2677, uniform 0.2544) and ties
+the centre prior on the pointing game (hit − centre −0.010 [−0.051, +0.030]); SV2 is below the centre prior on
+that read (−0.154). H4 asks that the learned map beat an untrained change map: it does not. The gain claim of H1
+has no supporting row either (§7, §10.4, §11.5).

@@ -3,9 +3,11 @@
 Rule: `core/docs/final/SA2V2_RUN.md`. Decisions by the user, 2026-11-05: 7×7; no pilot; edit
 `KATVAD.forward`; DoTA-CAP-dev after DADA; C2 after the main read; C1 on DADA.
 
-**Status 2026-11-05:** SV2, W0D, probe and SV3 read out, all negative for the module
-(`SA2V2_RUN.md` §7, §8.3, §9, §10.4). C2 not read; SV3 maps owed. SV4 (`W_p`, §11) built, not run:
-its stop rule §11.4 decides whether the token line closes. Notebook `colab/final/sv4_wp.ipynb`.
+**Status 2026-11-06: CLOSED.** SV2, W0D, probe, SV3 and SV4 read out, all negative for the module
+(`SA2V2_RUN.md` §7, §8.3, §9, §10.4, §11.5); SV4's stop rule §11.4 fired, so no further arm, gate, LR or fusion
+variant on tokens. C2 (`SV2_shuf`) read: the module learned a label-dependent map (entropy, spread, top-3 `q`,
+module losses beat the permuted run), in the residual `wᵀH`, and the map does not point (§12). Still open, not
+gating: SV3 maps. Notebooks `colab/final/sv4_wp.ipynb`, `sa2v2_nexar_dada.ipynb` (part B = C2).
 
 ## Build
 
