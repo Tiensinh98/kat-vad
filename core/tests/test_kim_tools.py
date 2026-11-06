@@ -142,6 +142,39 @@ class TestPilotSets:
         sets[kim_pilot.DADA_SET] = one_set(0.6, 0.61)
         assert kim_pilot.decide(sets)["input"] == "vt"  # +0.01 on DADA: no switch
 
+    def test_name_is_required(self, tmp_path: Path) -> None:
+        argv = ["--ckpt", "c.pt", "--set", "dada", "rows", "e", "i", "--out-dir", str(tmp_path)]
+        with pytest.raises(SystemExit):
+            kim_pilot.build_arg_parser().parse_args(argv)
+        assert kim_pilot.build_arg_parser().parse_args(["--name", "K0", *argv]).name == "K0"
+
+    def test_run_records_the_host_it_read(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        cfg = Config()
+        monkeypatch.setattr(kim_pilot, "load_finished_model",
+                            lambda run, device: (_w0(), 1749, None, cfg))
+        monkeypatch.setattr(kim_pilot, "check_input_manifest", lambda *a: None)
+        labels = _labels(6, 12)
+        rng = np.random.default_rng(2)
+        eval_dir, bake = tmp_path / "read", tmp_path / "bake"
+        eval_dir.mkdir()
+        bake.mkdir()
+        write_clip_scores(eval_dir / kim_pilot.CLIP_SCORES_NPZ,
+                          {v: rng.random(12) for v in labels}, labels)
+        for v in labels:
+            np.save(bake / f"{v}.npy", rng.standard_normal((12, BASE)).astype(np.float32))
+        out = tmp_path / "out"
+        kim_pilot.run(kim_pilot.build_arg_parser().parse_args(
+            ["--name", "K0k9", "--ckpt", "K0k9.pt", "--set", kim_pilot.DADA_SET, "rows",
+             str(eval_dir), str(bake), "--out-dir", str(out), "--device", "cpu"]))
+        saved = json.loads((out / "kim_pilot.json").read_text())
+        assert saved["host"] == "K0k9"
+        assert saved["disclosure"] == constants.KIM_PILOT_DISCLOSURE
+        assert kim_pilot.HOST_ROW in saved["sets"][kim_pilot.DADA_SET]["rows"]
+        md = (out / "kim_pilot.md").read_text()
+        assert "host K0k9 s2024" in md and "W0" not in md
+
 
 # --------------------------------------------------------------------------- read-out
 DOTA_IDS = [f"src{i % 5}_{i:06d}" for i in range(40)]

@@ -115,6 +115,14 @@ already sees the whole 20-step bag, so the kernel sets the curve's smoothing, no
   K0 vs W0 = `dvs.theta`, `dvs.theta_ego` only; K-row vs K0 = the `kim` section only; input-cache identity
   checks as the zero-shot read-outs.
 
+*Dated note 2026-11-06, later (before any KIM number; user): both checkpoints above were deleted from Drive
+and are gone, so the note above no longer applies.* W0 survives as its **saved reads** of the three sets and
+its **`config.yaml`** (repo copies under `outputs/v_final/`). They keep their roles: W0 stays a printed row
+(D3) and the config diff stays against W0's config. A W0 read missing from Drive can no longer be re-read; it
+is uploaded from the repo. J10 on W0 is not re-checked here; its reads passed it when they were made
+(`WU_ARMS.md`, `ZS_TAD_DADA.md`). W0 cannot be read on any new set without retraining s2024. No contrast that
+decides anything uses W0.
+
 ## 5. Pilot KP1–KP4 (inference only, W0 s2024)
 
 **Disclosure:** these sets are KIM's endpoints. The pilot fits nothing; every KIM read-out carries
@@ -130,6 +138,23 @@ W0's score, the cubic position probe `p` and `t/N`.
 | KP2 | rank-average of W0's score with ‖Δ²`vt`‖ vs W0, paired cluster bootstrap | low > 0 on DoTA-CAP-dev | wording of H1–H2 only |
 | KP3 | share of top-5 % ‖Δ`vt`‖ steps on the first or last valid step, vs chance 2/n | ≤ 2× chance on every set | fail → D5 also zeroes the last valid pair (`KIM_EDGE_MASK`), before training |
 | KP4 | median \|peak(‖Δ²`vt`‖) − onset\| (s), DoTA-CAP-dev and DADA | ≤ 0.5 s on ≥ 50 % of clips | fail → H6 dropped from the claims |
+
+### 5.1 Pilot on the decided control (dated note 2026-11-06, before any KIM number; user)
+
+W0's checkpoint is gone (§4), and every KP check needs `vt`. Options weighed: retrain W0 for the pilot alone
+(a GPU run for a row that is only printed), drop the pilot (KP3 could still change the K2 / K5 build), or read
+it on the host that is trained anyway. **Chosen: the third.** The text of §5 above stands, with these changes:
+
+- **Host:** the control decided by §3.1 (K0, or K0k9 if it wins), s2024, wherever §5 says W0. Its `vt` comes from
+  the DVS-off host that K2 / K5 actually sit on.
+- **Order:** K0, K0k9 → their reads → read-out 1 (kernel) → **pilot** → K2, K5. KP1 and KP3 only change the
+  K2 / K5 build, so no finished arm can be invalidated.
+- **KP2** compares the rank average with the control's score, not W0's.
+- **Disclosure** (`KIM_PILOT_DISCLOSURE`): the pilot reads the endpoints with the control, after read-out 1 and
+  before K2 / K5 train. It adds no new look at the control: read-out 1 has already printed its macros.
+- **Limit:** the numbers describe the DVS-off host. Never quote them as W0's or as "the motion-stream host".
+- All bars and consequences in §5's table are unchanged. Not built yet: the KP1 input switch and
+  `KIM_EDGE_MASK`; if either fires, the notebook stops before K2 / K5 and the build comes first.
 
 ## 6. Training read-out rule (first pass)
 
@@ -172,3 +197,8 @@ empty 𝒜 ⇒ 0; D15 exclusivity; checkpoint round-trip; `dvs.theta = 1` ⇒ no
 - **Runbook** `colab/final/kim_runs.ipynb`: pilot → K0, K0k9 → read-out 1 (kernel) → K2, K5 on the
   decided host (refused if the pilot changed the build) → read-out 2 (stop rule). Config diff checked
   against W0's `config.yaml`; outputs under `Thesis-Final/outputs/kim/`.
+
+*Dated note 2026-11-06, later (§4, §5.1):* the pilot now takes the required `--name <host>`, records it as
+`host` in `kim_pilot.json`, and labels its row `host`. Runbook order: W0's saved reads checked → K0, K0k9 → reads
+→ read-out 1 (kernel) → pilot on the control → K2, K5 → read-out 2. A pilot of another host already on Drive
+stops the notebook. Nothing in the runbook loads W0's weights.

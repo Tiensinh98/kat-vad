@@ -1063,5 +1063,6 @@ KIM_PILOT_INPUT_MARGIN = 0.02  # KP1: another input replaces vt iff it beats it 
 KIM_PILOT_ONSET_S = 0.5  # KP4: |peak - onset| within this many seconds ...
 KIM_PILOT_ONSET_SHARE = 0.5  # ... on at least this share of abnormal clips, DoTA-CAP-dev and DADA
 KIM_PILOT_DISCLOSURE = (
-    "The KP pilot read DoTA-CAP-dev / DADA / TAD with W0 before KIM was trained (KIM_RUN.md §5)."
+    "The KP pilot reads DoTA-CAP-dev / DADA / TAD with the decided control (K0 or K0k9), after the "
+    "kernel read-out and before K2 / K5 train (KIM_RUN.md §5.1)."
 )

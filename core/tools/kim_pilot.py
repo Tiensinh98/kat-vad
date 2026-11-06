@@ -1,35 +1,36 @@
-"""KIM pilot KP1-KP4: does the change of W0's features already rise at anomalies? (no training)
+"""KIM pilot KP1-KP4: does the change of the host's features already rise at anomalies? (no train)
 
 Rule ``core/docs/final/KIM_RUN.md`` §5, written before the pilot runs. Inference only, on the
-W0 s2024 checkpoint. For every video of a set, the candidate step scores are the per-step
-change magnitudes of four feature sequences (no learned part):
+decided control's s2024 checkpoint (K0 or K0k9, after the kernel read-out and before K2 / K5:
+dated note in §4, W0's checkpoint is gone). For every video of a set, the candidate step scores
+are the per-step change magnitudes of four feature sequences (no learned part):
 
 * ``vt`` -- the RoFormer output (KIM's input), ``x`` -- the RoFormer input ``c + W_u m``,
   ``clip`` -- the CLIP columns, ``motion`` -- the baked VideoMAE columns;
 * order 1: ``mean_c |z_t - z_{t-1}| / rho``, order 2: ``mean_c |d1_t - d1_{t-1}| / rho`` with
   ``d1`` the per-channel first difference, ``rho`` the video's median order-1 change (D6).
 
-Labels and W0's own scores are read from **W0's existing eval outputs** of the same set
-(``clip_scores.npz`` of ``protocol_b_eval`` / ``dada_whole_eval``, or ``scores/*.npz`` of
-``core.evaluate``), so the pilot scores exactly the frames and labels W0's read-out scored. The
-input rows come from the baked cache that eval read. Kinds:
+Labels and the host's own scores are read from **the host's existing eval outputs** of the same
+set (``clip_scores.npz`` of ``protocol_b_eval`` / ``dada_whole_eval``, or ``scores/*.npz`` of
+``core.evaluate``), so the pilot scores exactly the frames and labels the host's read-out scored.
+The input rows come from the baked cache that eval read. Kinds:
 
 * ``native`` (DoTA-CAP-dev, protocol B): rows are ``s1[::stride]`` steps, curves interpolated to
   the native frames of the saved labels (J3);
 * ``rows`` (DADA-2000 whole video, TAD): one label per cached row.
 
 Checks (each with the consequence fixed in the rule): KP1 macro of every candidate (DoTA also by
-ego flag); KP2 rank-average of W0's score with ``vt`` order 2 against W0 alone (paired, per
-video); KP3 share of the top-5 % ``vt`` order-1 steps on the first or last difference vs chance;
-KP4 lag of the ``vt`` order-2 peak behind the label onset (seconds, sets with a known step).
-The pilot read these sets before KIM trained: every KIM read-out says so.
+ego flag); KP2 rank-average of the host's score with ``vt`` order 2 against the host alone
+(paired, per video); KP3 share of the top-5 % ``vt`` order-1 steps on the first or last difference
+vs chance; KP4 lag of the ``vt`` order-2 peak behind the label onset (seconds, sets with a known
+step). The pilot reads these sets before K2 / K5 train: every KIM read-out says so.
 
 CLI::
 
-    python -m core.tools.kim_pilot --ckpt outputs/wu/W0/s2024/checkpoint_last.pt \\
-        --set dota_cap_dev native <W0 DoTA read> <A2 DoTA bake> \\
-        --set dada rows <W0 DADA read> <A2 DADA bake> \\
-        --set tad rows <W0 TAD read>/s2024 <A2 TAD bake> \\
+    python -m core.tools.kim_pilot --name K0 --ckpt outputs/kim/K0/s2024/checkpoint_last.pt \\
+        --set dota_cap_dev native <K0 DoTA read> <A2 DoTA bake> \\
+        --set dada rows <K0 DADA read> <A2 DADA bake> \\
+        --set tad rows <K0 TAD read>/s2024 <A2 TAD bake> \\
         --data-dir data/Nexar_window --metadata data/DoTA/metadata_val.json \\
         --split-file data/DoTA/val_split.txt --out-dir outputs/kim/REPORTS/pilot
 """
@@ -68,7 +69,7 @@ KINDS = (KIND_NATIVE, KIND_ROWS)
 FEATURES = ("vt", "x", "clip", "motion")
 ORDERS = (1, 2)
 KIM_INPUT = "vt"
-W0_NAME, RANK_NAME = "W0", "W0+vt2 (rank avg)"
+HOST_ROW, RANK_NAME = "host", "host+vt2 (rank avg)"
 DOTA_SET, DADA_SET = constants.V2_SPLIT_DOTA_CAP_DEV, "dada"
 EGO_SETS = (DOTA_SET,)
 DEFAULT_STEP_SECONDS = {  # seconds per curve index (native frame for DoTA, row otherwise)
@@ -158,7 +159,7 @@ def feature_sequences(
     hidden = model.hidden_dim
     motion = model.motion_residual
     if motion is None:
-        raise ValueError("the pilot reads a motion-stream host (W0): motion_dim > 0")
+        raise ValueError("the pilot reads a motion-stream host: motion_dim > 0")
     feats = torch.from_numpy(np.ascontiguousarray(rows, dtype=np.float32))
     vt_parts, x_parts = [], []
     for start in range(0, len(feats), constants.MAX_VIS_LEN):
@@ -173,7 +174,7 @@ def feature_sequences(
 
 
 def read_labels(eval_dir: Path) -> tuple[Curves, Curves]:
-    """``(W0 scores, labels)`` from W0's eval output of this set."""
+    """``(host scores, labels)`` from the host's eval output of this set."""
     if (eval_dir / CLIP_SCORES_NPZ).is_file():
         return read_clip_scores(eval_dir / CLIP_SCORES_NPZ)
     return load_run(eval_dir)
@@ -181,7 +182,7 @@ def read_labels(eval_dir: Path) -> tuple[Curves, Curves]:
 
 def check_model(model: KATVAD) -> None:
     if model.kim is not None or model.kip is not None:
-        raise ValueError("the pilot reads the W0 host: the checkpoint must have KIM and KIP off")
+        raise ValueError("the pilot reads the bare host: the checkpoint must have KIM and KIP off")
 
 
 # ---------------------------------------------------------------------------
@@ -218,16 +219,16 @@ def summarize_set(
     name: str,
     curves: dict[str, Curves],
     steps_vt1: Curves,
-    w0: Curves,
+    host_scores: Curves,
     labels: Curves,
     ego: dict[str, bool] | None,
     seconds: float | None,
 ) -> dict[str, Any]:
     """Every pilot number of one set (pure: curves in, numbers out)."""
     ci = dota_ci if name in EGO_SETS else video_ci
-    rank = {v: 0.5 * (rank01(w0[v]) + rank01(curves[candidate_name(KIM_INPUT, 2)][v]))
+    rank = {v: 0.5 * (rank01(host_scores[v]) + rank01(curves[candidate_name(KIM_INPUT, 2)][v]))
             for v in labels}
-    all_curves = {**curves, W0_NAME: w0, RANK_NAME: rank}
+    all_curves = {**curves, HOST_ROW: host_scores, RANK_NAME: rank}
     aucs = {c: two_class_aucs(s, labels) for c, s in all_curves.items()}
     rows: dict[str, Any] = {}
     for cand, per_video in aucs.items():
@@ -236,8 +237,8 @@ def summarize_set(
             for split, flag in (("ego", True), ("non_ego", False)):
                 row[split] = ci({v: a for v, a in per_video.items() if ego.get(v) is flag})
         rows[cand] = row
-    common = sorted(set(aucs[RANK_NAME]) & set(aucs[W0_NAME]))
-    kp2 = ci({v: aucs[RANK_NAME][v] - aucs[W0_NAME][v] for v in common})
+    common = sorted(set(aucs[RANK_NAME]) & set(aucs[HOST_ROW]))
+    kp2 = ci({v: aucs[RANK_NAME][v] - aucs[HOST_ROW][v] for v in common})
     edges = [e for e in (edge_share(c) for c in steps_vt1.values()) if e is not None]
     kp3 = None if not edges else {
         "share": float(np.mean([e[0] for e in edges])),
@@ -250,7 +251,7 @@ def summarize_set(
         lags = [lag for v in labels if (lag := onset_lag(vt2[v], labels[v], seconds)) is not None]
         kp4 = lag_summary(lags)
     monotone = {v: np.arange(len(g)) / len(g) for v, g in labels.items()}
-    return {"videos": len(labels), "two_class": len(aucs[W0_NAME]), "rows": rows,
+    return {"videos": len(labels), "two_class": len(aucs[HOST_ROW]), "rows": rows,
             "kp2_delta": kp2, "kp3": kp3, "kp4": kp4, "seconds_per_index": seconds,
             "t_over_n": ci(two_class_aucs(monotone, labels))}
 
@@ -315,13 +316,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         if kind not in KINDS:
             raise ValueError(f"--set {name}: kind must be one of {KINDS}, got {kind!r}")
         check_input_manifest(Path(input_dir), cfg.v2.crn, cfg.v2.motion)
-        w0, labels = read_labels(Path(eval_dir))
+        host_scores, labels = read_labels(Path(eval_dir))
         stride = args.native_stride if kind == KIND_NATIVE else 1
         curves, steps_vt1 = score_set(kind, Path(input_dir), labels, model, device, stride)
-        sets[name] = summarize_set(name, curves, steps_vt1, w0, labels,
+        sets[name] = summarize_set(name, curves, steps_vt1, host_scores, labels,
                                    ego if name in EGO_SETS else None, seconds.get(name))
         LOGGER.info("%s: %d videos scored", name, len(labels))
-    result = {"rule": RULE, "checkpoint": str(args.ckpt), "global_step": step,
+    result = {"rule": RULE, "host": args.name, "checkpoint": str(args.ckpt), "global_step": step,
               "disclosure": constants.KIM_PILOT_DISCLOSURE, "sets": sets,
               "decisions": decide(sets)}
     args.out_dir.mkdir(parents=True, exist_ok=True)
@@ -340,7 +341,8 @@ def _delta(c: dict[str, float] | None) -> str:
 
 
 def render_markdown(r: dict[str, Any]) -> str:
-    lines = [f"# KIM pilot KP1-KP4 (W0 s2024, step {r['global_step']}, no training)", "",
+    lines = [f"# KIM pilot KP1-KP4 (host {r['host']} s2024, step {r['global_step']}, no training)",
+             "",
              f"Rule: `{r['rule']}`. **{r['disclosure']}**", ""]
     for name, s in r["sets"].items():
         has_ego = any("ego" in row for row in s["rows"].values())
@@ -353,7 +355,7 @@ def render_markdown(r: dict[str, Any]) -> str:
             if has_ego:
                 cells += [_num(row.get("ego")), _num(row.get("non_ego"))]
             lines.append(f"| {cand} | " + " | ".join(cells) + " |")
-        lines += ["", f"KP2 (rank avg - W0, per video): {_delta(s['kp2_delta'])}"]
+        lines += ["", f"KP2 (rank avg - host, per video): {_delta(s['kp2_delta'])}"]
         if s["kp3"]:
             k = s["kp3"]
             lines.append(f"KP3 edge share of top-5 % vt1 steps: {k['share']:.3f} "
@@ -372,12 +374,12 @@ def render_markdown(r: dict[str, Any]) -> str:
 
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n", 1)[0])
-    parser.add_argument("--ckpt", type=Path, required=True, help="W0 checkpoint_last.pt")
-    parser.add_argument("--name", default="W0")
+    parser.add_argument("--ckpt", type=Path, required=True, help="the host's checkpoint_last.pt")
+    parser.add_argument("--name", required=True, help="the host arm, recorded in the read-out")
     parser.add_argument(
         "--set", nargs=4, action="append", required=True,
         metavar=("NAME", "KIND", "EVAL_DIR", "INPUT_DIR"),
-        help="KIND native (DoTA protocol B) | rows; EVAL_DIR = W0's read of the set",
+        help="KIND native (DoTA protocol B) | rows; EVAL_DIR = this host's read of the set",
     )
     parser.add_argument("--native-stride", type=int, default=constants.V2_E1_STRIDE_BC)
     parser.add_argument("--step-seconds", nargs=2, action="append", metavar=("NAME", "SECONDS"))

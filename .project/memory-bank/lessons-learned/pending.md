@@ -2260,3 +2260,12 @@ Promote if a second harness needs the same split.
 **Rule:** Say which half of L_dvs a run keeps whenever `dvs.theta` is changed.
 **Files:** core/train.py (`dvs_rows`), core/data/dataset.py:177, core/tests/test_kim.py (`dvs_sup` assert)
 **Why pending:** one occurrence, caught before any run. Promote on a second.
+
+## (cl) [MEDIUM] Experiments - a printed baseline should not be a hard runtime dependency (2026-11-06)
+**Triggers:** checkpoint deleted, baseline checkpoint, W0, pilot host, Drive cleanup, printed row, re-read
+**Problem:** `kim_runs.ipynb` asserted W0's `checkpoint_last.pt` at setup although W0 was only a printed row and a config diff; deleting the checkpoint stopped every arm, including those that never load it.
+**Bad:** `assert W0_RUN is not None` on the weights, when only `config.yaml` and the saved reads are used by anything that decides
+**Good:** require the artefact each step really reads, check it at setup, and say what to upload when it is missing
+**Rule:** Assert only the files a step reads; never make a printed comparison row a precondition for the deciding arms.
+**Files:** colab/final/kim_runs.ipynb (setup, step 4b), core/tools/kim_pilot.py (`--name`), core/docs/final/KIM_RUN.md §5.1
+**Why pending:** one occurrence. Promote on a second.

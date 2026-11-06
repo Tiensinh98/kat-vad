@@ -9,7 +9,7 @@
 |---|---|---|
 | K-0 | Notation map + rule doc `core/docs/final/KIM_RUN.md` (before any number) | **done 2026-11-06**; proposal corrected the same day (§2 items 1–8, DVS off, Nexar-only, pilot on endpoints) |
 | K-1 | Build `core/kim/` + wiring + tests (CPU, data-free) | **built 2026-11-06** (K2/K5 only; ladder flags not built); `test_kim.py` 27 green. Added arm **K0k9** (host kernel 9, `KIM_RUN.md` §3.1) |
-| K-2 | Pilot (inference only, W0 checkpoint) KP1–KP4 | **tool + notebook built 2026-11-06** (`kim_pilot.py`, `kim_runs.ipynb` step 5); not run |
+| K-2 | Pilot (inference only, **decided control K0 / K0k9**: W0's checkpoint deleted, `KIM_RUN.md` §4 note, §5.1) KP1–KP4 | **tool + notebook built 2026-11-06, moved the same day** (`kim_pilot.py --name`, `kim_runs.ipynb` step 8, after the kernel read-out, before K2 / K5); not run |
 | K-3 | First training read: K0 / K0k9 → K2 / K5, n = 1, Nexar | **read-out + notebook built 2026-11-06** (`kim_readout.py`, `kim_runs.ipynb` steps 6–10); not run |
 | K-4 | Ladder + 3 seeds on the rows kept | not started |
 
