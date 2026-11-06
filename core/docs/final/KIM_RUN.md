@@ -2,7 +2,8 @@
 
 > Branch `v_final_las_vad`. Proposal: `core/docs/final/Thesis proposal … (LaGoVAD-KIM.md`.
 > Plan: `.project/plans/katvad-kim.md`. **Status: RULE, written 2026-11-06 before any KIM number.
-> K-1 BUILT 2026-11-06 (`core/kim/`, wiring, `core/tests/test_kim.py`); nothing has been run.** Every later change to this file is a dated note
+> K-1 BUILT 2026-11-06 (`core/kim/`, wiring, `core/tests/test_kim.py`); pilot `core/tools/kim_pilot.py`,
+> read-out `core/tools/kim_readout.py`, runbook `colab/final/kim_runs.ipynb` built the same day; nothing has been run.** Every later change to this file is a dated note
 > below the text it changes, never an edit of a rule after its number is seen.
 
 ## 0. Scope: what KIM may touch
@@ -154,3 +155,17 @@ touch padding; `kim_scale` detached and ignores masked pairs; `kim_mil` hand-com
 hand-computed on a 2-bag toy (positive in denominator); prototypes carry no grad and skip warm-up;
 empty 𝒜 ⇒ 0; D15 exclusivity; checkpoint round-trip; `dvs.theta = 1` ⇒ no synthesized sample and
 `dvs_sup` only on label-0 rows. Quality gate CLAUDE.md §11 on the touched files.
+
+## 8. Tools and runbook (built 2026-11-06, before any number)
+
+- **Pilot** `python -m core.tools.kim_pilot`: loads W0 (J10), reads labels and W0's scores from W0's own
+  reads of each set (`clip_scores.npz` / `scores/`), feature rows from the bakes those reads used; writes
+  `kim_pilot.{json,md}` with §5's decisions (`input`, KP1–KP4). Candidates: `vt`, `x`, `clip`, `motion` ×
+  order 1 / 2; KP2 = rank-average of W0's score with `vt2`; KP3 on `vt1` step curves; KP4 on `vt2`
+  (DoTA 0.1 s per native frame, DADA 8/30 s per row; TAD has no known step, so no KP4).
+- **Read-out** `python -m core.tools.kim_readout`: rows by `--dota/--dada/--tad NAME DIR`; contrasts
+  control − W0 (printed), K0k9 / K2 / K5 − control, K5 − K2; decisions `kernel` (§3.1, only with control
+  K0) and `stop_rule` (§6). TAD never decides.
+- **Runbook** `colab/final/kim_runs.ipynb`: pilot → K0, K0k9 → read-out 1 (kernel) → K2, K5 on the
+  decided host (refused if the pilot changed the build) → read-out 2 (stop rule). Config diff checked
+  against W0's `config.yaml`; outputs under `Thesis-Final/outputs/kim/`.

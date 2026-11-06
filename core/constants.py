@@ -1051,3 +1051,17 @@ KIM_DIAG_KEYS = (  # logged per batch, never in the total
     "kim_w_out_norm", "kim_w_state_norm", "kim_vel_gate", "kim_acc_gate", "kim_scale",
     "kim_anchor_share", "kim_proto_cos", "kim_proto_ready",
 )
+KIM_OUTPUT_DIRNAME = "kim"  # OUTPUT_ROOT/kim: <arm>/s<seed>/, eval/{dota,dada,tad}/<arm>, REPORTS/
+KIM_SEED = 2024  # first pass (KIM_RUN.md §3)
+KIM_CONTROL = "K0"
+KIM_W0 = "W0"  # printed beside, never the control (D3)
+# pilot KP1-KP4 (KIM_RUN.md §5): every number fixed before the pilot runs
+KIM_PILOT_TOP_SHARE = 0.05  # KP3: top 5 % of a video's vt order-1 differences
+KIM_PILOT_EDGE_FACTOR = 2.0  # KP3 pass: edge share <= 2 x chance on every set
+KIM_PILOT_KP1_BAR = 0.60  # KP1 pass: vt order-2 macro on DoTA-CAP-dev ego-involved
+KIM_PILOT_INPUT_MARGIN = 0.02  # KP1: another input replaces vt iff it beats it by this on both sets
+KIM_PILOT_ONSET_S = 0.5  # KP4: |peak - onset| within this many seconds ...
+KIM_PILOT_ONSET_SHARE = 0.5  # ... on at least this share of abnormal clips, DoTA-CAP-dev and DADA
+KIM_PILOT_DISCLOSURE = (
+    "The KP pilot read DoTA-CAP-dev / DADA / TAD with W0 before KIM was trained (KIM_RUN.md §5)."
+)
