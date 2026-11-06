@@ -153,6 +153,12 @@ Stop rule written in K-0: K5 − K0 cost on both endpoints → close the line, n
 
 ## 6. Questions for the user
 
+**Answered 2026-11-06:** U1 = proposal form (mean of top-k **probabilities** `kim_score`, then BCE;
+differs from the host's logit average, recorded as a deviation-free choice in `KIM_RUN.md`).
+U2 = **Nexar only, no CCD** (P3 = Nexar; CCD rows, CCD onset and Nexar+CCD comparisons leave scope;
+onset analysis uses Nexar event times + DoTA-CAP-dev anomaly start). U3 = **pilot on Nexar val**.
+U4–U6: explained to the user, waiting.
+
 - **[U1]** KIM MIL: average top-k logits (host code) or top-k probabilities (proposal)?
 - **[U2]** CCD: download + adapter now, or Nexar-only like every v_final row?
 - **[U3]** Pilot on Nexar val instead of DoTA-train (impossible)?
