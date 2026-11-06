@@ -221,6 +221,20 @@ does not refute it. "TDP" stays forbidden as a contribution.
 pseudo-labels); K5 − K0 and K2 − K0 "no difference shown" on both endpoints, as MQR / LSP / SA²; if
 anything moves it is DADA (ego-heavy) before DoTA-CAP-dev.
 
+### 6.2 Seed 2025 (dated note 2026-11-07, before any s2025 number; user)
+
+K5 passed §6.1 at s2024 (n = 1), and a gain at n = 1 adopts nothing (§6).
+
+- **Runs:** K0 and K5, s2025, code and recipe of s2024: host kernel 3, K5 with `kim.edge_mask=true`. Runbook
+  `colab/final/kim_seed.ipynb`, reads under `outputs/kim/eval_s2025/`. No pilot on this seed.
+- **Read:** K5 − K0 per seed, §6's labels, paired within the seed. No pooling across seeds in this note.
+- **Decision, fixed now:** K5 − K0 **gain on DADA** at s2025 → K5 counts as reproduced at n = 2 and the line goes on
+  (Kcap, K2, s2026). Anything else → "not reproduced": no Kcap or K2 run, no variants. DoTA-CAP-dev is read beside it;
+  a DoTA-only gain does not count, because DoTA sits below its own position ruler (middle ruler 0.8516).
+- **K5 − W0 (printed, never decides):** paired per video by `kim_readout`, s2024 only, since W0 has no other seed. Its
+  label is a description, not a rule. W0 keeps DVS on, so the contrast mixes DVS off with KIM.
+- **Prediction (written before the number):** positive on DADA, smaller than s2024's +0.0484.
+
 ## 7. Build checklist (K-1, CPU, data-free)
 
 Tests in `core/tests/test_kim.py`: `kim.enabled=false` ⇒ outputs, loss keys and state-dict keys

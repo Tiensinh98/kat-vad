@@ -1053,6 +1053,7 @@ KIM_DIAG_KEYS = (  # logged per batch, never in the total
 )
 KIM_OUTPUT_DIRNAME = "kim"  # OUTPUT_ROOT/kim: <arm>/s<seed>/, eval/{dota,dada,tad}/<arm>, REPORTS/
 KIM_SEED = 2024  # first pass (KIM_RUN.md §3)
+KIM_REPLICATE_SEED = 2025  # the first replication of K0 / K5 (KIM_RUN.md §6.2)
 KIM_CONTROL = "K0"
 KIM_W0 = "W0"  # printed beside, never the control (D3)
 # pilot KP1-KP4 (KIM_RUN.md §5): every number fixed before the pilot runs

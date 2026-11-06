@@ -14,7 +14,7 @@ always ``PRELIMINARY (n = 1)``. Endpoints: DoTA-CAP-dev and DADA; TAD is printed
 
 Decisions fixed before the numbers: K0k9 - K0 gain on **both** endpoints → kernel 9 hosts every K
 row (§3.1), else kernel 3; K5 - control cost on **both** endpoints → KIM line closed (§6), else
-continue. Printed: K0 - W0 (the cost of DVS off alone), ego / non-ego splits, the position
+continue. Printed: K0 - W0 (the cost of DVS off alone), K5 - W0, ego / non-ego splits, the position
 rulers, the training diagnostics of every run (first → last, plus the last-epoch mean ``mil``),
 and with ``--pilot`` the training-free rank average of the host with ``vt2`` (§5.2).
 
@@ -97,6 +97,8 @@ def contrast_pairs(names: list[str], control: str) -> list[tuple[str, str, str]]
             pairs.append((arm, control, what))
     if K5 in names and K2 in names:
         pairs.append((K5, K2, "prototypes + NKC"))
+    if K5 in names and constants.KIM_W0 in names:
+        pairs.append((K5, constants.KIM_W0, "full KIM, DVS off, vs the DVS-on host (printed)"))
     return pairs
 
 

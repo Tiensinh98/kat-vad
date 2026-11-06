@@ -321,6 +321,18 @@ class TestReadout:
         assert "K0 + `vt2` rank average" in md and "+0.0140 [+0.0060, +0.0210]" in md
         assert "middle ruler" in md and "in-domain cubic `p` = 0.8520" in md
 
+    def test_k5_minus_w0_is_paired_printed_and_never_decides(self, tmp_path: Path) -> None:
+        argv = _runs(tmp_path, {"W0": (0.0, 0.0), "K0": (-0.03, -0.03), "K5": (-0.02, -0.02)})
+        r = kim_readout.run(kim_readout.build_arg_parser().parse_args(
+            [*argv, "--out-dir", str(tmp_path / "rep")]))
+        for name in ("dota", "dada"):
+            c = r["sets"][name]["contrasts"]["K5 - W0"]
+            assert c["delta"]["mean"] == pytest.approx(-0.02, abs=1e-9)
+            assert c["sentence"] == COST and "printed" in c["what"]
+        # K5 is a cost against W0 but a gain against the control: only the control decides
+        assert r["decisions"]["stop_rule"] == kim_readout.CONTINUE
+        assert "K5 - W0" in (tmp_path / "rep" / "kim_readout.md").read_text()
+
     def test_needs_a_row(self, tmp_path: Path) -> None:
         with pytest.raises(ValueError, match="at least one"):
             kim_readout.run(kim_readout.build_arg_parser().parse_args(
