@@ -92,11 +92,14 @@ def contrast_pairs(names: list[str], control: str) -> list[tuple[str, str, str]]
         what = "DVS off alone" if control == constants.KIM_CONTROL else "DVS off + host change"
         pairs.append((control, constants.KIM_W0, f"{what} (printed)"))
     for arm, what in ((K0K9, "host kernel 9 (§3.1)"), (K2, "KIM, no prototypes"),
-                      (K5, "full KIM")):
+                      (K5, "full KIM"),
+                      (constants.KIM_CAP_ARM, "capacity + losses, no differences")):
         if arm in names and control in names and arm != control:
             pairs.append((arm, control, what))
     if K5 in names and K2 in names:
         pairs.append((K5, K2, "prototypes + NKC"))
+    if K5 in names and constants.KIM_CAP_ARM in names:
+        pairs.append((K5, constants.KIM_CAP_ARM, "the differences (§6.3)"))
     if K5 in names and constants.KIM_W0 in names:
         pairs.append((K5, constants.KIM_W0, "full KIM, DVS off, vs the DVS-on host (printed)"))
     return pairs

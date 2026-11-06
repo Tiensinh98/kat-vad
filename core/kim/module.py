@@ -17,6 +17,9 @@ and the pre-fusion head (KIP's slot). Per step (proposal §3.2.2-§3.2.3, code n
 over valid pairs of ``mean_c |state_t - state_{t-1}|`` per bag (D6). ``w_t = (1 + cos(kin_feat_t,
 mu[argmax logits_t])) / 2`` once both prototypes exist (arm K5), else 1 (arm K2). The prototypes
 are buffers with no gradient, updated by :meth:`KIM.update_prototypes` (D8).
+
+:class:`KIMCapacity` is arm Kcap: ``kin_feat = MLP(LN(v^t))`` with no differences, the same width,
+scorer, ``W_out`` and losses, and about the same parameter count (``KIM_RUN.md`` §3, §6.3).
 """
 
 from __future__ import annotations
@@ -89,10 +92,7 @@ class KIM(nn.Module):
         self.edge_mask = edge_mask
         feat_dim = 3 * width
         self.norm = nn.LayerNorm(d_model)
-        self.state_proj = nn.Linear(d_model, width)
-        pad = (constants.KIM_GATE_KERNEL - 1) // 2
-        self.vel_gate = nn.Conv1d(width, width, constants.KIM_GATE_KERNEL, padding=pad)
-        self.acc_gate = nn.Conv1d(width, width, constants.KIM_GATE_KERNEL, padding=pad)
+        self._build_feature_layers(d_model, width)
         self.scorer = nn.Sequential(
             nn.Linear(feat_dim, constants.KIM_SCORER_HIDDEN),
             nn.ReLU(),
@@ -104,9 +104,18 @@ class KIM(nn.Module):
         self.register_buffer("proto_init", torch.zeros(constants.KIM_CLASSES, dtype=torch.bool))
         self.reset_parameters()
 
+    def _build_feature_layers(self, d_model: int, width: int) -> None:
+        self.state_proj = nn.Linear(d_model, width)
+        pad = (constants.KIM_GATE_KERNEL - 1) // 2
+        self.vel_gate = nn.Conv1d(width, width, constants.KIM_GATE_KERNEL, padding=pad)
+        self.acc_gate = nn.Conv1d(width, width, constants.KIM_GATE_KERNEL, padding=pad)
+
+    def _feature_layers(self) -> tuple[nn.Module, ...]:
+        return (self.state_proj, self.vel_gate, self.acc_gate)
+
     def reset_parameters(self) -> None:
         """Xavier weights, zero biases (gates start at 0.5), ``W_out = 0`` (D13)."""
-        for layer in (self.state_proj, self.vel_gate, self.acc_gate, *self.scorer):
+        for layer in (*self._feature_layers(), *self.scorer):
             if isinstance(layer, (nn.Linear, nn.Conv1d)):
                 nn.init.xavier_uniform_(layer.weight)
                 if layer.bias is not None:
@@ -123,9 +132,8 @@ class KIM(nn.Module):
         mean_gate = gate.detach()[valid].mean() if valid.any() else gate.new_zeros(())
         return gate * diff, mean_gate
 
-    def forward(self, vt: Tensor, mask: Tensor) -> KIMOutput:
-        """``vt (B, L, D)``, ``mask (B, L)`` float with 1 = valid."""
-        mask = mask.to(vt.dtype)
+    def _features(self, vt: Tensor, mask: Tensor) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+        """``kin_feat (B, L, 3w)`` before masking, ``scale (B,)``, velocity and acc gates."""
         pair = pair_mask(mask, drop_first=self.edge_mask)
         state = self.state_proj(self.norm(vt))
         d1 = first_difference(state)
@@ -136,7 +144,13 @@ class KIM(nn.Module):
         pair2[:, 1:] = pair[:, 1:] * pair[:, :-1]
         d2 = first_difference(vel) * pair2.unsqueeze(-1)
         acc, acc_gate = self._gated(self.acc_gate, d2, mask)
-        kin_feat = torch.cat([state, vel, acc], dim=-1) * mask.unsqueeze(-1)
+        return torch.cat([state, vel, acc], dim=-1), scale, vel_gate, acc_gate
+
+    def forward(self, vt: Tensor, mask: Tensor) -> KIMOutput:
+        """``vt (B, L, D)``, ``mask (B, L)`` float with 1 = valid."""
+        mask = mask.to(vt.dtype)
+        raw, scale, vel_gate, acc_gate = self._features(vt, mask)
+        kin_feat = raw * mask.unsqueeze(-1)
         logits = self.scorer(kin_feat)
         score = self._score(kin_feat, logits)
         return KIMOutput(
@@ -194,4 +208,26 @@ class KIM(nn.Module):
         return norm
 
 
-__all__ = ["KIM", "KIMOutput", "first_difference", "kim_scale", "pair_mask"]
+class KIMCapacity(KIM):
+    """Arm Kcap: K5 with ``kin_feat = MLP(LN(v^t))``, per step, no differences and no pairs."""
+
+    def _build_feature_layers(self, d_model: int, width: int) -> None:
+        self.cap_mlp = nn.Sequential(
+            nn.Linear(d_model, constants.KIM_CAP_HIDDEN),
+            nn.ReLU(),
+            nn.Linear(constants.KIM_CAP_HIDDEN, 3 * width),
+        )
+
+    def _feature_layers(self) -> tuple[nn.Module, ...]:
+        return tuple(self.cap_mlp)
+
+    def _features(self, vt: Tensor, mask: Tensor) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+        none = vt.new_zeros(())  # no velocity or acceleration gate exists; logged as 0
+        return self.cap_mlp(self.norm(vt)), vt.new_ones(vt.shape[0]), none, none
+
+    def w_state_norm(self) -> Tensor:
+        norm: Tensor = next(self.cap_mlp.parameters()).detach().norm()  # the first layer's weight
+        return norm
+
+
+__all__ = ["KIM", "KIMCapacity", "KIMOutput", "first_difference", "kim_scale", "pair_mask"]

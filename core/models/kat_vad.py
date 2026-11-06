@@ -25,7 +25,7 @@ from torch import Tensor, nn
 from core import constants
 from core.config import validate_kim, validate_stp, validate_v2, validate_v5
 from core.data.collate import padding_mask
-from core.kim.module import KIM
+from core.kim.module import KIM, KIMCapacity
 from core.kip.kip_module import KIP
 from core.models.clip_text import SoftPromptCLIPTextModel, clip_text_projection
 from core.models.fusion import CoAttentionFusion
@@ -60,7 +60,8 @@ def _build_kim(cfg: Config) -> KIM:
     """KIM under a private RNG (``KIM_RUN.md`` D13): host init and data order equal K0's."""
     with torch.random.fork_rng(devices=[]):
         torch.manual_seed(cfg.train.seed)
-        return KIM(cfg.model.hidden_dim, cfg.kim.width, prototypes=cfg.kim.prototypes,
+        arm = KIMCapacity if cfg.kim.capacity_control else KIM
+        return arm(cfg.model.hidden_dim, cfg.kim.width, prototypes=cfg.kim.prototypes,
                    edge_mask=cfg.kim.edge_mask)
 
 

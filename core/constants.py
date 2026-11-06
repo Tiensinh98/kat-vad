@@ -1047,6 +1047,8 @@ KIM_WARMUP_STEPS = 219  # round(5 / 40 * 1,749): NKC + prototype updates start h
 KIM_CLASSES = 2  # binary normal / abnormal (proposal §3.2.1)
 KIM_ARMS = ("K0", "K0k9", "K2", "K5")  # first pass (KIM_RUN.md §3); K0k9 = host kernel 9
 KIM_HOST_KERNEL_K9 = 9  # K0k9's model.score_head_kernel (KIM_RUN.md §3.1)
+KIM_CAP_ARM = "Kcap"  # K5 without differences (KIM_RUN.md §3, §6.3); not in KIM_ARMS (runbooks unpack it)
+KIM_CAP_HIDDEN = 183  # 164,535 MLP params vs 164,224 in W_state + both gates, at KIM_WIDTH (+0.2 %)
 KIM_DIAG_KEYS = (  # logged per batch, never in the total
     "kim_w_out_norm", "kim_w_state_norm", "kim_vel_gate", "kim_acc_gate", "kim_scale",
     "kim_anchor_share", "kim_proto_cos", "kim_proto_ready",

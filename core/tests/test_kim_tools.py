@@ -333,6 +333,16 @@ class TestReadout:
         assert r["decisions"]["stop_rule"] == kim_readout.CONTINUE
         assert "K5 - W0" in (tmp_path / "rep" / "kim_readout.md").read_text()
 
+    def test_kcap_prints_its_contrasts_and_never_decides(self, tmp_path: Path) -> None:
+        argv = _runs(tmp_path, {"K0": (0.0, 0.0), "K5": (-0.02, -0.02), "Kcap": (0.02, 0.02)})
+        r = kim_readout.run(kim_readout.build_arg_parser().parse_args(
+            [*argv, "--out-dir", str(tmp_path / "rep")]))
+        c = r["sets"]["dada"]["contrasts"]
+        assert c["K5 - Kcap"]["delta"]["mean"] == pytest.approx(-0.04, abs=1e-9)
+        assert c["Kcap - K0"]["sentence"] == GAIN
+        # §6's stop rule reads K5 - K0 alone, whatever Kcap does
+        assert r["decisions"]["stop_rule"] == kim_readout.CLOSED
+
     def test_needs_a_row(self, tmp_path: Path) -> None:
         with pytest.raises(ValueError, match="at least one"):
             kim_readout.run(kim_readout.build_arg_parser().parse_args(

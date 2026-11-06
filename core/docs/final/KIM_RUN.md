@@ -235,6 +235,23 @@ K5 passed §6.1 at s2024 (n = 1), and a gain at n = 1 adopts nothing (§6).
   label is a description, not a rule. W0 keeps DVS on, so the contrast mixes DVS off with KIM.
 - **Prediction (written before the number):** positive on DADA, smaller than s2024's +0.0484.
 
+### 6.3 Kcap (dated note 2026-11-07, before any Kcap number; user)
+
+Kcap asks whether K5's gain needs the differences, or only a branch of this capacity with these losses (H2).
+
+- **Arm:** `kim.capacity_control=true`, `kim.prototypes=true`, `kim.edge_mask=false`. `kin_feat = MLP(LN(vt))`, per
+  step: `Linear(D, 183)`, ReLU, `Linear(183, 3w)`, 164,535 parameters against 164,224 in `W_state` + both gates. Same
+  scorer, `W_out`, prototypes, `kim_mil`, `kim_nkc`, warm-up. The mask has nothing to act on, so the config refuses it.
+- **What differs from K5, beyond the differences:** K5's gates see 3 steps; Kcap sees one. Its `vt` still carries
+  RoFormer's temporal context, so Kcap tests **explicit** differences, not temporal information.
+- **When:** built now; it runs only after §6.2 reads "reproduced". Same seeds as K5 (s2024, s2025), runbook
+  `kim_seed.ipynb` with `ARMS = (K0, K5, KCAP)`, read per seed.
+- **Decision, fixed now:** K5 − Kcap **gain on DADA at both seeds** → the differences contribute, and "the gain needs
+  the explicit differences" may be written with its n. Anything else → the gain is not attributed to the differences;
+  §6's forbidden phrasing stays and any K5 gain is reported as branch + losses. DoTA-CAP-dev is read beside it, as in §6.2.
+- **Printed, never decides:** Kcap − K0. Kcap never enters `stop_rule`.
+- **Prediction (written before the number):** K5 − Kcap "no difference shown", as v2.2 S3.
+
 ## 7. Build checklist (K-1, CPU, data-free)
 
 Tests in `core/tests/test_kim.py`: `kim.enabled=false` ⇒ outputs, loss keys and state-dict keys

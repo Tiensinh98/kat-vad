@@ -16,7 +16,7 @@ from core.data.collate import collate_variable_length, padding_mask
 from core.data.dataset import DVSFeatureDataset
 from core.inference import load_model_for_scoring
 from core.kim.losses import kim_anchors, kim_mil_loss, kim_nkc_loss, normal_steps
-from core.kim.module import KIM, first_difference, kim_scale, pair_mask
+from core.kim.module import KIM, KIMCapacity, first_difference, kim_scale, pair_mask
 from core.models.kat_vad import KATVAD
 from core.models.text_encoding import make_text_encoder
 from core.tests.fixtures import build_fixture
@@ -155,6 +155,70 @@ class TestFeatures:
         torch.testing.assert_close(module.prototypes[1], torch.ones(3 * module.width))
         assert not module.prototypes.requires_grad
         assert "prototypes" in module.state_dict() and "proto_init" in module.state_dict()
+
+
+class TestCapacityControl:
+    """Arm Kcap (``KIM_RUN.md`` §3, §6.3)."""
+
+    @staticmethod
+    def _cfg() -> Config:
+        cfg = _kim(prototypes=True)
+        cfg.kim.capacity_control = True
+        return cfg
+
+    def test_capacity_matches_within_one_percent(self) -> None:
+        def count(module: torch.nn.Module) -> int:
+            return sum(p.numel() for p in module.parameters())
+
+        assert abs(count(KIMCapacity(D)) / count(KIM(D)) - 1.0) < 0.01
+        features = count(KIMCapacity(D).cap_mlp)
+        replaced = sum(count(m) for m in KIM(D)._feature_layers())
+        assert abs(features / replaced - 1.0) < 0.01
+
+    def test_each_step_sees_itself_only(self) -> None:
+        module = KIMCapacity(D, prototypes=True).eval()
+        vt = torch.randn(1, 6, D)
+        mask = padding_mask(torch.tensor([6]), 6)
+        moved = vt.clone()
+        moved[0, 2] += 5.0
+        before, after = module(vt, mask).kin_feat, module(moved, mask).kin_feat
+        changed = (before != after).any(dim=-1)[0]
+        assert changed.tolist() == [False, False, True, False, False, False]
+
+    def test_same_shapes_zero_on_padding_and_starts_as_the_host(self) -> None:
+        vt = torch.randn(2, 6, D)
+        mask = padding_mask(torch.tensor([6, 4]), 6)
+        module = KIMCapacity(D, prototypes=True)
+        out = module(vt, mask)
+        assert module.w_state_norm() == module.cap_mlp[0].weight.norm()
+        assert out.kin_feat.shape == (2, 6, 3 * constants.KIM_WIDTH)
+        assert out.kin_feat[1, 4:].abs().sum() == 0
+        torch.testing.assert_close(out.features, vt)  # W_out = 0
+        assert out.vel_gate == 0 and out.acc_gate == 0 and out.scale.tolist() == [1.0, 1.0]
+
+    def test_config_builds_it_and_refuses_what_no_arm_defines(self) -> None:
+        validate_kim(self._cfg())
+        off = self._cfg()
+        off.kim.enabled = False
+        off.kim.prototypes = False
+        no_proto = self._cfg()
+        no_proto.kim.prototypes = False
+        masked = self._cfg()
+        masked.kim.edge_mask = True
+        for bad, match in ((off, "capacity_control needs"), (no_proto, "capacity_control needs"),
+                           (masked, "no pairs")):
+            with pytest.raises(ValueError, match=match):
+                validate_kim(bad)
+
+    def test_host_init_equals_k5(self) -> None:
+        def build(cfg: Config) -> KATVAD:
+            set_global_seed(0)
+            return KATVAD.from_config(cfg)
+
+        cap, full = build(self._cfg()).state_dict(), build(_kim(prototypes=True)).state_dict()
+        host = [k for k in full if not k.startswith("kim.")]
+        assert host and all(torch.equal(cap[k], full[k]) for k in host)
+        assert isinstance(build(self._cfg()).kim, KIMCapacity)
 
 
 class TestLosses:
@@ -375,3 +439,24 @@ class TestTraining:
         trainer.train()
         model = load_model_for_scoring(Config(), CPU, out / "checkpoint_last.pt", None, "stub")
         assert model.kim is not None and model.kim.edge_mask is True
+
+    def test_capacity_control_survives_train_to_score(self, tmp_path: Path) -> None:
+        data_dir, host = _fixture(tmp_path)
+        cfg = _kim(True)
+        cfg.kim.capacity_control = True
+        cfg.kim.warmup_steps = 0  # prototypes and NKC act at once, as K5's after warm-up
+        cfg.train.batch_size, cfg.train.num_epochs, cfg.train.device = 4, 2, "cpu"
+        set_global_seed(cfg.train.seed)
+        out = tmp_path / "run"
+        trainer = build_trainer(cfg, out, data_dir, host, text_encoder="stub", log_every=1)
+        cfg.save_yaml(out / "config.yaml")
+        module = trainer.model.kim
+        assert isinstance(module, KIMCapacity)
+        before = next(module.cap_mlp.parameters()).detach().clone()
+        trainer.train()
+        assert not torch.equal(next(module.cap_mlp.parameters()), before)  # the losses reach it
+        logged = [json.loads(x) for x in (out / "metrics.jsonl").read_text().splitlines() if x]
+        assert any(r.get("kim_nkc", 0.0) > 0.0 for r in logged)
+        assert logged[-1]["kim_w_out_norm"] > 0.0
+        model = load_model_for_scoring(Config(), CPU, out / "checkpoint_last.pt", None, "stub")
+        assert isinstance(model.kim, KIMCapacity)
