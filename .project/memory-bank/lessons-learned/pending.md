@@ -2269,3 +2269,12 @@ Promote if a second harness needs the same split.
 **Rule:** Assert only the files a step reads; never make a printed comparison row a precondition for the deciding arms.
 **Files:** colab/final/kim_runs.ipynb (setup, step 4b), core/tools/kim_pilot.py (`--name`), core/docs/final/KIM_RUN.md §5.1
 **Why pending:** one occurrence. Promote on a second.
+
+## (cm) [MEDIUM] Experiments - a check that pools two causes cannot pick the fix (2026-11-07)
+**Triggers:** edge share, KP3, pooled check, consequence, pre-registered fix, first step, last step, boundary artefact
+**Problem:** KP3 pooled the first and last differences while its fixed consequence masked only the last; split, the excess was all on the first pair (DoTA 0.119 vs 0.011) and the last sat below chance, so the rule's fix would have missed it.
+**Bad:** "edge share > 2× chance -> mask the last pair", read from one number
+**Good:** report each side separately and name the fix per side before reading the check
+**Rule:** Measure a check at the same granularity as the fix its failure triggers.
+**Files:** core/tools/kim_pilot.py (`edge_sides`, `first_mask_fits`), core/kim/module.py (`pair_mask`), core/docs/final/KIM_RUN.md §5.3
+**Why pending:** one occurrence. Promote on a second.

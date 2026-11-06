@@ -156,6 +156,37 @@ it on the host that is trained anyway. **Chosen: the third.** The text of §5 ab
 - All bars and consequences in §5's table are unchanged. Not built yet: the KP1 input switch and
   `KIM_EDGE_MASK`; if either fires, the notebook stops before K2 / K5 and the build comes first.
 
+### 5.2 After KP3 failed (dated note 2026-11-07; user). Written after the first pilot, before any K2 / K5 number
+
+KP3 failed on the first pilot (K0). Its share pools the first and the last difference, while §5's mask
+reaches only the last, so the mask could miss the excess. Nothing in §5's table changes.
+
+- **Mask:** §5's `KIM_EDGE_MASK` is the config flag `kim.edge_mask`, set in K2 and K5 (never K0 / K0k9, which
+  have no KIM). It zeroes each bag's last valid pair, in training and at test.
+- **Split (printed):** the same pilot on K0 again, into `REPORTS/pilot_edges/`, prints the first and last shares
+  separately. Its verdicts must equal the first pilot's.
+- **Stop, fixed now:** if the first pair's share exceeds the last's on DoTA-CAP-dev or DADA (`last_mask_fits`
+  false; TAD never decides), the last-pair mask does not fit the failure: K2 / K5 are not trained and the user
+  decides. No other edge mask is built without a new dated note.
+- **Position (printed, never decides):** the pilot now prints the middle ruler, computed per set, and the two
+  recorded DoTA-CAP-dev cubic priors (`p_T2` 0.8220, `p` 0.852). No cubic `p` is fitted on DADA / TAD.
+- **Training-free baseline (printed, never decides):** `kim_readout --pilot` prints the host + `vt2` rank average
+  beside the arms. A K2 / K5 gain of that size is not evidence for the learned module. §6's labels and stop rule
+  do not change.
+
+### 5.3 The mask moves to the first pair (dated note 2026-11-07, before any K2 / K5 number; user)
+
+**Why, and what was seen:** §5.2's split stopped the notebook. Share of the top-5 % `vt1` steps, first / last pair
+(chance per edge): DoTA-CAP-dev 0.119 / 0.011 (0.033), DADA 0.141 / 0.016 (0.027), TAD 0.161 / 0.026 (0.036). The
+excess is on the first pair; the last pair is below chance. **This changes §5's consequence after KP3's number was
+seen.** No KIM score had been seen. The cause is not measured (`vt` only).
+
+- `kim.edge_mask` now zeroes each bag's **first** valid pair, in training and at test, replacing §5's last-pair mask
+  and §5.2's stop. K5 trains with it. The last pair stays.
+- If a re-read no longer has the first pair above the last on both endpoints (`first_mask_fits`), step 9 is refused
+  and the user decides.
+- §6.1's stop rule and prediction-free reading are unchanged. KP4's H6 drop stands.
+
 ## 6. Training read-out rule (first pass)
 
 - **Endpoints:** DoTA-CAP-dev protocol-B macro and DADA-2000 macro. TAD macro secondary (printed, never
@@ -170,6 +201,21 @@ it on the host that is trained anyway. **Chosen: the third.** The text of §5 ab
   (overfit tell), W0 and K0 side by side (cost of D2 alone), `p` / `t/N` beside every macro.
 - **Forbidden phrasing:** "KIM sees kinematics" without Kcap; "motion-gated"; any KIM number next to
   LaGoVAD's 62.60.
+
+### 6.1 K5 only, stricter stop (dated note 2026-11-07, before any K2 / K5 number; user)
+
+**Prior evidence this rule should have cited:** `core/docs/v2.2/RESULTS_V22_ORDER.md` (2026-10-13). S3(a) on
+explicit velocity / acceleration features: **−0.0007 [−0.0063, +0.0047]**, so TDP (IAM on the CLIP vector) was
+not built. S1a already showed the change score (`m5` 0.750 on DoTA-CAP-dev, ego 0.785, non-ego 0.706), and S1c
+bias at a clip's first steps. KIM differs (end-to-end, on `vt`, Nexar bag labels), so this lowers the prior and
+does not refute it. "TDP" stays forbidden as a contribution.
+
+- **First pass = K5 only.** K2 runs only if K5 passes below. §3's K2 row and the K2 contrasts wait until then.
+- **To continue (K2, more seeds, ladder), K5 needs both:** a **gain** against the control on DoTA-CAP-dev **and**
+  DADA, and a macro above the training-free rank average (`kim_readout --pilot`, §5.2) on both.
+- **Anything else closes the KIM line**: no variants, no LR / λ sweep. This is stricter than §6's stop rule. The
+  read-out's `stop_rule` field still prints §6's verdict, so this rule is read from its numbers.
+- A first-pair stop from §5.2 means no K5; the user then decides between a dated note and closing.
 
 **Prediction (written before any number):** K0 ≤ W0 by a few points (D2 removes the host's frame
 pseudo-labels); K5 − K0 and K2 − K0 "no difference shown" on both endpoints, as MQR / LSP / SA²; if

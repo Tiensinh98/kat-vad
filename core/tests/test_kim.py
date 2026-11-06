@@ -57,6 +57,37 @@ class TestFeatures:
         expected = torch.tensor([[0.0, 1, 1, 1], [0, 1, 0, 0]])
         torch.testing.assert_close(pair_mask(mask), expected)
 
+    def test_edge_mask_drops_each_bags_first_valid_pair(self) -> None:
+        mask = padding_mask(torch.tensor([4, 3, 1]), 4)
+        expected = torch.tensor([[0.0, 0, 1, 1], [0, 0, 1, 0], [0, 0, 0, 0]])
+        torch.testing.assert_close(pair_mask(mask, drop_first=True), expected)
+
+    def test_edge_mask_removes_the_first_step_from_every_change(self) -> None:
+        vt = torch.randn(1, 6, D)
+        mask = padding_mask(torch.tensor([6]), 6)
+        plain, masked = KIM(D), KIM(D, edge_mask=True)
+        masked.load_state_dict(plain.state_dict())
+        moved = vt.clone()
+        moved[0, 0] += 10.0
+        width = plain.width
+        before, after = masked(vt, mask).kin_feat, masked(moved, mask).kin_feat
+        # how far step 0 sits reaches no velocity or acceleration; its own state still sees it
+        torch.testing.assert_close(after[0, 1:], before[0, 1:])
+        assert after[0, 1, width:].abs().sum() == 0
+        assert not torch.equal(after[0, 0, :width], before[0, 0, :width])
+        unmasked = plain(vt, mask).kin_feat[0, 1, width:]
+        assert not torch.equal(plain(moved, mask).kin_feat[0, 1, width:], unmasked)
+
+    def test_edge_mask_needs_kim_and_reaches_the_module(self) -> None:
+        cfg = _host()
+        cfg.kim.edge_mask = True
+        with pytest.raises(ValueError, match=r"kim\.edge_mask needs"):
+            validate_kim(cfg)
+        cfg = _kim()
+        assert KATVAD.from_config(cfg).kim.edge_mask is False  # type: ignore[union-attr]
+        cfg.kim.edge_mask = True
+        assert KATVAD.from_config(cfg).kim.edge_mask is True  # type: ignore[union-attr]
+
     def test_first_difference_and_scale(self) -> None:
         x = torch.tensor([[[0.0], [1.0], [3.0], [100.0]]])  # last step is padding below
         d1 = first_difference(x)
@@ -331,3 +362,16 @@ class TestTraining:
         torch.testing.assert_close(model.kim.prototypes, trained.prototypes)
         rows, lengths = _rows()
         assert torch.isfinite(model(rows, lengths, torch.randn(2, D))["cls_bin_logits"]).all()
+
+    def test_edge_mask_survives_train_to_score(self, tmp_path: Path) -> None:
+        data_dir, host = _fixture(tmp_path)
+        cfg = _kim(False)
+        cfg.kim.edge_mask = True
+        cfg.train.batch_size, cfg.train.num_epochs, cfg.train.device = 4, 1, "cpu"
+        set_global_seed(cfg.train.seed)
+        out = tmp_path / "run"
+        trainer = build_trainer(cfg, out, data_dir, host, text_encoder="stub")
+        cfg.save_yaml(out / "config.yaml")
+        trainer.train()
+        model = load_model_for_scoring(Config(), CPU, out / "checkpoint_last.pt", None, "stub")
+        assert model.kim is not None and model.kim.edge_mask is True

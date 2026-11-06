@@ -213,10 +213,12 @@ class KIMConfig:
     KIM reads ``v^t`` (the RoFormer output) and returns ``v^t + W_out k_t`` in KIP's slot. With
     ``enabled`` false (default) the model, its loss keys and its state dict are unchanged.
     ``prototypes`` false = arm K2 (no confidence weighting, no NKC); true = arm K5.
+    ``edge_mask`` also zeroes each bag's first valid pair (the KP3 consequence, §5.3).
     """
 
     enabled: bool = False
     prototypes: bool = False
+    edge_mask: bool = False
     width: int = constants.KIM_WIDTH
     mil_weight: float = constants.KIM_MIL_WEIGHT
     nkc_weight: float = constants.KIM_NKC_WEIGHT
@@ -445,6 +447,8 @@ def validate_kim(cfg: Config) -> None:
     if not kim.enabled:
         if kim.prototypes:
             raise ValueError("kim.prototypes needs kim.enabled=true")
+        if kim.edge_mask:
+            raise ValueError("kim.edge_mask needs kim.enabled=true")
         return
     if cfg.kip.enabled:
         raise ValueError("kim.enabled takes KIP's slot: it needs kip.enabled=false")

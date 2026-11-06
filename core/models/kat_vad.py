@@ -60,7 +60,8 @@ def _build_kim(cfg: Config) -> KIM:
     """KIM under a private RNG (``KIM_RUN.md`` D13): host init and data order equal K0's."""
     with torch.random.fork_rng(devices=[]):
         torch.manual_seed(cfg.train.seed)
-        return KIM(cfg.model.hidden_dim, cfg.kim.width, prototypes=cfg.kim.prototypes)
+        return KIM(cfg.model.hidden_dim, cfg.kim.width, prototypes=cfg.kim.prototypes,
+                   edge_mask=cfg.kim.edge_mask)
 
 
 class KATVAD(nn.Module):

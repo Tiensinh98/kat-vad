@@ -15,7 +15,8 @@ always ``PRELIMINARY (n = 1)``. Endpoints: DoTA-CAP-dev and DADA; TAD is printed
 Decisions fixed before the numbers: K0k9 - K0 gain on **both** endpoints → kernel 9 hosts every K
 row (§3.1), else kernel 3; K5 - control cost on **both** endpoints → KIM line closed (§6), else
 continue. Printed: K0 - W0 (the cost of DVS off alone), ego / non-ego splits, the position
-rulers, and the training diagnostics of every run (first → last, plus the last-epoch mean ``mil``).
+rulers, the training diagnostics of every run (first → last, plus the last-epoch mean ``mil``),
+and with ``--pilot`` the training-free rank average of the host with ``vt2`` (§5.2).
 
 CLI::
 
@@ -79,7 +80,8 @@ def read_rows(set_name: str, dirs: dict[str, Path], seed: int) -> dict[str, dict
             continue
         r = read_dada(d) if set_name == DADA else read_tad(d, [seed], constants.V5_BOOTSTRAP_SEED)
         rows[name] = {"items": r["items"], "macro": r["macro"], "micro": r["micro"],
-                      "clip_auc": r["clip_auc"], "ruler": r["extra"].get("monotone_ruler")}
+                      "clip_auc": r["clip_auc"], "ruler": r["extra"].get("monotone_ruler"),
+                      "middle": r["extra"].get("middle_ruler")}
     return rows
 
 
@@ -163,6 +165,19 @@ def run_diagnostics(run_dir: Path) -> dict[str, Any] | None:
     return out
 
 
+def free_baseline(pilot_json: Path) -> dict[str, Any]:
+    """The pilot's training-free rank average, per read-out set (printed, never decides)."""
+    pilot = _json(pilot_json)
+    out: dict[str, Any] = {"host": pilot["host"], "sets": {}}
+    for name, pilot_set in ((DOTA, constants.V2_SPLIT_DOTA_CAP_DEV), (DADA, "dada"), (TAD, "tad")):
+        s = pilot["sets"].get(pilot_set)
+        if s is not None:
+            out["sets"][name] = {"host": s["rows"]["host"]["macro"],
+                                 "rank": s["rows"]["host+vt2 (rank avg)"]["macro"],
+                                 "delta": s["kp2_delta"]}
+    return out
+
+
 def run(args: argparse.Namespace) -> dict[str, Any]:
     ego = None
     if args.metadata is not None and args.split_file is not None:
@@ -176,6 +191,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     result: dict[str, Any] = {
         "rule": RULE, "label": LABEL, "control": args.control, "seed": args.seed,
         "disclosure": constants.KIM_PILOT_DISCLOSURE, "p_T2_cap_dev": constants.V5_P_T2_CAP_DEV,
+        "p_cap_dev": constants.V2_E3_P_CAP,
+        "free_baseline": free_baseline(args.pilot) if args.pilot is not None else None,
         "sets": sets, "decisions": decide(sets, args.control),
         "diagnostics": {n: d for n, rd in args.run or []
                         if (d := run_diagnostics(Path(rd))) is not None},
@@ -209,11 +226,11 @@ def render_markdown(r: dict[str, Any]) -> str:
              f"Rule: `{r['rule']}`. Control = **{r['control']}** (W0 + DVS off); W0 printed. "
              f"{r['disclosure']}", ""]
     for s in r["sets"].values():
-        lines += [f"## {s['title']}", "", "| row | macro | micro | t/N ruler |",
-                  "| --- | --- | --- | --- |"]
+        lines += [f"## {s['title']}", "", "| row | macro | micro | t/N ruler | middle ruler |",
+                  "| --- | --- | --- | --- | --- |"]
         for name, row in s["rows"].items():
             lines.append(f"| {name} | {_num(row['macro'])} | {_num(row.get('micro'))} | "
-                         f"{_num(row.get('ruler'))} |")
+                         f"{_num(row.get('ruler'))} | {_num(row.get('middle'))} |")
         lines += ["", "| contrast | what | Δ | sentence | Δ ego | Δ non-ego |",
                   "| --- | --- | --- | --- | --- | --- |"]
         for name, c in s["contrasts"].items():
@@ -221,9 +238,17 @@ def render_markdown(r: dict[str, Any]) -> str:
                          f"{c['sentence']} — {r['label']} | {_delta(c.get('ego'))} | "
                          f"{_delta(c.get('non_ego'))} |")
         lines.append("")
-    lines += [f"Printed: v2's cubic position prior `p_T2` on CAP-dev = {r['p_T2_cap_dev']:.4f}.",
-              "",
-              "## Decisions (fixed before the numbers)", ""]
+    lines += [f"Printed: v2's cubic position prior `p_T2` on CAP-dev = {r['p_T2_cap_dev']:.4f}, "
+              f"in-domain cubic `p` = {r['p_cap_dev']:.4f}.", ""]
+    free = r.get("free_baseline")
+    if free:
+        lines += [f"## Training-free baseline: {free['host']} + `vt2` rank average "
+                  "(§5.2, printed, never decides)", "",
+                  "| set | host macro | rank avg macro | Δ (paired) |", "| --- | --- | --- | --- |"]
+        lines += [f"| {name} | {_num(s['host'])} | {_num(s['rank'])} | {_delta(s['delta'])} |"
+                  for name, s in free["sets"].items()]
+        lines.append("")
+    lines += ["## Decisions (fixed before the numbers)", ""]
     lines += [f"- **{k}**: {v}" for k, v in r["decisions"].items()]
     if r["diagnostics"]:
         keys = ("mil", "kim_mil", "kim_nkc", "kim_w_out_norm", "kim_vel_gate", "kim_acc_gate",
@@ -248,6 +273,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--control", default=constants.KIM_CONTROL,
                         help="K0, or K0k9 once §3.1 moved the host to kernel 9")
     parser.add_argument("--seed", type=int, default=constants.KIM_SEED)
+    parser.add_argument("--pilot", type=Path, default=None, help="kim_pilot.json (§5.2, printed)")
     parser.add_argument("--metadata", type=Path, default=None, help="DoTA metadata_val.json")
     parser.add_argument("--split-file", type=Path, default=None, help="DoTA val_split.txt")
     parser.add_argument("--out-dir", type=Path, required=True)

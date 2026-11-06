@@ -50,6 +50,15 @@ class TestPilotPieces:
         assert share == 1.0 and chance == pytest.approx(0.2)  # top-1 of 10 diffs is the first
         assert kim_pilot.edge_share(np.zeros(3)) is None
 
+    def test_edge_sides_separate_first_from_last(self) -> None:
+        first = np.array([0.0, 9.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+        assert kim_pilot.edge_sides(first) == (1.0, 0.0)
+        last = np.array([0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 9.0])
+        assert kim_pilot.edge_sides(last) == (0.0, 1.0)
+        middle = np.array([0.0, 1.0, 1.0, 1.0, 9.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+        assert kim_pilot.edge_sides(middle) == (0.0, 0.0)
+        assert kim_pilot.edge_sides(np.zeros(3)) is None
+
     def test_onset_lag(self) -> None:
         labels = np.array([0, 0, 1, 1, 0])
         assert kim_pilot.onset_lag(np.array([0, 0, 0, 5.0, 0]), labels, 0.1) == pytest.approx(0.1)
@@ -131,7 +140,7 @@ class TestPilotSets:
             rows = {f"{f}2": row(0.5) for f in kim_pilot.FEATURES}
             rows["vt2"], rows["clip2"] = row(vt), row(clip)
             return {"rows": rows, "kp2_delta": {"mean": 0.01, "low": 0.001, "high": 0.02},
-                    "kp3": {"share": 0.3, "chance": 0.1, "videos": 5},
+                    "kp3": {"share": 0.3, "chance": 0.1, "first": 0.25, "last": 0.05, "videos": 5},
                     "kp4": {"clips": 5, "median_abs_s": 0.3, "share_within": 0.6}}
 
         sets = {kim_pilot.DOTA_SET: one_set(0.65, 0.70), kim_pilot.DADA_SET: one_set(0.6, 0.63)}
@@ -139,8 +148,27 @@ class TestPilotSets:
         assert d["KP1"]["verdict"] == "pass" and d["KP2"]["verdict"] == "pass"
         assert d["input"] == "clip"  # +0.05 and +0.03 >= 0.02 on both sets
         assert d["KP3"]["verdict"] == "fail" and d["KP4"]["verdict"] == "pass"
+        assert d["KP3"]["first_mask_fits"] is True and "first valid pair" in d["KP3"]["consequence"]
         sets[kim_pilot.DADA_SET] = one_set(0.6, 0.61)
         assert kim_pilot.decide(sets)["input"] == "vt"  # +0.01 on DADA: no switch
+
+    @pytest.mark.parametrize(("dota", "dada", "fits"), [
+        ((0.119, 0.011), (0.141, 0.016), True),  # the real split, KIM_RUN.md §5.3
+        ((0.011, 0.119), (0.141, 0.016), False),  # one endpoint's excess is on the last pair
+    ])
+    def test_first_mask_fits_reads_both_endpoints(
+        self, dota: tuple[float, float], dada: tuple[float, float], fits: bool
+    ) -> None:
+        def one_set(first: float, last: float) -> dict[str, object]:
+            return {"kp3": {"share": first + last, "chance": 0.066, "first": first, "last": last,
+                            "videos": 5}, "kp4": None}
+
+        # TAD never decides: its split may be anything
+        sets = {kim_pilot.DOTA_SET: one_set(*dota), kim_pilot.DADA_SET: one_set(*dada),
+                "tad": one_set(0.0, 0.9)}
+        assert kim_pilot.first_mask_fits(sets) is fits
+        del sets[kim_pilot.DADA_SET]
+        assert kim_pilot.first_mask_fits(sets) is False  # both endpoints are required
 
     def test_name_is_required(self, tmp_path: Path) -> None:
         argv = ["--ckpt", "c.pt", "--set", "dada", "rows", "e", "i", "--out-dir", str(tmp_path)]
@@ -174,6 +202,7 @@ class TestPilotSets:
         assert kim_pilot.HOST_ROW in saved["sets"][kim_pilot.DADA_SET]["rows"]
         md = (out / "kim_pilot.md").read_text()
         assert "host K0k9 s2024" in md and "W0" not in md
+        assert "middle ruler" in md and "first " in md and "`p_T2`" in md
 
 
 # --------------------------------------------------------------------------- read-out
@@ -275,6 +304,22 @@ class TestReadout:
         d = r["diagnostics"]["K5"]
         assert d["last_step"] == 3 and d["mil_last_epoch_mean"] == pytest.approx(0.3)
         assert d["kim_w_out_norm"] == {"first": 0.01, "last": 0.03}
+
+    def test_pilot_baseline_is_printed_and_never_decides(self, tmp_path: Path) -> None:
+        argv = _runs(tmp_path, {"K0": (0.0, 0.0), "K5": (-0.03, -0.03)})
+        macro = {"mean": 0.8, "low": 0.79, "high": 0.81}
+        one = {"rows": {"host": {"macro": macro}, "host+vt2 (rank avg)": {"macro": macro}},
+               "kp2_delta": {"mean": 0.014, "low": 0.006, "high": 0.021}}
+        pilot = tmp_path / "kim_pilot.json"
+        pilot.write_text(json.dumps({"host": "K0", "sets": {
+            constants.V2_SPLIT_DOTA_CAP_DEV: one, "dada": one}}))
+        r = kim_readout.run(kim_readout.build_arg_parser().parse_args(
+            [*argv, "--pilot", str(pilot), "--out-dir", str(tmp_path / "rep")]))
+        assert r["decisions"]["stop_rule"] == kim_readout.CLOSED  # the baseline changes nothing
+        assert set(r["free_baseline"]["sets"]) == {"dota", "dada"}
+        md = (tmp_path / "rep" / "kim_readout.md").read_text()
+        assert "K0 + `vt2` rank average" in md and "+0.0140 [+0.0060, +0.0210]" in md
+        assert "middle ruler" in md and "in-domain cubic `p` = 0.8520" in md
 
     def test_needs_a_row(self, tmp_path: Path) -> None:
         with pytest.raises(ValueError, match="at least one"):

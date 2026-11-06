@@ -43,10 +43,16 @@ class KIMOutput:
     acc_gate: Tensor  # scalar, mean gate on valid steps (detached)
 
 
-def pair_mask(mask: Tensor) -> Tensor:
-    """``(B, L)`` float, 1 where step t and t-1 are both valid (column 0 is always 0)."""
+def pair_mask(mask: Tensor, drop_first: bool = False) -> Tensor:
+    """``(B, L)`` float, 1 where step t and t-1 are both valid (column 0 is always 0).
+
+    ``drop_first`` also zeroes each bag's first valid pair (``KIM_RUN.md`` §5.3, KP3).
+    """
     pair = torch.zeros_like(mask)
     pair[:, 1:] = mask[:, 1:] * mask[:, :-1]
+    if drop_first:
+        second_valid = (mask.argmax(dim=1) + 1).clamp(max=mask.shape[1] - 1)
+        pair[torch.arange(mask.shape[0], device=mask.device), second_valid] = 0.0
     return pair
 
 
@@ -75,10 +81,12 @@ class KIM(nn.Module):
         d_model: int = constants.HIDDEN_DIM,
         width: int = constants.KIM_WIDTH,
         prototypes: bool = False,
+        edge_mask: bool = False,
     ) -> None:
         super().__init__()
         self.width = width
         self.use_prototypes = prototypes
+        self.edge_mask = edge_mask
         feat_dim = 3 * width
         self.norm = nn.LayerNorm(d_model)
         self.state_proj = nn.Linear(d_model, width)
@@ -118,7 +126,7 @@ class KIM(nn.Module):
     def forward(self, vt: Tensor, mask: Tensor) -> KIMOutput:
         """``vt (B, L, D)``, ``mask (B, L)`` float with 1 = valid."""
         mask = mask.to(vt.dtype)
-        pair = pair_mask(mask)
+        pair = pair_mask(mask, drop_first=self.edge_mask)
         state = self.state_proj(self.norm(vt))
         d1 = first_difference(state)
         scale = kim_scale(d1, pair)

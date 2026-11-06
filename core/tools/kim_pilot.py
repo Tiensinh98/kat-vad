@@ -54,6 +54,7 @@ from core.device import resolve_device
 from core.metrics import frame_auc
 from core.models.kat_vad import KATVAD
 from core.tools.kill_switch_probe import write_json_atomic, write_text_atomic
+from core.tools.nexar_eval import middle_ruler
 from core.tools.protocol_b_eval import CLIP_SCORES_NPZ, read_clip_scores
 from core.tools.rate_matched_eval import Run, load_finished_model, to_native
 from core.tools.stp_readout import ci as dota_ci
@@ -123,13 +124,20 @@ def edge_share(step_curve: np.ndarray) -> tuple[float, float] | None:
     Differences live on steps ``1..L-1``; the edges are steps 1 and ``L-1``. ``None`` below 4
     steps (no interior).
     """
+    sides = edge_sides(step_curve)
+    if sides is None:
+        return None
+    return sides[0] + sides[1], 2.0 / (len(step_curve) - 1)
+
+
+def edge_sides(step_curve: np.ndarray) -> tuple[float, float] | None:
+    """Shares of a video's top-5 % differences on the first and on the last one (§5.2)."""
     diffs = np.asarray(step_curve, dtype=np.float64)[1:]
     if len(diffs) < 3:
         return None
     top = max(1, math.ceil(constants.KIM_PILOT_TOP_SHARE * len(diffs)))
     picked = np.argsort(-diffs, kind="stable")[:top]
-    at_edge = np.isin(picked, (0, len(diffs) - 1)).sum()
-    return float(at_edge) / top, 2.0 / len(diffs)
+    return float((picked == 0).sum()) / top, float((picked == len(diffs) - 1).sum()) / top
 
 
 def onset_lag(curve: np.ndarray, labels: np.ndarray, seconds: float) -> float | None:
@@ -240,9 +248,12 @@ def summarize_set(
     common = sorted(set(aucs[RANK_NAME]) & set(aucs[HOST_ROW]))
     kp2 = ci({v: aucs[RANK_NAME][v] - aucs[HOST_ROW][v] for v in common})
     edges = [e for e in (edge_share(c) for c in steps_vt1.values()) if e is not None]
+    sides = [s for s in (edge_sides(c) for c in steps_vt1.values()) if s is not None]
     kp3 = None if not edges else {
         "share": float(np.mean([e[0] for e in edges])),
         "chance": float(np.mean([e[1] for e in edges])),
+        "first": float(np.mean([s[0] for s in sides])),
+        "last": float(np.mean([s[1] for s in sides])),
         "videos": len(edges),
     }
     kp4 = None
@@ -251,9 +262,11 @@ def summarize_set(
         lags = [lag for v in labels if (lag := onset_lag(vt2[v], labels[v], seconds)) is not None]
         kp4 = lag_summary(lags)
     monotone = {v: np.arange(len(g)) / len(g) for v, g in labels.items()}
+    middle = {v: middle_ruler(len(g)) for v, g in labels.items()}
     return {"videos": len(labels), "two_class": len(aucs[HOST_ROW]), "rows": rows,
             "kp2_delta": kp2, "kp3": kp3, "kp4": kp4, "seconds_per_index": seconds,
-            "t_over_n": ci(two_class_aucs(monotone, labels))}
+            "t_over_n": ci(two_class_aucs(monotone, labels)),
+            "middle_ruler": ci(two_class_aucs(middle, labels))}
 
 
 # ---------------------------------------------------------------------------
@@ -261,6 +274,12 @@ def summarize_set(
 # ---------------------------------------------------------------------------
 def _mean(c: dict[str, float] | None) -> float | None:
     return None if c is None else float(c["mean"])
+
+
+def first_mask_fits(sets: dict[str, dict[str, Any]]) -> bool:
+    """§5.3: the first pair's share exceeds the last's on both endpoints (TAD never decides)."""
+    ends = [sets[s]["kp3"] for s in (DOTA_SET, DADA_SET) if s in sets and sets[s]["kp3"]]
+    return len(ends) == len((DOTA_SET, DADA_SET)) and all(e["first"] > e["last"] for e in ends)
 
 
 def decide(sets: dict[str, dict[str, Any]]) -> dict[str, Any]:
@@ -289,8 +308,12 @@ def decide(sets: dict[str, dict[str, Any]]) -> dict[str, Any]:
     kp3 = {s: r["kp3"] for s, r in sets.items() if r["kp3"] is not None}
     if kp3:
         ok = all(v["share"] <= constants.KIM_PILOT_EDGE_FACTOR * v["chance"] for v in kp3.values())
-        out["KP3"] = {"verdict": PASS if ok else FAIL,
-                      "consequence": "none" if ok else "mask the last valid pair (KIM_EDGE_MASK)"}
+        verdict: dict[str, Any] = {
+            "verdict": PASS if ok else FAIL,
+            "consequence": "none" if ok else "mask the first valid pair (kim.edge_mask)",
+            "first_mask_fits": first_mask_fits(sets),
+        }
+        out["KP3"] = verdict
     kp4 = {s: sets[s]["kp4"] for s in (DOTA_SET, DADA_SET) if s in sets and sets[s]["kp4"]}
     if kp4:
         ok = all(v["share_within"] >= constants.KIM_PILOT_ONSET_SHARE for v in kp4.values())
@@ -343,12 +366,15 @@ def _delta(c: dict[str, float] | None) -> str:
 def render_markdown(r: dict[str, Any]) -> str:
     lines = [f"# KIM pilot KP1-KP4 (host {r['host']} s2024, step {r['global_step']}, no training)",
              "",
-             f"Rule: `{r['rule']}`. **{r['disclosure']}**", ""]
+             f"Rule: `{r['rule']}`. **{r['disclosure']}**", "",
+             f"Position, printed: cubic `p_T2` on CAP-dev {constants.V5_P_T2_CAP_DEV:.4f}, cubic "
+             f"in-domain `p` on CAP-dev {constants.V2_E3_P_CAP:.4f} (both from earlier records).",
+             ""]
     for name, s in r["sets"].items():
         has_ego = any("ego" in row for row in s["rows"].values())
         head = "| candidate | macro | ego | non-ego |" if has_ego else "| candidate | macro |"
         lines += [f"## {name} ({s['two_class']} two-class of {s['videos']}; t/N ruler "
-                  f"{_num(s['t_over_n'])})", "", head,
+                  f"{_num(s['t_over_n'])}; middle ruler {_num(s['middle_ruler'])})", "", head,
                   "| --- | --- | --- | --- |" if has_ego else "| --- | --- |"]
         for cand, row in s["rows"].items():
             cells = [_num(row["macro"])]
@@ -359,7 +385,8 @@ def render_markdown(r: dict[str, Any]) -> str:
         if s["kp3"]:
             k = s["kp3"]
             lines.append(f"KP3 edge share of top-5 % vt1 steps: {k['share']:.3f} "
-                         f"(chance {k['chance']:.3f}, {k['videos']} videos)")
+                         f"(first {k['first']:.3f}, last {k['last']:.3f}; "
+                         f"chance {k['chance']:.3f}, {k['videos']} videos)")
         if s["kp4"]:
             k = s["kp4"]
             lines.append(f"KP4 vt2 peak - onset: median |lag| {k['median_abs_s']:.2f} s, "
