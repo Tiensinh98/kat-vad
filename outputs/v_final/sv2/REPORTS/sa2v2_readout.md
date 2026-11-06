@@ -24,21 +24,24 @@ Check: dump vs frame read, max |Δ score| = 0.00e+00.
 
 | Diagnostic | SV2 | Shuffled | Moved further than shuffled? |
 | --- | --- | --- | --- |
-| sv2_beta1 | 1.0000 → 0.9941 | pending | pending |
-| sv2_beta2 | 0.0000 → -0.0004 | pending | pending |
-| sv2_beta3 | 0.0000 → -0.0035 | pending | pending |
-| sv2_beta4 | 0.0000 → 0.0001 | pending | pending |
-| sv2_gamma | 0.0000 → -0.0010 | pending | pending |
-| sv2_temperature | 1.0000 → 0.9794 | pending | pending |
-| sv2_bias | -2.0000 → -2.0006 | pending | pending |
-| sv2_w_norm | 0.0000 → 0.1448 | pending | pending |
-| sv2_entropy | 0.8280 → 0.6247 | pending | pending |
-| sv2_spread | 1.0000 → 3.1971 | pending | pending |
-| sv2_xas_ratio | 0.5547 → 0.5909 | pending | pending |
-| sv2_top3q_abnormal | 0.5333 → 0.6629 | pending | pending |
-| sv2_top3q_normal | 0.5468 → 0.3476 | pending | pending |
-| sv2_patch | 0.7420 → 0.5446 | pending | pending |
-| sv2_branch | 0.6928 → 0.6062 | pending | pending |
+| sv2_beta1 | 1.0000 → 0.9941 | 1.0000 → 0.9962 | True |
+| sv2_beta2 | 0.0000 → -0.0004 | 0.0000 → -0.0040 | False |
+| sv2_beta3 | 0.0000 → -0.0035 | 0.0000 → -0.0027 | True |
+| sv2_beta4 | 0.0000 → 0.0001 | 0.0000 → -0.0029 | False |
+| sv2_gamma | 0.0000 → -0.0010 | 0.0000 → 0.0009 | True |
+| sv2_temperature | 1.0000 → 0.9794 | 1.0000 → 0.9895 | True |
+| sv2_bias | -2.0000 → -2.0006 | -2.0000 → -1.9997 | True |
+| sv2_w_norm | 0.0000 → 0.1448 | 0.0000 → 0.0632 | True |
+| sv2_entropy | 0.8280 → 0.6247 | 0.8284 → 0.9595 | True |
+| sv2_spread | 1.0000 → 3.1971 | 1.0000 → 0.6274 | True |
+| sv2_xas_ratio | 0.5547 → 0.5909 | 0.5617 → 0.5588 | True |
+| sv2_top3q_abnormal | 0.5333 → 0.6629 | 0.5291 → 0.5139 | True |
+| sv2_top3q_normal | 0.5468 → 0.3476 | 0.5274 → 0.4899 | True |
+| sv2_patch | 0.7420 → 0.5446 | 0.7313 → 0.6778 | True |
+| sv2_branch | 0.6928 → 0.6062 | 0.6930 → 0.6924 | True |
+| sv2_gate | — | — | — |
+| sv2_patch_share | — | — | — |
+| sv2_wp_norm | — | — | — |
 
 ## DoTA-CAP-dev
 
