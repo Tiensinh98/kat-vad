@@ -5,8 +5,9 @@ discarded on the user's instruction; every lesson below was re-derived by
 reading this tree, with a file:line citation. Load this file before every
 IMPLEMENTATION or DEBUG task (~400 tokens).
 
-**Branch:** this is the `main` = **KAT-VAD v1** copy. Every lesson holds on both
-branches; only C24's *remedy* differs (see its last line).
+**Branch:** written as the `main` = **KAT-VAD v1** copy and carried onto later
+branches, including `v_final_stp_v2`; "this branch" below means `main`. Every lesson
+holds on both `main` and `v3`; only C24's *remedy* differs (see its last line).
 
 ## Critical lessons (inline — read every time)
 

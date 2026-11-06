@@ -996,15 +996,21 @@ SV3_ARM = "SV3"  # SA2V2_RUN.md §10: SV2 with c~ = c + tanh(g) x^AS, g = 0 at i
 # A sign-incoherent one random-walks ~ 25 * 5e-5 * sqrt(1749) = 0.05 (§10.2).
 SV3_GATE_LR_MULT = 25.0
 SV3_GATE_OPEN = 0.2  # |tanh g| at the last step >= this = "opened" (4x the random-walk reach)
+SV4_ARM = "SV4"  # SA2V2_RUN.md §11: SV2 with c~ = c + W_p x^AS, W_p = 0 at init (paired with W0D)
+SV4_USED_SHARE = 0.05  # ||W_p x^AS|| / ||c||, tail mean >= this = "used" (~ 1/3 of W0's rho_u)
+SV4_TAIL_STEPS = 100  # steps averaged for the tail reads: last-batch values cannot rank arms
+SV4_PAIRED_TOL = 1e-3  # |step-1 loss - W0D's| at or below this = paired with W0D (§11.2)
 SV2_PROBE_DIRNAME = "probe"  # under OUTPUT_ROOT/sv2/: sv2_probe reads (§9)
 SV2_PROBE_BATCHES = 8  # batches of the real epoch-0 order per live read
 SV2_PROBE_SCALARS = ("beta", "gamma", "log_temperature", "bias")  # one row per coordinate
-SV2_PROBE_MODULES = ("w", "w_cell", "w_prior", "pos", "layer", "branch_head")
+SV2_PROBE_MODULES = ("w", "w_cell", "w_prior", "pos", "layer", "branch_head", "w_p")
 SV2_DIAG_KEYS = (  # logged per batch, read by the controls C2-C4, never in the total
     "sv2_beta1", "sv2_beta2", "sv2_beta3", "sv2_beta4", "sv2_gamma", "sv2_temperature",
     "sv2_bias", "sv2_w_norm", "sv2_entropy", "sv2_spread", "sv2_xas_ratio",
     "sv2_top3q_abnormal", "sv2_top3q_normal", "sv2_patch", "sv2_branch", "sv2_gate",
+    "sv2_patch_share", "sv2_wp_norm",
 )
+SV2_ARM_ONLY_DIAG_KEYS = ("sv2_gate", "sv2_patch_share", "sv2_wp_norm")  # logged by SV3 / SV4 only
 
 # --- DAD (Dashcam Accident Dataset) zero-shot: LaGoVAD / W0 / R4 (core/docs/final/ZS_DAD.md) ---
 DAD_DATASET = "DAD"

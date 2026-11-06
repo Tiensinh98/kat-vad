@@ -9,6 +9,7 @@ priors are derived here, so the cache holds no derived tensors::
     l = beta . priors + gamma z(cos(P, tau_delta)) + w^T H
     q = sigma(l + b),  alpha = softmax(l / T),  x^AS = sum alpha P,  c~ = c + x^AS
     (SV3: c~ = c + tanh(g) x^AS, g = 0 at init; x^AS itself, which L_branch reads, is ungated)
+    (SV4: c~ = c + W_p x^AS, W_p = 0 at init; L_branch reads x^AS unprojected)
 
 Only valid rows pass through the encoder. ``tau_delta`` goes through CLIP's frozen text projection:
 the host's text features are not in ``image_embeds``' space, where ``P`` lives (rule D3).
@@ -62,10 +63,19 @@ def cell_priors(
 class SA2V2(nn.Module):
     """Patch encoder + scorer + the training-only head on ``x^AS`` (proposal §3.2.2-3.2.5)."""
 
-    def __init__(self, feature_dim: int = constants.SV2_DIM, gate: bool = False) -> None:
+    def __init__(
+        self, feature_dim: int = constants.SV2_DIM, gate: bool = False, proj: bool = False
+    ) -> None:
         super().__init__()
+        if gate and proj:
+            raise ValueError("SA²-v2 takes a gate (SV3) or W_p (SV4), not both")
         # SV3 (SA2V2_RUN.md §10): absent unless gated, so every SV2 checkpoint loads unchanged
         self.gate = nn.Parameter(torch.zeros(())) if gate else None
+        # SV4 (§11): absent unless asked, for the same reason; weight and bias start at zero
+        self.w_p = nn.Linear(feature_dim, feature_dim) if proj else None
+        if self.w_p is not None:
+            nn.init.zeros_(self.w_p.weight)
+            nn.init.zeros_(self.w_p.bias)
         self.feature_dim = feature_dim
         self.cells = constants.SV2_CELLS
         token = constants.SV2_TOKEN_DIM
@@ -171,7 +181,10 @@ class SA2V2(nn.Module):
         cell_logits = torch.zeros_like(attn)
         cell_logits[valid] = logits + self.bias
         spread = logits.detach().std(dim=-1, unbiased=False).mean()
-        added = x_as if self.gate is None else torch.tanh(self.gate) * x_as
+        if self.w_p is not None:  # padded rows stay c: no bias leak, as W_u
+            added = self.w_p(x_as).masked_fill(~valid.unsqueeze(-1), 0.0)
+        else:
+            added = x_as if self.gate is None else torch.tanh(self.gate) * x_as
         return SA2V2Output(cls + added.to(cls.dtype), x_as, attn, cell_logits, spread)
 
     def gate_value(self) -> Tensor | None:

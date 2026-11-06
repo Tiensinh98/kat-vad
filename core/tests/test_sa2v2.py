@@ -297,6 +297,7 @@ class TestTraining:
         losses = trainer.compute_losses(collate_variable_length([dataset[i] for i in range(4)]))
         assert torch.isfinite(losses["total"])
         wanted = {k for k in constants.SV2_DIAG_KEYS if not k.startswith("sv2_top3q")}
+        wanted -= set(constants.SV2_ARM_ONLY_DIAG_KEYS)
         assert wanted <= set(losses)
         host_total = sum(
             v for k, v in losses.items() if k == "sv2_patch"
