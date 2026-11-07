@@ -2332,3 +2332,12 @@ Promote if a second harness needs the same split.
 **Rule:** Assert every rule-required print in the rendered report, before the run it will read.
 **Files:** core/tools/kim_readout.py (render), core/tests/test_kim_tools.py, core/docs/final/KIM_RUN.md §12.1
 **Why pending:** no decision depended on it, since the arm did not gain; the values, read later from `metrics.jsonl`, show no seam flag. (co) is the same family, so this is a candidate to merge and promote.
+
+## (ct) [MEDIUM] Experiments - a row trained on another corpus needs every eval input baked with that corpus's statistics (2026-11-07)
+**Triggers:** statistics, bake, `_nexar`, `train_ids_sha1`, new training corpus, comparison row
+**Problem:** the existing TAD, DAD and DoTA A2 bakes carry Nexar statistics under one tag `A2_S`. A T2-trained K5 would load them without error, since the manifest check compares only `crn` and `motion`.
+**Bad:** reuse `A2_S/TAD_s8_nexar` because the tag and the motion encoder match
+**Good:** bake with the training corpus's stats dir and assert the bake's `train_ids_sha1` equals that of the training input
+**Rule:** Assert `train_ids_sha1` of each eval bake against the training input before scoring a new row.
+**Files:** colab/final/k5_t2.ipynb (steps 3, 5), core/data/v2_inputs.py (manifest), core/docs/final/KIM_RUN.md §13
+**Why pending:** caught while building, no wrong number was produced; the assert lives in the notebook, not in `core.evaluate`.

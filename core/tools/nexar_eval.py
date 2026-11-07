@@ -20,7 +20,8 @@ Two reads, both printed beside what position alone scores (G6 mirror):
 whole source video at the eval stride -- the unit training baked -- instead of the item itself.
 
 ``nexar_test`` is sealed: refused without ``--final``. Checkpoints must be finished (J10) and of
-one arm; the stats cache must name that arm (K4).
+one arm; the stats cache must name that arm (K4). ``--baseline NAME best.ckpt`` scores LaGoVAD's
+released checkpoint instead (KIP off, no J10, no stats: plain CLIP rows).
 
 CLI::
 
@@ -54,6 +55,7 @@ from core.tools.rate_matched_eval import (
     Protocol,
     Run,
     load_finished_model,
+    runs_from_args,
     score_steps,
     seed_average,
     to_native,
@@ -257,6 +259,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     final = args.split == constants.V2_SPLIT_NEXAR_TEST
     if final and not args.final:
         raise SystemExit("nexar_test is sealed: pass --final only for the §21 final read")
+    runs = runs_from_args(args.run, args.baseline)
     census = json.loads(args.census.read_text(encoding="utf-8"))
     rows: dict[str, dict[str, Any]] = census["videos"]
     ids = load_split(args.split, args.split_dir, final=final)
@@ -272,7 +275,6 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     for name, (video, start, end) in items.items():
         labels[name] = native_labels(rows[video], frames[video])[start:end]
 
-    runs = [Run(name, Path(ckpt)) for name, ckpt in args.run]
     device = resolve_device(args.device)
     per_run: dict[str, dict[str, np.ndarray]] = {}
     steps: dict[str, int] = {}
@@ -296,6 +298,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "stats_manifest": None if args.stats_dir is None else read_input_manifest(args.stats_dir),
         "arm": next(iter(arms.values())),
         "checkpoints": {r.name: str(r.ckpt) for r in runs},
+        "released_baseline": any(r.baseline for r in runs),
         "global_steps": steps,
         "per_run_whole_macro": {
             n: float(np.mean(list(two_class_aucs(s, labels, ids).values())))
@@ -368,8 +371,10 @@ def render_markdown(r: dict[str, Any]) -> str:
 
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n", 1)[0])
-    parser.add_argument("--run", nargs=2, action="append", required=True,
+    parser.add_argument("--run", nargs=2, action="append", default=None,
                         metavar=("NAME", "CKPT"), help="one finished checkpoint (repeat per seed)")
+    parser.add_argument("--baseline", nargs=2, action="append", default=None,
+                        metavar=("NAME", "CKPT"), help="LaGoVAD's released ckpt")
     parser.add_argument("--census", type=Path, required=True)
     parser.add_argument("--clip-s1-dir", type=Path, required=True)
     parser.add_argument("--grid-s1-dir", type=Path, default=None,

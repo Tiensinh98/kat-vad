@@ -1050,6 +1050,9 @@ KIM_ARMS = ("K0", "K0k9", "K2", "K5")  # first pass (KIM_RUN.md §3); K0k9 = hos
 KIM_START_TOL = 1e-4  # step-1 mil within this of the control = same start (KIM_RUN.md §12)
 KIM_DVS_ARM = "K5d"  # K5, DVS on, seam mask (KIM_RUN.md §12); not in KIM_ARMS
 KIM_MAIN_ARM = "K5"  # the user's choice of main model (KIM_RUN.md §12.3), not a rule's outcome
+KIM_T2_OUTPUT_DIRNAME = "kim_t2"  # OUTPUT_ROOT/kim_t2: K5/s<seed>/, eval/, REPORTS/ (KIM_RUN.md §13)
+KIM_T2_ROW = "K5T2"  # K5 trained on T2, its row under eval/nexar/ (KIM_RUN.md §13)
+KIM_T2_EPOCHS = 20  # E3's recipe: 20 x 87 = NEXAR_STEP_BUDGET steps
 KIM_HOST_KERNEL_K9 = 9  # K0k9's model.score_head_kernel (KIM_RUN.md §3.1)
 KIM_CAP_ARM = "Kcap"  # K5 without differences (KIM_RUN.md §3, §6.3); not in KIM_ARMS (runbooks unpack it)
 KIM_CAP_HIDDEN = 183  # 164,535 MLP params vs 164,224 in W_state + both gates, at KIM_WIDTH (+0.2 %)

@@ -557,3 +557,21 @@ Predictions held: K5d − W0 on DADA "no difference shown", by 0.0002; K5d − K
 - **The comparison to quote against W0 is K5 − W0, s2024:** DADA +0.0125 [−0.0006, +0.0253], DoTA-CAP-dev +0.0085 [−0.0023, +0.0190], TAD +0.0019 [−0.0244, +0.0286], all "no difference shown". K5 − K0 (+0.0484, +0.0383) is against a control DVS off had lowered and does not measure K5 over W0.
 - **Report K5 at both seeds:** DADA 0.7740, 0.7631; DoTA-CAP-dev 0.8195, 0.8166; TAD 0.7002, 0.6836.
 - **Claims stay as in §12.2:** "sees kinematics" stays forbidden, since §6.3 failed. No K2, s2026 or sweep follows from this note.
+
+## 13. K5 trained on T2 (dated note 2026-11-07, before any number; user)
+
+**Not a reopening of the KIM line.** §12 stands and K5 on Nexar stays the main model (§12.3). The user asked for one more comparison after the TAD diagnosis of `K5_ZS_REPORT.md`: does the training corpus move K5's zero-shot reads? **Printed, decides nothing: no adoption, no K2, s2026 or sweep follows.**
+
+| # | Choice | Value |
+|---|---|---|
+| T1 | Row | **K5-T2** = E3's A2 config (`v2_e3/A2/s2024/config.yaml`, T2, 20 × 87 = 1,740 steps, kernel 3, `mil_topk_pct` 5, `span`) + `dvs.theta = dvs.theta_ego = 1.0` + `kim.enabled`, `kim.prototypes`, `kim.edge_mask`; s2024. Nothing else differs; the notebook checks the config diff. `kim.warmup_steps` stays 219 (`round(5/40 · 1,740)` = 218; one step, not worth a key) |
+| T2 | Inputs | E3's A2 bakes with **T2** statistics; TAD and DAD baked here with the same statistics. No extraction |
+| T3 | Reads | DoTA-CAP-dev (protocol B), TAD (s8, raw), DAD (s7, raw, `ZS_DAD.md`), `nexar_val` (N-B: crops = endpoint, whole video printed), same tools as every earlier row |
+| T4 | Nexar split | **`nexar_val`, the user's choice, 2026-11-07.** `nexar_test` keeps D-N22's one read: not touched. So these numbers never sit beside the `nexar_test` table of `RESULTS_NEXAR.md` |
+| T5 | Rows on `nexar_val` | K5-T2, K5 (Nexar; **in-domain**, its own corpus's validation split) and LaGoVAD's released checkpoint, new reads. `nexar_eval` gains `--baseline` for it |
+| T6 | DADA-2000 | **Not read.** The whole-video read's sources are T2's own test sources and the user did not ask for it |
+| T7 | Sentence | Each set: K5-T2 − LaGoVAD and K5-T2 − K5, paired per item, 95 % bootstrap: "above / below / not separated", **PRELIMINARY (n = 1), not matched**. K5-T2 − K5 changes the corpus and the statistics together, so it never names a single cause |
+
+**Expectations, written before the numbers:** (a) TAD macro K5-T2 above K5's 0.7002, because CLIP-only reads 0.727 trained on T2 vs 0.590 on Nexar (`RESULTS_NEXAR.md`); (b) DoTA-CAP-dev below K5's 0.8195, because A2 reads 0.7536 vs 0.8171; (c) `nexar_val` crops K5-T2 below K5, in-domain vs zero-shot. **T2 is dashcam too**, so a gain on TAD would mean the Nexar corpus matters, not that the camera does not; it does not test the fixed-camera explanation. DVS off has never been measured on T2, so (a) and (b) may fail for that reason.
+
+Runbook `colab/final/k5_t2.ipynb`; table `core.tools.k5_t2_report`. Outputs `Thesis-Final/outputs/kim_t2/`.
