@@ -1,7 +1,7 @@
 # System Patterns — architecture & design decisions
 
 **Created:** 2026-07-31 (re-init from `b9978ff`, verified against the tree)
-**Last reviewed:** 2026-09-30 (branch `v2`: v2 section rewritten — P5 builds the arms as a baked input cache + zero-init `MotionResidual`; DoTA protocol B from E1; new build patterns for E1/D11/Colab). Previously 2026-09-24 (the flow target gains a second cache version,
+**Last reviewed:** 2026-11-07 (branch `v_final_las_vad`: KIM section added below; v5, STP and SA²-v2 patterns are not in this file, see `core/docs/final/`). Before that 2026-09-30 (branch `v2`: v2 section rewritten — P5 builds the arms as a baked input cache + zero-init `MotionResidual`; DoTA protocol B from E1; new build patterns for E1/D11/Colab). Previously 2026-09-24 (the flow target gains a second cache version,
 `flow/v2_zscore`, and `lambda_rec` becomes a property of the cache — see "Two flow
 targets" under Loss composition). Previously 2026-09-15 (later — corpus construction: closing the length
 leak and lowering the clip oracle are separate jobs; earlier the same day, the two
@@ -11,6 +11,13 @@ text paths and the `L_neg` wiring documented)
 > this tree* — it lives on branch `v3` (tip `bb1516c`). It is documented here
 > because the design argument is expensive to redo and because the measured
 > results depend on it.
+
+## KIM (branch `v_final_las_vad`; rule `core/docs/final/KIM_RUN.md`)
+
+- **Slot:** KIM takes KIP's splice, `v^t → v^t + W_out·kin_feat`, with `kim.enabled` exclusive of KIP, SA² and the v5 readout. `w_out` starts at 0 and the module builds under a private RNG, so a K row starts equal to K0 and shares its host init and data order.
+- **`kin_feat`** = `[state ; vel ; acc]`, 3 × 128. It holds the undifferenced `state`, so a K5 gain is not by itself about differences; `KIMCapacity` (arm Kcap) is the control, a per-step MLP with no differences.
+- **Test score:** host score only. `kim_score` trains `kim_mil` and `kim_nkc`. `kim.edge_mask` zeroes each bag's **first** valid pair (§5.3).
+- **Host:** W0's recipe with `dvs.theta = theta_ego = 1` in every K row. **Control = K0, not W0**, so read K5 − W0 beside K5 − K0: K0 itself costs against W0.
 
 ## Forward pass
 

@@ -1,7 +1,7 @@
 # Plan — LaGoVAD-KIM (Kinematic Intention Module)
 
 > Branch `v_final_las_vad` (tip `7eefc17`). Source: `core/docs/final/Thesis proposal … (LaGoVAD-KIM.md`.
-> Status: **PLAN, nothing built.** Written 2026-11-06. Every decision marked **[U]** waits for the user.
+> Status (2026-11-07): **K-1 to K-3 done at s2024, n = 1, nothing adopted; next = s2025 (`KIM_RUN.md` §6.2).** Written 2026-11-06. Every decision marked **[U]** was asked before the build.
 
 ## 0. Status
 
@@ -9,9 +9,10 @@
 |---|---|---|
 | K-0 | Notation map + rule doc `core/docs/final/KIM_RUN.md` (before any number) | **done 2026-11-06**; proposal corrected the same day (§2 items 1–8, DVS off, Nexar-only, pilot on endpoints) |
 | K-1 | Build `core/kim/` + wiring + tests (CPU, data-free) | **built 2026-11-06** (K2/K5 only; ladder flags not built); `test_kim.py` 27 green. Added arm **K0k9** (host kernel 9, `KIM_RUN.md` §3.1) |
-| K-2 | Pilot (inference only, **decided control K0 / K0k9**: W0's checkpoint deleted, `KIM_RUN.md` §4 note, §5.1) KP1–KP4 | **tool + notebook built 2026-11-06, moved the same day** (`kim_pilot.py --name`, `kim_runs.ipynb` step 8, after the kernel read-out, before K2 / K5); not run |
-| K-3 | First training read: K0 / K0k9 → K2 / K5, n = 1, Nexar | **read-out + notebook built 2026-11-06** (`kim_readout.py`, `kim_runs.ipynb` steps 6–10); not run |
-| K-4 | Ladder + 3 seeds on the rows kept | not started |
+| K-2 | Pilot (inference only, **decided control K0 / K0k9**: W0's checkpoint deleted, `KIM_RUN.md` §4 note, §5.1) KP1–KP4 | **read 2026-11-07 on K0** (`KIM_RUN.md` §9.2): KP1, KP2 pass; KP3 fail → first-pair mask (§5.3); KP4 fail → H6 dropped |
+| K-3 | First training read: K0 / K0k9 → K5 (K2 waits, §6.1), n = 1, Nexar | **read 2026-11-07, s2024** (`KIM_RUN.md` §9): kernel 3 stays; K5 passes §6.1 against K0; K5 − W0 no difference shown on any set |
+| K-4 | s2025 K0 / K5 (§6.2), then Kcap (§6.3), K2, s2026 if reproduced | **built, not run** (`kim_seed.ipynb`; Kcap code in `core/kim/module.py`) |
+| K-5 | Rest of the ladder (K4, K6–K8, ...) | not built; only after K-4 |
 
 ## 1. Notation collisions (proposal ↔ code). READ BEFORE WRITING ANY CODE
 

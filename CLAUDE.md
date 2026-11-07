@@ -544,7 +544,7 @@ codebase-memory-mcp cli index_repository '{"repo_path": "/path/to/your-project"}
 
 ### 14.0.1 WHICH BRANCH AM I ON? (READ FIRST — the tree differs)
 
-The repository carries **three live branches** (`main` = v1, `v3` = gate rebuild, `v2` = the v2 build line off `main`). They share
+The repository carries **several live branches**, listed below (the original three: `main` = v1, `v3` = gate rebuild, `v2` = the v2 build line off `main`). They share
 history up to `fac71a3`; the memory bank under `.project/memory-bank/` is tracked
 **per branch**, so the one you just loaded describes *this* branch only.
 
@@ -555,6 +555,7 @@ history up to `fac71a3`; the memory bank under `.project/memory-bank/` is tracke
 | **`v2.2` (from `v2`)** | **KAT-VAD v2.2** — v2 (closed on A3-ign) + the staged order test (`core/docs/v2.2/`): `core/tools/order_{features,probe,diagnostics}.py`, runbook `colab/v2/v22_order_s1_s3.ipynb`, plan `.project/plans/katvad-v2.2-order-diagnostics.md`. **S1–S3 read out 2026-10-13: S2 PASS (+0.028), S3 VALUE FAIL → TDP not built, S5 closed**; next = advisor (S4 yes/no). | v1 only; deployed = A3-ign. | 1093 / 0 fail (2026-10-11) |
 | **`v3` (tip `bb1516c`)** | v1 **+** the 2026-08-30 gate rebuild: four selectable `gate_type`s (`rank`/`mlp_frozen`/`mlp_ste`/`constant`), ECMR, `train_only_modules`, `--dump-kip-diag`. | v3, default `rank`. | 537 green |
 | **`v_final_stp_v2` (from `v_final@72a624b`)** | **`v_final` (LaGoVAD-STP: W_u arms, STP, zero-shot TAD / DADA / DAD) + SA²-v2 on 7×7 pooled tokens.** Arms SV2, W0D, SV3, SV4; rules and read-outs `core/docs/final/SA2V2_RUN.md`. **Read out 2026-11-05/06 (n = 1): the module costs on DADA with every fusion (SV2 −0.040, SV3 −0.024, SV4 −0.014 vs W0D) and on DoTA-CAP-dev for SV2/SV3. C2 (`SV2_shuf`): the module learns a label-dependent map but it does not point (STAUC 0.284 < untrained Mo 0.334). Token line CLOSED 2026-11-06 by `SA2V2_RUN.md` §11.4/§12.** State: top of `activeContext.md`; §14.5 below stops before this line. | v1 only; KIP off. | Not counted here. |
+| **`v_final_las_vad` (from `v_final_stp_v2`)** | **LaGoVAD-KIM:** `core/kim/` in KIP's slot, on the Nexar-trained motion-stream host with DVS off; arms K0, K0k9, K5, Kcap, K2; rule and read-outs `core/docs/final/KIM_RUN.md`. **Read out 2026-11-07, s2024, n = 1, nothing adopted: K5 − K0 gains on DoTA-CAP-dev +0.0193 and DADA +0.0484, but K5 − W0 shows no difference on any set.** Next: s2025 (§6.2), `colab/final/kim_seed.ipynb`. | v1 only; KIP off. | Not counted here. |
 | **`v5` (from `v2`)** | **KAT-VAD v5 = LaGoVAD-MQR** (proposal `core/docs/final/`): v2 code + Stage 0 (`core/tools/v5_stage0.py`, token-grid pointing; PARTIAL) + Stage 1 (`core/models/mqr.py`, `core/losses/smil.py`, `core/data/v5_grids.py`, `core/tools/v5_{stage1,maps}.py`; config `v5.*`; trainer `--grid-dir`). Rules `core/docs/v5/PREREG_V5.md` (§2 signed 2026-10-27), plan `.project/plans/katvad-v5-mqr.md`. | v1 only; v5 rows train with KIP off on A2's recipe. | 1292 / 0 fail (2026-10-27) |
 
 **Run `git branch --show-current` before acting on anything in §14.5.** Writing
@@ -569,6 +570,7 @@ branch's code** and are kept here because they are the project's durable record 
 
 | Doc | What it gives you | Read when |
 | --- | --- | --- |
+| **`core/docs/final/KIM_RUN.md`** (§9 = s2024 read-out) | **LaGoVAD-KIM rules and results.** Control K0 = W0 + DVS off; print K5 − W0 beside K5 − K0. | **Before quoting any KIM number or running a K arm** |
 | `core/docs/KAT_VAD_PROPOSAL.md` | The "why": full proposal, intuition, gap analysis, baseline & design justification. | Understanding intent / design decisions |
 | `core/docs/KAT_VAD_IMPLEMENTATION_SPEC.md` | The "what/how": exact modules, per-step tensor shapes, losses, training/inference/eval, config flags, build order. | Writing or modifying any code |
 | `core/docs/REPORT_KIP_MSAD_DOTA_PREVAD.md` | The measured campaign write-up (renamed 2026-08-29). §12 = PreVAD trunk campaign. | Before citing any number |
@@ -655,7 +657,7 @@ The **only splice** into LaGoVAD's forward pass: insert KIP between the temporal
 
 ## 14.5 Where the project stands (2026-09-30 — branch `v2`: v1 code + v2 P0–P3 tools + P5 model inputs; CRN = R2)
 
-> **Fast path:** the TL;DR block at the top of `.project/memory-bank/activeContext.md` is the current state in 6 lines. Read it first; the bullets below are the history.
+> **Fast path:** the first dated entry after **Last Memory Bank Update** in `.project/memory-bank/activeContext.md` is the current state. Read it first (the file is too large to read whole: `Read` with offset 35, limit 12); the bullets below are the history and stop before `v_final`.
 
 **Baseline of truth = commit `b9978ff`** ("feat: Include training/testing for MSAD full"). Treat it as the known-good state; change it deliberately, never incidentally. **This branch is `main`, tip `cc39882` — the v1 line.** The v3 gate rebuild lives on branch `v3` (tip `bb1516c`); the two diverged at `fac71a3`. See §14.0.1.
 

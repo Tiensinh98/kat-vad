@@ -285,6 +285,34 @@ class TestReadout:
         assert r["decisions"]["stop_rule"] == verdict
         assert "K5 - K2" in r["sets"]["dota"]["contrasts"]
 
+    @pytest.mark.parametrize(("k5", "verdict"), [
+        ((0.0, 0.03), kim_readout.REPRODUCED),  # DADA alone decides
+        ((0.03, 0.0), kim_readout.NOT_REPRODUCED),  # a DoTA-only gain does not count
+        ((0.03, -0.03), kim_readout.NOT_REPRODUCED),
+    ])
+    def test_replicate_seed_reads_section_6_2(
+        self, tmp_path: Path, k5: tuple[float, float], verdict: str
+    ) -> None:
+        argv = _runs(tmp_path, {"K0": (0.0, 0.0), "K5": k5})
+        r = kim_readout.run(kim_readout.build_arg_parser().parse_args(
+            [*argv, "--seed", str(constants.KIM_REPLICATE_SEED),
+             "--out-dir", str(tmp_path / "rep")]))
+        assert r["decisions"] == {"replication": verdict}  # §6's stop_rule must not print beside it
+
+    def test_replicate_seed_without_k5_is_pending(self, tmp_path: Path) -> None:
+        argv = _runs(tmp_path, {"K0": (0.0, 0.0)})
+        r = kim_readout.run(kim_readout.build_arg_parser().parse_args(
+            [*argv, "--seed", str(constants.KIM_REPLICATE_SEED),
+             "--out-dir", str(tmp_path / "rep")]))
+        assert r["decisions"]["replication"] == kim_readout.PENDING
+
+    def test_k5_minus_k0k9_is_printed_and_never_decides(self, tmp_path: Path) -> None:
+        argv = _runs(tmp_path, {"K0": (0.0, 0.0), "K0k9": (0.05, 0.05), "K5": (0.0, 0.0)})
+        r = kim_readout.run(kim_readout.build_arg_parser().parse_args(
+            [*argv, "--out-dir", str(tmp_path / "rep")]))
+        assert r["sets"]["dota"]["contrasts"]["K5 - K0k9"]["sentence"] == COST
+        assert r["decisions"]["stop_rule"] == kim_readout.CONTINUE  # only the control decides
+
     def test_tad_is_printed_and_diagnostics_read(self, tmp_path: Path) -> None:
         argv = _runs(tmp_path, {"K0": (0.0, 0.0), "K5": (0.0, 0.0)})
         _tad(tmp_path / "tad" / "K0", 0.3, 0)

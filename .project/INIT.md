@@ -20,6 +20,7 @@
 | `v3` | v1 + KIP gate rebuild (`gate_type`, ECMR) | v3 copy |
 | `v_final` | LaGoVAD-STP line: W_u arms, STP, zero-shot TAD / DADA / DAD. Outputs `outputs/v_final/` = Drive `Thesis-Final/outputs/` | own copy |
 | `v_final_stp_v2` (from `v_final@72a624b`) | `v_final` + SA²-v2 on 7×7 tokens: arms SV2, W0D, SV3 (`core/docs/final/SA2V2_RUN.md`) | own copy |
+| `v_final_las_vad` (from `v_final_stp_v2`) | LaGoVAD-KIM: `core/kim/` in KIP's slot, arms K0, K0k9, K2, K5, Kcap (`core/docs/final/KIM_RUN.md`). Outputs `outputs/v_final/kim/` | own copy |
 
 The memory bank is tracked per branch and the copies diverge on purpose — never merge them with "take theirs".
 

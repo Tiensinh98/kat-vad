@@ -14,9 +14,11 @@ always ``PRELIMINARY (n = 1)``. Endpoints: DoTA-CAP-dev and DADA; TAD is printed
 
 Decisions fixed before the numbers: K0k9 - K0 gain on **both** endpoints → kernel 9 hosts every K
 row (§3.1), else kernel 3; K5 - control cost on **both** endpoints → KIM line closed (§6), else
-continue. Printed: K0 - W0 (the cost of DVS off alone), K5 - W0, ego / non-ego splits, the position
-rulers, the training diagnostics of every run (first → last, plus the last-epoch mean ``mil``),
-and with ``--pilot`` the training-free rank average of the host with ``vt2`` (§5.2).
+continue. §6.1's stricter stop is read from the numbers. At the replicate seed the ``replication``
+line replaces ``stop_rule``: K5 - control gain on DADA → reproduced (§6.2). Printed: K0 - W0 (the
+cost of DVS off alone), K5 - W0, K5 - K0k9, ego / non-ego splits, the position rulers, the training
+diagnostics of every run (first → last, plus the last-epoch mean ``mil``), and with ``--pilot`` the
+training-free rank average of the host with ``vt2`` (§5.2).
 
 CLI::
 
@@ -46,7 +48,7 @@ from core.tools.zs_readout import video_ci
 LOGGER = logging.getLogger(__name__)
 
 READOUT_NAME = "kim_readout"
-RULE = "core/docs/final/KIM_RUN.md §3.1, §6"
+RULE = "core/docs/final/KIM_RUN.md §3.1, §6, §6.1, §6.2, §6.3"
 LABEL = "PRELIMINARY (n = 1)"
 DOTA, DADA, TAD = "dota", "dada", "tad"
 ENDPOINTS = (DOTA, DADA)
@@ -60,6 +62,8 @@ DIAG_KEYS = ("mil", "dvs_sup", "kim_mil", "kim_nkc", *constants.KIM_DIAG_KEYS,
              "motion_share", "w_u_norm")
 CONTINUE, CLOSED, PENDING = "continue to §3's second group", "KIM line closed (§6)", "pending"
 KERNEL_9, KERNEL_3 = "host = kernel 9 for every K row", "host keeps kernel 3"
+REPRODUCED = "reproduced at n = 2: the line goes on (§6.2)"
+NOT_REPRODUCED = "not reproduced: no Kcap or K2 run, no variants (§6.2)"
 
 
 def _json(path: Path) -> Any:
@@ -102,6 +106,8 @@ def contrast_pairs(names: list[str], control: str) -> list[tuple[str, str, str]]
         pairs.append((K5, constants.KIM_CAP_ARM, "the differences (§6.3)"))
     if K5 in names and constants.KIM_W0 in names:
         pairs.append((K5, constants.KIM_W0, "full KIM, DVS off, vs the DVS-on host (printed)"))
+    if K5 in names and K0K9 in names:
+        pairs.append((K5, K0K9, "full KIM vs host kernel 9, no KIM (printed)"))
     return pairs
 
 
@@ -139,12 +145,20 @@ def _endpoint_sentences(sets: dict[str, Any], key: str) -> list[str] | None:
     return [g["sentence"] for g in got]
 
 
-def decide(sets: dict[str, Any], control: str) -> dict[str, str]:
+def decide(
+    sets: dict[str, Any], control: str, seed: int = constants.KIM_SEED
+) -> dict[str, str]:
+    """§3.1 and §6 at the first seed; at the replicate seed §6.2 alone (DADA decides)."""
     out: dict[str, str] = {}
     if control == constants.KIM_CONTROL:
         k9 = _endpoint_sentences(sets, f"{K0K9} - {control}")
         if k9 is not None:
             out["kernel"] = KERNEL_9 if all(s == GAIN for s in k9) else KERNEL_3
+    if seed == constants.KIM_REPLICATE_SEED:
+        dada = sets.get(DADA, {}).get("contrasts", {}).get(f"{K5} - {control}")
+        out["replication"] = PENDING if dada is None else (
+            REPRODUCED if dada["sentence"] == GAIN else NOT_REPRODUCED)
+        return out
     k5 = _endpoint_sentences(sets, f"{K5} - {control}")
     out["stop_rule"] = PENDING if k5 is None else (
         CLOSED if all(s == COST for s in k5) else CONTINUE)
@@ -198,7 +212,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "disclosure": constants.KIM_PILOT_DISCLOSURE, "p_T2_cap_dev": constants.V5_P_T2_CAP_DEV,
         "p_cap_dev": constants.V2_E3_P_CAP,
         "free_baseline": free_baseline(args.pilot) if args.pilot is not None else None,
-        "sets": sets, "decisions": decide(sets, args.control),
+        "sets": sets, "decisions": decide(sets, args.control, args.seed),
         "diagnostics": {n: d for n, rd in args.run or []
                         if (d := run_diagnostics(Path(rd))) is not None},
     }

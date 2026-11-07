@@ -1,7 +1,7 @@
 # Product Context — why KAT-VAD exists
 
 **Created:** 2026-07-31 (re-init from `b9978ff`)
-**Last reviewed:** 2026-09-30 (E1 read out: the rate-matched DoTA protocol; no change to the product
+**Last reviewed:** 2026-11-07 (branch `v_final_las_vad`: the argument's structure is unchanged. KIM at n = 1 gains on its DVS-off control but does not beat the motion-stream host W0, so no product claim follows yet; `KIM_RUN.md` §9). Before that 2026-09-30 (E1 read out: the rate-matched DoTA protocol; no change to the product
 argument's structure). Previously 2026-09-24 (full reconcile — the repair for the negative T2 A/B is
 authorized and built; the fair test is queued, not run). Previously 2026-09-21 (the
 paired T2 KIP A/B is negative and now diagnosed; see "What has actually been shown"). Earlier: 2026-09-15, the

@@ -3,8 +3,11 @@
 > Branch `v_final_las_vad`. Proposal: `core/docs/final/Thesis proposal … (LaGoVAD-KIM.md`.
 > Plan: `.project/plans/katvad-kim.md`. **Status: RULE, written 2026-11-06 before any KIM number.
 > K-1 BUILT 2026-11-06 (`core/kim/`, wiring, `core/tests/test_kim.py`); pilot `core/tools/kim_pilot.py`,
-> read-out `core/tools/kim_readout.py`, runbook `colab/final/kim_runs.ipynb` built the same day; nothing has been run.** Every later change to this file is a dated note
+> read-out `core/tools/kim_readout.py`, runbook `colab/final/kim_runs.ipynb` built the same day.** Every later change to this file is a dated note
 > below the text it changes, never an edit of a rule after its number is seen.
+>
+> **Run state (2026-11-07):** K0, K0k9, pilot and K5 read at s2024 (§9, n = 1, nothing adopted). s2025 (§6.2) and Kcap (§6.3)
+> are built and not run; K2 waits for §6.2.
 
 ## 0. Scope: what KIM may touch
 
@@ -279,3 +282,71 @@ empty 𝒜 ⇒ 0; D15 exclusivity; checkpoint round-trip; `dvs.theta = 1` ⇒ no
 `host` in `kim_pilot.json`, and labels its row `host`. Runbook order: W0's saved reads checked → K0, K0k9 → reads
 → read-out 1 (kernel) → pilot on the control → K2, K5 → read-out 2. A pilot of another host already on Drive
 stops the notebook. Nothing in the runbook loads W0's weights.
+
+*Dated note 2026-11-07, after §9, before any s2025 number:* §6.2's text is unchanged, the tool now applies it. At the
+replicate seed `kim_readout` prints `replication` and no `stop_rule`, because §6's verdict could read "continue" beside
+"not reproduced". It also prints K5 − K0k9 (never decides). `kim_seed.ipynb` can now train K2, with the mask (§5.2).
+
+## 9. Read-out, seed 2024 — PRELIMINARY (n = 1), nothing adopted (2026-11-07)
+
+Raw: `outputs/v_final/kim/REPORTS/`. `kim_readout.md` is the Colab read. `kim_readout_s2024.md` is the same inputs re-read
+locally with the current tool: apart from the rule citation every shared line is identical, and it adds K5 − W0 and K5 − K0k9.
+
+### 9.1 Macros and contrasts
+
+| Set | W0 | K0 | K0k9 | K5 | Rank avg, no training | Middle ruler |
+|---|---|---|---|---|---|---|
+| DoTA-CAP-dev (protocol B) | 0.8110 | 0.8002 | 0.8187 | **0.8195** | 0.8139 | 0.8516 |
+| DADA-2000 (370 sources) | 0.7615 | 0.7256 | 0.7233 | **0.7740** | 0.7428 | 0.7342 |
+| TAD (printed, never decides) | 0.6983 | 0.6954 | 0.7163 | 0.7002 | 0.7244 | 0.6831 |
+
+| Contrast (paired per video, 95 % CI) | DoTA-CAP-dev | DADA | TAD | Role |
+|---|---|---|---|---|
+| K5 − K0 | **+0.0193 [+0.0091, +0.0292]** gain | **+0.0484 [+0.0367, +0.0599]** gain | +0.0047 [−0.0247, +0.0340] | decides (§6, §6.1) |
+| K0k9 − K0 | +0.0185 [+0.0108, +0.0268] gain | −0.0022 [−0.0144, +0.0100] | +0.0208 [−0.0094, +0.0538] | decides (§3.1) |
+| K0 − W0 | −0.0108 [−0.0200, −0.0016] cost | −0.0359 [−0.0490, −0.0232] cost | −0.0029 [−0.0388, +0.0331] | printed |
+| K5 − W0 | +0.0085 [−0.0023, +0.0190] | +0.0125 [−0.0006, +0.0253] | +0.0019 [−0.0244, +0.0286] | printed (§6.2) |
+| K5 − K0k9 | +0.0008 [−0.0116, +0.0130] | +0.0507 [+0.0335, +0.0678] | −0.0161 [−0.0555, +0.0229] | post-hoc, printed |
+
+DoTA-CAP-dev by ego flag: K5 − K0 ego +0.0176 [+0.0071, +0.0275], non-ego +0.0215 [+0.0045, +0.0384]; K5 − W0 ego −0.0012
+[−0.0126, +0.0096], non-ego +0.0211 [+0.0040, +0.0380]. Recorded priors on CAP-dev: `p_T2` 0.8220, cubic `p` 0.8520.
+
+### 9.2 Decisions
+
+- **§3.1:** kernel 3 stays, control = K0. DoTA gains, DADA does not, so the both-endpoints rule fails. The prediction was half
+  wrong: DoTA gained where none was predicted; DADA matched.
+- **§5 (pilot on K0):** KP1 pass (`vt2` ego 0.798), input stays `vt`. KP2 pass (+0.0137 DoTA, +0.0172 DADA). KP3 fail, mask moved
+  to the first pair (§5.3). KP4 fail, H6 dropped.
+- **§6.1:** K5 **passes**: gain on both endpoints, and above the rank average on both (DoTA by +0.0056, DADA by +0.0312; these
+  margins are unpaired, and DoTA's CIs overlap). The prediction "no difference shown" was wrong.
+- **Next by rule:** §6.2, s2025.
+
+### 9.3 What these numbers do not license
+
+1. **"KIM beats the motion-stream host": no.** K5 − W0 shows no difference on any set. K5 − K0 is measured against a control that
+   D2 lowered: K5 − K0 = (K5 − W0) − (K0 − W0) by construction (DADA +0.0125 + 0.0359 = +0.0484). How much of K5's gain only
+   refills what DVS off removed is not separable here: no row has DVS on with KIM.
+2. **DoTA-CAP-dev says little about the module.** Host kernel 9 alone gives the same macro as K5 (+0.0008), and K5 stays under its
+   middle ruler and `p_T2`. On DADA the two differ by +0.0507. This contrast was chosen after K5's number, so it is description.
+3. **"Sees kinematics": still forbidden (§6).** Kcap has not run. K5's `kin_feat` also holds the undifferenced `state`.
+4. **H1's ego-larger prediction has no support:** ego +0.0176 against non-ego +0.0215.
+5. **Regularization is not excluded:** `mil` last-epoch mean K5 0.1637, K0 0.1288, K0k9 0.1163.
+
+### 9.4 Checks and mechanics
+
+- **Runs:** each `metrics.jsonl` has 1,749 rows. `verified.json` records step 1,749; the checkpoints themselves stay on Drive.
+  Config diffs: K0k9 − K0 = kernel only; K5 − K0 = `kim.enabled`, `kim.prototypes`, `kim.edge_mask`; K0 − W0 = `dvs.theta*` plus
+  keys W0's config predates. First-batch `mil` K0 = K5 = 0.6878 (same host init, D13).
+- **Which pair was masked:** the config says `edge_mask: true`, not which pair. First pair rests on the upload: `pair_mask(drop_first)`
+  and `first_mask_fits` were written together, and `kim_runs.ipynb` imports the latter. `pilot_edges/kim_pilot.*` still prints "mask the
+  last valid pair" because it was written by the older tool.
+- **Replication uses K5's code:** `KIM` before and after the Kcap refactor (`9e81b77` vs `c69f867`) gave equal keys, init, `kin_feat` and
+  score under one seed, for K5, K2 and the unmasked form.
+- **K5 diagnostics, first → last logged batch (one batch, not an average):** `kim_mil` 0.8593 → 0.1262, `kim_nkc` 2.1806 → 0.2771,
+  ‖`w_out`‖ 0 → 0.9335, velocity gate 0.5044 → 0.3638, acceleration gate 0.5034 → 0.4993, anchor share 0.0076 → 0.9038, cos(μ0, μ1)
+  0 → −0.7319. The mean acceleration gate barely left its init; a mean cannot say whether single channels moved.
+
+### 9.5 Required by this rule, not built
+
+Printed-only items, so no decision above depends on them: D14's per-step `kim_score` and ‖`acc`‖, §6's KIM video AUC on Nexar val,
+and §5's cubic `p` fitted on DADA / TAD (§5.2 already waived that one). The first two can be read later from the checkpoints on Drive.

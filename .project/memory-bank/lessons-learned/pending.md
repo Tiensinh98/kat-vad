@@ -2278,3 +2278,21 @@ Promote if a second harness needs the same split.
 **Rule:** Measure a check at the same granularity as the fix its failure triggers.
 **Files:** core/tools/kim_pilot.py (`edge_sides`, `first_mask_fits`), core/kim/module.py (`pair_mask`), core/docs/final/KIM_RUN.md §5.3
 **Why pending:** one occurrence. Promote on a second.
+
+## (cn) [MEDIUM] Experiments - a gain against a weakened control can be a refill (2026-11-07)
+**Triggers:** control, baseline, removed component, DVS off, K5, K0, W0, gain, ablation
+**Problem:** K5 − K0 read as a gain on DADA (+0.0484), but K0 had removed DVS from the host (K0 − W0 −0.0359), and K5 − W0 showed no difference (+0.0125 [−0.0006, +0.0253]).
+**Bad:** quote new − control alone when the control is the host minus something
+**Good:** print new − control and new − unweakened host side by side, paired, in the same read-out
+**Rule:** Print the contrast against the unweakened host beside any gain measured on a control that removed a component.
+**Files:** core/tools/kim_readout.py (`contrast_pairs`), core/docs/final/KIM_RUN.md §9.3
+**Why pending:** one occurrence, n = 1. Promote on a second.
+
+## (co) [MEDIUM] Experiments - a read-out must print the rule in force at this stage (2026-11-07)
+**Triggers:** stop_rule, replication, read-out decision, later rule, dated note, seed
+**Problem:** §6.1 and §6.2 replaced §6's stop rule, but `kim_readout` kept printing §6's verdict, so s2025 could print "continue" beside a not-reproduced result.
+**Bad:** a new rule goes into the doc, "read from the numbers", while the tool prints the old verdict
+**Good:** when a dated note supersedes a rule, encode it in the tool and drop the old line at that stage
+**Rule:** Update the tool's printed decision in the same change as the rule that supersedes it.
+**Files:** core/tools/kim_readout.py (`decide`), core/docs/final/KIM_RUN.md §6.2, §8
+**Why pending:** caught before any wrong read; §6.1 was read correctly by hand. Promote on a second.

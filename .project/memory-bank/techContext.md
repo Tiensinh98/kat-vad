@@ -1,7 +1,7 @@
 # Tech Context — stack, setup, constraints
 
 **Created:** 2026-07-31 (re-init from `b9978ff`, read off `pyproject.toml`)
-**Last reviewed:** 2026-09-30, branch `v2` (counts re-measured: **109 Python files (73 source + 36 test),
+**Last reviewed:** 2026-11-07, branch `v_final_las_vad` (counts re-measured: **224 tracked Python files under `core/` (142 source + 82 test), 42,144 source lines, 1,597 tests collected, 68 tracked files under `core/docs/`**; no new dependency; local tests run in `.venv`, py3.10 + torch 2.4.1 from PyPI, because the pytorch.org index is blocked). Before that 2026-09-30, branch `v2` (counts re-measured: **109 Python files (73 source + 36 test),
 17,520 source LOC, 754 tests, 35 docs**; new: `rate_matched_eval` (E1), `build_v2_inputs` + `core/data/v2_inputs.py`,
 `MotionResidual`, config `model.motion_dim` + `v2` section; no new dependency). Before that 2026-09-28 (103 files,
 16,366 LOC, 691 tests, 33 docs). Before that 2026-09-27 (91 files, 14,155 LOC, 598 tests, 30 docs on `main`).
