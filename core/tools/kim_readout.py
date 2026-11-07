@@ -16,9 +16,9 @@ Decisions fixed before the numbers: K0k9 - K0 gain on **both** endpoints → ker
 row (§3.1), else kernel 3; K5 - control cost on **both** endpoints → KIM line closed (§6), else
 continue. §6.1's stricter stop is read from the numbers. At the replicate seed the ``replication``
 line replaces ``stop_rule``: K5 - control gain on DADA → reproduced (§6.2). Printed: K0 - W0 (the
-cost of DVS off alone), K5 - W0, K5 - K0k9, ego / non-ego splits, the position rulers, the training
-diagnostics of every run (first → last, plus the last-epoch mean ``mil``), and with ``--pilot`` the
-training-free rank average of the host with ``vt2`` (§5.2).
+cost of DVS off alone), K5 - W0, Kcap - W0, K5 - K0k9, ego / non-ego splits, the position rulers,
+the training diagnostics of every run (first → last, plus the last-epoch mean ``mil``), and with
+``--pilot`` the training-free rank average of the host with ``vt2`` (§5.2).
 
 CLI::
 
@@ -106,6 +106,9 @@ def contrast_pairs(names: list[str], control: str) -> list[tuple[str, str, str]]
         pairs.append((K5, constants.KIM_CAP_ARM, "the differences (§6.3)"))
     if K5 in names and constants.KIM_W0 in names:
         pairs.append((K5, constants.KIM_W0, "full KIM, DVS off, vs the DVS-on host (printed)"))
+    if constants.KIM_CAP_ARM in names and constants.KIM_W0 in names:
+        pairs.append((constants.KIM_CAP_ARM, constants.KIM_W0,
+                      "branch + losses, DVS off, vs the DVS-on host (printed)"))
     if K5 in names and K0K9 in names:
         pairs.append((K5, K0K9, "full KIM vs host kernel 9, no KIM (printed)"))
     return pairs

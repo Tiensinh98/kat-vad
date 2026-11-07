@@ -11,7 +11,7 @@
 | K-1 | Build `core/kim/` + wiring + tests (CPU, data-free) | **built 2026-11-06** (K2/K5 only; ladder flags not built); `test_kim.py` 27 green. Added arm **K0k9** (host kernel 9, `KIM_RUN.md` §3.1) |
 | K-2 | Pilot (inference only, **decided control K0 / K0k9**: W0's checkpoint deleted, `KIM_RUN.md` §4 note, §5.1) KP1–KP4 | **read 2026-11-07 on K0** (`KIM_RUN.md` §9.2): KP1, KP2 pass; KP3 fail → first-pair mask (§5.3); KP4 fail → H6 dropped |
 | K-3 | First training read: K0 / K0k9 → K5 (K2 waits, §6.1), n = 1, Nexar | **read 2026-11-07, s2024** (`KIM_RUN.md` §9): kernel 3 stays; K5 passes §6.1 against K0; K5 − W0 no difference shown on any set |
-| K-4 | s2025 K0 / K5 (§6.2), then Kcap (§6.3), K2, s2026 if reproduced | **s2025 read 2026-11-07: reproduced, n = 2** (`KIM_RUN.md` §10: K5 − K0 DADA +0.0383 [+0.0293, +0.0473]). **Kcap at both seeds is next: built, not run** (`kim_seed.ipynb`, `ARMS = (K0, K5, KCAP)`); K2, s2026 after it |
+| K-4 | s2025 K0 / K5 (§6.2), then Kcap (§6.3), K2, s2026 if reproduced | **s2025 read 2026-11-07: reproduced, n = 2** (`KIM_RUN.md` §10: K5 − K0 DADA +0.0383 [+0.0293, +0.0473]). **Kcap s2025 read 2026-11-07: §6.3 fails** (`KIM_RUN.md` §11: K5 − Kcap DADA +0.0012 [−0.0056, +0.0080]), gain = branch + losses. **Kcap s2024 + paired Kcap − W0 next (§11.5): built, not run**; it cannot reverse §6.3. K2, s2026 held until the user reads §11.5 |
 | K-5 | Rest of the ladder (K4, K6–K8, ...) | not built; only after K-4 |
 
 ## 1. Notation collisions (proposal ↔ code). READ BEFORE WRITING ANY CODE

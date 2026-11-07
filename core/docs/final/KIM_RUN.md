@@ -7,7 +7,8 @@
 > below the text it changes, never an edit of a rule after its number is seen.
 >
 > **Run state (2026-11-07):** K0, K0k9, pilot and K5 read at s2024 (§9). K0 and K5 read at s2025 (§10): **§6.2 reads "reproduced",
-> n = 2, nothing adopted.** Next by rule: Kcap at both seeds (§6.3, built, not run), then K2 and s2026.
+> n = 2, nothing adopted.** Kcap read at s2025 (§11): **§6.3 fails, K5's gain is not attributed to the differences.** Next: Kcap s2024 with paired
+> Kcap − W0 (§11.5, built, not run); it cannot reverse §6.3. K2 and s2026 are held until the user reads §11.5.
 
 ## 0. Scope: what KIM may touch
 
@@ -401,3 +402,56 @@ Rulers, same at both seeds: DADA middle 0.7342; DoTA-CAP-dev middle 0.8516 and `
 have one: L0b** (`outputs/v_final/local/L0b/s2025/`, `LOCAL_STEP1B.md`). Its config differs from W0's only in `train.seed` and `stp.branch: host`. Its
 DoTA-CAP-dev macro is 0.8058, so K5 s2025 − L0b is +0.0108, **unpaired and printed only**; a paired read needs K5's s2025 `clip_aucs.json`. L0b has no DADA
 or TAD read locally. Whether its checkpoint is still on Drive is unverified. It was trained on `v_final-local`. No decision changes.
+
+## 11. Read-out, Kcap at seed 2025 — §6.3 fails, n = 1 for Kcap (2026-11-07)
+
+Raw: `outputs/v_final/kim/REPORTS/kim_readout_s2025.md`, re-written with the Kcap row; K0 and K5's lines match §10's. Only the `.md` is local.
+
+### 11.1 Decision
+
+**K5 − Kcap on DADA at s2025 = +0.0012 [−0.0056, +0.0080], no difference shown.** §6.3 needs a gain at both seeds, so s2024 cannot reverse this:
+**K5's gain is not attributed to the differences. It is reported as branch + losses, and §6's forbidden phrasing stays.** The prediction "no difference
+shown" held on DADA; on DoTA-CAP-dev, which is read beside it, the differences show a cost.
+
+### 11.2 Numbers
+
+| Macro, s2025 | K0 | K5 | Kcap |
+|---|---|---|---|
+| DADA (decides) | 0.7248 | 0.7631 | 0.7620 |
+| DoTA-CAP-dev (read beside) | 0.8002 | 0.8166 | 0.8229 |
+| TAD (never decides) | 0.6918 | 0.6836 | 0.6894 |
+
+| Contrast, s2025 | DADA | DoTA-CAP-dev | TAD |
+|---|---|---|---|
+| K5 − Kcap (§6.3) | **+0.0012 [−0.0056, +0.0080]** none | −0.0063 [−0.0108, −0.0020] cost | −0.0058 [−0.0289, +0.0198] none |
+| Kcap − K0 (printed, never decides) | +0.0371 [+0.0277, +0.0466] gain | +0.0226 [+0.0167, +0.0287] gain | −0.0024 [−0.0285, +0.0216] none |
+| K5 − K0 (§10) | +0.0383 [+0.0293, +0.0473] gain | +0.0163 [+0.0102, +0.0223] gain | −0.0082 [−0.0393, +0.0193] none |
+
+DoTA-CAP-dev by ego flag: K5 − Kcap ego −0.0038 [−0.0076, −0.0000], non-ego −0.0096 [−0.0179, −0.0020]; Kcap − K0 ego +0.0197 [+0.0133, +0.0261], non-ego
++0.0265 [+0.0155, +0.0382]. So a branch without differences holds K5's whole gain on DADA and more on DoTA-CAP-dev, at this seed.
+
+### 11.3 What this does and does not license
+
+1. **Licensed, n = 1:** at s2025, explicit differences add nothing measurable beyond a per-step branch of equal capacity with the same losses, on DADA.
+2. **Not licensed: "motion does not matter."** Kcap's `vt` still carries RoFormer's temporal context and the VideoMAE motion stream (§6.3). This tests **explicit** differences only.
+3. **Not licensed: "Kcap beats K5."** Kcap's DoTA margin is one seed, printed; it never decides.
+4. **Not licensed: "the branch beats the DVS-on host."** Kcap − K0 is against the control DVS off lowered (§9.3). No paired Kcap − W0 exists. Unpaired and printed: Kcap s2025 − L0b on
+   DoTA-CAP-dev is +0.0171; L0b has no DADA read locally. Kcap stays below DoTA-CAP-dev's middle ruler 0.8516, and at `p_T2` 0.8220 inside its CI.
+5. **Why the branch helps is not measured.** Candidates: a second head on `vt`, its own `kim_mil`, `kim_nkc`, prototypes. Train `mil` last-epoch mean Kcap 0.0891, K0 0.1181, K5 0.1454: Kcap gains while
+   fitting harder, so higher train `mil` does not explain both arms. One seed; this does not exclude other regularization.
+
+### 11.4 Checks and mechanics
+
+- **Same host init:** first-batch `mil` K0 = K5 = Kcap = 0.7057. Kcap reaches step 1,749. Parts add up: K5 − K0 = (K5 − Kcap) + (Kcap − K0) on DADA and DoTA-CAP-dev.
+- **Kcap diagnostics, first → last logged batch (one batch):** `kim_mil` 1.1566 → 0.0413, `kim_nkc` 1.9995 → 0.1263, ‖`w_out`‖ 0 → 1.4680, anchor share 0 → 0.9750, cos(μ0, μ1) 0 → −0.5103. Gates print 0: Kcap has none.
+- **Tool gap:** the read-out prints the K5 − Kcap row but no §6.3 decision line, and has no Kcap − W0 row. §6.3 is read here from the numbers.
+
+### 11.5 Kcap s2024 and Kcap − W0 (dated note 2026-11-07, before any Kcap s2024 number; user)
+
+§11.1 stands and this run cannot reverse it. The run asks what §11.3 point 4 leaves open: does branch + losses beat the DVS-on host?
+
+- **Run:** Kcap, s2024, §6.3's arm and recipe, runbook `kim_seed.ipynb` (`SEED = 2024`, `ARMS = (K0, K5, KCAP)`). K0 and K5 are not retrained or re-read.
+- **Read:** `kim_readout` now prints **Kcap − W0**, paired per video, at s2024 only because W0's reads exist at that seed. It enters no `decisions` field. W0 keeps DVS on, so the contrast mixes DVS off with branch + losses, as K5 − W0 does.
+- **What follows, fixed now, on DADA as in §6.2 and §6.3, with DoTA-CAP-dev read beside it:**
+  Kcap − W0 **gain on DADA** → the user may open a new dated note on branch + losses, not on kinematics. **Anything else** → Claude recommends closing the KIM line and writing up the attribution; K2 and s2026 stay unrun unless the user decides otherwise. The user makes that call. n = 1 either way, nothing adopted.
+- **Prediction (written before the number):** DADA "no difference shown", as K5 − W0 at s2024; DoTA-CAP-dev positive, label not predicted. K5 − Kcap on DADA at s2024 "no difference shown".

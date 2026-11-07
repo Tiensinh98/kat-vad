@@ -361,6 +361,24 @@ class TestReadout:
         assert r["decisions"]["stop_rule"] == kim_readout.CONTINUE
         assert "K5 - W0" in (tmp_path / "rep" / "kim_readout.md").read_text()
 
+    def test_kcap_minus_w0_is_paired_printed_and_never_decides(self, tmp_path: Path) -> None:
+        argv = _runs(tmp_path, {"W0": (0.0, 0.0), "K0": (-0.03, -0.03), "K5": (-0.02, -0.02),
+                                "Kcap": (0.02, 0.02)})
+        r = kim_readout.run(kim_readout.build_arg_parser().parse_args(
+            [*argv, "--out-dir", str(tmp_path / "rep")]))
+        for name in ("dota", "dada"):
+            c = r["sets"][name]["contrasts"]["Kcap - W0"]
+            assert c["delta"]["mean"] == pytest.approx(0.02, abs=1e-9)
+            assert c["sentence"] == GAIN and "printed" in c["what"]
+        # a gain against W0 changes no decision field
+        assert set(r["decisions"]) == {"stop_rule"}  # no K0k9 row here, so no kernel line
+        assert r["decisions"]["stop_rule"] == kim_readout.CONTINUE
+        assert "Kcap - W0" in (tmp_path / "rep" / "kim_readout.md").read_text()
+
+    def test_kcap_minus_w0_needs_both_rows(self) -> None:
+        pairs = kim_readout.contrast_pairs(["K0", "K5", "Kcap"], "K0")  # s2025: no W0 row
+        assert ("Kcap", "W0") not in [(a, b) for a, b, _ in pairs]
+
     def test_kcap_prints_its_contrasts_and_never_decides(self, tmp_path: Path) -> None:
         argv = _runs(tmp_path, {"K0": (0.0, 0.0), "K5": (-0.02, -0.02), "Kcap": (0.02, 0.02)})
         r = kim_readout.run(kim_readout.build_arg_parser().parse_args(
