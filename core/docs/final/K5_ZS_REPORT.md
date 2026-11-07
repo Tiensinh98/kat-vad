@@ -58,3 +58,17 @@ K5 was chosen after DoTA-CAP-dev, DADA-2000 and TAD were read, so they are not a
 and DAD measures clip classification (clip oracle 0.9226, 0.8390). DAD was read after K5 was chosen. The DoTA bracket differs from
 `protocol_b_readout.md` (0.8047, 0.8337) in the last digit: this table uses the bootstrap seed of
 `zs_lagovad_readout`, the same one as the LaGoVAD cell.
+
+## Added comparison: K5 trained on T2
+
+The user asked for this after the TAD drop. Rule and full read-out: `KIM_RUN.md` §13 and §13.1. Raw `outputs/v_final/kim_t2/REPORTS/k5_t2_report.md`. **PRELIMINARY (n = 1), decides nothing;** K5 on Nexar stays the main model. DADA-2000 is not read here, and `nexar_val` is new to this table.
+
+| Set | Metric | LaGoVAD | K5 (Nexar) | K5 (T2) |
+|---|---|---|---|---|
+| Nexar val | macro, crops | 0.5859 | 0.8981 (in-domain) | 0.7816 |
+| DoTA-CAP-dev | macro | 0.6418 | 0.8195 | 0.8085 |
+| TAD | macro | 0.7579 | 0.7002 | 0.7606 |
+| TAD | micro | 0.7912 | 0.6781 | 0.5187 |
+| DAD | macro | 0.6462 | 0.7916 | 0.8198 |
+
+K5 (T2) − K5 (Nexar), macro: only Nexar val separates (−0.1165 [−0.1502, −0.0842]); TAD +0.0604 [−0.0076, +0.1283], DoTA-CAP-dev and DAD are not separated either. On TAD, K5 (T2) scores normal videos above accident frames (median 0.899 vs 0.508). Never write "T2 fixes TAD".

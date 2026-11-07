@@ -575,3 +575,47 @@ Predictions held: K5d − W0 on DADA "no difference shown", by 0.0002; K5d − K
 **Expectations, written before the numbers:** (a) TAD macro K5-T2 above K5's 0.7002, because CLIP-only reads 0.727 trained on T2 vs 0.590 on Nexar (`RESULTS_NEXAR.md`); (b) DoTA-CAP-dev below K5's 0.8195, because A2 reads 0.7536 vs 0.8171; (c) `nexar_val` crops K5-T2 below K5, in-domain vs zero-shot. **T2 is dashcam too**, so a gain on TAD would mean the Nexar corpus matters, not that the camera does not; it does not test the fixed-camera explanation. DVS off has never been measured on T2, so (a) and (b) may fail for that reason.
 
 Runbook `colab/final/k5_t2.ipynb`; table `core.tools.k5_t2_report`. Outputs `Thesis-Final/outputs/kim_t2/`.
+
+### 13.1 Read-out — PRELIMINARY (n = 1), decides nothing (2026-11-07)
+
+Raw `outputs/v_final/kim_t2/REPORTS/k5_t2_report.md`, regenerated locally from the saved scores byte for byte. K5-T2 s2024: `verified.json` and `metrics.jsonl` both step 1,740 (J10); config differs from K5 only in `data.dataset` and `train.num_epochs`.
+
+| Set | Metric | LaGoVAD | K5 (Nexar) | K5 (T2) |
+|---|---|---|---|---|
+| Nexar val | macro, crops (endpoint) | 0.5859 [0.5399, 0.6314] | 0.8981 [0.8749, 0.9197] | 0.7816 [0.7447, 0.8165] |
+| | macro, whole video (position test; middle ruler 0.9735) | 0.5832 | 0.9245 | 0.8201 |
+| | micro / AP | 0.5224 / 0.0431 | 0.9000 / 0.4472 | 0.7644 / 0.1629 |
+| DoTA-CAP-dev | macro | 0.6418 [0.6166, 0.6666] | 0.8195 [0.8048, 0.8338] | 0.8085 [0.7922, 0.8246] |
+| | micro / AP | 0.6105 / 0.3838 | 0.7449 / 0.5790 | 0.7115 / 0.5309 |
+| TAD | macro | 0.7579 [0.6955, 0.8147] | 0.7002 [0.6246, 0.7724] | 0.7606 [0.7015, 0.8157] |
+| | micro / AP | 0.7912 / 0.2571 | 0.6781 / 0.2568 | 0.5187 / 0.2104 |
+| DAD | macro | 0.6462 [0.5881, 0.7016] | 0.7916 [0.7513, 0.8294] | 0.8198 [0.7859, 0.8515] |
+| | micro / AP | 0.5681 / 0.0640 | 0.7050 / 0.1156 | 0.7529 / 0.1534 |
+
+| Set | K5-T2 − LaGoVAD (T7) | K5-T2 − K5 (T7) |
+|---|---|---|
+| Nexar val, crops | +0.1956 [+0.1400, +0.2504] above | −0.1165 [−0.1502, −0.0842] below |
+| DoTA-CAP-dev | +0.1667 [+0.1437, +0.1902] above | −0.0110 [−0.0286, +0.0065] not separated |
+| TAD | +0.0027 [−0.0642, +0.0691] not separated | +0.0604 [−0.0076, +0.1283] not separated |
+| DAD | +0.1737 [+0.1124, +0.2364] above | +0.0282 [−0.0126, +0.0689] not separated |
+
+**Expectations of §13:** (a) TAD macro above 0.7002: right direction, interval contains 0. (b) DoTA-CAP-dev below 0.8195: right direction, interval contains 0. (c) `nexar_val` crops below K5: holds, and it is in-domain against zero-shot, so it says little. **Not expected: TAD micro 0.6781 → 0.5187.**
+
+**TAD, post-hoc, printed not gated, from the saved scores of the 100 videos.** "Inside" = accident frames vs the other frames of the abnormal videos, pooled. "Normal" = accident frames vs frames of normal videos, pooled. Clip AUC = video peak, abnormal vs normal.
+
+| Read | LaGoVAD | K5 (Nexar) | K5 (T2) |
+|---|---|---|---|
+| AUC inside | 0.5393 | 0.6083 | 0.6787 |
+| AUC normal | 0.8373 | 0.6909 | 0.4894 |
+| Clip AUC | 0.7687 | 0.6358 | 0.5358 |
+| Median score, accident frames | 0.057 | 0.044 | 0.508 |
+| Median score, normal videos | 0.005 | 0.008 | 0.899 |
+| Normal videos with a peak above 0.5 | 0.07 | 0.33 | 0.72 |
+
+K5-T2 scores normal TAD videos above accident frames. Whole-video micro on `nexar_val` and DAD did not collapse with it, so "T2 has no whole normal videos" does not explain it alone. **Cause not tested;** T2 is dashcam, so this does not test the fixed-camera explanation either. By category K5-T2 is above K5 on 05_else (0.782 vs 0.665, n = 14), 06_PedestrianOnRoad (0.619 vs 0.451, n = 10), 07_RoadSpills (0.889 vs 0.584, n = 4), 01_Accident is level (0.834 vs 0.823, n = 23), and 02, 03, 04 are below (n = 3 each); no intervals.
+
+**DAD:** placebo stays high: macro 0.8198 vs placebo 0.7146; same position, accident rows 0.7341 [0.6844, 0.7805], rows 7 up to the accident 0.7100 [0.6583, 0.7586]. The separation is there before the accident, as on K5 (Nexar). Never write that K5-T2 localizes accidents on DAD.
+
+**Printed beside, not a contrast:** A2 trained on T2 with DVS on read DoTA-CAP-dev 0.7536 and K5-T2 reads 0.8085, but that is a five-seed average against one seed, with DVS off and KIM changed together. The DVS-off caveat of §13 stays unmeasured: there is no T2 control without KIM.
+
+**What this licenses:** training on T2 does not rescue TAD (macro not separated, micro worse) and K5 on Nexar stays the main model. **Do not write** "T2 fixes TAD" or "the training corpus explains the TAD drop". §13 stands: no K2, s2026 or sweep follows from these numbers.
