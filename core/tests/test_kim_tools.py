@@ -395,7 +395,20 @@ class TestReadout:
         c = r["sets"]["dada"]["contrasts"]
         assert c["K5d - W0"]["delta"]["mean"] == pytest.approx(k5d[1], abs=1e-9)
         assert "K5d - K5" in c and "K5d - K0" in c
-        assert r["decisions"]["stop_rule"] == kim_readout.CONTINUE  # §6 still reads K5 alone
+        assert "stop_rule" not in r["decisions"]  # §6's verdict must not print beside §12's
+
+    def test_seam_check_reaches_the_report(self, tmp_path: Path) -> None:
+        run_dir = tmp_path / "runs" / "K5d"
+        run_dir.mkdir(parents=True)
+        rows = [{"global_step": s, "epoch": 0, "mil": 0.5, "kim_seam_share": 0.1,
+                 "kim_anchor_seam_share": v} for s, v in ((1, 0.2), (2, 0.4))]
+        (run_dir / "metrics.jsonl").write_text("\n".join(json.dumps(x) for x in rows) + "\n")
+        argv = _runs(tmp_path, {"W0": (0.0, 0.0), "K0": (0.0, 0.0), "K5": (0.0, 0.0),
+                                "K5d": (0.0, 0.0)})
+        kim_readout.run(kim_readout.build_arg_parser().parse_args(
+            [*argv, "--run", "K5d", str(run_dir), "--out-dir", str(tmp_path / "rep")]))
+        md = (tmp_path / "rep" / "kim_readout.md").read_text()
+        assert "Seam check" in md and "| K5d | 0.1000 | 0.3000 |" in md
 
     def test_no_k5d_row_prints_no_dvs_host_line(self, tmp_path: Path) -> None:
         argv = _runs(tmp_path, {"W0": (0.0, 0.0), "K0": (0.0, 0.0), "K5": (0.0, 0.0)})

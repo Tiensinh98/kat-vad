@@ -1,0 +1,526 @@
+{
+  "control": "K0",
+  "decisions": {
+    "replication": "reproduced at n = 2: the line goes on (\u00a76.2)"
+  },
+  "diagnostics": {
+    "K0": {
+      "dvs_sup": {
+        "first": 0.5729215145111084,
+        "last": 0.007853394374251366
+      },
+      "last_step": 1749,
+      "mil": {
+        "first": 0.7056572437286377,
+        "last": 0.060120806097984314
+      },
+      "mil_last_epoch_mean": 0.11809564037424214,
+      "motion_share": {
+        "first": 0.0,
+        "last": 0.14750780165195465
+      },
+      "w_u_norm": {
+        "first": 0.0,
+        "last": 1.2302325963974
+      }
+    },
+    "K5": {
+      "dvs_sup": {
+        "first": 0.5729215145111084,
+        "last": 0.006873353850096464
+      },
+      "kim_acc_gate": {
+        "first": 0.50439453125,
+        "last": 0.50146484375
+      },
+      "kim_anchor_share": {
+        "first": 0.2016129046678543,
+        "last": 0.9666666388511658
+      },
+      "kim_mil": {
+        "first": 0.7583879232406616,
+        "last": 0.0718710646033287
+      },
+      "kim_nkc": {
+        "first": 2.088780403137207,
+        "last": 0.2179163694381714
+      },
+      "kim_proto_cos": {
+        "first": 0.0,
+        "last": -0.7828919887542725
+      },
+      "kim_proto_ready": {
+        "first": 0.0,
+        "last": 1.0
+      },
+      "kim_scale": {
+        "first": 0.2666015625,
+        "last": 0.5439453125
+      },
+      "kim_vel_gate": {
+        "first": 0.5078125,
+        "last": 0.34423828125
+      },
+      "kim_w_out_norm": {
+        "first": 0.0,
+        "last": 0.9082316160202026
+      },
+      "kim_w_state_norm": {
+        "first": 14.336545944213867,
+        "last": 14.366477012634277
+      },
+      "last_step": 1749,
+      "mil": {
+        "first": 0.7056572437286377,
+        "last": 0.07526568323373795
+      },
+      "mil_last_epoch_mean": 0.14536840278866156,
+      "motion_share": {
+        "first": 0.0,
+        "last": 0.1368916779756546
+      },
+      "w_u_norm": {
+        "first": 0.0,
+        "last": 1.1696763038635254
+      }
+    },
+    "Kcap": {
+      "dvs_sup": {
+        "first": 0.5729215145111084,
+        "last": 0.0032884045504033566
+      },
+      "kim_acc_gate": {
+        "first": 0.0,
+        "last": 0.0
+      },
+      "kim_anchor_share": {
+        "first": 0.0,
+        "last": 0.9750000238418579
+      },
+      "kim_mil": {
+        "first": 1.1566379070281982,
+        "last": 0.041256461292505264
+      },
+      "kim_nkc": {
+        "first": 1.999509572982788,
+        "last": 0.1263376921415329
+      },
+      "kim_proto_cos": {
+        "first": 0.0,
+        "last": -0.5103378891944885
+      },
+      "kim_proto_ready": {
+        "first": 0.0,
+        "last": 1.0
+      },
+      "kim_scale": {
+        "first": 1.0,
+        "last": 1.0
+      },
+      "kim_vel_gate": {
+        "first": 0.0,
+        "last": 0.0
+      },
+      "kim_w_out_norm": {
+        "first": 0.0,
+        "last": 1.468030571937561
+      },
+      "kim_w_state_norm": {
+        "first": 16.452024459838867,
+        "last": 16.494098663330078
+      },
+      "last_step": 1749,
+      "mil": {
+        "first": 0.7056572437286377,
+        "last": 0.03284725174307823
+      },
+      "mil_last_epoch_mean": 0.08910895311185774,
+      "motion_share": {
+        "first": 0.0,
+        "last": 0.14192448556423187
+      },
+      "w_u_norm": {
+        "first": 0.0,
+        "last": 1.201817274093628
+      }
+    }
+  },
+  "disclosure": "The KP pilot reads DoTA-CAP-dev / DADA / TAD with the decided control (K0 or K0k9), after the kernel read-out and before K2 / K5 train (KIM_RUN.md \u00a75.1).",
+  "free_baseline": null,
+  "label": "PRELIMINARY (n = 1)",
+  "p_T2_cap_dev": 0.822,
+  "p_cap_dev": 0.852,
+  "rule": "core/docs/final/KIM_RUN.md \u00a73.1, \u00a76, \u00a76.1, \u00a76.2, \u00a76.3",
+  "seed": 2025,
+  "sets": {
+    "dada": {
+      "contrasts": {
+        "K5 - K0": {
+          "delta": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.04726429368461248,
+            "low": 0.029325561990587185,
+            "mean": 0.03827868207863129
+          },
+          "sentence": "gain shown",
+          "what": "full KIM"
+        },
+        "K5 - Kcap": {
+          "delta": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.007958844717621087,
+            "low": -0.00560104199349089,
+            "mean": 0.0011522488244508134
+          },
+          "sentence": "no difference shown",
+          "what": "the differences (\u00a76.3)"
+        },
+        "Kcap - K0": {
+          "delta": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.04662764161324522,
+            "low": 0.027707985425217737,
+            "mean": 0.037126433254180476
+          },
+          "sentence": "gain shown",
+          "what": "capacity + losses, no differences"
+        }
+      },
+      "rows": {
+        "K0": {
+          "clip_auc": null,
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.7468484296267717,
+            "low": 0.7019044455822568,
+            "mean": 0.7248446468060118
+          },
+          "micro": 0.7109562964739349,
+          "middle": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.7593740793767018,
+            "low": 0.7076400644362505,
+            "mean": 0.7342313238639548
+          },
+          "ruler": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.578161971730551,
+            "low": 0.5246651404989134,
+            "mean": 0.5514242805926071
+          }
+        },
+        "K5": {
+          "clip_auc": null,
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.786337622808868,
+            "low": 0.7389351687943817,
+            "mean": 0.7631233288846433
+          },
+          "micro": 0.7219136881347381,
+          "middle": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.7593740793767018,
+            "low": 0.7076400644362505,
+            "mean": 0.7342313238639548
+          },
+          "ruler": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.578161971730551,
+            "low": 0.5246651404989134,
+            "mean": 0.5514242805926071
+          }
+        },
+        "Kcap": {
+          "clip_auc": null,
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.7857334509823921,
+            "low": 0.7373679686899144,
+            "mean": 0.7619710800601922
+          },
+          "micro": 0.713830061170891,
+          "middle": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.7593740793767018,
+            "low": 0.7076400644362505,
+            "mean": 0.7342313238639548
+          },
+          "ruler": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.578161971730551,
+            "low": 0.5246651404989134,
+            "mean": 0.5514242805926071
+          }
+        }
+      },
+      "title": "DADA-2000 (370 sources, whole video, s8, raw)"
+    },
+    "dota": {
+      "contrasts": {
+        "K5 - K0": {
+          "delta": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.022310899270116306,
+            "low": 0.010213462856028005,
+            "mean": 0.016333895003227752
+          },
+          "ego": {
+            "clips": 321,
+            "clusters": 79,
+            "high": 0.02315879756292167,
+            "low": 0.00866166261844732,
+            "mean": 0.015912449350242094
+          },
+          "non_ego": {
+            "clips": 248,
+            "clusters": 80,
+            "high": 0.02715208074214284,
+            "low": 0.0069224088528346385,
+            "mean": 0.016879395223422897
+          },
+          "sentence": "gain shown",
+          "what": "full KIM"
+        },
+        "K5 - Kcap": {
+          "delta": {
+            "clips": 569,
+            "clusters": 91,
+            "high": -0.001974004763065427,
+            "low": -0.010765018949252279,
+            "mean": -0.006295253400850939
+          },
+          "ego": {
+            "clips": 321,
+            "clusters": 79,
+            "high": -1.8250331053240607e-05,
+            "low": -0.007562969316443055,
+            "mean": -0.0037561042890494763
+          },
+          "non_ego": {
+            "clips": 248,
+            "clusters": 80,
+            "high": -0.0020313786305019795,
+            "low": -0.01791797011714598,
+            "mean": -0.009581813339916543
+          },
+          "sentence": "cost shown",
+          "what": "the differences (\u00a76.3)"
+        },
+        "Kcap - K0": {
+          "delta": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.02868246861852108,
+            "low": 0.016745643992351657,
+            "mean": 0.022629148404078692
+          },
+          "ego": {
+            "clips": 321,
+            "clusters": 79,
+            "high": 0.026063154858712804,
+            "low": 0.013273343850351435,
+            "mean": 0.01966855363929157
+          },
+          "non_ego": {
+            "clips": 248,
+            "clusters": 80,
+            "high": 0.038221494020272966,
+            "low": 0.015499756830367343,
+            "mean": 0.02646120856333944
+          },
+          "sentence": "gain shown",
+          "what": "capacity + losses, no differences"
+        }
+      },
+      "rows": {
+        "K0": {
+          "macro": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.8156674863152806,
+            "low": 0.7846921780276417,
+            "mean": 0.8002493193998484
+          },
+          "ruler": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.5764967326968747,
+            "low": 0.5379905922012269,
+            "mean": 0.5573060693077054
+          },
+          "steps": {
+            "s2025": 1749
+          }
+        },
+        "K5": {
+          "macro": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.8318582220192479,
+            "low": 0.8008962587330843,
+            "mean": 0.8165832144030761
+          },
+          "ruler": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.5764967326968747,
+            "low": 0.5379905922012269,
+            "mean": 0.5573060693077054
+          },
+          "steps": {
+            "s2025": 1749
+          }
+        },
+        "Kcap": {
+          "macro": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.8374983069472419,
+            "low": 0.8079977771497653,
+            "mean": 0.8228784678039271
+          },
+          "ruler": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.5764967326968747,
+            "low": 0.5379905922012269,
+            "mean": 0.5573060693077054
+          },
+          "steps": {
+            "s2025": 1749
+          }
+        }
+      },
+      "title": "DoTA-CAP-dev (protocol B, per-clip min-max)"
+    },
+    "tad": {
+      "contrasts": {
+        "K5 - K0": {
+          "delta": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.019314026533010543,
+            "low": -0.03928258179845267,
+            "mean": -0.008162759433422623
+          },
+          "sentence": "no difference shown",
+          "what": "full KIM"
+        },
+        "K5 - Kcap": {
+          "delta": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.019836791629327832,
+            "low": -0.02891066503295884,
+            "mean": -0.005788261238418255
+          },
+          "sentence": "no difference shown",
+          "what": "the differences (\u00a76.3)"
+        },
+        "Kcap - K0": {
+          "delta": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.02156617922720513,
+            "low": -0.028512306928927117,
+            "mean": -0.002374498195004369
+          },
+          "sentence": "no difference shown",
+          "what": "capacity + losses, no differences"
+        }
+      },
+      "rows": {
+        "K0": {
+          "clip_auc": 0.5633333333333332,
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.7557944306160234,
+            "low": 0.6259603996276095,
+            "mean": 0.691767708572408
+          },
+          "micro": 0.584132869692533,
+          "middle": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.7516989618701272,
+            "low": 0.6097132838245864,
+            "mean": 0.6831360343200663
+          },
+          "ruler": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.6611340574075316,
+            "low": 0.51255918085734,
+            "mean": 0.5872495980899007
+          }
+        },
+        "K5": {
+          "clip_auc": 0.5820833333333333,
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.7542500139629378,
+            "low": 0.6081331287527312,
+            "mean": 0.6836049491389854
+          },
+          "micro": 0.6447614080039044,
+          "middle": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.7516989618701272,
+            "low": 0.6097132838245864,
+            "mean": 0.6831360343200663
+          },
+          "ruler": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.6611340574075316,
+            "low": 0.51255918085734,
+            "mean": 0.5872495980899007
+          }
+        },
+        "Kcap": {
+          "clip_auc": 0.5941666666666667,
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.7586804144766834,
+            "low": 0.6153029167178002,
+            "mean": 0.6893932103774036
+          },
+          "micro": 0.6380181185944362,
+          "middle": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.7516989618701272,
+            "low": 0.6097132838245864,
+            "mean": 0.6831360343200663
+          },
+          "ruler": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.6611340574075316,
+            "low": 0.51255918085734,
+            "mean": 0.5872495980899007
+          }
+        }
+      },
+      "title": "TAD test (100 videos, s8, raw) \u2014 printed, never decides"
+    }
+  }
+}

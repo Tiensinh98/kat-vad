@@ -175,6 +175,7 @@ def decide(
     dvs = sets.get(DADA, {}).get("contrasts", {}).get(f"{K5D} - {constants.KIM_W0}")
     if dvs is not None:
         out["dvs_host"] = DVS_GOES_ON if dvs["sentence"] == GAIN else DVS_CLOSED
+        return out  # §12 is the rule in force once K5d is read: no §6 verdict beside it
     k5 = _endpoint_sentences(sets, f"{K5} - {control}")
     out["stop_rule"] = PENDING if k5 is None else (
         CLOSED if all(s == COST for s in k5) else CONTINUE)
@@ -197,6 +198,10 @@ def run_diagnostics(run_dir: Path) -> dict[str, Any] | None:
     last_epoch = lines[-1].get("epoch")
     tail = [r["mil"] for r in lines if r.get("epoch") == last_epoch and "mil" in r]
     out["mil_last_epoch_mean"] = sum(tail) / len(tail) if tail else None
+    for key in constants.KIM_SEAM_DIAG_KEYS:  # §12 reads run-level shares, not one batch
+        seen = [r[key] for r in lines if key in r]
+        if seen:
+            out[f"{key}_mean"] = sum(seen) / len(seen)
     return out
 
 
@@ -295,6 +300,14 @@ def render_markdown(r: dict[str, Any]) -> str:
             mil = d.get("mil_last_epoch_mean")
             lines.append(f"| {name} | {d['last_step']} | {_num(mil)} | "
                          + " | ".join(_diag(d, k) for k in keys) + " |")
+        seam_keys = [f"{k}_mean" for k in constants.KIM_SEAM_DIAG_KEYS]
+        seam = {n: d for n, d in r["diagnostics"].items() if seam_keys[0] in d}
+        if seam:
+            lines += ["", "## Seam check (§12, mean over logged batches, never decides)",
+                      "", "| run | near a join, all valid steps | near a join, anchors |",
+                      "| --- | --- | --- |"]
+            lines += [f"| {n} | {_num(d.get(seam_keys[0]))} | {_num(d.get(seam_keys[1]))} |"
+                      for n, d in seam.items()]
     return "\n".join(lines) + "\n"
 
 

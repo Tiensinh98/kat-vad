@@ -1,6 +1,10 @@
 # Progress
 
-**2026-11-07 (latest, branch `v_final_las_vad`) — LaGoVAD-KIM read at s2024, n = 1, nothing adopted.** K5 passes `KIM_RUN.md` §6.1 against K0 (DoTA-CAP-dev +0.0193 [+0.0091, +0.0292], DADA +0.0484 [+0.0367, +0.0599]), but K5 − W0 shows no difference on any set (DoTA-CAP-dev +0.0085, DADA +0.0125, TAD +0.0019), because K0 itself costs against W0 (DVS off). Host kernel 3 stays; KP3 → first-pair mask; KP4 → H6 dropped. Done: `core/kim/`, pilot, read-out, runbooks, Kcap code. Left: s2025 K0 / K5 (§6.2) → if reproduced Kcap, K2, s2026. Record: `KIM_RUN.md` §9.
+**2026-11-07 (latest, branch `v_final_las_vad`) — main model = K5 by the user's choice, W0 dropped as a candidate (`KIM_RUN.md` §12.3); K5 − W0 s2024 shows no difference on any set.**
+
+**2026-11-07 (earlier, branch `v_final_las_vad`) — LaGoVAD-KIM CLOSED by `KIM_RUN.md` §12, nothing adopted.** K5 − K0 gains on DADA at two seeds (+0.0484, +0.0383), but explicit differences are not established (K5 − Kcap +0.0116, +0.0012; §6.3 fails), and no K row reaches a gain over W0 at s2024: K5 +0.0125, Kcap +0.0009, K5d (DVS on + KIM + seam mask) +0.0098 [+0.0010, +0.0185], the last below the +0.01 margin by 0.0002. K2, s2026 not run. Flags in §12.1: unmatched start, cause not measured. Seam check read: anchors do not concentrate on the joins (0.0545 vs 0.0636).
+
+**2026-11-07 (earlier, branch `v_final_las_vad`) — LaGoVAD-KIM read at s2024, n = 1, nothing adopted.** K5 passes `KIM_RUN.md` §6.1 against K0 (DoTA-CAP-dev +0.0193 [+0.0091, +0.0292], DADA +0.0484 [+0.0367, +0.0599]), but K5 − W0 shows no difference on any set (DoTA-CAP-dev +0.0085, DADA +0.0125, TAD +0.0019), because K0 itself costs against W0 (DVS off). Host kernel 3 stays; KP3 → first-pair mask; KP4 → H6 dropped. Done: `core/kim/`, pilot, read-out, runbooks, Kcap code. Left: s2025 K0 / K5 (§6.2) → if reproduced Kcap, K2, s2026. Record: `KIM_RUN.md` §9.
 
 **Gap, 2026-10-27 → 2026-11-06:** v5 Stage 0–2, LaGoVAD-STP, W_u arms, zero-shot TAD / DADA / DAD and SA²-v2 tokens (closed 2026-11-06) are not itemized in this file. Their record is `activeContext.md` and `core/docs/final/`, `core/docs/v5/`.
 

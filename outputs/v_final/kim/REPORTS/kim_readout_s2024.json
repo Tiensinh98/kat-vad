@@ -1,6 +1,7 @@
 {
   "control": "K0",
   "decisions": {
+    "dvs_host": "no gain on DADA vs the DVS-on host: the KIM line closes (\u00a712)",
     "kernel": "host keeps kernel 3",
     "stop_rule": "continue to \u00a73's second group"
   },
@@ -103,6 +104,134 @@
       "w_u_norm": {
         "first": 0.0,
         "last": 1.2131757736206055
+      }
+    },
+    "K5d": {
+      "dvs_sup": {
+        "first": 0.7043575048446655,
+        "last": 0.18125469982624054
+      },
+      "kim_acc_gate": {
+        "first": 0.50341796875,
+        "last": 0.51123046875
+      },
+      "kim_anchor_seam_share": {
+        "first": 0.0,
+        "last": 0.08490566164255142
+      },
+      "kim_anchor_share": {
+        "first": 0.004545454401522875,
+        "last": 0.9464285969734192
+      },
+      "kim_mil": {
+        "first": 0.8723059892654419,
+        "last": 0.12879855930805206
+      },
+      "kim_nkc": {
+        "first": 2.406294822692871,
+        "last": 0.5860226154327393
+      },
+      "kim_proto_cos": {
+        "first": 0.0,
+        "last": -0.5870012044906616
+      },
+      "kim_proto_ready": {
+        "first": 0.0,
+        "last": 1.0
+      },
+      "kim_scale": {
+        "first": 0.258056640625,
+        "last": 0.49169921875
+      },
+      "kim_seam_share": {
+        "first": 0.06504424661397934,
+        "last": 0.06758242100477219
+      },
+      "kim_vel_gate": {
+        "first": 0.50537109375,
+        "last": 0.38623046875
+      },
+      "kim_w_out_norm": {
+        "first": 0.0,
+        "last": 0.7112563848495483
+      },
+      "kim_w_state_norm": {
+        "first": 14.294270515441895,
+        "last": 14.321070671081543
+      },
+      "last_step": 1749,
+      "mil": {
+        "first": 0.6905604600906372,
+        "last": 0.1597377508878708
+      },
+      "mil_last_epoch_mean": 0.21228527305823452,
+      "motion_share": {
+        "first": 0.0,
+        "last": 0.14190691709518433
+      },
+      "w_u_norm": {
+        "first": 0.0,
+        "last": 1.2074065208435059
+      }
+    },
+    "Kcap": {
+      "dvs_sup": {
+        "first": 0.7234916090965271,
+        "last": 0.008146836422383785
+      },
+      "kim_acc_gate": {
+        "first": 0.0,
+        "last": 0.0
+      },
+      "kim_anchor_share": {
+        "first": 0.0,
+        "last": 0.9519230723381042
+      },
+      "kim_mil": {
+        "first": 0.8489793539047241,
+        "last": 0.06931107491254807
+      },
+      "kim_nkc": {
+        "first": 2.265103578567505,
+        "last": 0.16442057490348816
+      },
+      "kim_proto_cos": {
+        "first": 0.0,
+        "last": -0.485966295003891
+      },
+      "kim_proto_ready": {
+        "first": 0.0,
+        "last": 1.0
+      },
+      "kim_scale": {
+        "first": 1.0,
+        "last": 1.0
+      },
+      "kim_vel_gate": {
+        "first": 0.0,
+        "last": 0.0
+      },
+      "kim_w_out_norm": {
+        "first": 0.0,
+        "last": 1.6011297702789307
+      },
+      "kim_w_state_norm": {
+        "first": 16.41408348083496,
+        "last": 16.459821701049805
+      },
+      "last_step": 1749,
+      "mil": {
+        "first": 0.6925445795059204,
+        "last": 0.05838723108172417
+      },
+      "mil_last_epoch_mean": 0.092498497545438,
+      "motion_share": {
+        "first": 0.0,
+        "last": 0.1565820425748825
+      },
+      "w_u_norm": {
+        "first": 0.0,
+        "last": 1.2504240274429321
       }
     }
   },
@@ -233,6 +362,17 @@
           "sentence": "gain shown",
           "what": "full KIM vs host kernel 9, no KIM (printed)"
         },
+        "K5 - Kcap": {
+          "delta": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.021047530973607807,
+            "low": 0.001987075717164809,
+            "mean": 0.011644358908568925
+          },
+          "sentence": "gain shown",
+          "what": "the differences (\u00a76.3)"
+        },
         "K5 - W0": {
           "delta": {
             "clips": 370,
@@ -243,6 +383,61 @@
           },
           "sentence": "no difference shown",
           "what": "full KIM, DVS off, vs the DVS-on host (printed)"
+        },
+        "K5d - K0": {
+          "delta": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.05907315083036288,
+            "low": 0.03225117613026212,
+            "mean": 0.04572245529320203
+          },
+          "sentence": "gain shown",
+          "what": "full KIM + seam mask, DVS on, vs DVS off (printed)"
+        },
+        "K5d - K5": {
+          "delta": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.006751274859456908,
+            "low": -0.01208712682865275,
+            "mean": -0.0027229879057999716
+          },
+          "sentence": "no difference shown",
+          "what": "DVS on vs off, both full KIM (printed)"
+        },
+        "K5d - W0": {
+          "delta": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.018542147099400535,
+            "low": 0.0009853321216328735,
+            "mean": 0.009797621090406258
+          },
+          "sentence": "no difference shown",
+          "what": "full KIM + seam mask, both DVS on (\u00a712)"
+        },
+        "Kcap - K0": {
+          "delta": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.04567529111063231,
+            "low": 0.02809545850312435,
+            "mean": 0.03680108429043307
+          },
+          "sentence": "gain shown",
+          "what": "capacity + losses, no differences"
+        },
+        "Kcap - W0": {
+          "delta": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.012660011569159186,
+            "low": -0.01074531170340967,
+            "mean": 0.0008762500876373034
+          },
+          "sentence": "no difference shown",
+          "what": "branch + losses, DVS off, vs the DVS-on host (printed)"
         }
       },
       "rows": {
@@ -306,6 +501,56 @@
             "mean": 0.7740035001758967
           },
           "micro": 0.7221813032558138,
+          "middle": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.7593740793767018,
+            "low": 0.7076400644362505,
+            "mean": 0.7342313238639548
+          },
+          "ruler": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.578161971730551,
+            "low": 0.5246651404989134,
+            "mean": 0.5514242805926071
+          }
+        },
+        "K5d": {
+          "clip_auc": null,
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.7954558935778174,
+            "low": 0.7466217500583714,
+            "mean": 0.7712805122700969
+          },
+          "micro": 0.6915425661876748,
+          "middle": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.7593740793767018,
+            "low": 0.7076400644362505,
+            "mean": 0.7342313238639548
+          },
+          "ruler": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.578161971730551,
+            "low": 0.5246651404989134,
+            "mean": 0.5514242805926071
+          }
+        },
+        "Kcap": {
+          "clip_auc": null,
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.7859419872096111,
+            "low": 0.7385191491069819,
+            "mean": 0.7623591412673278
+          },
+          "micro": 0.7235824932384441,
           "middle": {
             "clips": 370,
             "clusters": 370,
@@ -451,6 +696,31 @@
           "sentence": "no difference shown",
           "what": "full KIM vs host kernel 9, no KIM (printed)"
         },
+        "K5 - Kcap": {
+          "delta": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.010306365954552206,
+            "low": -0.005756709508416489,
+            "mean": 0.002307390195342824
+          },
+          "ego": {
+            "clips": 321,
+            "clusters": 79,
+            "high": 0.0027684348100925783,
+            "low": -0.010642251248280808,
+            "mean": -0.003672513539156315
+          },
+          "non_ego": {
+            "clips": 248,
+            "clusters": 80,
+            "high": 0.025107795187193353,
+            "low": -0.005126423064929484,
+            "mean": 0.010047507529109857
+          },
+          "sentence": "no difference shown",
+          "what": "the differences (\u00a76.3)"
+        },
         "K5 - W0": {
           "delta": {
             "clips": 569,
@@ -475,6 +745,131 @@
           },
           "sentence": "no difference shown",
           "what": "full KIM, DVS off, vs the DVS-on host (printed)"
+        },
+        "K5d - K0": {
+          "delta": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.023206967977242563,
+            "low": 0.001528905476777701,
+            "mean": 0.012221741685150866
+          },
+          "ego": {
+            "clips": 321,
+            "clusters": 79,
+            "high": 0.025741985154304627,
+            "low": 0.0028808406856092443,
+            "mean": 0.01456300240780775
+          },
+          "non_ego": {
+            "clips": 248,
+            "clusters": 80,
+            "high": 0.028845742876082554,
+            "low": -0.009838974893163226,
+            "mean": 0.009191319540099014
+          },
+          "sentence": "gain shown",
+          "what": "full KIM + seam mask, DVS on, vs DVS off (printed)"
+        },
+        "K5d - K5": {
+          "delta": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.001570894137097447,
+            "low": -0.015285876624646304,
+            "mean": -0.0070722914202552755
+          },
+          "ego": {
+            "clips": 321,
+            "clusters": 79,
+            "high": 0.0055770793472784035,
+            "low": -0.011349005840221135,
+            "mean": -0.003034646868737949
+          },
+          "non_ego": {
+            "clips": 248,
+            "clusters": 80,
+            "high": 0.0018714004475799883,
+            "low": -0.025940247748354968,
+            "mean": -0.012298436182501489
+          },
+          "sentence": "no difference shown",
+          "what": "DVS on vs off, both full KIM (printed)"
+        },
+        "K5d - W0": {
+          "delta": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.008510591471515911,
+            "low": -0.005971632549409896,
+            "mean": 0.0014389570740326852
+          },
+          "ego": {
+            "clips": 321,
+            "clusters": 79,
+            "high": 0.003395856250249284,
+            "low": -0.012672960002415953,
+            "mean": -0.004211620058535684
+          },
+          "non_ego": {
+            "clips": 248,
+            "clusters": 80,
+            "high": 0.020446332369295123,
+            "low": -0.0031236951261480023,
+            "mean": 0.00875280892707481
+          },
+          "sentence": "no difference shown",
+          "what": "full KIM + seam mask, both DVS on (\u00a712)"
+        },
+        "Kcap - K0": {
+          "delta": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.023250524364033374,
+            "low": 0.01061504650033219,
+            "mean": 0.016986642910063316
+          },
+          "ego": {
+            "clips": 321,
+            "clusters": 79,
+            "high": 0.028051852608487797,
+            "low": 0.014148979789221111,
+            "mean": 0.021270162815702015
+          },
+          "non_ego": {
+            "clips": 248,
+            "clusters": 80,
+            "high": 0.02234629318584315,
+            "low": 0.0005887186718302182,
+            "mean": 0.011442248193490647
+          },
+          "sentence": "gain shown",
+          "what": "capacity + losses, no differences"
+        },
+        "Kcap - W0": {
+          "delta": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.014361931276772294,
+            "low": -0.0021248373923831864,
+            "mean": 0.0062038582989451365
+          },
+          "ego": {
+            "clips": 321,
+            "clusters": 79,
+            "high": 0.011338826036244176,
+            "low": -0.006922533988990572,
+            "mean": 0.0024955403493585803
+          },
+          "non_ego": {
+            "clips": 248,
+            "clusters": 80,
+            "high": 0.02578171528438284,
+            "low": -0.003929561926831078,
+            "mean": 0.011003737580466445
+          },
+          "sentence": "no difference shown",
+          "what": "branch + losses, DVS off, vs the DVS-on host (printed)"
         }
       },
       "rows": {
@@ -523,6 +918,44 @@
             "high": 0.8336737250941362,
             "low": 0.8047124086051755,
             "mean": 0.8195184689731452
+          },
+          "ruler": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.5764967326968747,
+            "low": 0.5379905922012269,
+            "mean": 0.5573060693077054
+          },
+          "steps": {
+            "s2024": 1749
+          }
+        },
+        "K5d": {
+          "macro": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.827035552069789,
+            "low": 0.7978342411113217,
+            "mean": 0.8124461775528898
+          },
+          "ruler": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.5764967326968747,
+            "low": 0.5379905922012269,
+            "mean": 0.5573060693077054
+          },
+          "steps": {
+            "s2024": 1749
+          }
+        },
+        "Kcap": {
+          "macro": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.8327406671375015,
+            "low": 0.8012985547398518,
+            "mean": 0.8172110787778023
           },
           "ruler": {
             "clips": 569,
@@ -603,6 +1036,17 @@
           "sentence": "no difference shown",
           "what": "full KIM vs host kernel 9, no KIM (printed)"
         },
+        "K5 - Kcap": {
+          "delta": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.037032299883247355,
+            "low": -0.021847256239798225,
+            "mean": 0.007398239575691194
+          },
+          "sentence": "no difference shown",
+          "what": "the differences (\u00a76.3)"
+        },
         "K5 - W0": {
           "delta": {
             "clips": 60,
@@ -613,6 +1057,61 @@
           },
           "sentence": "no difference shown",
           "what": "full KIM, DVS off, vs the DVS-on host (printed)"
+        },
+        "K5d - K0": {
+          "delta": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.052500856828395226,
+            "low": -0.03183920462113827,
+            "mean": 0.010025272909760442
+          },
+          "sentence": "no difference shown",
+          "what": "full KIM + seam mask, DVS on, vs DVS off (printed)"
+        },
+        "K5d - K5": {
+          "delta": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.032151553366461756,
+            "low": -0.02104707607422938,
+            "mean": 0.005287355758286285
+          },
+          "sentence": "no difference shown",
+          "what": "DVS on vs off, both full KIM (printed)"
+        },
+        "K5d - W0": {
+          "delta": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.027625609292362616,
+            "low": -0.011312515218190974,
+            "mean": 0.007171474808701426
+          },
+          "sentence": "no difference shown",
+          "what": "full KIM + seam mask, both DVS on (\u00a712)"
+        },
+        "Kcap - K0": {
+          "delta": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.023948458529943196,
+            "low": -0.03197193710755585,
+            "mean": -0.002660322424217035
+          },
+          "sentence": "no difference shown",
+          "what": "capacity + losses, no differences"
+        },
+        "Kcap - W0": {
+          "delta": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.026248813173144335,
+            "low": -0.03666144605937096,
+            "mean": -0.005514120525276052
+          },
+          "sentence": "no difference shown",
+          "what": "branch + losses, DVS off, vs the DVS-on host (printed)"
         }
       },
       "rows": {
@@ -676,6 +1175,56 @@
             "mean": 0.7001869979640752
           },
           "micro": 0.678103953147877,
+          "middle": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.7516989618701272,
+            "low": 0.6097132838245864,
+            "mean": 0.6831360343200663
+          },
+          "ruler": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.6611340574075316,
+            "low": 0.51255918085734,
+            "mean": 0.5872495980899007
+          }
+        },
+        "K5d": {
+          "clip_auc": 0.6325,
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.7772317856893324,
+            "low": 0.6284194497722057,
+            "mean": 0.7054743537223616
+          },
+          "micro": 0.6678799414348463,
+          "middle": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.7516989618701272,
+            "low": 0.6097132838245864,
+            "mean": 0.6831360343200663
+          },
+          "ruler": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.6611340574075316,
+            "low": 0.51255918085734,
+            "mean": 0.5872495980899007
+          }
+        },
+        "Kcap": {
+          "clip_auc": 0.55125,
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.7602264049765814,
+            "low": 0.6206794727671187,
+            "mean": 0.692788758388384
+          },
+          "micro": 0.5629317959980478,
           "middle": {
             "clips": 60,
             "clusters": 60,

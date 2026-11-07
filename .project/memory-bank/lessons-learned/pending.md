@@ -2323,3 +2323,12 @@ Promote if a second harness needs the same split.
 **Rule:** Run the test files of a validator's other config paths whenever its control flow changes.
 **Files:** core/config.py (`validate_kim`), core/tests/test_train_units.py, core/tests/test_kim.py
 **Why pending:** no KIM read moves, since those runs had KIP off. Promote on a second.
+
+## (cs) [MEDIUM] Experiments - a diagnostic a rule requires must be tested in the rendered report (2026-11-07)
+**Triggers:** read-out, render, fixed column list, printed diagnostic, DIAG_KEYS, seam check, report table
+**Problem:** §12 required `kim_seam_share` and `kim_anchor_seam_share` printed. The tool collected them but rendered a fixed column list, and the test checked only that training logged them, so the run came back without the check. It also printed §6's `stop_rule: continue` beside `dvs_host: closes`, the repeat of (co).
+**Bad:** test the logged key, and let the render keep its own hard-coded list
+**Good:** assert the required value's text in the final `.md` when the rule that requires it is written
+**Rule:** Assert every rule-required print in the rendered report, before the run it will read.
+**Files:** core/tools/kim_readout.py (render), core/tests/test_kim_tools.py, core/docs/final/KIM_RUN.md §12.1
+**Why pending:** no decision depended on it, since the arm did not gain; the values, read later from `metrics.jsonl`, show no seam flag. (co) is the same family, so this is a candidate to merge and promote.
