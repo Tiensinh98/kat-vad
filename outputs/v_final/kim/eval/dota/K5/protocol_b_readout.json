@@ -1,0 +1,40 @@
+{
+  "arm": {
+    "crn": "none",
+    "motion": "vit_s_k710_dl_from_giant"
+  },
+  "checkpoints": {
+    "s2024": "/content/drive/MyDrive/Thesis-Final/outputs/kim/K5/s2024/checkpoint_last.pt"
+  },
+  "clips": 569,
+  "excluded_featureless": [],
+  "global_steps": {
+    "s2024": 1749
+  },
+  "input_dir": "/content/kim/bake_dota",
+  "macro": {
+    "clips": 569,
+    "clusters": 91,
+    "high": 0.8336737250941362,
+    "low": 0.8047124086051755,
+    "mean": 0.8195184689731452
+  },
+  "per_run_macro": {
+    "s2024": 0.8195184689731452
+  },
+  "position_ruler": {
+    "clips": 569,
+    "clusters": 91,
+    "high": 0.5764967326968747,
+    "low": 0.5379905922012269,
+    "mean": 0.5573060693077054
+  },
+  "protocol": "B: s1[::3], whole clip, native frames (addendum \u00a78.1 J1-J5)",
+  "released_baseline": false,
+  "runs": [
+    "s2024"
+  ],
+  "split": "dota_cap_dev",
+  "split_clips": 569,
+  "two_class": 569
+}
