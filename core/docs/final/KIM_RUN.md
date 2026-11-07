@@ -6,8 +6,8 @@
 > read-out `core/tools/kim_readout.py`, runbook `colab/final/kim_runs.ipynb` built the same day.** Every later change to this file is a dated note
 > below the text it changes, never an edit of a rule after its number is seen.
 >
-> **Run state (2026-11-07):** K0, K0k9, pilot and K5 read at s2024 (§9, n = 1, nothing adopted). s2025 (§6.2) and Kcap (§6.3)
-> are built and not run; K2 waits for §6.2.
+> **Run state (2026-11-07):** K0, K0k9, pilot and K5 read at s2024 (§9). K0 and K5 read at s2025 (§10): **§6.2 reads "reproduced",
+> n = 2, nothing adopted.** Next by rule: Kcap at both seeds (§6.3, built, not run), then K2 and s2026.
 
 ## 0. Scope: what KIM may touch
 
@@ -350,3 +350,54 @@ DoTA-CAP-dev by ego flag: K5 − K0 ego +0.0176 [+0.0071, +0.0275], non-ego +0.0
 
 Printed-only items, so no decision above depends on them: D14's per-step `kim_score` and ‖`acc`‖, §6's KIM video AUC on Nexar val,
 and §5's cubic `p` fitted on DADA / TAD (§5.2 already waived that one). The first two can be read later from the checkpoints on Drive.
+
+## 10. Read-out, seed 2025 — §6.2 "reproduced", n = 2, nothing adopted (2026-11-07)
+
+Raw: `outputs/v_final/kim/REPORTS/kim_readout_s2025.md`, the only s2025 file local so far. Its json, per-clip reads and run folders
+stay on Drive (`outputs/kim/eval_s2025/`, `outputs/kim/{K0,K5}/s2025/`). Per-seed, no pooling (§6.2).
+
+### 10.1 Decision
+
+**K5 − K0 on DADA at s2025 = +0.0383 [+0.0293, +0.0473], gain → "reproduced at n = 2".** The line goes on: Kcap, K2, s2026. The
+prediction (positive, smaller than s2024's +0.0484) held; the two intervals overlap, so "smaller" is not shown. A gain adopts nothing
+until 3 seeds (§6).
+
+### 10.2 Numbers by seed
+
+| Set | Row or contrast | s2024 | s2025 |
+|---|---|---|---|
+| DADA (decides) | K0 macro | 0.7256 | 0.7248 |
+| | K5 macro | 0.7740 | 0.7631 |
+| | K5 − K0 | **+0.0484 [+0.0367, +0.0599]** gain | **+0.0383 [+0.0293, +0.0473]** gain |
+| DoTA-CAP-dev (read beside) | K0 macro | 0.8002 | 0.8002 |
+| | K5 macro | 0.8195 | 0.8166 |
+| | K5 − K0 | +0.0193 [+0.0091, +0.0292] gain | +0.0163 [+0.0102, +0.0223] gain |
+| | ego / non-ego | +0.0176 / +0.0215 | +0.0159 [+0.0087, +0.0232] / +0.0169 [+0.0069, +0.0272] |
+| TAD (never decides) | K5 − K0 | +0.0047 [−0.0247, +0.0340] | −0.0082 [−0.0393, +0.0193] |
+
+Rulers, same at both seeds: DADA middle 0.7342; DoTA-CAP-dev middle 0.8516 and `p_T2` 0.8220.
+
+### 10.3 What this still does not license
+
+1. **"KIM beats the DVS-on host": still not shown.** K5 − W0 exists at s2024 only and shows no difference (§9.3).
+2. **"The gain needs the differences" or "sees kinematics": forbidden until §6.3 reads.** Reproduced means K5 > K0 twice, not why.
+3. **Regularization is not excluded.** `mil` last-epoch mean K5 > K0 at both seeds (s2025: 0.1454 vs 0.1181).
+4. **H1's ego-larger prediction has no support at either seed.**
+5. **DoTA-CAP-dev:** K5 stays below its middle ruler and `p_T2` at both seeds. No K0k9 at s2025, so §9.3's point 2 is not re-read.
+6. **§6.1's rank-average condition was not re-read:** no pilot on this seed (§6.2), and §6.2 does not ask for it.
+
+### 10.4 Checks and mechanics
+
+- **K0's DoTA macro matches s2024 to four digits (0.8002), so a stale read was checked:** `protocol_b_eval` uses one fixed bootstrap seed
+  and `kim_seed.ipynb` does not override it. K0's s2024 read prints [0.7848, 0.8155] and s2025 prints [0.7847, 0.8157], so the scores differ.
+  Eval dirs and run dirs carry the seed. Exact proof needs `eval_s2025/dota/K0/protocol_b_readout.json` (`runs`, `checkpoints`). DADA, TAD and the
+  training curves differ as well.
+- **Same host init:** first-batch `mil` K0 = K5 = 0.7057 (s2024: 0.6878). Both runs reach step 1,749.
+- **K5 diagnostics, first → last logged batch (one batch, not an average):** `kim_mil` 0.7584 → 0.0719, `kim_nkc` 2.0888 → 0.2179, ‖`w_out`‖ 0 →
+  0.9082, velocity gate 0.5078 → 0.3442, acceleration gate 0.5044 → 0.5015, anchor share 0.2016 → 0.9667, cos(μ0, μ1) 0 → −0.7829. As at s2024, the mean
+  acceleration gate barely left its init.
+
+*Dated note 2026-11-07, after this read-out. §6.2's text stays; this corrects its premise.* §6.2 says W0 has no other seed. **The W0 recipe does
+have one: L0b** (`outputs/v_final/local/L0b/s2025/`, `LOCAL_STEP1B.md`). Its config differs from W0's only in `train.seed` and `stp.branch: host`. Its
+DoTA-CAP-dev macro is 0.8058, so K5 s2025 − L0b is +0.0108, **unpaired and printed only**; a paired read needs K5's s2025 `clip_aucs.json`. L0b has no DADA
+or TAD read locally. Whether its checkpoint is still on Drive is unverified. It was trained on `v_final-local`. No decision changes.

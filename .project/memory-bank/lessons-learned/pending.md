@@ -2296,3 +2296,12 @@ Promote if a second harness needs the same split.
 **Rule:** Update the tool's printed decision in the same change as the rule that supersedes it.
 **Files:** core/tools/kim_readout.py (`decide`), core/docs/final/KIM_RUN.md §6.2, §8
 **Why pending:** caught before any wrong read; §6.1 was read correctly by hand. Promote on a second.
+
+## (cp) [LOW] Experiments - "this arm has no other seed" must be checked across run folders, under the recipe (2026-11-07)
+**Triggers:** seed, replicate, no other seed, W0, L0b, same recipe, new arm name
+**Problem:** `KIM_RUN.md` §6.2 and `kim_seed.ipynb` said W0 has seed 2024 only, while L0b is W0's recipe at s2025 under another name and folder.
+**Bad:** search for a second seed by the arm's name, then write "no other seed" into a rule
+**Good:** diff `config.yaml` across `outputs/**/s<seed>/` (L0b vs W0: `train.seed` and `stp.branch: host`)
+**Rule:** Search run configs, not arm names, before stating that a control has no other seed.
+**Files:** core/docs/final/KIM_RUN.md §6.2, §10.4; colab/final/kim_seed.ipynb; outputs/v_final/local/L0b/s2025/config.yaml
+**Why pending:** no decision changed; §6.2 reads K5 − K0. Same family as the check-prior-probes habit. Promote on a second.
