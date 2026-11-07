@@ -13,7 +13,8 @@ and the pre-fusion head (KIP's slot). Per step (proposal §3.2.2-§3.2.3, code n
     kim_logits = W_2 ReLU(W_1 kin_feat)                            (B, L, 2)
     kim_score  = softmax(w_t * kim_logits)[..., 1]
 
-``pair_t = valid_t * valid_{t-1}`` (``pair_0 = 0``; D5) and ``kim_scale`` is the detached median
+``pair_t = valid_t * valid_{t-1}`` (``pair_0 = 0``; D5; arm K5d also zeroes it at DVS joins, §12)
+and ``kim_scale`` is the detached median
 over valid pairs of ``mean_c |state_t - state_{t-1}|`` per bag (D6). ``w_t = (1 + cos(kin_feat_t,
 mu[argmax logits_t])) / 2`` once both prototypes exist (arm K5), else 1 (arm K2). The prototypes
 are buffers with no gradient, updated by :meth:`KIM.update_prototypes` (D8).
@@ -132,9 +133,13 @@ class KIM(nn.Module):
         mean_gate = gate.detach()[valid].mean() if valid.any() else gate.new_zeros(())
         return gate * diff, mean_gate
 
-    def _features(self, vt: Tensor, mask: Tensor) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+    def _features(
+        self, vt: Tensor, mask: Tensor, seam: Tensor | None = None
+    ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
         """``kin_feat (B, L, 3w)`` before masking, ``scale (B,)``, velocity and acc gates."""
         pair = pair_mask(mask, drop_first=self.edge_mask)
+        if seam is not None:
+            pair = pair * (1.0 - seam.to(pair.dtype))
         state = self.state_proj(self.norm(vt))
         d1 = first_difference(state)
         scale = kim_scale(d1, pair)
@@ -146,10 +151,10 @@ class KIM(nn.Module):
         acc, acc_gate = self._gated(self.acc_gate, d2, mask)
         return torch.cat([state, vel, acc], dim=-1), scale, vel_gate, acc_gate
 
-    def forward(self, vt: Tensor, mask: Tensor) -> KIMOutput:
-        """``vt (B, L, D)``, ``mask (B, L)`` float with 1 = valid."""
+    def forward(self, vt: Tensor, mask: Tensor, seam: Tensor | None = None) -> KIMOutput:
+        """``vt (B, L, D)``, ``mask (B, L)``: 1 = valid, ``seam (B, L)``: 1 starts a part."""
         mask = mask.to(vt.dtype)
-        raw, scale, vel_gate, acc_gate = self._features(vt, mask)
+        raw, scale, vel_gate, acc_gate = self._features(vt, mask, seam)
         kin_feat = raw * mask.unsqueeze(-1)
         logits = self.scorer(kin_feat)
         score = self._score(kin_feat, logits)
@@ -221,7 +226,9 @@ class KIMCapacity(KIM):
     def _feature_layers(self) -> tuple[nn.Module, ...]:
         return tuple(self.cap_mlp)
 
-    def _features(self, vt: Tensor, mask: Tensor) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+    def _features(
+        self, vt: Tensor, mask: Tensor, seam: Tensor | None = None
+    ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
         none = vt.new_zeros(())  # no velocity or acceleration gate exists; logged as 0
         return self.cap_mlp(self.norm(vt)), vt.new_ones(vt.shape[0]), none, none
 

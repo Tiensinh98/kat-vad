@@ -157,6 +157,96 @@ class TestFeatures:
         assert "prototypes" in module.state_dict() and "proto_init" in module.state_dict()
 
 
+class TestSeamMask:
+    """Arm K5d: DVS on, differences skip the joins (``KIM_RUN.md`` §12)."""
+
+    @staticmethod
+    def _cfg() -> Config:
+        cfg = _kim(prototypes=True)
+        cfg.kim.edge_mask = cfg.kim.seam_mask = True
+        cfg.dvs.theta, cfg.dvs.theta_ego = constants.DVS_THETA, constants.DVS_THETA_EGO  # W0's
+        return cfg
+
+    def test_config_refuses_what_is_not_the_arm(self) -> None:
+        validate_kim(self._cfg())
+        off = self._cfg()
+        off.kim.enabled = off.kim.prototypes = off.kim.edge_mask = False
+        cap = self._cfg()
+        cap.kim.edge_mask, cap.kim.capacity_control = False, True
+        no_dvs = self._cfg()
+        no_dvs.dvs.theta = no_dvs.dvs.theta_ego = 1.0
+        for bad, match in ((off, "seam_mask needs"), (cap, "seam_mask needs"),
+                           (no_dvs, "needs DVS on")):
+            with pytest.raises(ValueError, match=match):
+                validate_kim(bad)
+
+    def test_a_jump_at_a_join_reaches_no_difference(self) -> None:
+        module = KIM(D)
+        vt = torch.randn(1, 8, D)
+        vt[0, 4:] += 10.0  # the join: step 4 starts the second part
+        mask = padding_mask(torch.tensor([8]), 8)
+        seam = torch.zeros(1, 8)
+        seam[0, 4] = 1.0
+        width = module.width
+        feat = module(vt, mask, seam).kin_feat
+        assert feat[0, 4, width:2 * width].abs().sum() == 0  # no velocity across the join
+        assert feat[0, 4, 2 * width:].abs().sum() == 0  # no acceleration at it ...
+        assert feat[0, 5, 2 * width:].abs().sum() == 0  # ... nor at the next step
+        assert feat[0, 3, width:2 * width].abs().sum() > 0  # other pairs still run
+        assert feat[0, 5, width:2 * width].abs().sum() > 0
+
+    def test_scale_ignores_the_join(self) -> None:
+        pair = torch.tensor([[0.0, 1, 1, 0, 1]])
+        d1 = torch.ones(1, 5, 3)
+        d1[0, 3] = 100.0
+        assert kim_scale(d1, pair) == pytest.approx(1.0)  # masked out, as a real pair would be
+
+    def test_no_seam_is_the_plain_forward(self) -> None:
+        module = KIM(D)
+        vt = torch.randn(2, 6, D)
+        mask = padding_mask(torch.tensor([6, 4]), 6)
+        torch.testing.assert_close(
+            module(vt, mask).kin_feat, module(vt, mask, torch.zeros(2, 6)).kin_feat
+        )
+
+    def test_host_init_equals_k0s(self) -> None:
+        def build(cfg: Config) -> KATVAD:
+            set_global_seed(0)
+            return KATVAD.from_config(cfg)
+
+        host, arm = build(_host()), build(self._cfg())
+        for key, value in host.state_dict().items():
+            torch.testing.assert_close(arm.state_dict()[key], value)
+
+    def test_survives_train_to_score_and_logs_the_joins(self, tmp_path: Path) -> None:
+        data_dir, host = _fixture(tmp_path)
+        cfg = self._cfg()
+        cfg.dvs.theta = 0.0  # every bag is spliced
+        cfg.kim.warmup_steps = 0
+        cfg.train.batch_size, cfg.train.num_epochs, cfg.train.device = 4, 2, "cpu"
+        set_global_seed(cfg.train.seed)
+        out = tmp_path / "run"
+        trainer = build_trainer(cfg, out, data_dir, host, text_encoder="stub", log_every=1)
+        cfg.save_yaml(out / "config.yaml")
+        trainer.train()
+        logged = [json.loads(x) for x in (out / "metrics.jsonl").read_text().splitlines() if x]
+        assert any(r["kim_seam_share"] > 0.0 for r in logged)
+        assert all(set(constants.KIM_SEAM_DIAG_KEYS) <= set(r) for r in logged)
+        model = load_model_for_scoring(Config(), CPU, out / "checkpoint_last.pt", None, "stub")
+        assert model.kim is not None and model.kim.edge_mask is True  # scores with no seam (None)
+
+    def test_other_arms_log_no_seam_key(self, tmp_path: Path) -> None:
+        data_dir, host = _fixture(tmp_path)
+        cfg = _kim(True)
+        cfg.dvs.theta = cfg.dvs.theta_ego = 1.0
+        cfg.train.batch_size, cfg.train.num_epochs, cfg.train.device = 4, 1, "cpu"
+        set_global_seed(cfg.train.seed)
+        out = tmp_path / "run"
+        build_trainer(cfg, out, data_dir, host, text_encoder="stub", log_every=1).train()
+        logged = [json.loads(x) for x in (out / "metrics.jsonl").read_text().splitlines() if x]
+        assert not set(constants.KIM_SEAM_DIAG_KEYS) & set(logged[-1])
+
+
 class TestCapacityControl:
     """Arm Kcap (``KIM_RUN.md`` §3, §6.3)."""
 
@@ -165,6 +255,12 @@ class TestCapacityControl:
         cfg = _kim(prototypes=True)
         cfg.kim.capacity_control = True
         return cfg
+
+    def test_kcap_keeps_the_exclusivity_checks(self) -> None:
+        cfg = self._cfg()
+        cfg.kip.enabled = True
+        with pytest.raises(ValueError, match="takes KIP's slot"):  # D15: c69f867 skipped these
+            validate_kim(cfg)
 
     def test_capacity_matches_within_one_percent(self) -> None:
         def count(module: torch.nn.Module) -> int:

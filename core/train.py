@@ -31,6 +31,7 @@ from typing import Any
 
 import numpy as np
 import torch
+import torch.nn.functional as F  # noqa: N812
 from torch import Tensor
 from torch.amp.grad_scaler import GradScaler
 from torch.optim.adamw import AdamW
@@ -340,7 +341,8 @@ class Trainer:
                 cap_labels = torch.tensor(cap_ids, dtype=torch.long, device=self.device)
         caption_feats = self.text_encode_fn(captions) if captions else None
 
-        outputs = self.model(v_feat, lengths, class_feats, caption_feats)
+        seam = batch["seam_mask"].to(self.device) if self.cfg.kim.seam_mask else None
+        outputs = self.model(v_feat, lengths, class_feats, caption_feats, kim_seam=seam)
 
         # v2 motion-stream evidence (architecture §5): logged per batch in
         # metrics.jsonl, never added to `total` (both are detached diagnostics).
@@ -506,7 +508,7 @@ class Trainer:
         if self.model.sa2v2 is not None:
             total = total + self._sv2_losses(outputs, losses, labels, lengths, mask)
         if self.model.kim is not None:
-            total = total + self._kim_losses(outputs, losses, labels, lengths, mask)
+            total = total + self._kim_losses(outputs, losses, labels, lengths, mask, seam)
         losses["total"] = total
         return losses
 
@@ -557,6 +559,7 @@ class Trainer:
         labels: Tensor,
         lengths: Tensor,
         mask: Tensor,
+        seam: Tensor | None = None,
     ) -> Tensor:
         """KIM's ``kim_mil`` (+ ``kim_nkc`` and the prototype update on K5), rule ``KIM_RUN.md``.
 
@@ -583,6 +586,10 @@ class Trainer:
             "kim_scale": outputs["kim_scale"].mean(),
             "kim_anchor_share": score.new_tensor(float(anchors.sum()) / max(1, slots)),
         }
+        if seam is not None:  # KIM_RUN.md §12: anchors far above the base share read the joins
+            near = F.max_pool1d(seam.float().unsqueeze(1), 3, stride=1, padding=1).squeeze(1) * mask
+            losses["kim_seam_share"] = near.sum() / mask.sum().clamp(min=1.0)
+            losses["kim_anchor_seam_share"] = (near * anchors).sum() / anchors.sum().clamp(min=1)
         if module.use_prototypes:
             negatives = normal_steps(labels, mask)
             if self.global_step >= kim.warmup_steps:

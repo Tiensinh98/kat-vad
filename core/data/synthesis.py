@@ -29,6 +29,7 @@ class SynthesizedSample:
     pseudo_label: Tensor  # (T,) float32, 1 on the anchor span iff synthesized+abnormal
     is_synthesized: bool
     clip_ids: list[str]  # composition order, anchor included
+    seam_mask: Tensor  # (T,) float32, 1 where step t starts a new part (t > 0; KIM_RUN.md §12)
 
 
 def choose_filler_ids(
@@ -82,12 +83,17 @@ def compose_sequence(
         start = sum(len(p[1]) for p in parts[:insert_index])
         pseudo[start : start + len(anchor_features)] = 1.0
 
+    seam = torch.zeros(len(features), dtype=torch.float32)
+    joins = torch.tensor([len(p[1]) for p in parts], dtype=torch.long).cumsum(0)[:-1]
+    seam[joins[joins < len(features)]] = 1.0
+
     return SynthesizedSample(
         features=features,
         flow=flow,
         pseudo_label=pseudo,
         is_synthesized=len(fillers) > 0,
         clip_ids=[p[0] for p in parts],
+        seam_mask=seam,
     )
 
 
@@ -101,6 +107,7 @@ def truncate_sample(sample: SynthesizedSample, max_len: int) -> SynthesizedSampl
         pseudo_label=sample.pseudo_label[:max_len],
         is_synthesized=sample.is_synthesized,
         clip_ids=sample.clip_ids,
+        seam_mask=sample.seam_mask[:max_len],
     )
 
 

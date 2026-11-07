@@ -2305,3 +2305,21 @@ Promote if a second harness needs the same split.
 **Rule:** Search run configs, not arm names, before stating that a control has no other seed.
 **Files:** core/docs/final/KIM_RUN.md §6.2, §10.4; colab/final/kim_seed.ipynb; outputs/v_final/local/L0b/s2025/config.yaml
 **Why pending:** no decision changed; §6.2 reads K5 − K0. Same family as the check-prior-probes habit. Promote on a second.
+
+## (cq) [MEDIUM] Experiments - a "same start" assumption must be asserted, not printed (2026-11-07)
+**Triggers:** D13, same host init, step-1 mil, paired arms, check_run, later runtime, arm added afterwards
+**Problem:** Kcap s2024 started at step-1 `mil` 0.6925 while K0 = K5 = 0.6878. `check_run` only printed the value, so the run went on and the mismatch surfaced at read-out; the cause is not measured.
+**Bad:** `print(f'step-1 mil {first[arm]["mil"]:.5f} vs K0 {first[K0]["mil"]:.5f}')`
+**Good:** compare the host's step-1 values against the control's with a tolerance, and stop or flag the arm before its reads
+**Rule:** Assert any start condition a paired contrast relies on, and record the torch version and GPU beside each run.
+**Files:** colab/final/kim_seed.ipynb (`check_run`), core/docs/final/KIM_RUN.md §11.6
+**Why pending:** no decision moved and the cause is unknown. Promote once the cause is measured or it recurs.
+
+## (cr) [HIGH] Config - moving an early return in a validator can silently change every other arm (2026-11-07)
+**Triggers:** validate_kim, early return, validator, new arm branch, kip.enabled, D15, test_train_units
+**Problem:** `c69f867` moved `validate_kim`'s `return` from the KIM-off branch to the Kcap branch. Every KIP-on config then raised, and Kcap skipped the exclusivity checks. Only tests outside the KIM files saw it (16 red in `test_train_units`), and running related tests only never reached them.
+**Bad:** an arm's branch ends in `return` above checks that still apply to it
+**Good:** return only from the feature-off branch; arm branches add checks and fall through
+**Rule:** Run the test files of a validator's other config paths whenever its control flow changes.
+**Files:** core/config.py (`validate_kim`), core/tests/test_train_units.py, core/tests/test_kim.py
+**Why pending:** no KIM read moves, since those runs had KIP off. Promote on a second.

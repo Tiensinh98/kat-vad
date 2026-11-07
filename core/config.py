@@ -215,12 +215,14 @@ class KIMConfig:
     ``prototypes`` false = arm K2 (no confidence weighting, no NKC); true = arm K5.
     ``edge_mask`` also zeroes each bag's first valid pair (the KP3 consequence, §5.3).
     ``capacity_control`` = arm Kcap: K5 with ``kin_feat = MLP(LN(v^t))``, no differences (§6.3).
+    ``seam_mask`` zeroes the pairs across DVS joins: arm K5d, DVS on (§12).
     """
 
     enabled: bool = False
     prototypes: bool = False
     edge_mask: bool = False
     capacity_control: bool = False
+    seam_mask: bool = False
     width: int = constants.KIM_WIDTH
     mil_weight: float = constants.KIM_MIL_WEIGHT
     nkc_weight: float = constants.KIM_NKC_WEIGHT
@@ -451,12 +453,20 @@ def validate_kim(cfg: Config) -> None:
             raise ValueError("kim.prototypes needs kim.enabled=true")
         if kim.edge_mask:
             raise ValueError("kim.edge_mask needs kim.enabled=true")
+        if kim.capacity_control:
+            raise ValueError("kim.capacity_control needs kim.enabled=true and kim.prototypes=true")
+        if kim.seam_mask:
+            raise ValueError("kim.seam_mask needs kim.enabled=true and pairs (no capacity_control)")
+        return
     if kim.capacity_control:  # arm Kcap = K5's prototypes and losses, and it has no pair to mask
-        if not kim.enabled or not kim.prototypes:
+        if not kim.prototypes:
             raise ValueError("kim.capacity_control needs kim.enabled=true and kim.prototypes=true")
         if kim.edge_mask:
             raise ValueError("kim.capacity_control has no pairs: kim.edge_mask must be false")
-        return
+        if kim.seam_mask:
+            raise ValueError("kim.seam_mask needs kim.enabled=true and pairs (no capacity_control)")
+    if kim.seam_mask and cfg.dvs.theta >= 1.0 and cfg.dvs.theta_ego >= 1.0:  # arm K5d: no join
+        raise ValueError("kim.seam_mask needs DVS on (dvs.theta < 1 or dvs.theta_ego < 1)")
     if cfg.kip.enabled:
         raise ValueError("kim.enabled takes KIP's slot: it needs kip.enabled=false")
     if cfg.stp.sa2 or cfg.stp.sa2v2:

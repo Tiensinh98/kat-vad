@@ -339,6 +339,7 @@ class KATVAD(nn.Module):
         v_feat_l: Tensor,
         class_feats: Tensor | None = None,
         caption_feats: Tensor | None = None,
+        kim_seam: Tensor | None = None,
     ) -> dict[str, Tensor]:
         """Visual forward + optional per-text-set fusion/heads.
 
@@ -374,7 +375,7 @@ class KATVAD(nn.Module):
             outputs["motion_scores"] = motion_scores
             vis_feats = vk
         elif self.kim is not None:
-            kim_out = self.kim(vt, mask)
+            kim_out = self.kim(vt, mask, kim_seam)
             outputs |= {
                 "vt": vt,
                 "kim_feat": kim_out.kin_feat,

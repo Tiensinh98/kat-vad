@@ -15,7 +15,8 @@ always ``PRELIMINARY (n = 1)``. Endpoints: DoTA-CAP-dev and DADA; TAD is printed
 Decisions fixed before the numbers: K0k9 - K0 gain on **both** endpoints → kernel 9 hosts every K
 row (§3.1), else kernel 3; K5 - control cost on **both** endpoints → KIM line closed (§6), else
 continue. §6.1's stricter stop is read from the numbers. At the replicate seed the ``replication``
-line replaces ``stop_rule``: K5 - control gain on DADA → reproduced (§6.2). Printed: K0 - W0 (the
+line replaces ``stop_rule``: K5 - control gain on DADA → reproduced (§6.2). K5d - W0 gain on DADA
+→ arm K5d goes on, else the KIM line closes (``dvs_host``, §12). Printed: K0 - W0 (the
 cost of DVS off alone), K5 - W0, Kcap - W0, K5 - K0k9, ego / non-ego splits, the position rulers,
 the training diagnostics of every run (first → last, plus the last-epoch mean ``mil``), and with
 ``--pilot`` the training-free rank average of the host with ``vt2`` (§5.2).
@@ -58,12 +59,16 @@ SET_TITLE = {
     TAD: "TAD test (100 videos, s8, raw) — printed, never decides",
 }
 K0K9, K2, K5 = "K0k9", "K2", "K5"
+K5D = constants.KIM_DVS_ARM
 DIAG_KEYS = ("mil", "dvs_sup", "kim_mil", "kim_nkc", *constants.KIM_DIAG_KEYS,
+             *constants.KIM_SEAM_DIAG_KEYS,
              "motion_share", "w_u_norm")
 CONTINUE, CLOSED, PENDING = "continue to §3's second group", "KIM line closed (§6)", "pending"
 KERNEL_9, KERNEL_3 = "host = kernel 9 for every K row", "host keeps kernel 3"
 REPRODUCED = "reproduced at n = 2: the line goes on (§6.2)"
 NOT_REPRODUCED = "not reproduced: no Kcap or K2 run, no variants (§6.2)"
+DVS_GOES_ON = "gain on DADA vs the DVS-on host: s2025 and a DVS-on Kcap next, nothing adopted (§12)"
+DVS_CLOSED = "no gain on DADA vs the DVS-on host: the KIM line closes (§12)"
 
 
 def _json(path: Path) -> Any:
@@ -97,6 +102,7 @@ def contrast_pairs(names: list[str], control: str) -> list[tuple[str, str, str]]
         pairs.append((control, constants.KIM_W0, f"{what} (printed)"))
     for arm, what in ((K0K9, "host kernel 9 (§3.1)"), (K2, "KIM, no prototypes"),
                       (K5, "full KIM"),
+                      (K5D, "full KIM + seam mask, DVS on, vs DVS off (printed)"),
                       (constants.KIM_CAP_ARM, "capacity + losses, no differences")):
         if arm in names and control in names and arm != control:
             pairs.append((arm, control, what))
@@ -111,6 +117,10 @@ def contrast_pairs(names: list[str], control: str) -> list[tuple[str, str, str]]
                       "branch + losses, DVS off, vs the DVS-on host (printed)"))
     if K5 in names and K0K9 in names:
         pairs.append((K5, K0K9, "full KIM vs host kernel 9, no KIM (printed)"))
+    if K5D in names and constants.KIM_W0 in names:
+        pairs.append((K5D, constants.KIM_W0, "full KIM + seam mask, both DVS on (§12)"))
+    if K5D in names and K5 in names:
+        pairs.append((K5D, K5, "DVS on vs off, both full KIM (printed)"))
     return pairs
 
 
@@ -162,6 +172,9 @@ def decide(
         out["replication"] = PENDING if dada is None else (
             REPRODUCED if dada["sentence"] == GAIN else NOT_REPRODUCED)
         return out
+    dvs = sets.get(DADA, {}).get("contrasts", {}).get(f"{K5D} - {constants.KIM_W0}")
+    if dvs is not None:
+        out["dvs_host"] = DVS_GOES_ON if dvs["sentence"] == GAIN else DVS_CLOSED
     k5 = _endpoint_sentences(sets, f"{K5} - {control}")
     out["stop_rule"] = PENDING if k5 is None else (
         CLOSED if all(s == COST for s in k5) else CONTINUE)

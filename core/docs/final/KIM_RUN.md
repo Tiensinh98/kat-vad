@@ -7,8 +7,8 @@
 > below the text it changes, never an edit of a rule after its number is seen.
 >
 > **Run state (2026-11-07):** K0, K0k9, pilot and K5 read at s2024 (§9). K0 and K5 read at s2025 (§10): **§6.2 reads "reproduced",
-> n = 2, nothing adopted.** Kcap read at s2025 (§11): **§6.3 fails, K5's gain is not attributed to the differences.** Next: Kcap s2024 with paired
-> Kcap − W0 (§11.5, built, not run); it cannot reverse §6.3. K2 and s2026 are held until the user reads §11.5.
+> n = 2, nothing adopted.** Kcap read at s2025 (§11): **§6.3 fails, K5's gain is not attributed to the differences.** Kcap read at s2024 (§11.6):
+> Kcap − W0 shows no difference on any set, so §11.5 reads "anything else". The user chose K5d, KIM on the DVS-on host (§12): **built, not run.** K2 and s2026 are held.
 
 ## 0. Scope: what KIM may touch
 
@@ -455,3 +455,49 @@ DoTA-CAP-dev by ego flag: K5 − Kcap ego −0.0038 [−0.0076, −0.0000], non-
 - **What follows, fixed now, on DADA as in §6.2 and §6.3, with DoTA-CAP-dev read beside it:**
   Kcap − W0 **gain on DADA** → the user may open a new dated note on branch + losses, not on kinematics. **Anything else** → Claude recommends closing the KIM line and writing up the attribution; K2 and s2026 stay unrun unless the user decides otherwise. The user makes that call. n = 1 either way, nothing adopted.
 - **Prediction (written before the number):** DADA "no difference shown", as K5 − W0 at s2024; DoTA-CAP-dev positive, label not predicted. K5 − Kcap on DADA at s2024 "no difference shown".
+
+### 11.6 Read-out, Kcap at seed 2024 — §11.5 reads "anything else" (2026-11-07)
+
+Raw: the Colab `kim_readout_s2024.md`, pasted in the session; every row without Kcap matches §9. The local `REPORTS/kim_readout_s2024.{md,json}` still predates Kcap, and Kcap's run folder and reads are on Drive only.
+
+**Kcap − W0 on DADA = +0.0009 [−0.0107, +0.0127], no difference shown.** By §11.5 Claude recommends closing the KIM line; the user decides. §6.3 still fails: K5 − Kcap on DADA has no gain at s2025.
+
+| Macro, s2024 | W0 | K0 | K5 | Kcap |
+|---|---|---|---|---|
+| DADA | 0.7615 | 0.7256 | 0.7740 | 0.7624 |
+| DoTA-CAP-dev | 0.8110 | 0.8002 | 0.8195 | 0.8172 |
+| TAD | 0.6983 | 0.6954 | 0.7002 | 0.6928 |
+
+| Contrast | Seed | DADA | DoTA-CAP-dev | TAD |
+|---|---|---|---|---|
+| Kcap − W0 (§11.5) | s2024 | **+0.0009 [−0.0107, +0.0127]** none | +0.0062 [−0.0021, +0.0144] none | −0.0055 [−0.0367, +0.0262] none |
+| K5 − Kcap (§6.3) | s2024 | +0.0116 [+0.0020, +0.0210] gain | +0.0023 [−0.0058, +0.0103] none | +0.0074 [−0.0218, +0.0370] none |
+| | s2025 | +0.0012 [−0.0056, +0.0080] none | −0.0063 [−0.0108, −0.0020] cost | −0.0058 [−0.0289, +0.0198] none |
+| Kcap − K0 (printed) | s2024 | +0.0368 [+0.0281, +0.0457] gain | +0.0170 [+0.0106, +0.0233] gain | −0.0027 [−0.0320, +0.0239] none |
+| | s2025 | +0.0371 [+0.0277, +0.0466] gain | +0.0226 [+0.0167, +0.0287] gain | −0.0024 [−0.0285, +0.0216] none |
+
+Predictions: DADA "no difference shown" held; DoTA-CAP-dev positive held; **K5 − Kcap on DADA at s2024 "no difference shown" was wrong.**
+
+**Reading.**
+
+1. **No KIM row beats the DVS-on host at s2024 on any set.** K5 − W0 and Kcap − W0 both show no difference. By construction Kcap − K0 = (Kcap − W0) − (K0 − W0): on DADA, +0.0009 + 0.0359 = +0.0368. Branch + losses brings the DVS-off host back to W0's level here. That is arithmetic; it does not show the two act through one mechanism.
+2. **The differences' contribution is inconsistent, not shown to be zero:** +0.0116 and +0.0012 on DADA, by seed. No pooling (§6.2), and §6.3 fails. A further seed to rescue it would change the rule after its number.
+3. **K5 − Kcap's s2024 gain carries a flag:** see the mismatch below. s2025's read has the matched start, and it shows no difference.
+4. **DVS on + KIM has never been measured.** Every statement here is about DVS off.
+
+**First-batch mismatch, cause not measured.** D13 expects the K rows to start alike. `mil` at step 1 at s2024: K0 = K5 = 0.6878, **Kcap 0.6925**. At s2025 all three are 0.7057. `core/train.py` has no diff from `9e81b77`, and `kat_vad.py`'s only change picks the KIM class, with the build under a private RNG; `kim_runs` and `kim_seed` build the same command. K0 and K5 s2024 trained before the Kcap code and Kcap s2024 after it, in a later runtime, which is not proof of cause. Needed: `outputs/kim/Kcap/s2024/{metrics.jsonl,config.yaml}` and the runtime's GPU / torch lines. `check_run` only prints this value, so nothing stopped the run.
+
+**What it touches.** K5 − Kcap and Kcap − K0 at s2024 do not have a matched start. Neither decision moves: §6.3 fails on s2025 alone, and W0's own first batch (0.6944, DVS on) never matched the K rows, so Kcap − W0 carries no matched start in any case.
+
+## 12. K5d: KIM on the DVS-on host (dated note 2026-11-07, before any K5d number; user)
+
+The user chose this over closing, after §11.5 read "anything else". It is a new question, not a repair of §6.3 or §11.5, and neither is reopened. Every number so far has DVS off, so K5 − W0 mixes DVS off with KIM (§9.3). K5d − W0 is the first contrast with DVS on both sides.
+
+- **Arm K5d = W0 + K5 + `kim.seam_mask=true`:** `kim.enabled`, `kim.prototypes`, `kim.edge_mask`, `kim.seam_mask`. **D2 does not apply**: `dvs.theta` 0.7, `dvs.theta_ego` 0.85, as W0. Host kernel 3, s2024, 1,749 steps. Everything else as K5, weights unchanged.
+- **Why the mask (written before any number):** DVS concatenates clips, so a spliced bag has a false jump at each join, and in a spliced abnormal bag two joins can sit on the positive span's edges. Test videos have none. Unmasked, KIM's differences could learn the joins. `seam_mask[t] = 1` when step t starts a new part; `pair[t]` is zeroed there, so `d1`, `d2` and `kim_scale` skip the join. An unmasked arm is not run.
+- **What the mask cannot remove:** `state` still sees the join, and RoFormer's `vt` mixes neighbours, so differences near a join may stay high. **Printed, never decides:** `kim_seam_share` (valid steps within ±1 of a join) and `kim_anchor_seam_share` (anchors within ±1). The second far above the first means KIM may be reading the joins, and any gain carries that flag.
+- **Inference:** no seams exist; `kim_seam` is `None`. Score path as K5.
+- **Read:** paired per video, `kim_readout`. **K5d − W0** decides. K5d − K5 (DVS on vs off, with KIM) and K5d − K0 are printed. W0 has reads at s2024, so it is not retrained.
+- **Decision, fixed now:** K5d − W0 **gain on DADA** at s2024 → the arm continues: s2025 against the W0 recipe (L0b has no DADA read; its read or a retrain comes first), and a Kcap on the same DVS-on host before any claim about the differences. **Anything else → the KIM line closes**: no unmasked arm, no λ or LR sweep, no further variant, K2 and s2026 not run. DoTA-CAP-dev is read beside it; a DoTA-only gain does not count, as §6.2. n = 1 adopts nothing.
+- **Start check:** D13 expects step-1 `mil` near W0's 0.6944 (`w_out` = 0, same DVS draws). The runbook prints both, with torch version and GPU (§11.6, pending (cq)). A mismatch does not stop the run; it flags the contrast, and the read-out says so.
+- **Prediction (written before the number):** K5d − W0 on DADA "no difference shown"; K5d − K5 on DADA not a gain.

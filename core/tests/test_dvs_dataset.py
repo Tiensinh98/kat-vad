@@ -50,6 +50,17 @@ class TestSynthesisPrimitives:
         assert sample.clip_ids == ["n0", "a0", "n1"]
         assert sample.is_synthesized
 
+    def test_seam_marks_each_part_after_the_first(self) -> None:
+        fillers = [("n0", torch.zeros(3, D), None), ("n1", torch.zeros(4, D), None)]
+        sample = compose_sequence("a0", torch.ones(5, D), None, True, fillers, 1)
+        assert sample.seam_mask.nonzero().flatten().tolist() == [3, 8]  # includes the span's edges
+        cut = truncate_sample(sample, 5)
+        assert cut.seam_mask.tolist() == [0, 0, 0, 1, 0]
+
+    def test_no_fillers_no_seam(self) -> None:
+        sample = compose_sequence("a0", torch.ones(4, D), None, True, [], 0)
+        assert not sample.seam_mask.any()
+
     def test_normal_anchor_has_zero_pseudo(self) -> None:
         sample = compose_sequence(
             "n9",

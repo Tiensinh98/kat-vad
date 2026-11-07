@@ -379,6 +379,30 @@ class TestReadout:
         pairs = kim_readout.contrast_pairs(["K0", "K5", "Kcap"], "K0")  # s2025: no W0 row
         assert ("Kcap", "W0") not in [(a, b) for a, b, _ in pairs]
 
+    @pytest.mark.parametrize(("k5d", "verdict"), [
+        ((0.02, 0.02), kim_readout.DVS_GOES_ON),
+        ((0.02, 0.0), kim_readout.DVS_CLOSED),  # a DoTA-only gain does not count (§12)
+        ((0.0, -0.02), kim_readout.DVS_CLOSED),
+    ])
+    def test_k5d_minus_w0_decides_on_dada(
+        self, tmp_path: Path, k5d: tuple[float, float], verdict: str
+    ) -> None:
+        argv = _runs(tmp_path, {"W0": (0.0, 0.0), "K0": (-0.03, -0.03), "K5": (0.01, 0.01),
+                                "K5d": k5d})
+        r = kim_readout.run(kim_readout.build_arg_parser().parse_args(
+            [*argv, "--out-dir", str(tmp_path / "rep")]))
+        assert r["decisions"]["dvs_host"] == verdict
+        c = r["sets"]["dada"]["contrasts"]
+        assert c["K5d - W0"]["delta"]["mean"] == pytest.approx(k5d[1], abs=1e-9)
+        assert "K5d - K5" in c and "K5d - K0" in c
+        assert r["decisions"]["stop_rule"] == kim_readout.CONTINUE  # §6 still reads K5 alone
+
+    def test_no_k5d_row_prints_no_dvs_host_line(self, tmp_path: Path) -> None:
+        argv = _runs(tmp_path, {"W0": (0.0, 0.0), "K0": (0.0, 0.0), "K5": (0.0, 0.0)})
+        r = kim_readout.run(kim_readout.build_arg_parser().parse_args(
+            [*argv, "--out-dir", str(tmp_path / "rep")]))
+        assert "dvs_host" not in r["decisions"]
+
     def test_kcap_prints_its_contrasts_and_never_decides(self, tmp_path: Path) -> None:
         argv = _runs(tmp_path, {"K0": (0.0, 0.0), "K5": (-0.02, -0.02), "Kcap": (0.02, 0.02)})
         r = kim_readout.run(kim_readout.build_arg_parser().parse_args(

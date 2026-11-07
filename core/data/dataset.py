@@ -201,6 +201,7 @@ class DVSFeatureDataset(Dataset[dict[str, Any]]):
             "v_feat": sample.features,
             "e_o": sample.flow,
             "pseudo_frame_label": sample.pseudo_label,
+            "seam_mask": sample.seam_mask,
             "label": torch.tensor(int(is_anomaly_half)),
             "is_synthesized": sample.is_synthesized,
             "cls_label": self._class_name(anchor_id, is_anomaly_half),

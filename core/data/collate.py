@@ -93,11 +93,11 @@ def collate_variable_length(samples: list[dict[str, Any]]) -> dict[str, Any]:
     """Collate dataset samples with variable-length tensor fields.
 
     Tensor/ndarray fields with a leading time axis (``v_feat``, ``e_o``,
-    ``pseudo_frame_label``) are padded to the batch max and stacked; the batch
+    ``pseudo_frame_label``, ``seam_mask``) are padded to the batch max and stacked; the batch
     gains ``v_feat_l`` (valid lengths) and ``mask``. Scalar tensors are stacked;
     any other field is collected into a list.
     """
-    time_keys = ("v_feat", "e_o", "pseudo_frame_label")
+    time_keys = ("v_feat", "e_o", "pseudo_frame_label", "seam_mask")
     batch: dict[str, Any] = {}
     keys = samples[0].keys()
     for key in keys:
