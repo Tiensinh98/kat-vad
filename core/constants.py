@@ -1021,6 +1021,7 @@ DAD_ANNOTATION_DIRNAME = "annotation"  # <data>/DAD/annotation/<stem>.txt
 DAD_ANNOTATION_COLUMNS = 8  # frame, track id, class, x1, y1, x2, y2, accident flag
 DAD_ASSUMED_FPS = 25  # measured by the census on all 466 test videos (2026-11-04; 20 was wrong)
 DAD_FPS_TOL = 0.5  # |measured - 25| above this fails the census
+DAD_TEST_VIDEOS = 466  # the testing split (census 2026-11-04): 165 positive, 301 negative
 DAD_STRIDE = 7  # 0.28 s/step at 25 fps, the nearest to the arms' training step (Nexar s8, 0.267 s)
 DAD_VIDEOMAE_FRAME_STEP = 3  # 16 x 3 frames at 25 fps = 1.8 s (T2 / Nexar step; user 2026-11-04)
 DAD_TOA_FRAME = 90  # accident = the last 10 frames (1-based 91-100, 0-based 90-99), the DAD
@@ -1048,6 +1049,7 @@ KIM_CLASSES = 2  # binary normal / abnormal (proposal §3.2.1)
 KIM_ARMS = ("K0", "K0k9", "K2", "K5")  # first pass (KIM_RUN.md §3); K0k9 = host kernel 9
 KIM_START_TOL = 1e-4  # step-1 mil within this of the control = same start (KIM_RUN.md §12)
 KIM_DVS_ARM = "K5d"  # K5, DVS on, seam mask (KIM_RUN.md §12); not in KIM_ARMS
+KIM_MAIN_ARM = "K5"  # the user's choice of main model (KIM_RUN.md §12.3), not a rule's outcome
 KIM_HOST_KERNEL_K9 = 9  # K0k9's model.score_head_kernel (KIM_RUN.md §3.1)
 KIM_CAP_ARM = "Kcap"  # K5 without differences (KIM_RUN.md §3, §6.3); not in KIM_ARMS (runbooks unpack it)
 KIM_CAP_HIDDEN = 183  # 164,535 MLP params vs 164,224 in W_state + both gates, at KIM_WIDTH (+0.2 %)
