@@ -1077,3 +1077,11 @@ KIM_PILOT_DISCLOSURE = (
     "The KP pilot reads DoTA-CAP-dev / DADA / TAD with the decided control (K0 or K0k9), after the "
     "kernel read-out and before K2 / K5 train (KIM_RUN.md §5.1)."
 )
+# form probe (KIM_RUN.md §14): inference only, the decision margin is KIM_PILOT_INPUT_MARGIN
+KIM_FORM_BASELINE_TOL = 1e-4  # recomputed vt2 / clip2 / host macros must match the recorded pilot
+KIM_FORM_REPORT_DIRNAME = "form_probe"  # OUTPUT_ROOT/kim/REPORTS/form_probe
+KIM_FORM_DISCLOSURE = (
+    "Inference on K0 s2024, the pilot's host: K0's vt, never K5's. DoTA-CAP-dev / DADA / TAD and "
+    "K5's scores on them were read before this probe. A step score's AUC is not a trained arm's "
+    "gain (KIM_RUN.md §14)."
+)

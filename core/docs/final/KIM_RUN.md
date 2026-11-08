@@ -9,6 +9,8 @@
 > **Run state (2026-11-07):** K0, K0k9, pilot and K5 read at s2024 (§9). K0 and K5 read at s2025 (§10): **§6.2 reads "reproduced",
 > n = 2, nothing adopted.** Kcap read at s2025 (§11): **§6.3 fails, K5's gain is not attributed to the differences.** Kcap read at s2024 (§11.6):
 > Kcap − W0 shows no difference on any set, so §11.5 reads "anything else". The user chose K5d, KIM on the DVS-on host (§12). **K5d − W0 on DADA +0.0098, below the +0.01 margin: THE KIM LINE CLOSED 2026-11-07 (§12.1, §12.2).** K2 and s2026 not run. **The user chose K5 as the main model in place of W0 (§12.3): a choice, not a rule's outcome.**
+>
+> **Dated note 2026-11-07:** form probe §14 run on K0 only: **no form passes, the form is closed (§14.1).** The line stays closed.
 
 ## 0. Scope: what KIM may touch
 
@@ -619,3 +621,75 @@ K5-T2 scores normal TAD videos above accident frames. Whole-video micro on `nexa
 **Printed beside, not a contrast:** A2 trained on T2 with DVS on read DoTA-CAP-dev 0.7536 and K5-T2 reads 0.8085, but that is a five-seed average against one seed, with DVS off and KIM changed together. The DVS-off caveat of §13 stays unmeasured: there is no T2 control without KIM.
 
 **What this licenses:** training on T2 does not rescue TAD (macro not separated, micro worse) and K5 on Nexar stays the main model. **Do not write** "T2 fixes TAD" or "the training corpus explains the TAD drop". §13 stands: no K2, s2026 or sweep follows from these numbers.
+
+## 14. Form probe: does SA²'s two-sided, signed second difference read better than KIM's? (dated note 2026-11-07, before any number; user)
+
+**Question (user):** SA² takes `D_t = 2P_t − P_{t−1} − P_{t+1}`, KIM's order 2 reads only earlier steps. Is SA²'s form worth trying on K5? **Inference only, no training, nothing extracted. This does not reopen the KIM line (§12), and K5 stays the main model (§12.3).**
+
+**What the algebra already says (no data):** the two forms differ in two separate ways.
+
+- **Two-sided vs one-sided:** `|2z_t − z_{t−1} − z_{t+1}|` at `t` equals `|z_{t+1} − 2z_t + z_{t−1}|`, the one-sided signed form at `t+1`. Once the sign is kept, two-sided is a shift by one step: 0.30 s on DoTA-CAP-dev (protocol B), 0.267 s on DADA. KP4's median peak lag on K0 is 1.80 s and 2.13 s.
+- **Sign:** KIM and `vt2` take `| |Δ_t| − |Δ_{t−1}| |`, so a reversal at equal speed reads 0. The signed form does not. `kim_pilot` measured only the first.
+- **Already in K5's view:** RoFormer's window is ±12 steps, the gate convolutions and the score head are symmetric kernel 3. K5's score at `t` already reads later steps; only the subtraction is one-sided.
+
+**Not proposal R10:** R10 keeps the sign in the feature, with no magnitude at all. Every form here ends in a magnitude, so this probe neither runs nor replaces R10.
+
+**Candidates**, on `vt` and on `clip`, one number per step, row names `<feature>2<suffix>`:
+
+| Suffix | Form | Edges |
+|---|---|---|
+| none | KIM's form, `kim_pilot.change_scores` order 2, the reference | steps 0, 1 are 0 |
+| `s` | signed one-sided, `mean_c |z_t − 2z_{t−1} + z_{t−2}|` | steps 0, 1 are 0 |
+| `c` | signed two-sided, `mean_c |2z_t − z_{t−1} − z_{t+1}|` | first and last are 0 |
+| `m` | SA²'s own `Mo`, `‖2ẑ_t − ẑ_{t−1} − ẑ_{t+1}‖₂` on L2-normalised `z`, `motion_magnitude` on one cell | as SA², the edge rows repeat their neighbour |
+
+**Host: K0, s2024, the pilot's own host and reads.** K5's `vt` was trained through KIM's form, so it is not neutral between forms, and `kim_pilot.check_model` refuses a KIM checkpoint. **Limit: these numbers describe K0's `vt`, never K5's.** Sets, labels and inputs are the pilot's: DoTA-CAP-dev protocol B, DADA whole, TAD printed.
+
+**Hard gate:** `kim_form_probe` recomputes `vt2`, `clip2` and `host` and raises unless every macro is within `KIM_FORM_BASELINE_TOL` of `pilot_edges/kim_pilot.json`, with the same host and global step.
+
+**Rule, fixed now:** a candidate passes iff its macro minus the macro of the reference on the same feature is at least `KIM_PILOT_INPUT_MARGIN` (+0.02) on **both** DoTA-CAP-dev and DADA. TAD never decides.
+
+- **No candidate passes:** the form is closed. Nothing is trained, and K5 is unchanged.
+- **A `vt` candidate passes:** Claude may propose one training arm with its own dated note and rule, and the user decides. Nothing trains from this probe alone.
+- **Only a `clip` candidate passes:** same, but the arm would also change KIM's input, so it would not be a pure change of form.
+
+**Printed, never decides:** paired per-video candidate − reference with CI, DoTA-CAP-dev by ego flag, host + candidate rank average for the `vt` forms, median |peak − onset| for the `vt` forms.
+
+**Prediction, written before any number:** no candidate passes. `c` − `s` is within ±0.005 on both endpoints, since it is a one-step shift. A wrong prediction changes no verdict.
+
+**Limits.**
+
+1. A step score's AUC is not a trained arm's gain: passing here does not predict K5's macro, and failing does not prove a trained branch could not use the form.
+2. The bar of 0.02 is read six times (three forms × two features), with no multiplicity correction. It is KP1's margin, reused so that it was not chosen for this probe.
+3. No first-pair mask, so `vt2` stays comparable with the recorded pilot; K5 has the mask. KP3's first-pair excess therefore sits in every row.
+4. K5's and K0's scores on these sets have already been read, so this is not a blind look at the endpoints.
+5. n = 1 seed: **PRELIMINARY**.
+
+**Tools:** `python -m core.tools.kim_form_probe`, tests `core/tests/test_kim_form_probe.py`, runbook `colab/final/kim_form_probe.ipynb`, report `REPORTS/form_probe/kim_form_probe.{json,md}`.
+
+### 14.1 Read-out, K0 s2024 — no form passes, the form is closed (2026-11-07)
+
+Raw: `outputs/v_final/kim/REPORTS/form_probe/kim_form_probe.md`, pasted from Colab; the `.json` stays on Drive. The report exists, so §14's gate passed: `vt2`, `clip2` and `host` reproduce the recorded pilot.
+
+**Decision: stop. Nothing is trained, K5 is unchanged, and no follow-up arm comes from this probe.**
+
+| Candidate − reference (paired, 95 % CI) | DoTA-CAP-dev | DADA | TAD (never decides) |
+|---|---|---|---|
+| `vt2s` | −0.0011 [−0.0078, +0.0057] | −0.0000 [−0.0069, +0.0068] | −0.0050 [−0.0223, +0.0126] |
+| `vt2c` | −0.0143 [−0.0234, −0.0055] | −0.0082 [−0.0170, +0.0007] | −0.0056 [−0.0341, +0.0216] |
+| `vt2m` | −0.0293 [−0.0389, −0.0197] | −0.0200 [−0.0291, −0.0109] | −0.0240 [−0.0574, +0.0082] |
+| `clip2s` | −0.0121 [−0.0182, −0.0059] | −0.0086 [−0.0150, −0.0024] | −0.0039 [−0.0167, +0.0085] |
+| `clip2c` | −0.0338 [−0.0418, −0.0264] | −0.0222 [−0.0302, −0.0142] | −0.0079 [−0.0355, +0.0178] |
+| `clip2m` | −0.0419 [−0.0498, −0.0346] | −0.0322 [−0.0407, −0.0237] | −0.0211 [−0.0523, +0.0077] |
+
+**Predictions.** "No candidate passes" held. **"`c` − `s` within ±0.005" was wrong:** from the margins, `vt` −0.0132 and −0.0082, `clip` −0.0217 and −0.0136, DoTA-CAP-dev and DADA. No paired CI of `c` − `s` is printed. The verdict does not move.
+
+**Reading.**
+
+1. **Sign:** on `vt` there is no difference on any set, so the sign, which §14's algebra named as the real difference, shows no gain at the step-score level. On `clip` it costs on both endpoints.
+2. **Two-sided:** reading the same magnitude one step earlier costs on DoTA-CAP-dev and on `clip`; on `vt` DADA the interval includes 0. An algebraic shift is therefore not neutral for the macro. Why is not measured.
+3. **SA²'s own `Mo`:** the lowest form on each feature, with intervals below 0 on both endpoints. It also changes the normalisation and the norm, so this does not isolate which of them costs.
+4. **Printed, never decides:** host + row rank average, DoTA-CAP-dev / DADA: `vt2` 0.8139 / 0.7428, `vt2s` 0.8155 / 0.7451, `vt2c` 0.8160 / 0.7461, `vt2m` 0.8126 / 0.7424. Unpaired, overlapping intervals, a K0 host: no claim, and no ground for an arm.
+
+**Licensed:** on K0's `vt` and on `clip`, n = 1, no form reads better as a step score than KIM's. **Not licensed:** "KIM's form is better" (on `vt` the signed form ties), "two-sided is worse on K5" (K5's `vt` was not read), "a trained branch could not use the form" (§14 limit 1), or anything about R10.
+

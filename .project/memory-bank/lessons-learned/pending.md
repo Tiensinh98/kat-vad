@@ -2341,3 +2341,13 @@ Promote if a second harness needs the same split.
 **Rule:** Assert `train_ids_sha1` of each eval bake against the training input before scoring a new row.
 **Files:** colab/final/k5_t2.ipynb (steps 3, 5), core/data/v2_inputs.py (manifest), core/docs/final/KIM_RUN.md §13
 **Why pending:** caught while building, no wrong number was produced; the assert lives in the notebook, not in `core.evaluate`.
+
+## (cu) [LOW] Experiments - work out the algebra of a borrowed formula before giving it a run (2026-11-07)
+**Triggers:** second difference, central difference, two-sided, signed, SA², Mo, KIM form, borrowed formula
+**Problem:** "SA² uses both neighbours, KIM only the previous one" reads as a new temporal signal, but with the sign kept the two-sided magnitude is the one-sided one shifted by one step. The real difference, sign before the magnitude, was invisible until written out.
+**Bad:** train an arm on `|2z_t - z_{t-1} - z_{t+1}|` because it looks richer than `||d_t| - |d_{t-1}||`
+**Good:** write both forms over the same steps, separate the shift from the sign, then read each on a no-training probe with a recorded baseline as a hard gate
+**Rule:** Reduce a borrowed formula to the host's by algebra and name each remaining difference before spending a run on it.
+**Files:** core/tools/kim_form_probe.py:form_scores, core/docs/final/KIM_RUN.md §14
+**Measured 2026-11-07 (`KIM_RUN.md` §14.1):** algebra does not predict the metric. The "harmless" one-step shift cost −0.0132 / −0.0082 on `vt` against a predicted ±0.005, and the sign named as the real difference showed no gain (−0.0011 / −0.0000). The algebra says what to test, not what will happen.
+**Why pending:** one seed and one borrowed formula; no wrong number was produced.
