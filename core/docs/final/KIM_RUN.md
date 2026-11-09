@@ -806,3 +806,28 @@ At 5, almost every positive bag's top-k mean must include normal rows. 16 restor
 4. Every K5 read has been seen before, so this is not a blind comparison.
 
 Runbook `colab/final/k5_whole.ipynb`; table `core.tools.k5_whole_report` (refuses unpaired items, a micro that disagrees with its scores, mixed or shared checkpoints, a Nexar read not on `nexar_val`; tests `core/tests/test_k5_whole_report.py`). Outputs `Thesis-Final/outputs/kim_whole/`. K5's `nexar_val` read is §13's (`kim_t2/eval/nexar/K5`); the notebook re-reads it only if it is gone.
+
+### 16.1 Read-out, s2024 — PRELIMINARY (n = 1), decides nothing (2026-11-09)
+
+Raw `outputs/v_final/kim_whole/REPORTS/k5_whole_report.md` (pasted by the user; the notebook's config diff and J10 passed). The v2 pilot row is absent because its Drive copy is gone (§29 disclosure).
+
+| Set | K5 (window) | K5 (whole) | Δ, paired [95 %] | WH7 |
+|---|---|---|---|---|
+| Nexar val, crops (endpoint) | 0.8981 | 0.6547 | −0.2434 [−0.2848, −0.2019] | below |
+| DoTA-CAP-dev | 0.8195 | 0.6408 | −0.1787 [−0.2018, −0.1547] | below |
+| DADA whole | 0.7740 | 0.5922 | −0.1818 [−0.2135, −0.1505] | below |
+| TAD | 0.7002 | 0.6769 | −0.0233 [−0.1042, +0.0601] | not separated |
+| DAD | 0.7916 | 0.7178 | −0.0738 [−0.1371, −0.0113] | below |
+
+Printed (WH6): Nexar val clip AUC 0.7383 vs K5 0.7735 (no flag); edge drop −0.0008 vs −0.0272; crops by placement 0.64 / 0.58 / 0.64 / 0.71 / 0.71; Nexar val AP 0.0926 vs 0.4472 (base 0.0394); TAD micro 0.4655 (< 0.5) vs 0.6781. **WH8: no s2025.**
+
+**Expectations:** (a) crops below K5 held. (b) clip AUC above K5 was **wrong** (0.738 < 0.774). (c) a larger edge drop was **wrong** (≈ 0). (d) "not separated" on DoTA-CAP-dev and DAD was **wrong** (both below). By W3's measure (clip AUC) K5 (whole) is not a better clip classifier, and it is not a position reader; it is weaker on every read except TAD. **The post-hoc read below shows its curves are flat per video, so "not a clip classifier" holds only for clip AUC.**
+
+**Licensed:** "K5 trained on `Nexar_whole` with `mil_topk_pct` 16 scores below K5 on Nexar val crops, DoTA-CAP-dev, DADA and DAD at s2024; TAD not separated. PRELIMINARY (n = 1)." **Not licensed:** "whole is worse", "video-level labels cannot localize", "the negative videos hurt", or any single cause (WH7: corpus, label granularity, negative pool, top-k divisor and steps per epoch change together). Nothing here speaks to windows cut from the negative videos.
+
+**Post-hoc, printed, decides nothing (local outputs, 2026-11-09).** The full outputs (`outputs/v_final/kim_whole/`) regenerate the report byte for byte. The config differs from K5 only in `loss.mil_topk_pct`, `train.num_epochs` and two keys added later at their defaults; J10 holds at 1,740 steps.
+
+- **Training fit.** `mil` falls below 0.1 from step 580 (epoch 38), below 0.01 from step 680 (epoch 45) and below 0.001 from step 1,216; last-100 mean 0.0005 (K5: 0.164, never below 0.1). `kim_mil` 0.0005 vs 0.160; `dvs_sup` 0.0000 vs 0.018. By epoch 45 the 900 training bags are fit, and about 60 % of the step budget runs on near-zero loss.
+- **Score shape (saved curves, raw scores).** Median within-video range (max − min) for K5 (window) vs K5 (whole): DoTA-CAP-dev 0.943 vs **0.005**, TAD 0.389 vs **0.005**, DAD 0.058 vs **0.002**, DADA 0.528 vs 0.932 (DADA whole is the exception). Mean score inside vs outside the span: DoTA-CAP-dev 0.529 / 0.242 vs 0.868 / 0.812; DADA 0.467 / 0.186 vs 0.739 / 0.649. On TAD, whole scores normal videos above accident videos on average (0.681 vs 0.579), matching micro 0.4655.
+- **Reading.** On three of the four zero-shot sets K5 (whole) emits a near-constant score per video: a per-video score with no frame-level shape. Under DoTA-CAP's per-clip min-max its macro of 0.64 ranks ripples of about 0.005. This is the C14 shape (`TAD_SETUP.md` §15.1). Its clip AUC of 0.738 on Nexar val says it is also a poor video classifier. Cause not tested: saturation after the fit, the fusion's global text path, or both.
+
