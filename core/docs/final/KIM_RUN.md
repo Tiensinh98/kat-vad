@@ -831,3 +831,35 @@ Printed (WH6): Nexar val clip AUC 0.7383 vs K5 0.7735 (no flag); edge drop −0.
 - **Score shape (saved curves, raw scores).** Median within-video range (max − min) for K5 (window) vs K5 (whole): DoTA-CAP-dev 0.943 vs **0.005**, TAD 0.389 vs **0.005**, DAD 0.058 vs **0.002**, DADA 0.528 vs 0.932 (DADA whole is the exception). Mean score inside vs outside the span: DoTA-CAP-dev 0.529 / 0.242 vs 0.868 / 0.812; DADA 0.467 / 0.186 vs 0.739 / 0.649. On TAD, whole scores normal videos above accident videos on average (0.681 vs 0.579), matching micro 0.4655.
 - **Reading.** On three of the four zero-shot sets K5 (whole) emits a near-constant score per video: a per-video score with no frame-level shape. Under DoTA-CAP's per-clip min-max its macro of 0.64 ranks ripples of about 0.005. This is the C14 shape (`TAD_SETUP.md` §15.1). Its clip AUC of 0.738 on Nexar val says it is also a poor video classifier. Cause not tested: saturation after the fit, the fusion's global text path, or both.
 
+
+## 17. K5 with windows cut from Nexar's negative videos (dated note 2026-11-09, before any number; user)
+
+**Not a reopening of the KIM line**; K5 stays the main model unless the rule below and the user say otherwise. The user asked why `Nexar_window` cuts its normal windows only from the positive videos (pre- and post-event windows), leaving the 449 negative videos of `nexar_train` unused. The answer: the v2 plan (`katvad-v2-nexar-feasibility.md` N4) gated them behind an N-X probe that never ran. The precedent quoted for that gate (`0_Normal_Driving`, C28) belongs to the Kaggle archive, not to the original DADA-2000 release, so it does not transfer. §16 does not answer the question either: `whole` changed the labels, the top-k divisor and the steps per epoch together.
+
+**Measured on the census and the frozen split (before any score):**
+
+| | `Nexar_window` (K5) | `Nexar_window_neg` (K5neg) |
+|---|---|---|
+| positive windows | 1,689 | 1,689 |
+| normal windows inside positive videos | 5,622 | 5,622 |
+| windows from negative videos | 0 | **6,879** (449 videos, median 17 per video, no cap: user) |
+| share of the normal pool from negative videos | 0 | **≈ 55 %** (pool sampling: user) |
+| steps | 53 × 33 = 1,749 | identical (dataset length = 2 × positive windows) |
+
+Scene and weather differ by class in `nexar_train` (Sub-urban 41 positive / 122 negative; Rain 42 / 14), so a scene shortcut is possible. NG5 prints it; it is not gated.
+
+| # | Choice | Value |
+|---|---|---|
+| NG1 | Row | **K5neg** = K5's config with `--data-dir Nexar_window_neg`, built by `nexar_build corpus --constructions window_neg`: `window`'s geometry (20 rows at s8, hop 8, `WINDOW_MIN_POSITIVE`, no cap), with train windows from **every** `nexar_train` video. Val side identical to `Nexar_window`. **Config diff to K5 = 0** (asserted). s2024 only (user) |
+| NG2 | Inputs | K5's bakes (`A2_S/Nexar_s8`, Nexar statistics, which already cover all 900 train videos) and K5's zero-shot bakes. No extraction, no KNN (DVS off, §16) |
+| NG3 | Reads | As §16 WH5: `nexar_val` (crops endpoint, whole, micro, AP, clip AUC), DoTA-CAP-dev, DADA whole, TAD, DAD. `nexar_test` is not touched |
+| NG4 | K5 on `nexar_val` | **Re-read** in this notebook, so both rows carry the new per-video stats (NG5). Gate: its crop endpoint must equal §13's recorded read (`kim_t2/eval/nexar/K5`) within 1e-4, or the report raises |
+| NG5 | Printed, never gating | (a) **False alarms on `nexar_val`'s 113 negative videos**: share with peak > 0.5, mean score; (b) the same share **by scene** (Urban / Sub-urban / Highway / other): a drop concentrated in Sub-urban flags a scene shortcut; (c) median within-video score range on every set (§16.1's flat-curve check) |
+| NG6 | Sentence | K5neg − K5 per set, paired per item, 95 % bootstrap: "above / below / not separated", **PRELIMINARY (n = 1)**. One factor changes (the normal pool), so a difference may be attributed to it, but with one seed it is never written as established |
+| NG7 | What may follow | **Candidate** (Claude may propose s2025 + recording K5neg as a candidate main model; the user decides) iff **no set is "below"** and (**at least one set is "above"** or the false-alarm share on `nexar_val` negatives falls by ≥ 0.05). **K5 stays** if any set is "below". Otherwise: no claim |
+
+**Expectations, written before the numbers:** macro "not separated" on most sets (macro ranks frames inside accident videos, which the new windows do not teach); the false-alarm share on `nexar_val` negatives falls; Nexar val micro and AP rise slightly. The dilution risk is that in-video contrast is drawn about 55 % less often, which could make DoTA-CAP-dev or DADA read "below". A wrong expectation changes nothing.
+
+Runbook `colab/final/k5_neg.ipynb` (builds `Thesis-Final/data/Nexar_window_neg`, asserts K5's windows and labels unchanged, every added window all-normal and from a negative train video, val + `defs.json` byte-identical to `Nexar_window`, step plan = K5's). Corpus `nexar_build corpus --constructions window_neg` (opt-in, not in the default build). Per-video stats `nexar_eval` → `video_stats.json` (additive). Table `core.tools.k5_neg_report` (tests `core/tests/test_k5_neg_report.py`). Outputs `Thesis-Final/outputs/kim_neg/`.
+
+**Limits.** n = 1. The scene print is descriptive: a shortcut that lowers false alarms on Sub-urban val negatives would also look like a gain. Pool sampling makes "more negatives" and "less in-video contrast per step" one factor, not two.

@@ -67,6 +67,7 @@ LOGGER = logging.getLogger(__name__)
 READOUT_JSON = "nexar_readout.json"
 READOUT_MD = "nexar_readout.md"
 ITEM_AUCS_JSON = "item_aucs.json"
+VIDEO_STATS_JSON = "video_stats.json"  # per whole video: peak, mean, range, label, scene (§17 NG5)
 CROP_SEP = "@"
 
 
@@ -204,6 +205,21 @@ def crop_endpoint(
     return float(np.mean(list(crop_video_means(two_class_aucs(scores, labels, crops)).values())))
 
 
+def video_stats(
+    scores: dict[str, np.ndarray], ids: list[str], rows: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Per whole video of the split: peak, mean and range of its seed-averaged native score.
+
+    Feeds the false-alarm and flat-curve prints of ``KIM_RUN.md`` §17 (NG5); no rule reads it.
+    """
+    return {
+        v: {"label": int(rows[v]["label"]), "scene": rows[v].get("meta_scene", ""),
+            "peak": float(scores[v].max()), "mean": float(scores[v].mean()),
+            "range": float(np.ptp(scores[v]))}
+        for v in ids
+    }
+
+
 def summarize(
     scores: dict[str, np.ndarray], labels: dict[str, np.ndarray], ids: list[str],
     rows: dict[str, dict[str, Any]], items: dict[str, tuple[str, int, int]], seed: int,
@@ -312,6 +328,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     }
     args.out_dir.mkdir(parents=True, exist_ok=True)
     write_json_atomic(args.out_dir / ITEM_AUCS_JSON, summary["item_aucs"])
+    write_json_atomic(args.out_dir / VIDEO_STATS_JSON, video_stats(averaged, ids, rows))
     write_json_atomic(args.out_dir / READOUT_JSON, readout)
     write_text_atomic(args.out_dir / READOUT_MD, render_markdown(readout))
     LOGGER.info("whole macro %s; crop mean %s -> %s", readout["whole"]["macro"],

@@ -83,14 +83,16 @@ def zero_shot_row(view: argparse.Namespace, set_name: str) -> tuple[ArmRead, dic
     return read, cells
 
 
-def zero_shot_set(views: dict[str, argparse.Namespace], set_name: str) -> dict[str, Any]:
-    """Both rows of a set and K5 (whole) - K5 (window), paired per item."""
+def zero_shot_set(
+    views: dict[str, argparse.Namespace], set_name: str, new: str = WHOLE
+) -> dict[str, Any]:
+    """Both rows of a set and ``new`` - K5 (window), paired per item."""
     reads, rows = {}, {}
     for row, view in views.items():
         reads[row], rows[row] = zero_shot_row(view, set_name)
-    if set(reads[K5]["items"]) != set(reads[WHOLE]["items"]):
+    if set(reads[K5]["items"]) != set(reads[new]["items"]):
         raise ValueError(f"{set_name}: the two rows scored different items: not paired")
-    delta = delta_ci(reads[WHOLE], reads[K5])
+    delta = delta_ci(reads[new], reads[K5])
     return {"rows": rows, "base_rate": rows[K5]["base_rate"], "protocol": zs.PROTOCOL[set_name],
             "delta": delta, "sentence": versus_sentence(delta)}
 
@@ -120,12 +122,12 @@ def nexar_cells(readout: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def nexar_set(dirs: dict[str, Path]) -> dict[str, Any]:
+def nexar_set(dirs: dict[str, Path], new: str = WHOLE) -> dict[str, Any]:
     """Both rows on ``nexar_val``; the contrast is on the per-video crop means (D-N2)."""
     reads = {row: nexar_read(d) for row, d in dirs.items()}
-    if set(reads[K5][1]) != set(reads[WHOLE][1]):
+    if set(reads[K5][1]) != set(reads[new][1]):
         raise ValueError("nexar: the two rows scored different crops")
-    d = paired(reads[WHOLE][1], reads[K5][1])
+    d = paired(reads[new][1], reads[K5][1])
     delta = cluster_bootstrap_ci(d, {v: v for v in d}, constants.V2_E1_BOOTSTRAP,
                                  constants.V5_BOOTSTRAP_SEED, constants.V2_E1_CI)
     w = reads[K5][0]["whole"]
@@ -137,7 +139,7 @@ def nexar_set(dirs: dict[str, Path]) -> dict[str, Any]:
 
 
 def check_checkpoints(
-    views: dict[str, argparse.Namespace], dirs: dict[str, Path], seed: int
+    views: dict[str, argparse.Namespace], dirs: dict[str, Path], seed: int, new: str = WHOLE
 ) -> None:
     """One checkpoint per row across its five reads, and the two rows use different ones."""
     found: dict[str, dict[str, str]] = {}
@@ -147,8 +149,8 @@ def check_checkpoints(
         seen[NEXAR] = str(readout["checkpoints"][f"s{seed}"])
         zs.check_one_checkpoint(seen)
         found[row] = seen
-    if set(found[K5].values()) & set(found[WHOLE].values()):
-        raise ValueError(f"K5 (whole) reads share a checkpoint with K5 (window): {found[WHOLE]}")
+    if set(found[K5].values()) & set(found[new].values()):
+        raise ValueError(f"{new} reads share a checkpoint with K5 (window): {found[new]}")
 
 
 def pilot_row(pilot_dir: Path | None) -> dict[str, Any] | None:

@@ -18,6 +18,9 @@ Constructions (both train at ``s1[::8]``, both labelled by the rule above):
     T2's construction: windows of 20 rows, hop 8, cut from the **positive** videos only (pre- and
     post-event windows are the negatives), labelled by their own rows
     (:func:`core.data.dada.write_windowed`). No per-video cap (constants).
+``window_neg`` -> ``data/Nexar_window_neg/`` (``KIM_RUN.md`` §17, opt-in)
+    ``window`` plus train windows cut from the **negative** videos too (all-normal windows). The
+    val side is ``window``'s (positive videos only), so the two corpora share one eval set.
 
 ``subsample`` writes ``cache/clip/Nexar_s8_ncc`` = ``Nexar_s1_ncc[::8]`` for A0 and the KNN key.
 
@@ -39,6 +42,8 @@ import argparse
 import json
 import logging
 import math
+from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -151,14 +156,19 @@ def build_whole(
 
 def build_window(
     out_dir: Path, rows: dict[str, dict[str, Any]], train: list[str], val: list[str],
-    frames: dict[str, int],
+    frames: dict[str, int], include_negatives: bool = False,
 ) -> dict[str, Any]:
-    """``window``: T2's windows over the positive videos of each split."""
-    train_pos = [make_record(v, rows[v], frames[v]) for v in train if rows[v]["label"] == 1]
+    """``window``: T2's windows over the positive videos of each split.
+
+    ``include_negatives`` (``window_neg``, §17) also cuts train windows from the negative videos;
+    the val side never changes.
+    """
+    train_recs = [make_record(v, rows[v], frames[v]) for v in train
+                 if rows[v]["label"] == 1 or include_negatives]
     val_pos = [make_record(v, rows[v], frames[v]) for v in val if rows[v]["label"] == 1]
     write_windowed(
         out_dir,
-        train_pos,
+        train_recs,
         val_pos,
         constants.NEXAR_TRAIN_STRIDE,
         {constants.DADA_CLASS_NAME},
@@ -168,14 +178,15 @@ def build_window(
         "drop",
         constants.NEXAR_WINDOW_MAX_PER_CLIP,
         {r.video_id: {k: rows[r.video_id].get(f"meta_{k}") for k in ("scene", "weather")}
-         for r in train_pos + val_pos},
+         for r in train_recs + val_pos},
     )
     labels = json.loads((out_dir / constants.LABELS_TRAIN_FILENAME).read_text(encoding="utf-8"))
     test = json.loads((out_dir / constants.FRAME_LABELS_TEST_FILENAME).read_text(encoding="utf-8"))
     return {
         "train_items": len(labels),
         "train_abnormal": sum(labels.values()),
-        "train_sources": len(train_pos),
+        "train_sources": len(train_recs),
+        "train_negative_sources": sum(1 for r in train_recs if not r.is_abnormal),
         "val_windows": len(test),
         "val_two_class_windows": sum(1 for lab in test.values() if 0 < sum(lab) < len(lab)),
         "val_abnormal_windows": sum(1 for lab in test.values() if sum(lab) > 0),
@@ -228,9 +239,10 @@ def run_corpus(args: argparse.Namespace) -> dict[str, Any]:
         "constructions": {},
         "plan": {},
     }
-    builders = {
+    builders: dict[str, Callable[..., dict[str, Any]]] = {
         constants.NEXAR_CONSTRUCTION_WHOLE: build_whole,
         constants.NEXAR_CONSTRUCTION_WINDOW: build_window,
+        constants.NEXAR_CONSTRUCTION_WINDOW_NEG: partial(build_window, include_negatives=True),
     }
     for name in args.constructions:
         out_dir = args.out_root / f"{constants.NEXAR_DATASET}_{name}"
@@ -272,7 +284,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     corpus.add_argument("--split-dir", type=Path, default=constants.V2_SPLITS_DIR)
     corpus.add_argument("--out-root", type=Path, default=constants.DATA_ROOT)
     corpus.add_argument("--constructions", nargs="+", default=list(constants.NEXAR_CONSTRUCTIONS),
-                        choices=constants.NEXAR_CONSTRUCTIONS)
+                        choices=constants.NEXAR_CORPUS_CHOICES)
     corpus.add_argument("--report", type=Path, required=True)
     sub_s = sub.add_parser(SUBCOMMAND_SUBSAMPLE, help="derive an s<k> CLIP cache from s1")
     sub_s.add_argument("--clip-s1-dir", type=Path, required=True)

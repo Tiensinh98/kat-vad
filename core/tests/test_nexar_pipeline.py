@@ -196,6 +196,45 @@ def test_build_window_uses_positive_videos_only(tmp_path: Path) -> None:
     assert stats["val_two_class_windows"] > 0
 
 
+def test_build_window_neg_adds_negative_video_windows(tmp_path: Path) -> None:
+    """§17: window_neg = window + all-normal windows from the negative train videos; same val."""
+    rows, train, val, frames = _rows()
+    base = nexar_build.build_window(tmp_path / "w", rows, train, val, frames)
+    neg = nexar_build.build_window(tmp_path / "n", rows, train, val, frames, include_negatives=True)
+    windows = json.loads((tmp_path / "n" / constants.WINDOWS_FILENAME).read_text())
+    labels = json.loads((tmp_path / "n" / constants.LABELS_TRAIN_FILENAME).read_text())
+    from_neg = [w for w, info in windows.items() if info["source"] in ("n1", "n2")]
+    per_source = (150 - constants.NEXAR_WINDOW_LENGTH) // constants.NEXAR_WINDOW_STRIDE + 1
+    assert len(from_neg) == 2 * per_source and all(labels[w] == 0 for w in from_neg)
+    assert neg["train_abnormal"] == base["train_abnormal"]  # same positives -> same step plan
+    assert neg["train_items"] == base["train_items"] + 2 * per_source
+    assert (neg["train_negative_sources"], base["train_negative_sources"]) == (2, 0)
+    for name in (constants.FRAME_LABELS_TEST_FILENAME, constants.DEFS_FILENAME):
+        assert (tmp_path / "n" / name).read_text() == (tmp_path / "w" / name).read_text()
+    assert "nv" not in {info["source"] for info in windows.values()}  # val negatives stay out
+
+
+def test_window_neg_is_opt_in() -> None:
+    args = nexar_build.build_arg_parser().parse_args(
+        ["corpus", "--census", "c", "--clip-s1-dir", "x", "--report", "r"])
+    assert constants.NEXAR_CONSTRUCTION_WINDOW_NEG not in args.constructions
+    args = nexar_build.build_arg_parser().parse_args(
+        ["corpus", "--census", "c", "--clip-s1-dir", "x", "--report", "r",
+         "--constructions", constants.NEXAR_CONSTRUCTION_WINDOW_NEG])
+    assert args.constructions == [constants.NEXAR_CONSTRUCTION_WINDOW_NEG]
+
+
+def test_video_stats_reads_peak_mean_range() -> None:
+    rows = {"a": _row(1, 40.0, 18.0, 19.0), "b": {**_row(0, 40.0), "meta_scene": "Highway"}}
+    scores = {"a": np.array([0.1, 0.9, 0.3]), "b": np.array([0.2, 0.2, 0.4]),
+              "a@0.5": np.array([0.0])}
+    out = nexar_eval.video_stats(scores, ["a", "b"], rows)
+    assert set(out) == {"a", "b"}
+    assert out["a"]["peak"] == pytest.approx(0.9) and out["a"]["range"] == pytest.approx(0.8)
+    assert out["b"] == {"label": 0, "scene": "Highway", "peak": pytest.approx(0.4),
+                        "mean": pytest.approx(0.8 / 3), "range": pytest.approx(0.2)}
+
+
 def test_epoch_plan_spends_the_step_budget() -> None:
     plan = nexar_build.epoch_plan(451)
     assert plan["steps_per_epoch"] == 15

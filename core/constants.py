@@ -499,6 +499,9 @@ NEXAR_EVAL_STRIDE = 3  # protocol N-B rows = s1[::3], as E1's protocol B
 NEXAR_CONSTRUCTION_WHOLE = "whole"  # every nexar_train video, video-level label
 NEXAR_CONSTRUCTION_WINDOW = "window"  # T2-style windows from positive videos only
 NEXAR_CONSTRUCTIONS = (NEXAR_CONSTRUCTION_WHOLE, NEXAR_CONSTRUCTION_WINDOW)
+# KIM_RUN.md §17: `window` + windows cut from the negative videos too; opt-in, not a default build
+NEXAR_CONSTRUCTION_WINDOW_NEG = "window_neg"
+NEXAR_CORPUS_CHOICES = (*NEXAR_CONSTRUCTIONS, NEXAR_CONSTRUCTION_WINDOW_NEG)
 NEXAR_WINDOW_LENGTH = DADA_ORIGIN_WINDOW_LENGTH  # 20 rows at s8, T2's geometry
 NEXAR_WINDOW_STRIDE = DADA_ORIGIN_WINDOW_STRIDE  # hop 8
 # No per-video cap: T2's cap of 4 evenly spaced windows would skip the ~11-row event of a
@@ -1059,6 +1062,12 @@ KIM_WHOLE_ROW = "K5whole"  # K5 trained on Nexar_whole, row under eval/nexar/ (K
 # §16 WH1: k = n // 16 = 9 rows on a 151-row video fits the ~11-row span
 # (at 5, k = 30 exceeds the span on 97.8 % of nexar_train positives)
 KIM_WHOLE_MIL_TOPK_PCT = MIL_TOPK_PCT
+# OUTPUT_ROOT/kim_neg: K5/s<seed>/, eval/, REPORTS/ (KIM_RUN.md §17)
+KIM_NEG_OUTPUT_DIRNAME = "kim_neg"
+KIM_NEG_ROW = "K5neg"  # K5 + windows from the negative videos, row under eval/nexar/ (§17)
+KIM_NEG_FA_MARGIN = 0.05  # §17 NG7: false-alarm share on nexar_val negatives must fall this much
+KIM_NEG_REPRO_TOL = 1e-4  # §17 NG4: K5 re-read on nexar_val vs its §13 crop endpoint
+NORMAL_VIDEO_PEAK = 0.5  # a normal video whose peak score passes this counts as a false alarm
 KIM_WHOLE_PROPOSE_MIN_SETS = 3  # §16 WH8: above K5 on Nexar crops and >= 3 of 4 zero-shot sets
 KIM_HOST_KERNEL_K9 = 9  # K0k9's model.score_head_kernel (KIM_RUN.md §3.1)
 KIM_CAP_ARM = "Kcap"  # K5 without differences (KIM_RUN.md §3, §6.3); not in KIM_ARMS (runbooks unpack it)
