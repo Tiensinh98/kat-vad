@@ -1053,6 +1053,13 @@ KIM_MAIN_ARM = "K5"  # the user's choice of main model (KIM_RUN.md §12.3), not 
 KIM_T2_OUTPUT_DIRNAME = "kim_t2"  # OUTPUT_ROOT/kim_t2: K5/s<seed>/, eval/, REPORTS/ (KIM_RUN.md §13)
 KIM_T2_ROW = "K5T2"  # K5 trained on T2, its row under eval/nexar/ (KIM_RUN.md §13)
 KIM_T2_EPOCHS = 20  # E3's recipe: 20 x 87 = NEXAR_STEP_BUDGET steps
+# OUTPUT_ROOT/kim_whole: K5/s<seed>/, eval/, REPORTS/ (KIM_RUN.md §16)
+KIM_WHOLE_OUTPUT_DIRNAME = "kim_whole"
+KIM_WHOLE_ROW = "K5whole"  # K5 trained on Nexar_whole, row under eval/nexar/ (KIM_RUN.md §16)
+# §16 WH1: k = n // 16 = 9 rows on a 151-row video fits the ~11-row span
+# (at 5, k = 30 exceeds the span on 97.8 % of nexar_train positives)
+KIM_WHOLE_MIL_TOPK_PCT = MIL_TOPK_PCT
+KIM_WHOLE_PROPOSE_MIN_SETS = 3  # §16 WH8: above K5 on Nexar crops and >= 3 of 4 zero-shot sets
 KIM_HOST_KERNEL_K9 = 9  # K0k9's model.score_head_kernel (KIM_RUN.md §3.1)
 KIM_CAP_ARM = "Kcap"  # K5 without differences (KIM_RUN.md §3, §6.3); not in KIM_ARMS (runbooks unpack it)
 KIM_CAP_HIDDEN = 183  # 164,535 MLP params vs 164,224 in W_state + both gates, at KIM_WIDTH (+0.2 %)

@@ -763,3 +763,46 @@ Raw: `outputs/v_final/kim/REPORTS/normal_text_probe/normal_text_probe.md`, paste
 - Anything about `H_mul` / `L_MIL-align` (§15 limit 5).
 - Anything about other wordings (§15 limit 2).
 - "The text conditioning does nothing" in general. That needs a no-text or shuffled-text control, which was not run.
+
+## 16. K5 trained on uncut Nexar videos (`whole`) (dated note 2026-11-09, before any number; user)
+
+**Not a reopening of the KIM line.** §12 stands and K5 on `Nexar_window` stays the main model (§12.3). The user asked whether K5 changes when it trains on the uncut videos. **Printed, decides nothing (n = 1): no adoption follows.**
+
+**What exists already.** The only `whole` run is the v2 pilot (s2099, `whole`/A0-ign and `whole`/A3-ign, CRN on, DVS on, `mil_topk_pct` 5; addendum §21 D-N10, commit `0e8c8f7`). On `nexar_val` its crop endpoint was 0.582 for A3-ign, below that same recipe trained on T2 and read zero-shot (0.689) and below `window`/A3-ign (0.822). W1 and W2 fired, and §29 then dropped `whole`. That pilot used a different host and `mil_topk_pct` = 5, so it does not predict this row.
+
+**How far a row sees on `whole`** (needed for WH3–WH4):
+
+- **The temporal encoder's band stays 25** (`model.temporal_window`, ±12 rows ≈ ±3.2 s at s8 on ~30 fps; two layers ≈ ±6.4 s). The band does not grow with the input. A `whole` video is ~151 rows (median, `nexar_train`), and `max_vis_len` = 512 does not cut it.
+- **On `window` the band never bit.** 25 ≥ 20, so a mid-window row saw the whole window. `whole` is the first K5 training where train-time attention is local, as it already is at inference on long videos.
+- **There is one global path.** In co-attention fusion, the text tokens attend to all T rows, and each row reads them back (`core/models/fusion.py:49-60`, two layers). Every row therefore gets a summary of the whole 40 s video. This is the clip-classifier channel (C14), and WH6 prints its symptom.
+
+**Why `mil_topk_pct` changes** (WH4). `k = max(1, n // mil_topk_pct)` (`core/losses/mil.py:22`; `kim_mil` uses the same key, D7). The abnormal span is `t_alert … t_event + 1.4 s` (D-N1), measured on `nexar_train`'s 451 positives at s8 from `census.json`:
+
+| `mil_topk_pct` | k (median) | span rows (median, p5) | positives with k > span rows | normal rows forced into top-k (median) |
+|---|---|---|---|---|
+| 5 (K5's value) | 30 | 11, 7 | **97.8 %** | 19 |
+| **16** (`MIL_TOPK_PCT`, the baseline default) | 9 | 11, 7 | 20.2 % | 0 |
+
+At 5, almost every positive bag's top-k mean must include normal rows. 16 restores the principle K5 already satisfies on `window` (k = 4 within a 20-row positive window): **top-k fits inside the span**. 16 on `window` would give k = 1, so the two arms cannot share one value.
+
+| # | Choice | Value |
+|---|---|---|
+| WH1 | Row | **K5-whole** = K5's config (`outputs/v_final/kim/K5/s2024/config.yaml`) with these changes only: the training corpus `Nexar_whole` (every `nexar_train` video, video-level label, 451 positive + 449 negative), `loss.mil_topk_pct` 5 → **16** (covers `mil` and `kim_mil`), and `train.num_epochs` set so that the step count = `NEXAR_STEP_BUDGET` 1,740 (the v2 pilot had 116 × 15; the notebook recomputes this for DVS off and asserts it). **s2024 only (user).** The notebook prints and checks the config diff against K5 |
+| WH2 | Kept | `model.temporal_window` 25 (user), `score_head_kernel` 3, DVS off (`theta = theta_ego = 1.0`, so `NEXAR_WHOLE_SYN_MAX_CLIPS` is moot), `kim.*` as K5, `kim.warmup_steps` 219, `v2.crn = none`, V2-S motion. `mul_mil_topk_pct` is already 16 |
+| WH3 | Inputs | K5's existing Nexar s8 caches (CLIP `Nexar_s8_ncc` + the V2-S bake fitted on `nexar_train`). Both are construction-free, so there is no extraction and no new bake |
+| WH4 | Negatives | All 449 negative videos of `nexar_train` (user). Length ruler AUC on Nexar is 0.537 (census), so the length leak is small but not zero; it is printed |
+| WH5 | Reads | Same tools and protocols as K5's recorded rows: `nexar_val` (N-B: crop endpoint D-N2, whole-video macro, micro, clip AUC), DoTA-CAP-dev (protocol B), DADA whole (`dada_whole_eval`), TAD (s8, raw), DAD (s7, raw). `nexar_test` is not touched (D-N22) |
+| WH6 | Printed beside | K5 at s2024 on each set; the `nexar_val` middle ruler 0.9735; per crop placement (0.1 … 0.9) and the W1 edge drop (centre − worse edge) for both rows; clip AUC on `nexar_val` for both, flagged if ≥ 0.95 (C14); the v2 `whole` pilot row, labelled "different host" |
+| WH7 | Sentence | Each set: K5-whole − K5, paired per item, 95 % bootstrap (clusters as each tool already uses): "above / below / not separated", **PRELIMINARY (n = 1)**. The contrast changes the corpus, the top-k divisor and the steps per epoch together, so it never names a single cause and is never written "whole is better / worse" |
+| WH8 | What may follow | Nothing by default. Only if K5-whole is **above K5 on `nexar_val` crops and on at least three of the four zero-shot sets** may Claude propose s2025, with its own dated note. The user decides |
+
+**Expectations, written before the numbers:** (a) `nexar_val` crops: K5-whole below K5's s2024 read. The v2 pilot saw the same direction, and video-level labels on 151 rows are weaker supervision than span-labelled windows. (b) Clip AUC on `nexar_val`: K5-whole above K5, through the global text path. (c) W1 edge drop: K5-whole larger than K5, because 730/750 events sit mid-video, so whole-video training can learn position. (d) Zero-shot sets: no confident direction; Claude's guess is "not separated" on DoTA-CAP-dev and DAD. A wrong expectation changes nothing.
+
+**Limits.**
+
+1. n = 1; three things change at once (WH7).
+2. pct = 16 was chosen from span statistics on `nexar_train`, not from any score. k still exceeds the span rows on 20 % of positives.
+3. Band 25 is kept, so whether `whole` would want wider attention is not tested.
+4. Every K5 read has been seen before, so this is not a blind comparison.
+
+Runbook `colab/final/k5_whole.ipynb`; table `core.tools.k5_whole_report` (refuses unpaired items, a micro that disagrees with its scores, mixed or shared checkpoints, a Nexar read not on `nexar_val`; tests `core/tests/test_k5_whole_report.py`). Outputs `Thesis-Final/outputs/kim_whole/`. K5's `nexar_val` read is §13's (`kim_t2/eval/nexar/K5`); the notebook re-reads it only if it is gone.

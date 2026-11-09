@@ -2351,3 +2351,12 @@ Promote if a second harness needs the same split.
 **Files:** core/tools/kim_form_probe.py:form_scores, core/docs/final/KIM_RUN.md §14
 **Measured 2026-11-07 (`KIM_RUN.md` §14.1):** algebra does not predict the metric. The "harmless" one-step shift cost −0.0132 / −0.0082 on `vt` against a predicted ±0.005, and the sign named as the real difference showed no gain (−0.0011 / −0.0000). The algebra says what to test, not what will happen.
 **Why pending:** one seed and one borrowed formula; no wrong number was produced.
+
+## (cv) [MEDIUM] Losses - `mil_topk_pct` is a divisor, and k must fit inside the positive span (2026-11-09)
+**Triggers:** mil_topk_pct, top-k, topk_pct, MIL k, whole video, uncut, long bag, kim_mil, video-level label
+**Problem:** `k = max(1, n // mil_topk_pct)`, so `mil_topk_pct = 5` means 20 % of the rows, not 5 %; docs wrote "top-k 5 %". On 20-row windows k = 4 sits inside the span, but on uncut Nexar videos (~151 rows) k = 30 exceeds the ~11-row span on 97.8 % of positives, so every positive bag's top-k mean is forced to include about 19 normal rows.
+**Bad:** carry `loss.mil_topk_pct=5` from a windowed corpus to a whole-video corpus
+**Good:** compute k and the span rows per positive from the annotation (`census.json`) and pick the divisor that keeps k inside the span (16 on `Nexar_whole`: k = 9, 20.2 % exceed)
+**Rule:** Check k = n // mil_topk_pct against the positive span length of the new corpus before training on it.
+**Files:** core/losses/mil.py:22, core/kim/losses.py:_topk_count, core/constants.py:KIM_WHOLE_MIL_TOPK_PCT, core/docs/final/KIM_RUN.md §16
+**Why pending:** caught while designing, no wrong number was produced; the v2 `whole` pilot (pct 5) may have paid this cost, but that is untested.
