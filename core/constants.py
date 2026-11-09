@@ -1085,3 +1085,19 @@ KIM_FORM_DISCLOSURE = (
     "K5's scores on them were read before this probe. A step score's AUC is not a trained arm's "
     "gain (KIM_RUN.md §14)."
 )
+# Normal-text probe (KIM_RUN.md §15): K5's "Normal" definition swapped at inference, no training.
+# Exactly as many sentences as the original Normal list, in the same shape (bare word, two short,
+# one long), so the per-item verbalizer draws the same indices: CarAccident's text is unchanged.
+NORMAL_PROBE_DASHCAM_DEFS: tuple[str, ...] = (
+    "Normal driving",
+    "Normal dashcam footage of a vehicle driving on the road.",
+    "Normal driving video recorded by an in-car camera.",
+    "Normal driving recorded by a dashcam that does not involve any collision or unusual event.",
+)
+NORMAL_PROBE_CLASS = "Normal"
+NORMAL_PROBE_VERBALIZER_KEY = "dota"  # protocol_b_eval and dada_whole_eval both verbalize as DoTA
+NORMAL_PROBE_MARGIN = 0.01  # §15: |delta| below this on both sets reads "wording does not matter"
+NORMAL_PROBE_TEXT_MINOR_W = 0.9  # §15 step 1: pre-fusion w at or above this = text branch minor
+NORMAL_PROBE_REPRO_TOL = 1e-4  # §15 gate: in-process original-text macro vs the recorded K5 read
+NORMAL_PROBE_REPORT_DIRNAME = "normal_text_probe"  # OUTPUT_ROOT/kim/REPORTS/normal_text_probe
+NORMAL_PROBE_ADP_ALPHA_KEY = "bin_head.adp_alpha"  # BinaryHead's learned blend parameter

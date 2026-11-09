@@ -693,3 +693,73 @@ Raw: `outputs/v_final/kim/REPORTS/form_probe/kim_form_probe.md`, pasted from Col
 
 **Licensed:** on K0's `vt` and on `clip`, n = 1, no form reads better as a step score than KIM's. **Not licensed:** "KIM's form is better" (on `vt` the signed form ties), "two-sided is worse on K5" (K5's `vt` was not read), "a trained branch could not use the form" (§14 limit 1), or anything about R10.
 
+
+## 15. Normal-text probe: does K5 care that its "Normal" definition says *surveillance*? (dated note 2026-11-09, before any number; user)
+
+**Question (user):** `_UNIVERSAL_CLS_DEFS["Normal"]` (`core/data/definitions.py`) is a surveillance sentence ("Normal user uploaded video", "Normal surveillance footage.", "…surveillance content captured by camera…"). DoTA, DADA, Nexar and DAD all use it through `_DOTA_CLS_DEFS`. Does that matter when the model is trained on dashcam data? **Inference only on K5's two finished checkpoints, nothing trained. This does not reopen the KIM line (§12), and K5 stays the main model (§12.3).**
+
+**Where the text acts (from the code, no data):** the class list is `[Normal, CarAccident]`. Its CLIP text features enter the co-attention `U` (each frame attends over two text tokens) and reach `H_bin` only through the **post-fusion** branch. `H_bin` blends `w · pre + (1 − w) · post` with `w = sigmoid(10 · adp_alpha)`; at init `alpha = 0.25` gives `w = 0.924`. `alpha` is learned, and no file records its trained value. `NORMAL_QUERY_CAPTION` (also "surveillance") feeds only `L_neg`, which K5 never runs.
+
+**Step 1 (printed, reads the checkpoint):** `adp_alpha`, `w` and `1 − w` for K5 s2024 and s2025. Bar `NORMAL_PROBE_TEXT_MINOR_W` = 0.9: "the text branch is minor" iff `w ≥ 0.9` at both seeds. `w` weighs **logits**, not their variance, so step 1 describes the blend; it does not decide.
+
+**Step 2 (decides):** K5 re-scored on DoTA-CAP-dev (protocol B) and DADA (whole) with the Normal sentences swapped, at inference only, for `NORMAL_PROBE_DASHCAM_DEFS`. These are four sentences with the same shape as the original (bare word, two short, one long), with no "surveillance":
+
+1. `Normal driving`
+2. `Normal dashcam footage of a vehicle driving on the road.`
+3. `Normal driving video recorded by an in-car camera.`
+4. `Normal driving recorded by a dashcam that does not involve any collision or unusual event.`
+
+The list keeps its length, so the per-item verbalizer (C30) draws the same indices: **CarAccident's sentence is identical in both runs, and only Normal's changes** (tested).
+
+**Hard gate:** the same in-process path with the original text must reproduce the recorded K5 read (`eval/{dota,dada}/K5` for s2024, `eval_s2025/…` for s2025) within `NORMAL_PROBE_REPRO_TOL` = 1e-4, or the report raises and writes nothing.
+
+**Rule, fixed now.** Δ = dashcam − original, paired per clip, per seed and pooled over seeds (DoTA clustered by source video, DADA by video). Margin `NORMAL_PROBE_MARGIN` = 0.01, the margin of §12.
+
+- **cost:** Δ ≤ −0.01 on any set at any seed. This is **uninterpretable**: K5 trained with the original text, so a swap at inference is a train/test mismatch. Nothing is concluded about training with dashcam text, and nothing is trained.
+- **null:** otherwise, if the seed-mean |Δ| < 0.01 on both sets. The Normal wording does not matter at inference, and nothing is trained.
+- **gain:** Δ ≥ +0.01 on both sets at both seeds, and the pooled CI's lower end > 0. Claude may propose one retrain arm (dashcam Normal text at training), with its own dated note and rule. The user decides.
+- **mixed:** anything else. No claim, and nothing is trained.
+
+**Prediction, written before any number:** `w ≥ 0.9` at both seeds, and the verdict is **null**. A wrong prediction changes no verdict.
+
+**Limits.**
+
+1. A null at inference does not prove training with dashcam text would not help: the fusion was fitted around the original vector. It shows only that K5's scores do not depend on the wording.
+2. One candidate wording, chosen by Claude. Other wordings are not covered.
+3. K5's scores on both sets were read before this probe, so this is not a blind look at the endpoints.
+4. n = 2 seeds.
+5. `H_mul` / `L_MIL-align` are not read: only `H_bin`'s macro decides.
+
+**Tools:** `python -m core.tools.normal_text_probe {alpha,score,report}`, tests `core/tests/test_normal_text_probe.py`, runbook `colab/final/normal_text_probe.ipynb`, report `REPORTS/normal_text_probe/normal_text_probe.{json,md}`.
+
+### 15.1 Read-out, K5 s2024 + s2025 — null, the Normal wording does not matter at inference (2026-11-09)
+
+Raw: `outputs/v_final/kim/REPORTS/normal_text_probe/normal_text_probe.md`, pasted from Colab; the `.json` and the eight score dirs stay on Drive. The report exists, so §15's gate passed: with the original text, the in-process path reproduces every recorded K5 macro (DoTA-CAP-dev 0.8195 / 0.8166, DADA 0.7740 / 0.7631).
+
+**Decision: null. Nothing is trained, and K5 is unchanged.**
+
+| | s2024 | s2025 |
+|---|---|---|
+| `adp_alpha` (init 0.25) | +0.2418 | +0.2526 |
+| pre-fusion `w` (init 0.9241) | 0.9182 | 0.9260 |
+| text branch `1 − w` | 0.0818 | 0.0740 |
+
+| Dashcam − original (paired, 95 % CI) | s2024 | s2025 | pooled |
+|---|---|---|---|
+| DoTA-CAP-dev | +0.0002 [−0.0001, +0.0005] | −0.0000 [−0.0000, +0.0000] | +0.0001 [−0.0001, +0.0003] |
+| DADA | −0.0003 [−0.0009, +0.0003] | +0.0001 [+0.0000, +0.0003] | −0.0001 [−0.0004, +0.0002] |
+
+**Predictions.** "`w ≥ 0.9` at both seeds" held, and so did "null". Every |Δ| is ≤ 0.0003, about 30× below the margin.
+
+**Reading.**
+
+1. **`adp_alpha` barely moved in training:** −0.008 at s2024 and +0.003 at s2025, so `w` stays within 0.006 of its init. In K5, `H_bin`'s blend is therefore close to its initial value, not something it learned. Why (gradient size, learning rate, or no signal) is not measured.
+2. **Swapping the Normal sentence moves K5's frame-level macro by ≤ 0.0003 on both endpoints, at both seeds.** On K5, "surveillance" in the Normal definition is not a measurable cost at inference.
+
+**Licensed:** K5's `H_bin` scores on DoTA-CAP-dev and DADA do not depend on the Normal wording at inference (n = 2). The branch that sees text carries about 8 % of the logit blend, the same as at init.
+
+**Not licensed:**
+- "Training with dashcam text would not help" (§15 limit 1). The fusion was fitted around the original vector. With the measured insensitivity, a gain from it is not expected, but it is not measured.
+- Anything about `H_mul` / `L_MIL-align` (§15 limit 5).
+- Anything about other wordings (§15 limit 2).
+- "The text conditioning does nothing" in general. That needs a no-text or shuffled-text control, which was not run.
