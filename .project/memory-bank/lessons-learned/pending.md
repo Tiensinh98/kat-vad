@@ -2360,3 +2360,12 @@ Promote if a second harness needs the same split.
 **Rule:** Check k = n // mil_topk_pct against the positive span length of the new corpus before training on it.
 **Files:** core/losses/mil.py:22, core/kim/losses.py:_topk_count, core/constants.py:KIM_WHOLE_MIL_TOPK_PCT, core/docs/final/KIM_RUN.md §16
 **Why pending:** caught while designing, no wrong number was produced; the v2 `whole` pilot (pct 5) may have paid this cost, but that is untested.
+
+## (cw) [MEDIUM] Eval - a false-alarm share at a fixed cut moves with the score scale; print the matched operating point (2026-11-10)
+**Triggers:** false alarm, peak > 0.5, FA share, threshold, operating point, calibration, negative videos, K5neg
+**Problem:** K5neg's false-alarm share on `nexar_val` negatives fell 0.717 → 0.283 at peak > 0.5, but the positives' detection fell 0.964 → 0.688 at the same cut; at matched false-alarm rates the gap is about +0.09 detections, not the 0.43 the headline suggests.
+**Bad:** report the drop in one rate at one threshold as the gain from a training change
+**Good:** print both rates at the cut and the detection rate at matched false-alarm rates (0.1 / 0.2 / 0.283 / 0.5), computed from the same per-video peaks
+**Rule:** Print the detection rate beside every false-alarm share, and compare rows at matched false-alarm rates.
+**Files:** core/tools/k5_neg_report.py, core/docs/final/KIM_RUN.md §17.1
+**Why pending:** one seed, one corpus; the matched-rate table was computed in a scratch script and is not in the report tool.

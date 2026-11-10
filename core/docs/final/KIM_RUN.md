@@ -863,3 +863,38 @@ Scene and weather differ by class in `nexar_train` (Sub-urban 41 positive / 122 
 Runbook `colab/final/k5_neg.ipynb` (builds `Thesis-Final/data/Nexar_window_neg`, asserts K5's windows and labels unchanged, every added window all-normal and from a negative train video, val + `defs.json` byte-identical to `Nexar_window`, step plan = K5's). Corpus `nexar_build corpus --constructions window_neg` (opt-in, not in the default build). Per-video stats `nexar_eval` → `video_stats.json` (additive). Table `core.tools.k5_neg_report` (tests `core/tests/test_k5_neg_report.py`). Outputs `Thesis-Final/outputs/kim_neg/`.
 
 **Limits.** n = 1. The scene print is descriptive: a shortcut that lowers false alarms on Sub-urban val negatives would also look like a gain. Pool sampling makes "more negatives" and "less in-video contrast per step" one factor, not two.
+
+### 17.1 Read-out, s2024 — PRELIMINARY (n = 1), K5 stays (2026-11-10)
+
+Raw `outputs/v_final/kim_neg/REPORTS/k5_neg_report.md` (pasted by the user). NG4 holds (K5's re-read 0.8981 vs §13's 0.8981, gap 0). Not tracked: `outputs/` is gitignored.
+
+| Set | K5 | K5neg | Δ, paired [95 %] | NG6 |
+|---|---|---|---|---|
+| Nexar val, crops (endpoint) | 0.8981 | 0.8597 | −0.0384 [−0.0527, −0.0246] | below |
+| DoTA-CAP-dev | 0.8195 | 0.8044 | −0.0151 [−0.0227, −0.0076] | below |
+| DADA whole | 0.7740 | 0.7531 | −0.0209 [−0.0298, −0.0120] | below |
+| TAD | 0.7002 | 0.7097 | +0.0095 [−0.0141, +0.0341] | not separated |
+| DAD | 0.7916 | 0.8086 | +0.0170 [−0.0072, +0.0420] | not separated |
+
+**NG7: below = Nexar, DoTA-CAP-dev, DADA → K5 stays.** The false-alarm share on `nexar_val`'s 113 negatives fell by +0.4336 (0.7168 → 0.2832, margin 0.05), but NG7 lets a drop count only when no set is below.
+
+Printed (NG5): peak > 0.5 on the negatives by scene, K5 → K5neg: Urban 0.707 → 0.268 (n = 41), Sub-urban 0.759 → 0.310 (29), Highway 0.667 → 0.333 (36), other 0.857 → 0.000 (7). Not concentrated in Sub-urban; the print says nothing about Rain (Rain 42 / 14 in train, not printed). Nexar val micro 0.9000 → 0.8497, AP 0.4472 → 0.3573, whole macro 0.9245 → 0.8838, clip AUC 0.7735 → 0.7909. TAD micro 0.6781 → 0.5883. Median within-video range, K5 → K5neg: Nexar val 0.969 → 0.439 (confounded: 113 of the 225 videos are negatives and K5neg now keeps them low), DoTA-CAP-dev 0.943 → 0.889, DADA 0.932 → 0.720, TAD 0.389 → 0.227, DAD 0.058 → 0.048.
+
+**Expectations:** (a) false-alarm share falls: held (−0.43). (b) macro "not separated" on most sets: **wrong** (3 of 5 below). (c) Nexar val micro and AP rise slightly: **wrong** (both fall, −0.050 and −0.090). The dilution risk named in the note (in-video contrast drawn about 55 % less often) is the reading that fits the three "below" rows, but the one-factor design cannot separate it from "more negatives".
+
+**Post-hoc, printed, decides nothing (local `video_stats.json` of both rows, 112 positive and 113 negative `nexar_val` videos; one peak per video).**
+
+| | K5 | K5neg |
+|---|---|---|
+| peak > 0.5, negatives (false alarm) | 0.717 | 0.283 |
+| peak > 0.5, **positives (detection)** | **0.964** | **0.688** |
+| mean peak, positives / negatives | 0.922 / 0.707 | 0.690 / 0.300 |
+| positives with peak > 0.5 under one row only | only K5 0.277 | only K5neg 0.000 |
+| video AUC by peak / by mean | 0.7735 / 0.6747 | 0.7909 / 0.7553 |
+
+- The 0.5 cut moves both rates: false alarms −0.434, detections −0.277. Every positive video K5neg flags, K5 flags too; at 0.5 the change is mostly a shift of the score scale, not a new ranking.
+- Matched operating points (the cut chosen on each row's own negatives): at a 0.20 false-alarm rate K5 detects 0.562 and K5neg 0.661; at 0.283, 0.607 vs 0.696; at 0.10, 0.545 vs 0.562; at 0.717 K5 0.955 vs K5neg 0.929. K5neg is ahead by about 0.09 at 0.2 – 0.3 and level at the extremes. One point per rate, no interval, n = 112 / 113 videos.
+- K5's 0.964 detection at 0.5 is partly saturation: it also flags 0.717 of the negatives; its useful separation sits at peaks above 0.98.
+- **Not decomposed:** the fall of Nexar val micro and AP. The per-frame scores of `nexar_val` are not saved locally (`kim_neg/eval/nexar/*` hold `video_stats.json`, `item_aucs.json`, read-outs only), so a split by frame inside positives cannot be run.
+
+**Licensed:** "K5neg scores below K5 on Nexar val crops, DoTA-CAP-dev and DADA at s2024; TAD and DAD not separated. It lowers the share of `nexar_val` negatives with peak > 0.5 from 0.717 to 0.283, and lowers the share of positives from 0.964 to 0.688. PRELIMINARY (n = 1)." **Not licensed:** "K5neg is better / worse than K5", "negatives cause the localization loss" (one factor = negatives + less in-video contrast under pool sampling), "no scene shortcut" (Rain not printed; the 0.5 cut depends on calibration), any seed-level claim: the paired intervals are over items for one checkpoint pair, and K5's DoTA-CAP-dev macro is 0.8195 at s2024 vs 0.8058 at s2025 (≈ 0.014, about the DoTA Δ of −0.0151). Only Nexar val (−0.038) lies clearly beyond that spread. No s2025. Options for a later note, none authorized: a smaller negative share (separates the two factors), or a threshold-free false-alarm read.
