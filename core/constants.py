@@ -1068,6 +1068,23 @@ KIM_NEG_ROW = "K5neg"  # K5 + windows from the negative videos, row under eval/n
 KIM_NEG_FA_MARGIN = 0.05  # §17 NG7: false-alarm share on nexar_val negatives must fall this much
 KIM_NEG_REPRO_TOL = 1e-4  # §17 NG4: K5 re-read on nexar_val vs its §13 crop endpoint
 NORMAL_VIDEO_PEAK = 0.5  # a normal video whose peak score passes this counts as a false alarm
+# OUTPUT_ROOT/kim_msad: eval/<row>/<run>/ + REPORTS/ (KIM_RUN.md §18, zero-shot MSAD)
+MSAD_ZS_OUTPUT_DIRNAME = "kim_msad"
+MSAD_ZS_VIDEOS_DIRNAME = "MSAD Videos blurred"  # the user's shortcut under Thesis-Final/data/
+MSAD_ZS_TEST_VIDEOS = 240  # frame_labels_test.json: 120 abnormal-named + 120 normal
+MSAD_ZS_TWO_CLASS = 96  # two-class at s8 (MSAD-full macro items; Explosion_3 has no positive row)
+MSAD_ZS_TRAFFIC_CLASS = "Traffic_accident"  # MSAD-traffic = this class + every normal (§18 MS5)
+MSAD_ZS_TRAFFIC_TWO_CLASS = 19
+MSAD_ZS_NORMAL_PREFIX = "MSAD_normal_testing"
+MSAD_ZS_GATE_A_MICRO = 0.8949  # §18 M0: full_gate_a, released ckpt on MSAD_ncc (0.894897)
+MSAD_ZS_GATE_A_TOL = 1e-3
+MSAD_ZS_PAPER_MICRO = 0.9041  # LaGoVAD's printed MSAD AUC: beside LaGoVAD's re-read only (C8b)
+MSAD_ZS_ASSUMED_FPS = 30  # Nexar's V2-S geometry: 16 x 3 frames = 1.6 s at 30 fps (§18 MS3)
+MSAD_ZS_IDENTITY_ATOL = 1e-3  # §18 M1: re-extracted CLIP vs MSAD_ncc, max abs (fp16 slack)
+MSAD_ZS_CENSUS_FILENAME = "msad_census.json"
+MSAD_ZS_IDENTITY_FILENAME = "msad_identity.json"
+MSAD_ZS_FULL_SET = "msad_full"
+MSAD_ZS_TRAFFIC_SET = "msad_traffic"
 KIM_WHOLE_PROPOSE_MIN_SETS = 3  # §16 WH8: above K5 on Nexar crops and >= 3 of 4 zero-shot sets
 KIM_HOST_KERNEL_K9 = 9  # K0k9's model.score_head_kernel (KIM_RUN.md §3.1)
 KIM_CAP_ARM = "Kcap"  # K5 without differences (KIM_RUN.md §3, §6.3); not in KIM_ARMS (runbooks unpack it)

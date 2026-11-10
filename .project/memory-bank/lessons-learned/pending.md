@@ -2369,3 +2369,13 @@ Promote if a second harness needs the same split.
 **Rule:** Print the detection rate beside every false-alarm share, and compare rows at matched false-alarm rates.
 **Files:** core/tools/k5_neg_report.py, core/docs/final/KIM_RUN.md §17.1
 **Why pending:** one seed, one corpus; the matched-rate table was computed in a scratch script and is not in the report tool.
+
+## (cx) [MEDIUM] Eval - a set's micro can sit at its clip oracle or below its length ruler; print both before quoting a micro (2026-11-10)
+**Triggers:** micro AUC, MSAD, paper number, clip oracle, length ruler, subset, Traffic_accident, CCTV
+**Problem:** LaGoVAD's MSAD-full micro 0.8949 equals the clip oracle 0.8943, and on the MSAD-traffic subset a no-pixel length ruler (0.964) beats its micro (0.934); a published micro on such a set measures video classification (or length), not localization.
+**Bad:** compare a new model to the paper's 90.41 MSAD micro, or read a subset's micro as a CCTV result
+**Good:** print clip oracle, length ruler and equal-video-weight micro beside every micro, per subset; answer the question with the macro of the subset
+**Rule:** Compute the clip oracle and length ruler on the exact subset before writing any sentence from its micro.
+**Files:** core/tools/k5_msad_report.py, core/docs/final/KIM_RUN.md §18
+**Why pending:** extends C12/TAD's oracle lesson to a new set; not yet seen to change a decision.
+

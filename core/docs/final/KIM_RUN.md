@@ -898,3 +898,40 @@ Printed (NG5): peak > 0.5 on the negatives by scene, K5 → K5neg: Urban 0.707 �
 - **Not decomposed:** the fall of Nexar val micro and AP. The per-frame scores of `nexar_val` are not saved locally (`kim_neg/eval/nexar/*` hold `video_stats.json`, `item_aucs.json`, read-outs only), so a split by frame inside positives cannot be run.
 
 **Licensed:** "K5neg scores below K5 on Nexar val crops, DoTA-CAP-dev and DADA at s2024; TAD and DAD not separated. It lowers the share of `nexar_val` negatives with peak > 0.5 from 0.717 to 0.283, and lowers the share of positives from 0.964 to 0.688. PRELIMINARY (n = 1)." **Not licensed:** "K5neg is better / worse than K5", "negatives cause the localization loss" (one factor = negatives + less in-video contrast under pool sampling), "no scene shortcut" (Rain not printed; the 0.5 cut depends on calibration), any seed-level claim: the paired intervals are over items for one checkpoint pair, and K5's DoTA-CAP-dev macro is 0.8195 at s2024 vs 0.8058 at s2025 (≈ 0.014, about the DoTA Δ of −0.0151). Only Nexar val (−0.038) lies clearly beyond that spread. No s2025. Options for a later note, none authorized: a smaller negative share (separates the two factors), or a threshold-free false-alarm read.
+
+## 18. Zero-shot MSAD test: K5 vs LaGoVAD's released checkpoint (dated note 2026-11-10, before any K5 number; user)
+
+**Not a reopening of the KIM line**; nothing is trained and K5 stays the main model whatever this reads. The user asked whether K5 costs on fixed cameras (CCTV) the way TAD suggests, against both the public checkpoint and the paper. MSAD is the first set **no choice so far has seen**: K5 was chosen after DoTA-CAP-dev, DADA-2000 and TAD were read; MSAD has never been scored by any Nexar-trained row. The `mp4` were deleted from the user's Drive; the official blurred release (owner: MSAD's authors) is reached through the user's shortcut `Thesis-Final/data/MSAD Videos blurred/` (`MSAD_anomaly/<class>/`, `MSAD_normal_testing/`).
+
+**Measured before any K5 score** (LaGoVAD's saved scores of `full_gate_a`, on record since 2026-08, `outputs/v1/MSAD/MSAD_ncc/full_gate_a`; rulers read no pixel):
+
+| | MSAD-full | MSAD-traffic |
+|---|---|---|
+| videos (abnormal / two-class at s8) | 240 (119 / 96) | 140 (20 / 19) |
+| LaGoVAD micro (the paper's metric) | 0.8949 | 0.9343 |
+| LaGoVAD micro, every video weighted equally | 0.8558 | 0.9168 |
+| LaGoVAD macro | 0.7177 | 0.6234 |
+| LaGoVAD clip AUC (peak) | 0.9416 | 0.9258 |
+| LaGoVAD AP | 0.6432 | 0.3340 |
+| clip oracle (micro) | **0.8943** | **0.9771** |
+| length ruler (micro, shorter = more anomalous) | 0.6466 | **0.9639** |
+| monotone ruler `t/N` (macro) | **0.7090** | 0.5874 |
+
+So: on MSAD-full the paper's micro (90.41) sits at the clip oracle (a clip classifier with no localization scores 0.8943); on MSAD-traffic the length ruler alone (0.9639) beats LaGoVAD's micro, so **micro on MSAD-traffic says nothing**; on MSAD-full a ramp `t/N` scores within 0.009 of LaGoVAD's macro. Of the 120 abnormal-named test videos, `Explosion_3` has no positive row at s8 (hence 119 / 121 in `RESULTS_MSAD.md`).
+
+| # | Choice | Value |
+|---|---|---|
+| MS1 | Rows | **LaGoVAD** = released `best.ckpt`, KIP off (`RELEASED_CKPT_OVERRIDES`), plain `cache/clip/MSAD_ncc` (the `full_gate_a` command). **K5** s2024 = `kim/K5/s2024/checkpoint_last.pt`, input bake `A2_S/MSAD-full_s8_nexar` (`MSAD_ncc` + V2-S, Nexar's statistics, no CRN, as every K5 zero-shot read). Nothing trains |
+| MS2 | Labels and text | `Thesis/data/MSAD` as `full_gate_a`: `frame_labels_test.json` at s8 (240 videos), `defs.json` = MSAD's 12 classes, `data.dataset=MSAD-full` → MSAD's own definitions, the same for both rows (proposal P4: each test set's own definitions). Raw pooling (`--score-norm auto` → none) |
+| MS3 | Motion input | VideoMAE V2-S at s8, frame step 3, `assumed_fps` 30: **Nexar's geometry: the manifest equals Nexar's V2-S manifest on every key but `stride`** (asserted; `stride` is the row step of the read, 8 here). Frames decoded from the shortcut's `mp4` to JPEG q95 on the VM (`dad.decode_video`); CLIP is **not** re-extracted (`MSAD_ncc`) |
+| MS4 | Gates (stop on any) | **M0** LaGoVAD re-read micro = `full_gate_a`'s 0.8949 ± 1e-3. **M1** identity: CLIP `_ncc` re-extracted straight from the shortcut's `mp4` for 12 test videos (first id of each of the 11 classes + first normal) equals `MSAD_ncc` row for row, max abs ≤ 1e-3; else these are other videos and every MSAD number on record stops being a reference. **M2** census: each of the 240 test ids found exactly once, and `ceil(decoded / 8) == rows(MSAD_ncc)` (same pixels). `rows ≠ len(labels)` is counted and printed, not gated: `core.evaluate` truncates both to the shorter (`dataset.py:239`), exactly as in `full_gate_a`, and both rows see the same truncation. **M3** V2-S rows == CLIP rows == bake rows; bake `train_ids_sha1` == Nexar's. **M4** K5 J10 + config (as `k5_dad.ipynb`) |
+| MS5 | Sets | **MSAD-traffic** = 20 `Traffic_accident` + 120 normal test videos (macro over 19 two-class; the annotation gives normals no scenario, so every normal is in). **MSAD-full** = 240 videos (macro over 96) |
+| MS6 | Contrast, sentence | K5 − LaGoVAD macro, paired per video, 95 % bootstrap (10,000, seed 2026, cluster = video): "above / below / not separated", each with **"PRELIMINARY (n = 1), not matched"**. The question "does K5 cost on CCTV traffic" is answered by **MSAD-traffic only**. MSAD-full is 99 of 119 abnormal videos outside the thesis scope (Fire, Robbery, Shooting, …) that K5's Nexar training never named, so a cost there is **not** attributed to the camera |
+| MS7 | Printed, never gating | micro (paper's metric), micro with equal video weight, AP + base rate, clip AUC; the three rulers above; macro per class for both rows; decoded fps spread; the paper's 90.41 **beside LaGoVAD's re-read only**, never beside K5 (C8b) |
+| MS8 | What may follow | Nothing is adopted. MSAD-traffic "below" → written as a limitation of K5 on fixed cameras, beside TAD. An MSAD-trained arm read on TAD (the open question of 2026-11-10: does CCTV in training close the TAD gap) needs its own dated note |
+
+**Expectations, written before the numbers:** MSAD-full macro "below" (most abnormal classes are not traffic, and the public checkpoint trained on PreVAD's surveillance classes); MSAD-traffic macro "not separated" (19 videos give a wide interval); K5's clip AUC below LaGoVAD's on both sets, as on TAD. A wrong expectation changes nothing.
+
+Runbook `colab/final/k5_msad.ipynb` (census → M1 → decode → V2-S → bake → M0 → K5 read → report). Census / identity `core.tools.msad_zs` (tests `core/tests/test_msad_zs.py`). Table `core.tools.k5_msad_report` (tests `core/tests/test_k5_msad_report.py`). Outputs `Thesis-Final/outputs/kim_msad/`.
+
+**Limits.** n = 1. LaGoVAD's zero-shot status on MSAD is unverified (PreVAD's sources were never checked against MSAD's). The two rows read different pixels for motion (K5 alone has V2-S, from JPEG q95). MSAD's frame rates are not checked equal to 30: the V2-S window is 16 × 3 frames, 1.6 s only at 30 fps (spread printed). MSAD-traffic has 19 two-class videos.
