@@ -60,6 +60,8 @@ class TestCensus:
                frames: dict[str, int]) -> tuple[Path, dict[str, list[int]], Path]:
         root, clip = tmp_path / "videos", tmp_path / "clip"
         clip.mkdir()
+        for d in constants.MSAD_ZS_SOURCE_DIRS:
+            (root / d).mkdir(parents=True)
         for vid in frames:
             sub = root / ("MSAD_normal_testing" if vid.startswith("MSAD") else "MSAD_anomaly")
             sub.mkdir(parents=True, exist_ok=True)
@@ -79,6 +81,28 @@ class TestCensus:
         assert doc["summary"]["pass"]
         assert doc["summary"]["label_rows_differ"] == 1
         assert doc["videos"]["Fire_1"]["video"] == "MSAD_anomaly/Fire_1.mp4"
+
+    def test_valu_copy_is_ignored(self, tmp_path: Path,
+                                  monkeypatch: pytest.MonkeyPatch) -> None:
+        root, labels, clip = self._setup(tmp_path, monkeypatch, {"Fire_1": 16})
+        valu = root / "VALU_MSAD_subset_2026" / "MSAD_split_mask_test_videos"
+        valu.mkdir(parents=True)
+        (valu / "Fire_1.mp4").write_bytes(b"")
+        doc = msad_zs.census(root, labels, clip, 8)
+        assert doc["summary"]["pass"]
+        assert doc["videos"]["Fire_1"]["video"] == "MSAD_anomaly/Fire_1.mp4"
+
+    def test_missing_source_dir_raises(self, tmp_path: Path) -> None:
+        (tmp_path / "MSAD_anomaly").mkdir()
+        with pytest.raises(FileNotFoundError, match="MSAD_normal_testing"):
+            msad_zs.source_videos(tmp_path)
+
+    def test_census_current(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        root, labels, clip = self._setup(tmp_path, monkeypatch, {"Fire_1": 16})
+        doc = msad_zs.census(root, labels, clip, 8)
+        assert msad_zs.census_current(doc)
+        assert not msad_zs.census_current({**doc, "source_dirs": None})  # pre-fix census
+        assert not msad_zs.census_current({**doc, "summary": {**doc["summary"], "pass": False}})
 
     def test_rows_mismatch_fails(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         root, labels, clip = self._setup(tmp_path, monkeypatch, {"Fire_1": 24})

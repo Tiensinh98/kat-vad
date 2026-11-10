@@ -6,9 +6,10 @@ the CLIP cache are the ones ``full_gate_a`` read (``data/MSAD``, ``cache/clip/MS
 
 Subcommands::
 
-    census     find each test id's mp4 exactly once, decode-count it (C10), read its fps, and
-               gate M2: ceil(decoded / stride) == rows(MSAD_ncc). rows != len(labels) is
-               counted only (core.evaluate truncates both rows alike). Exit non-zero on failure
+    census     find each test id's mp4 exactly once under MSAD_ZS_SOURCE_DIRS (never VALU's
+               modified copy), decode-count it (C10), read its fps, and gate M2:
+               ceil(decoded / stride) == rows(MSAD_ncc). rows != len(labels) is counted only
+               (core.evaluate truncates both rows alike). Exit non-zero on failure
     pick       the 12 ids of gate M1 (first test id of each class + first normal) -> ids file
     identity   gate M1: re-extracted CLIP rows == MSAD_ncc rows, max abs <= MSAD_ZS_IDENTITY_ATOL
     decode     mp4 -> one JPEG folder per test video (VM disk), for V2-S
@@ -141,9 +142,18 @@ def _rows(directory: Path, video_id: str) -> int | None:
     return int(np.load(path, mmap_mode="r").shape[0]) if path.is_file() else None
 
 
+def source_videos(root: Path,
+                  dirs: tuple[str, ...] = constants.MSAD_ZS_SOURCE_DIRS) -> list[Path]:
+    """Every mp4 under the official folders only (never VALU's modified copies)."""
+    missing = [d for d in dirs if not (root / d).is_dir()]
+    if missing:
+        raise FileNotFoundError(f"no {missing} under {root}")
+    return [p for d in dirs for p in (root / d).rglob(f"*{VIDEO_SUFFIX}")]
+
+
 def census(root: Path, labels: dict[str, list[int]], clip_dir: Path | None,
            stride: int) -> dict[str, Any]:
-    found = index_videos(list(root.rglob(f"*{VIDEO_SUFFIX}")))
+    found = index_videos(source_videos(root))
     entries: dict[str, dict[str, Any]] = {}
     for vid in sorted(labels):
         paths = found.get(vid, [])
@@ -163,7 +173,14 @@ def census(root: Path, labels: dict[str, list[int]], clip_dir: Path | None,
         }
         LOGGER.info("%s: %s frames, %s fps, rows %s / clip %s / labels %d -> %s", vid, frames,
                     fps, rows, clip_rows, len(labels[vid]), reason)
-    return {"root": str(root), "stride": stride, "summary": summarize(entries), "videos": entries}
+    return {"root": str(root), "stride": stride, "source_dirs": list(constants.MSAD_ZS_SOURCE_DIRS),
+            "summary": summarize(entries), "videos": entries}
+
+
+def census_current(doc: dict[str, Any]) -> bool:
+    """A census that passed and read only the official folders; anything else is re-run."""
+    return bool(doc["summary"]["pass"]) and doc.get("source_dirs") == list(
+        constants.MSAD_ZS_SOURCE_DIRS)
 
 
 def identity(ref_dir: Path, new_dir: Path, ids: list[str], atol: float) -> dict[str, Any]:

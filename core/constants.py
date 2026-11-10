@@ -1071,6 +1071,9 @@ NORMAL_VIDEO_PEAK = 0.5  # a normal video whose peak score passes this counts as
 # OUTPUT_ROOT/kim_msad: eval/<row>/<run>/ + REPORTS/ (KIM_RUN.md §18, zero-shot MSAD)
 MSAD_ZS_OUTPUT_DIRNAME = "kim_msad"
 MSAD_ZS_VIDEOS_DIRNAME = "MSAD Videos blurred"  # the user's shortcut under Thesis-Final/data/
+# only the official folders are read: the shortcut also holds VALU_MSAD_subset_2026, a modified copy
+# of the same test videos (watermarks masked, some cut into `_clip_` files; §18 M2 note 2026-11-10)
+MSAD_ZS_SOURCE_DIRS = ("MSAD_anomaly", "MSAD_normal_testing")
 MSAD_ZS_TEST_VIDEOS = 240  # frame_labels_test.json: 120 abnormal-named + 120 normal
 MSAD_ZS_TWO_CLASS = 96  # two-class at s8 (MSAD-full macro items; Explosion_3 has no positive row)
 MSAD_ZS_TRAFFIC_CLASS = "Traffic_accident"  # MSAD-traffic = this class + every normal (§18 MS5)
