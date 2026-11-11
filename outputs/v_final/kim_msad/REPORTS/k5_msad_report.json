@@ -1,0 +1,178 @@
+{
+  "census": {
+    "failures": {},
+    "found": 240,
+    "fps_off_nominal": 19,
+    "fps_spread": {
+      "10.0": 1,
+      "15.0": 2,
+      "25.0": 14,
+      "29.0": 3,
+      "29.87": 1,
+      "29.95": 1,
+      "29.97": 58,
+      "29.98": 1,
+      "30.0": 157,
+      "6.0": 2
+    },
+    "label_rows_differ": 0,
+    "label_rows_differ_examples": {},
+    "pass": true,
+    "videos": 240
+  },
+  "m0": {
+    "gap": -3.3145168591985907e-06,
+    "micro": 0.8948966854831408,
+    "pass": true,
+    "per_item_gap": 0.0036590974800682075,
+    "per_item_micro": 0.8985590974800682,
+    "reference": 0.8949
+  },
+  "seed": 2024,
+  "sets": {
+    "msad_full": {
+      "abnormal": 119,
+      "base_rate": 0.22997275204359674,
+      "delta_macro": {
+        "clips": 96,
+        "clusters": 96,
+        "high": 0.03404234577965504,
+        "low": -0.10758574233262265,
+        "mean": -0.03662608341816509
+      },
+      "delta_micro": -0.35996409441107113,
+      "per_class_macro": {
+        "K5": {
+          "Assault": 0.654454644140115,
+          "Explosion": 0.6838526337878333,
+          "Fighting": 0.8492957762009684,
+          "Fire": 0.47179909834747297,
+          "Object_falling": 0.7700605974322828,
+          "People_falling": 0.5930241399471295,
+          "Robbery": 0.662652398149991,
+          "Shooting": 0.7778974286644166,
+          "Traffic_accident": 0.7424335231986439,
+          "Vandalism": 0.6823666880463011,
+          "Water_incident": 0.7003043831168831
+        },
+        "LaGoVAD": {
+          "Assault": 0.5488575488643723,
+          "Explosion": 0.8160108495258526,
+          "Fighting": 0.8819226024639502,
+          "Fire": 0.8716666666666667,
+          "Object_falling": 0.7311939701018013,
+          "People_falling": 0.7372612659346364,
+          "Robbery": 0.5524790876179663,
+          "Shooting": 0.8776498668486498,
+          "Traffic_accident": 0.6247080944929945,
+          "Vandalism": 0.8795629681784571,
+          "Water_incident": 0.8511904761904763
+        }
+      },
+      "rows": {
+        "K5": {
+          "ap": 0.2606664482654279,
+          "clip_auc": 0.5019793041183415,
+          "macro": {
+            "clips": 96,
+            "clusters": 96,
+            "high": 0.7347428330243082,
+            "low": 0.6255232709144241,
+            "mean": 0.6809586316835524
+          },
+          "micro": 0.5385950030689971,
+          "micro_equal_video": 0.5511770772248761
+        },
+        "LaGoVAD": {
+          "ap": 0.6554246396099362,
+          "clip_auc": 0.944996180290298,
+          "macro": {
+            "clips": 96,
+            "clusters": 96,
+            "high": 0.770536450411536,
+            "low": 0.6625424387760118,
+            "mean": 0.7175847151017175
+          },
+          "micro": 0.8985590974800682,
+          "micro_equal_video": 0.860673255635381
+        }
+      },
+      "rulers": {
+        "clip_oracle_micro": 0.8943029016277424,
+        "length_ruler_micro": 0.6466235916992852,
+        "monotone_ruler_macro": {
+          "clips": 96,
+          "clusters": 96,
+          "high": 0.7749726181651455,
+          "low": 0.6407259448704324,
+          "mean": 0.7089991563864668
+        }
+      },
+      "sentence": "not separated",
+      "two_class": 96,
+      "videos": 240
+    },
+    "msad_traffic": {
+      "abnormal": 20,
+      "base_rate": 0.03162613098696771,
+      "delta_macro": {
+        "clips": 19,
+        "clusters": 19,
+        "high": 0.27889830612596866,
+        "low": -0.046161801938679636,
+        "mean": 0.11772542870564931
+      },
+      "delta_micro": -0.31865172948015485,
+      "per_class_macro": {
+        "K5": {
+          "Traffic_accident": 0.7424335231986439
+        },
+        "LaGoVAD": {
+          "Traffic_accident": 0.6247080944929945
+        }
+      },
+      "rows": {
+        "K5": {
+          "ap": 0.05569882918007287,
+          "clip_auc": 0.5616666666666666,
+          "macro": {
+            "clips": 19,
+            "clusters": 19,
+            "high": 0.8507148934838632,
+            "low": 0.6246025611853384,
+            "mean": 0.7424335231986439
+          },
+          "micro": 0.6188430115016696,
+          "micro_equal_video": 0.6331553468878035
+        },
+        "LaGoVAD": {
+          "ap": 0.33606840959069945,
+          "clip_auc": 0.9279166666666666,
+          "macro": {
+            "clips": 19,
+            "clusters": 19,
+            "high": 0.7673601913890226,
+            "low": 0.47656252397043314,
+            "mean": 0.6247080944929945
+          },
+          "micro": 0.9374947409818245,
+          "micro_equal_video": 0.922591502964147
+        }
+      },
+      "rulers": {
+        "clip_oracle_micro": 0.9770701182924739,
+        "length_ruler_micro": 0.963919760544247,
+        "monotone_ruler_macro": {
+          "clips": 19,
+          "clusters": 19,
+          "high": 0.7525109126984125,
+          "low": 0.42127844077247384,
+          "mean": 0.5873980979580735
+        }
+      },
+      "sentence": "not separated",
+      "two_class": 19,
+      "videos": 140
+    }
+  }
+}

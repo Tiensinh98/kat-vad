@@ -935,3 +935,32 @@ So: on MSAD-full the paper's micro (90.41) sits at the clip oracle (a clip class
 Runbook `colab/final/k5_msad.ipynb` (census → M1 → decode → V2-S → bake → M0 → K5 read → report). Census / identity `core.tools.msad_zs` (tests `core/tests/test_msad_zs.py`). Table `core.tools.k5_msad_report` (tests `core/tests/test_k5_msad_report.py`). Outputs `Thesis-Final/outputs/kim_msad/`.
 
 **Limits.** n = 1. LaGoVAD's zero-shot status on MSAD is unverified (PreVAD's sources were never checked against MSAD's). The two rows read different pixels for motion (K5 alone has V2-S, from JPEG q95). **M1 passed only under M1′ (2026-11-11):** 8 of 12 checked videos are not bit-equal to `MSAD_ncc`'s source (max abs up to 0.0161, cosine ≥ 0.999992), cause unidentified, original files gone; the motion stream decodes the shortcut's mp4, CLIP stays `MSAD_ncc`'s. MSAD's frame rates are not checked equal to 30: the V2-S window is 16 × 3 frames, 1.6 s only at 30 fps (spread printed). MSAD-traffic has 19 two-class videos.
+
+### 18.1 Read-out, K5 s2024 vs LaGoVAD released — PRELIMINARY (n = 1), not matched, nothing adopted (2026-11-11)
+
+Raw: `outputs/v_final/kim_msad/REPORTS/k5_msad_report.{md,json}` (untracked; also `Thesis-Final/outputs/kim_msad/`). Gates M0–M4 passed before the table was written.
+
+**M0 (legacy shared-verbalizer read):** LaGoVAD micro **0.894897** vs `full_gate_a` 0.8949, gap −0.00000. The checkpoint and `MSAD_ncc` reproduce; the 2026-11-11 failure was the definition-draw mode alone (C30), as the MS4 note predicted. The per-item reads the table uses are 0.8986 micro / 0.7176 macro / AP 0.6554 (legacy: 0.8949 / 0.7177 / 0.6432): macro does not move with the draws, micro by +0.0037.
+
+| Set | Metric | LaGoVAD | K5 | K5 − LaGoVAD |
+|---|---|---|---|---|
+| MSAD-traffic (140 videos, macro over 19) | AUC macro | 0.6247 [0.4766, 0.7674] | 0.7424 [0.6246, 0.8507] | +0.1177 [−0.0462, +0.2789] **not separated** |
+| | micro / equal-video micro | 0.9375 / 0.9226 | 0.6188 / 0.6332 | −0.3187 (printed) |
+| | AP (base 0.0316) / clip AUC | 0.3361 / 0.9279 | 0.0557 / 0.5617 | printed |
+| MSAD-full (240 videos, macro over 96) | AUC macro | 0.7176 [0.6625, 0.7705] | 0.6810 [0.6255, 0.7347] | −0.0366 [−0.1076, +0.0340] **not separated** |
+| | micro / equal-video micro | 0.8986 / 0.8607 | 0.5386 / 0.5512 | −0.3600 (printed) |
+| | AP (base 0.2300) / clip AUC | 0.6554 / 0.9450 | 0.2607 / 0.5020 | printed |
+
+Rulers (no pixel): clip oracle 0.9771 (traffic) / 0.8943 (full); length ruler 0.9639 / 0.6466; `t/N` macro 0.5874 [0.4213, 0.7525] / 0.7090 [0.6407, 0.7750]. Census: 240 videos, 19 off 30 ± 1 fps, label rows ≠ CLIP rows on 0.
+
+Macro per class on MSAD-full (printed, no interval, few videos per class), K5 − LaGoVAD: Assault +0.106, Robbery +0.110, Traffic_accident +0.118, Object_falling +0.039; Fighting −0.033, Shooting −0.100, Explosion −0.132, People_falling −0.144, Water_incident −0.151, Vandalism −0.197, Fire −0.400 (K5 0.4718).
+
+**Expectations (§18) vs what read:** (a) MSAD-full macro "below" — **wrong**, not separated (−0.037, the interval holds zero). (b) MSAD-traffic macro "not separated" — held, but the interval is 0.33 wide, so it excludes no effect of either sign. (c) K5's clip AUC below LaGoVAD's on both sets — held, and by far more than expected (0.502 vs 0.945 on full; 0.562 vs 0.928 on traffic). A wrong expectation changes nothing.
+
+**Licensed:** "On MSAD-traffic and on MSAD-full, K5 − LaGoVAD macro is not separated (traffic +0.118 over 19 two-class videos, full −0.037 over 96). K5's pooled micro and clip AUC are far below LaGoVAD's on both sets (clip AUC 0.502 / 0.562 vs 0.945 / 0.928; printed, no interval): its per-video peak does not separate abnormal from normal videos on this CCTV set. PRELIMINARY (n = 1), not matched." **Not licensed:** "K5 beats / loses to LaGoVAD" (not matched; trained on different data); "K5 costs on fixed cameras" or "K5 is fine on CCTV" (MS8 asks for a limitation only on "below"; the traffic interval is too wide for either); any sentence from a micro on MSAD-traffic (length ruler 0.9639 beats LaGoVAD's 0.9375); a per-class sentence; the 90.41 beside K5; "K5 localizes better than position" (the `t/N` ruler is 0.709 on full, within 0.009 of LaGoVAD and above K5; on traffic the K5 and ruler intervals overlap and the ruler is not paired).
+
+**What it says, bounded.** Macro (within a video) is not separated; clip AUC and micro (across videos) collapse. The same split as K5 on TAD (§13.1: micro 0.5187). Two sets, n = 1 each, so it is a repeated sign, not a result. Cause not identified; candidates, none tested: the score scale learned on Nexar does not carry to CCTV raw pooling; V2-S reads the shortcut's `mp4`, whose pixels differ from `MSAD_ncc`'s source (M1′ limit); K5 never saw a fixed-camera negative. A test would be a clip-normalized (per-video min-max) micro of K5 beside its raw one, which separates scale from ordering; it needs a dated note before it is run.
+
+**Mechanics.** `core.tools.k5_msad_report` first gated M0 on the per-item run and raised on the first Colab run (0.8986 vs 0.8949) although the notebook had already passed M0 on the legacy run. Fixed 2026-11-11: M0 gates `eval/LaGoVAD_legacy/released/`; the per-item micro and its gap are printed in the report and JSON (`per_item_micro`, `per_item_gap`); the report refuses if the legacy run scored other videos or labels than the table's rows. Test `test_per_item_gap_does_not_gate`; `core/tests/test_k5_msad_report.py` 9 passed. The table was produced after the fix, from the same saved scores.
+
+**What may follow (MS8).** Nothing adopted; no limitation written (the traffic macro is not "below"). Open, each needing its own dated note: the clip-normalized micro above; more K5 seeds for the 19-video traffic interval; an MSAD-trained arm read on TAD.

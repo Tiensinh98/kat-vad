@@ -1,0 +1,2431 @@
+{
+  "root": "/content/k5_msad/videos",
+  "source_dirs": [
+    "MSAD_anomaly",
+    "MSAD_normal_testing"
+  ],
+  "stride": 8,
+  "summary": {
+    "failures": {},
+    "found": 240,
+    "fps_off_nominal": 19,
+    "fps_spread": {
+      "10.0": 1,
+      "15.0": 2,
+      "25.0": 14,
+      "29.0": 3,
+      "29.87": 1,
+      "29.95": 1,
+      "29.97": 58,
+      "29.98": 1,
+      "30.0": 157,
+      "6.0": 2
+    },
+    "label_rows_differ": 0,
+    "label_rows_differ_examples": {},
+    "pass": true,
+    "videos": 240
+  },
+  "videos": {
+    "Assault_11": {
+      "clip_rows": 102,
+      "cls": "Assault",
+      "fps": 30.0,
+      "frames": 816,
+      "label_rows": 102,
+      "reason": "ok",
+      "rows": 102,
+      "video": "MSAD_anomaly/Assault/Assault_11.mp4"
+    },
+    "Assault_13": {
+      "clip_rows": 108,
+      "cls": "Assault",
+      "fps": 29.0,
+      "frames": 859,
+      "label_rows": 108,
+      "reason": "ok",
+      "rows": 108,
+      "video": "MSAD_anomaly/Assault/Assault_13.mp4"
+    },
+    "Assault_14": {
+      "clip_rows": 62,
+      "cls": "Assault",
+      "fps": 30.0,
+      "frames": 494,
+      "label_rows": 62,
+      "reason": "ok",
+      "rows": 62,
+      "video": "MSAD_anomaly/Assault/Assault_14.mp4"
+    },
+    "Assault_15": {
+      "clip_rows": 34,
+      "cls": "Assault",
+      "fps": 30.0,
+      "frames": 265,
+      "label_rows": 34,
+      "reason": "ok",
+      "rows": 34,
+      "video": "MSAD_anomaly/Assault/Assault_15.mp4"
+    },
+    "Assault_2": {
+      "clip_rows": 30,
+      "cls": "Assault",
+      "fps": 29.97,
+      "frames": 236,
+      "label_rows": 30,
+      "reason": "ok",
+      "rows": 30,
+      "video": "MSAD_anomaly/Assault/Assault_2.mp4"
+    },
+    "Assault_4": {
+      "clip_rows": 65,
+      "cls": "Assault",
+      "fps": 29.97,
+      "frames": 515,
+      "label_rows": 65,
+      "reason": "ok",
+      "rows": 65,
+      "video": "MSAD_anomaly/Assault/Assault_4.mp4"
+    },
+    "Assault_7": {
+      "clip_rows": 47,
+      "cls": "Assault",
+      "fps": 29.97,
+      "frames": 374,
+      "label_rows": 47,
+      "reason": "ok",
+      "rows": 47,
+      "video": "MSAD_anomaly/Assault/Assault_7.mp4"
+    },
+    "Assault_8": {
+      "clip_rows": 129,
+      "cls": "Assault",
+      "fps": 29.9846632155746,
+      "frames": 1030,
+      "label_rows": 129,
+      "reason": "ok",
+      "rows": 129,
+      "video": "MSAD_anomaly/Assault/Assault_8.mp4"
+    },
+    "Explosion_1": {
+      "clip_rows": 10,
+      "cls": "Explosion",
+      "fps": 6.0,
+      "frames": 73,
+      "label_rows": 10,
+      "reason": "ok",
+      "rows": 10,
+      "video": "MSAD_anomaly/Explosion/Explosion_1.mp4"
+    },
+    "Explosion_11": {
+      "clip_rows": 68,
+      "cls": "Explosion",
+      "fps": 30.0,
+      "frames": 539,
+      "label_rows": 68,
+      "reason": "ok",
+      "rows": 68,
+      "video": "MSAD_anomaly/Explosion/Explosion_11.mp4"
+    },
+    "Explosion_13": {
+      "clip_rows": 85,
+      "cls": "Explosion",
+      "fps": 25.0,
+      "frames": 678,
+      "label_rows": 85,
+      "reason": "ok",
+      "rows": 85,
+      "video": "MSAD_anomaly/Explosion/Explosion_13.mp4"
+    },
+    "Explosion_15": {
+      "clip_rows": 164,
+      "cls": "Explosion",
+      "fps": 29.0,
+      "frames": 1306,
+      "label_rows": 164,
+      "reason": "ok",
+      "rows": 164,
+      "video": "MSAD_anomaly/Explosion/Explosion_15.mp4"
+    },
+    "Explosion_3": {
+      "clip_rows": 12,
+      "cls": "Explosion",
+      "fps": 6.0,
+      "frames": 94,
+      "label_rows": 12,
+      "reason": "ok",
+      "rows": 12,
+      "video": "MSAD_anomaly/Explosion/Explosion_3.mp4"
+    },
+    "Explosion_5": {
+      "clip_rows": 32,
+      "cls": "Explosion",
+      "fps": 30.0,
+      "frames": 253,
+      "label_rows": 32,
+      "reason": "ok",
+      "rows": 32,
+      "video": "MSAD_anomaly/Explosion/Explosion_5.mp4"
+    },
+    "Explosion_7": {
+      "clip_rows": 53,
+      "cls": "Explosion",
+      "fps": 29.97,
+      "frames": 418,
+      "label_rows": 53,
+      "reason": "ok",
+      "rows": 53,
+      "video": "MSAD_anomaly/Explosion/Explosion_7.mp4"
+    },
+    "Explosion_9": {
+      "clip_rows": 48,
+      "cls": "Explosion",
+      "fps": 30.0,
+      "frames": 381,
+      "label_rows": 48,
+      "reason": "ok",
+      "rows": 48,
+      "video": "MSAD_anomaly/Explosion/Explosion_9.mp4"
+    },
+    "Fighting_10": {
+      "clip_rows": 73,
+      "cls": "Fighting",
+      "fps": 29.0,
+      "frames": 579,
+      "label_rows": 73,
+      "reason": "ok",
+      "rows": 73,
+      "video": "MSAD_anomaly/Fighting/Fighting_10.mp4"
+    },
+    "Fighting_12": {
+      "clip_rows": 94,
+      "cls": "Fighting",
+      "fps": 30.0,
+      "frames": 747,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_anomaly/Fighting/Fighting_12.mp4"
+    },
+    "Fighting_13": {
+      "clip_rows": 216,
+      "cls": "Fighting",
+      "fps": 25.0,
+      "frames": 1727,
+      "label_rows": 216,
+      "reason": "ok",
+      "rows": 216,
+      "video": "MSAD_anomaly/Fighting/Fighting_13.mp4"
+    },
+    "Fighting_3": {
+      "clip_rows": 43,
+      "cls": "Fighting",
+      "fps": 10.0,
+      "frames": 344,
+      "label_rows": 43,
+      "reason": "ok",
+      "rows": 43,
+      "video": "MSAD_anomaly/Fighting/Fighting_3.mp4"
+    },
+    "Fighting_4": {
+      "clip_rows": 32,
+      "cls": "Fighting",
+      "fps": 29.97,
+      "frames": 251,
+      "label_rows": 32,
+      "reason": "ok",
+      "rows": 32,
+      "video": "MSAD_anomaly/Fighting/Fighting_4.mp4"
+    },
+    "Fighting_7": {
+      "clip_rows": 53,
+      "cls": "Fighting",
+      "fps": 30.0,
+      "frames": 422,
+      "label_rows": 53,
+      "reason": "ok",
+      "rows": 53,
+      "video": "MSAD_anomaly/Fighting/Fighting_7.mp4"
+    },
+    "Fire_11": {
+      "clip_rows": 23,
+      "cls": "Fire",
+      "fps": 25.0,
+      "frames": 183,
+      "label_rows": 23,
+      "reason": "ok",
+      "rows": 23,
+      "video": "MSAD_anomaly/Fire/Fire_11.mp4"
+    },
+    "Fire_12": {
+      "clip_rows": 398,
+      "cls": "Fire",
+      "fps": 25.0,
+      "frames": 3180,
+      "label_rows": 398,
+      "reason": "ok",
+      "rows": 398,
+      "video": "MSAD_anomaly/Fire/Fire_12.mp4"
+    },
+    "Fire_15": {
+      "clip_rows": 76,
+      "cls": "Fire",
+      "fps": 29.97002997002997,
+      "frames": 605,
+      "label_rows": 76,
+      "reason": "ok",
+      "rows": 76,
+      "video": "MSAD_anomaly/Fire/Fire_15.mp4"
+    },
+    "Fire_16": {
+      "clip_rows": 94,
+      "cls": "Fire",
+      "fps": 30.0,
+      "frames": 747,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_anomaly/Fire/Fire_16.mp4"
+    },
+    "Fire_2": {
+      "clip_rows": 27,
+      "cls": "Fire",
+      "fps": 29.97002997002997,
+      "frames": 215,
+      "label_rows": 27,
+      "reason": "ok",
+      "rows": 27,
+      "video": "MSAD_anomaly/Fire/Fire_2.mp4"
+    },
+    "Fire_20": {
+      "clip_rows": 55,
+      "cls": "Fire",
+      "fps": 30.0,
+      "frames": 434,
+      "label_rows": 55,
+      "reason": "ok",
+      "rows": 55,
+      "video": "MSAD_anomaly/Fire/Fire_20.mp4"
+    },
+    "Fire_21": {
+      "clip_rows": 40,
+      "cls": "Fire",
+      "fps": 30.0,
+      "frames": 313,
+      "label_rows": 40,
+      "reason": "ok",
+      "rows": 40,
+      "video": "MSAD_anomaly/Fire/Fire_21.mp4"
+    },
+    "Fire_22": {
+      "clip_rows": 55,
+      "cls": "Fire",
+      "fps": 30.0,
+      "frames": 439,
+      "label_rows": 55,
+      "reason": "ok",
+      "rows": 55,
+      "video": "MSAD_anomaly/Fire/Fire_22.mp4"
+    },
+    "Fire_24": {
+      "clip_rows": 62,
+      "cls": "Fire",
+      "fps": 30.0,
+      "frames": 494,
+      "label_rows": 62,
+      "reason": "ok",
+      "rows": 62,
+      "video": "MSAD_anomaly/Fire/Fire_24.mp4"
+    },
+    "Fire_4": {
+      "clip_rows": 70,
+      "cls": "Fire",
+      "fps": 30.0,
+      "frames": 557,
+      "label_rows": 70,
+      "reason": "ok",
+      "rows": 70,
+      "video": "MSAD_anomaly/Fire/Fire_4.mp4"
+    },
+    "Fire_6": {
+      "clip_rows": 31,
+      "cls": "Fire",
+      "fps": 29.97,
+      "frames": 244,
+      "label_rows": 31,
+      "reason": "ok",
+      "rows": 31,
+      "video": "MSAD_anomaly/Fire/Fire_6.mp4"
+    },
+    "Fire_8": {
+      "clip_rows": 38,
+      "cls": "Fire",
+      "fps": 29.97002997002997,
+      "frames": 300,
+      "label_rows": 38,
+      "reason": "ok",
+      "rows": 38,
+      "video": "MSAD_anomaly/Fire/Fire_8.mp4"
+    },
+    "MSAD_normal_testing_1": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 749,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_1.mp4"
+    },
+    "MSAD_normal_testing_10": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_10.mp4"
+    },
+    "MSAD_normal_testing_100": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 900,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_100.mp4"
+    },
+    "MSAD_normal_testing_101": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 749,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_101.mp4"
+    },
+    "MSAD_normal_testing_102": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 899,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_102.mp4"
+    },
+    "MSAD_normal_testing_103": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 749,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_103.mp4"
+    },
+    "MSAD_normal_testing_104": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 748,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_104.mp4"
+    },
+    "MSAD_normal_testing_105": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 900,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_105.mp4"
+    },
+    "MSAD_normal_testing_106": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 749,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_106.mp4"
+    },
+    "MSAD_normal_testing_107": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 900,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_107.mp4"
+    },
+    "MSAD_normal_testing_108": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_108.mp4"
+    },
+    "MSAD_normal_testing_109": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_109.mp4"
+    },
+    "MSAD_normal_testing_11": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_11.mp4"
+    },
+    "MSAD_normal_testing_110": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 900,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_110.mp4"
+    },
+    "MSAD_normal_testing_111": {
+      "clip_rows": 75,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 599,
+      "label_rows": 75,
+      "reason": "ok",
+      "rows": 75,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_111.mp4"
+    },
+    "MSAD_normal_testing_112": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_112.mp4"
+    },
+    "MSAD_normal_testing_113": {
+      "clip_rows": 114,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 912,
+      "label_rows": 114,
+      "reason": "ok",
+      "rows": 114,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_113.mp4"
+    },
+    "MSAD_normal_testing_114": {
+      "clip_rows": 123,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 978,
+      "label_rows": 123,
+      "reason": "ok",
+      "rows": 123,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_114.mp4"
+    },
+    "MSAD_normal_testing_115": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_115.mp4"
+    },
+    "MSAD_normal_testing_116": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_116.mp4"
+    },
+    "MSAD_normal_testing_117": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 900,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_117.mp4"
+    },
+    "MSAD_normal_testing_118": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_118.mp4"
+    },
+    "MSAD_normal_testing_119": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 748,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_119.mp4"
+    },
+    "MSAD_normal_testing_12": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 752,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_12.mp4"
+    },
+    "MSAD_normal_testing_120": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_120.mp4"
+    },
+    "MSAD_normal_testing_13": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_13.mp4"
+    },
+    "MSAD_normal_testing_14": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 900,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_14.mp4"
+    },
+    "MSAD_normal_testing_15": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_15.mp4"
+    },
+    "MSAD_normal_testing_16": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 900,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_16.mp4"
+    },
+    "MSAD_normal_testing_17": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 900,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_17.mp4"
+    },
+    "MSAD_normal_testing_18": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 900,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_18.mp4"
+    },
+    "MSAD_normal_testing_19": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 900,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_19.mp4"
+    },
+    "MSAD_normal_testing_2": {
+      "clip_rows": 95,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 760,
+      "label_rows": 95,
+      "reason": "ok",
+      "rows": 95,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_2.mp4"
+    },
+    "MSAD_normal_testing_20": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_20.mp4"
+    },
+    "MSAD_normal_testing_21": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 900,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_21.mp4"
+    },
+    "MSAD_normal_testing_22": {
+      "clip_rows": 65,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 517,
+      "label_rows": 65,
+      "reason": "ok",
+      "rows": 65,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_22.mp4"
+    },
+    "MSAD_normal_testing_23": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_23.mp4"
+    },
+    "MSAD_normal_testing_24": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 749,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_24.mp4"
+    },
+    "MSAD_normal_testing_25": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 749,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_25.mp4"
+    },
+    "MSAD_normal_testing_26": {
+      "clip_rows": 125,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 995,
+      "label_rows": 125,
+      "reason": "ok",
+      "rows": 125,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_26.mp4"
+    },
+    "MSAD_normal_testing_27": {
+      "clip_rows": 53,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 418,
+      "label_rows": 53,
+      "reason": "ok",
+      "rows": 53,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_27.mp4"
+    },
+    "MSAD_normal_testing_28": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_28.mp4"
+    },
+    "MSAD_normal_testing_29": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 897,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_29.mp4"
+    },
+    "MSAD_normal_testing_3": {
+      "clip_rows": 29,
+      "cls": "Normal",
+      "fps": 25.0,
+      "frames": 227,
+      "label_rows": 29,
+      "reason": "ok",
+      "rows": 29,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_3.mp4"
+    },
+    "MSAD_normal_testing_30": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_30.mp4"
+    },
+    "MSAD_normal_testing_31": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_31.mp4"
+    },
+    "MSAD_normal_testing_32": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_32.mp4"
+    },
+    "MSAD_normal_testing_33": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 748,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_33.mp4"
+    },
+    "MSAD_normal_testing_34": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 749,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_34.mp4"
+    },
+    "MSAD_normal_testing_35": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 897,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_35.mp4"
+    },
+    "MSAD_normal_testing_36": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 900,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_36.mp4"
+    },
+    "MSAD_normal_testing_37": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 749,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_37.mp4"
+    },
+    "MSAD_normal_testing_38": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_38.mp4"
+    },
+    "MSAD_normal_testing_39": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_39.mp4"
+    },
+    "MSAD_normal_testing_4": {
+      "clip_rows": 45,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 358,
+      "label_rows": 45,
+      "reason": "ok",
+      "rows": 45,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_4.mp4"
+    },
+    "MSAD_normal_testing_40": {
+      "clip_rows": 97,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 776,
+      "label_rows": 97,
+      "reason": "ok",
+      "rows": 97,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_40.mp4"
+    },
+    "MSAD_normal_testing_41": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 749,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_41.mp4"
+    },
+    "MSAD_normal_testing_42": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 749,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_42.mp4"
+    },
+    "MSAD_normal_testing_43": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_43.mp4"
+    },
+    "MSAD_normal_testing_44": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_44.mp4"
+    },
+    "MSAD_normal_testing_45": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_45.mp4"
+    },
+    "MSAD_normal_testing_46": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_46.mp4"
+    },
+    "MSAD_normal_testing_47": {
+      "clip_rows": 53,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 420,
+      "label_rows": 53,
+      "reason": "ok",
+      "rows": 53,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_47.mp4"
+    },
+    "MSAD_normal_testing_48": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 899,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_48.mp4"
+    },
+    "MSAD_normal_testing_49": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 749,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_49.mp4"
+    },
+    "MSAD_normal_testing_5": {
+      "clip_rows": 29,
+      "cls": "Normal",
+      "fps": 15.0,
+      "frames": 226,
+      "label_rows": 29,
+      "reason": "ok",
+      "rows": 29,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_5.mp4"
+    },
+    "MSAD_normal_testing_50": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_50.mp4"
+    },
+    "MSAD_normal_testing_51": {
+      "clip_rows": 57,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 449,
+      "label_rows": 57,
+      "reason": "ok",
+      "rows": 57,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_51.mp4"
+    },
+    "MSAD_normal_testing_52": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 752,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_52.mp4"
+    },
+    "MSAD_normal_testing_53": {
+      "clip_rows": 34,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 269,
+      "label_rows": 34,
+      "reason": "ok",
+      "rows": 34,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_53.mp4"
+    },
+    "MSAD_normal_testing_54": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_54.mp4"
+    },
+    "MSAD_normal_testing_55": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 899,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_55.mp4"
+    },
+    "MSAD_normal_testing_56": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 749,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_56.mp4"
+    },
+    "MSAD_normal_testing_57": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 749,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_57.mp4"
+    },
+    "MSAD_normal_testing_58": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 900,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_58.mp4"
+    },
+    "MSAD_normal_testing_59": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_59.mp4"
+    },
+    "MSAD_normal_testing_6": {
+      "clip_rows": 52,
+      "cls": "Normal",
+      "fps": 29.97002997002997,
+      "frames": 416,
+      "label_rows": 52,
+      "reason": "ok",
+      "rows": 52,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_6.mp4"
+    },
+    "MSAD_normal_testing_60": {
+      "clip_rows": 117,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 936,
+      "label_rows": 117,
+      "reason": "ok",
+      "rows": 117,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_60.mp4"
+    },
+    "MSAD_normal_testing_61": {
+      "clip_rows": 104,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 828,
+      "label_rows": 104,
+      "reason": "ok",
+      "rows": 104,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_61.mp4"
+    },
+    "MSAD_normal_testing_62": {
+      "clip_rows": 72,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 574,
+      "label_rows": 72,
+      "reason": "ok",
+      "rows": 72,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_62.mp4"
+    },
+    "MSAD_normal_testing_63": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 900,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_63.mp4"
+    },
+    "MSAD_normal_testing_64": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_64.mp4"
+    },
+    "MSAD_normal_testing_65": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 899,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_65.mp4"
+    },
+    "MSAD_normal_testing_66": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 900,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_66.mp4"
+    },
+    "MSAD_normal_testing_67": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 749,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_67.mp4"
+    },
+    "MSAD_normal_testing_68": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_68.mp4"
+    },
+    "MSAD_normal_testing_69": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 900,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_69.mp4"
+    },
+    "MSAD_normal_testing_7": {
+      "clip_rows": 37,
+      "cls": "Normal",
+      "fps": 29.97,
+      "frames": 292,
+      "label_rows": 37,
+      "reason": "ok",
+      "rows": 37,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_7.mp4"
+    },
+    "MSAD_normal_testing_70": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 752,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_70.mp4"
+    },
+    "MSAD_normal_testing_71": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 899,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_71.mp4"
+    },
+    "MSAD_normal_testing_72": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_72.mp4"
+    },
+    "MSAD_normal_testing_73": {
+      "clip_rows": 119,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 945,
+      "label_rows": 119,
+      "reason": "ok",
+      "rows": 119,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_73.mp4"
+    },
+    "MSAD_normal_testing_74": {
+      "clip_rows": 108,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 863,
+      "label_rows": 108,
+      "reason": "ok",
+      "rows": 108,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_74.mp4"
+    },
+    "MSAD_normal_testing_75": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 900,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_75.mp4"
+    },
+    "MSAD_normal_testing_76": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_76.mp4"
+    },
+    "MSAD_normal_testing_77": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 749,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_77.mp4"
+    },
+    "MSAD_normal_testing_78": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 749,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_78.mp4"
+    },
+    "MSAD_normal_testing_79": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 749,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_79.mp4"
+    },
+    "MSAD_normal_testing_8": {
+      "clip_rows": 55,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 436,
+      "label_rows": 55,
+      "reason": "ok",
+      "rows": 55,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_8.mp4"
+    },
+    "MSAD_normal_testing_80": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 899,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_80.mp4"
+    },
+    "MSAD_normal_testing_81": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_81.mp4"
+    },
+    "MSAD_normal_testing_82": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_82.mp4"
+    },
+    "MSAD_normal_testing_83": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 900,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_83.mp4"
+    },
+    "MSAD_normal_testing_84": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 752,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_84.mp4"
+    },
+    "MSAD_normal_testing_85": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 747,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_85.mp4"
+    },
+    "MSAD_normal_testing_86": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 749,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_86.mp4"
+    },
+    "MSAD_normal_testing_87": {
+      "clip_rows": 113,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 900,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_87.mp4"
+    },
+    "MSAD_normal_testing_88": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 748,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_88.mp4"
+    },
+    "MSAD_normal_testing_89": {
+      "clip_rows": 60,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 479,
+      "label_rows": 60,
+      "reason": "ok",
+      "rows": 60,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_89.mp4"
+    },
+    "MSAD_normal_testing_9": {
+      "clip_rows": 66,
+      "cls": "Normal",
+      "fps": 29.97002997002997,
+      "frames": 524,
+      "label_rows": 66,
+      "reason": "ok",
+      "rows": 66,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_9.mp4"
+    },
+    "MSAD_normal_testing_90": {
+      "clip_rows": 68,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 539,
+      "label_rows": 68,
+      "reason": "ok",
+      "rows": 68,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_90.mp4"
+    },
+    "MSAD_normal_testing_91": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_91.mp4"
+    },
+    "MSAD_normal_testing_92": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_92.mp4"
+    },
+    "MSAD_normal_testing_93": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_93.mp4"
+    },
+    "MSAD_normal_testing_94": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_94.mp4"
+    },
+    "MSAD_normal_testing_95": {
+      "clip_rows": 45,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 359,
+      "label_rows": 45,
+      "reason": "ok",
+      "rows": 45,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_95.mp4"
+    },
+    "MSAD_normal_testing_96": {
+      "clip_rows": 53,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 419,
+      "label_rows": 53,
+      "reason": "ok",
+      "rows": 53,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_96.mp4"
+    },
+    "MSAD_normal_testing_97": {
+      "clip_rows": 61,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 481,
+      "label_rows": 61,
+      "reason": "ok",
+      "rows": 61,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_97.mp4"
+    },
+    "MSAD_normal_testing_98": {
+      "clip_rows": 53,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 420,
+      "label_rows": 53,
+      "reason": "ok",
+      "rows": 53,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_98.mp4"
+    },
+    "MSAD_normal_testing_99": {
+      "clip_rows": 94,
+      "cls": "Normal",
+      "fps": 30.0,
+      "frames": 750,
+      "label_rows": 94,
+      "reason": "ok",
+      "rows": 94,
+      "video": "MSAD_normal_testing/MSAD_normal_testing_99.mp4"
+    },
+    "Object_falling_11": {
+      "clip_rows": 50,
+      "cls": "Object_falling",
+      "fps": 29.97,
+      "frames": 397,
+      "label_rows": 50,
+      "reason": "ok",
+      "rows": 50,
+      "video": "MSAD_anomaly/Object_falling/Object_falling_11.mp4"
+    },
+    "Object_falling_14": {
+      "clip_rows": 50,
+      "cls": "Object_falling",
+      "fps": 30.0,
+      "frames": 395,
+      "label_rows": 50,
+      "reason": "ok",
+      "rows": 50,
+      "video": "MSAD_anomaly/Object_falling/Object_falling_14.mp4"
+    },
+    "Object_falling_15": {
+      "clip_rows": 75,
+      "cls": "Object_falling",
+      "fps": 25.0,
+      "frames": 596,
+      "label_rows": 75,
+      "reason": "ok",
+      "rows": 75,
+      "video": "MSAD_anomaly/Object_falling/Object_falling_15.mp4"
+    },
+    "Object_falling_17": {
+      "clip_rows": 48,
+      "cls": "Object_falling",
+      "fps": 30.0,
+      "frames": 381,
+      "label_rows": 48,
+      "reason": "ok",
+      "rows": 48,
+      "video": "MSAD_anomaly/Object_falling/Object_falling_17.mp4"
+    },
+    "Object_falling_19": {
+      "clip_rows": 11,
+      "cls": "Object_falling",
+      "fps": 30.0,
+      "frames": 86,
+      "label_rows": 11,
+      "reason": "ok",
+      "rows": 11,
+      "video": "MSAD_anomaly/Object_falling/Object_falling_19.mp4"
+    },
+    "Object_falling_21": {
+      "clip_rows": 56,
+      "cls": "Object_falling",
+      "fps": 30.0,
+      "frames": 447,
+      "label_rows": 56,
+      "reason": "ok",
+      "rows": 56,
+      "video": "MSAD_anomaly/Object_falling/Object_falling_21.mp4"
+    },
+    "Object_falling_3": {
+      "clip_rows": 112,
+      "cls": "Object_falling",
+      "fps": 30.0,
+      "frames": 890,
+      "label_rows": 112,
+      "reason": "ok",
+      "rows": 112,
+      "video": "MSAD_anomaly/Object_falling/Object_falling_3.mp4"
+    },
+    "Object_falling_4": {
+      "clip_rows": 29,
+      "cls": "Object_falling",
+      "fps": 29.97002997002997,
+      "frames": 230,
+      "label_rows": 29,
+      "reason": "ok",
+      "rows": 29,
+      "video": "MSAD_anomaly/Object_falling/Object_falling_4.mp4"
+    },
+    "Object_falling_7": {
+      "clip_rows": 50,
+      "cls": "Object_falling",
+      "fps": 29.97,
+      "frames": 394,
+      "label_rows": 50,
+      "reason": "ok",
+      "rows": 50,
+      "video": "MSAD_anomaly/Object_falling/Object_falling_7.mp4"
+    },
+    "Object_falling_9": {
+      "clip_rows": 132,
+      "cls": "Object_falling",
+      "fps": 30.0,
+      "frames": 1055,
+      "label_rows": 132,
+      "reason": "ok",
+      "rows": 132,
+      "video": "MSAD_anomaly/Object_falling/Object_falling_9.mp4"
+    },
+    "People_falling_1": {
+      "clip_rows": 41,
+      "cls": "People_falling",
+      "fps": 29.97002997002997,
+      "frames": 328,
+      "label_rows": 41,
+      "reason": "ok",
+      "rows": 41,
+      "video": "MSAD_anomaly/People_falling/People_falling_1.mp4"
+    },
+    "People_falling_10": {
+      "clip_rows": 38,
+      "cls": "People_falling",
+      "fps": 29.97,
+      "frames": 302,
+      "label_rows": 38,
+      "reason": "ok",
+      "rows": 38,
+      "video": "MSAD_anomaly/People_falling/People_falling_10.mp4"
+    },
+    "People_falling_11": {
+      "clip_rows": 29,
+      "cls": "People_falling",
+      "fps": 29.97,
+      "frames": 226,
+      "label_rows": 29,
+      "reason": "ok",
+      "rows": 29,
+      "video": "MSAD_anomaly/People_falling/People_falling_11.mp4"
+    },
+    "People_falling_14": {
+      "clip_rows": 29,
+      "cls": "People_falling",
+      "fps": 29.97,
+      "frames": 225,
+      "label_rows": 29,
+      "reason": "ok",
+      "rows": 29,
+      "video": "MSAD_anomaly/People_falling/People_falling_14.mp4"
+    },
+    "People_falling_16": {
+      "clip_rows": 36,
+      "cls": "People_falling",
+      "fps": 29.97,
+      "frames": 287,
+      "label_rows": 36,
+      "reason": "ok",
+      "rows": 36,
+      "video": "MSAD_anomaly/People_falling/People_falling_16.mp4"
+    },
+    "People_falling_18": {
+      "clip_rows": 36,
+      "cls": "People_falling",
+      "fps": 29.97,
+      "frames": 282,
+      "label_rows": 36,
+      "reason": "ok",
+      "rows": 36,
+      "video": "MSAD_anomaly/People_falling/People_falling_18.mp4"
+    },
+    "People_falling_20": {
+      "clip_rows": 32,
+      "cls": "People_falling",
+      "fps": 29.97,
+      "frames": 252,
+      "label_rows": 32,
+      "reason": "ok",
+      "rows": 32,
+      "video": "MSAD_anomaly/People_falling/People_falling_20.mp4"
+    },
+    "People_falling_23": {
+      "clip_rows": 31,
+      "cls": "People_falling",
+      "fps": 29.97,
+      "frames": 245,
+      "label_rows": 31,
+      "reason": "ok",
+      "rows": 31,
+      "video": "MSAD_anomaly/People_falling/People_falling_23.mp4"
+    },
+    "People_falling_24": {
+      "clip_rows": 27,
+      "cls": "People_falling",
+      "fps": 29.97002997002997,
+      "frames": 211,
+      "label_rows": 27,
+      "reason": "ok",
+      "rows": 27,
+      "video": "MSAD_anomaly/People_falling/People_falling_24.mp4"
+    },
+    "People_falling_25": {
+      "clip_rows": 30,
+      "cls": "People_falling",
+      "fps": 29.97,
+      "frames": 234,
+      "label_rows": 30,
+      "reason": "ok",
+      "rows": 30,
+      "video": "MSAD_anomaly/People_falling/People_falling_25.mp4"
+    },
+    "People_falling_26": {
+      "clip_rows": 29,
+      "cls": "People_falling",
+      "fps": 29.97,
+      "frames": 226,
+      "label_rows": 29,
+      "reason": "ok",
+      "rows": 29,
+      "video": "MSAD_anomaly/People_falling/People_falling_26.mp4"
+    },
+    "People_falling_28": {
+      "clip_rows": 29,
+      "cls": "People_falling",
+      "fps": 29.97,
+      "frames": 232,
+      "label_rows": 29,
+      "reason": "ok",
+      "rows": 29,
+      "video": "MSAD_anomaly/People_falling/People_falling_28.mp4"
+    },
+    "People_falling_3": {
+      "clip_rows": 30,
+      "cls": "People_falling",
+      "fps": 29.97,
+      "frames": 236,
+      "label_rows": 30,
+      "reason": "ok",
+      "rows": 30,
+      "video": "MSAD_anomaly/People_falling/People_falling_3.mp4"
+    },
+    "People_falling_31": {
+      "clip_rows": 44,
+      "cls": "People_falling",
+      "fps": 29.97,
+      "frames": 345,
+      "label_rows": 44,
+      "reason": "ok",
+      "rows": 44,
+      "video": "MSAD_anomaly/People_falling/People_falling_31.mp4"
+    },
+    "People_falling_32": {
+      "clip_rows": 73,
+      "cls": "People_falling",
+      "fps": 29.97,
+      "frames": 581,
+      "label_rows": 73,
+      "reason": "ok",
+      "rows": 73,
+      "video": "MSAD_anomaly/People_falling/People_falling_32.mp4"
+    },
+    "People_falling_36": {
+      "clip_rows": 30,
+      "cls": "People_falling",
+      "fps": 29.97,
+      "frames": 233,
+      "label_rows": 30,
+      "reason": "ok",
+      "rows": 30,
+      "video": "MSAD_anomaly/People_falling/People_falling_36.mp4"
+    },
+    "People_falling_37": {
+      "clip_rows": 37,
+      "cls": "People_falling",
+      "fps": 29.97,
+      "frames": 296,
+      "label_rows": 37,
+      "reason": "ok",
+      "rows": 37,
+      "video": "MSAD_anomaly/People_falling/People_falling_37.mp4"
+    },
+    "People_falling_38": {
+      "clip_rows": 32,
+      "cls": "People_falling",
+      "fps": 29.97,
+      "frames": 251,
+      "label_rows": 32,
+      "reason": "ok",
+      "rows": 32,
+      "video": "MSAD_anomaly/People_falling/People_falling_38.mp4"
+    },
+    "People_falling_40": {
+      "clip_rows": 34,
+      "cls": "People_falling",
+      "fps": 29.97,
+      "frames": 272,
+      "label_rows": 34,
+      "reason": "ok",
+      "rows": 34,
+      "video": "MSAD_anomaly/People_falling/People_falling_40.mp4"
+    },
+    "People_falling_42": {
+      "clip_rows": 57,
+      "cls": "People_falling",
+      "fps": 30.0,
+      "frames": 452,
+      "label_rows": 57,
+      "reason": "ok",
+      "rows": 57,
+      "video": "MSAD_anomaly/People_falling/People_falling_42.mp4"
+    },
+    "People_falling_5": {
+      "clip_rows": 27,
+      "cls": "People_falling",
+      "fps": 29.97,
+      "frames": 210,
+      "label_rows": 27,
+      "reason": "ok",
+      "rows": 27,
+      "video": "MSAD_anomaly/People_falling/People_falling_5.mp4"
+    },
+    "People_falling_7": {
+      "clip_rows": 35,
+      "cls": "People_falling",
+      "fps": 29.97,
+      "frames": 274,
+      "label_rows": 35,
+      "reason": "ok",
+      "rows": 35,
+      "video": "MSAD_anomaly/People_falling/People_falling_7.mp4"
+    },
+    "Robbery_11": {
+      "clip_rows": 68,
+      "cls": "Robbery",
+      "fps": 29.97,
+      "frames": 537,
+      "label_rows": 68,
+      "reason": "ok",
+      "rows": 68,
+      "video": "MSAD_anomaly/Robbery/Robbery_11.mp4"
+    },
+    "Robbery_13": {
+      "clip_rows": 58,
+      "cls": "Robbery",
+      "fps": 29.97,
+      "frames": 461,
+      "label_rows": 58,
+      "reason": "ok",
+      "rows": 58,
+      "video": "MSAD_anomaly/Robbery/Robbery_13.mp4"
+    },
+    "Robbery_15": {
+      "clip_rows": 42,
+      "cls": "Robbery",
+      "fps": 25.0,
+      "frames": 334,
+      "label_rows": 42,
+      "reason": "ok",
+      "rows": 42,
+      "video": "MSAD_anomaly/Robbery/Robbery_15.mp4"
+    },
+    "Robbery_17": {
+      "clip_rows": 63,
+      "cls": "Robbery",
+      "fps": 29.87,
+      "frames": 503,
+      "label_rows": 63,
+      "reason": "ok",
+      "rows": 63,
+      "video": "MSAD_anomaly/Robbery/Robbery_17.mp4"
+    },
+    "Robbery_19": {
+      "clip_rows": 245,
+      "cls": "Robbery",
+      "fps": 30.0,
+      "frames": 1958,
+      "label_rows": 245,
+      "reason": "ok",
+      "rows": 245,
+      "video": "MSAD_anomaly/Robbery/Robbery_19.mp4"
+    },
+    "Robbery_2": {
+      "clip_rows": 155,
+      "cls": "Robbery",
+      "fps": 29.95,
+      "frames": 1240,
+      "label_rows": 155,
+      "reason": "ok",
+      "rows": 155,
+      "video": "MSAD_anomaly/Robbery/Robbery_2.mp4"
+    },
+    "Robbery_21": {
+      "clip_rows": 95,
+      "cls": "Robbery",
+      "fps": 29.97,
+      "frames": 753,
+      "label_rows": 95,
+      "reason": "ok",
+      "rows": 95,
+      "video": "MSAD_anomaly/Robbery/Robbery_21.mp4"
+    },
+    "Robbery_23": {
+      "clip_rows": 29,
+      "cls": "Robbery",
+      "fps": 29.97,
+      "frames": 226,
+      "label_rows": 29,
+      "reason": "ok",
+      "rows": 29,
+      "video": "MSAD_anomaly/Robbery/Robbery_23.mp4"
+    },
+    "Robbery_27": {
+      "clip_rows": 71,
+      "cls": "Robbery",
+      "fps": 30.0005328691451,
+      "frames": 563,
+      "label_rows": 71,
+      "reason": "ok",
+      "rows": 71,
+      "video": "MSAD_anomaly/Robbery/Robbery_27.mp4"
+    },
+    "Robbery_28": {
+      "clip_rows": 90,
+      "cls": "Robbery",
+      "fps": 30.0,
+      "frames": 716,
+      "label_rows": 90,
+      "reason": "ok",
+      "rows": 90,
+      "video": "MSAD_anomaly/Robbery/Robbery_28.mp4"
+    },
+    "Robbery_29": {
+      "clip_rows": 40,
+      "cls": "Robbery",
+      "fps": 29.97,
+      "frames": 318,
+      "label_rows": 40,
+      "reason": "ok",
+      "rows": 40,
+      "video": "MSAD_anomaly/Robbery/Robbery_29.mp4"
+    },
+    "Robbery_4": {
+      "clip_rows": 30,
+      "cls": "Robbery",
+      "fps": 25.0,
+      "frames": 237,
+      "label_rows": 30,
+      "reason": "ok",
+      "rows": 30,
+      "video": "MSAD_anomaly/Robbery/Robbery_4.mp4"
+    },
+    "Robbery_7": {
+      "clip_rows": 54,
+      "cls": "Robbery",
+      "fps": 25.0,
+      "frames": 430,
+      "label_rows": 54,
+      "reason": "ok",
+      "rows": 54,
+      "video": "MSAD_anomaly/Robbery/Robbery_7.mp4"
+    },
+    "Robbery_8": {
+      "clip_rows": 53,
+      "cls": "Robbery",
+      "fps": 29.97002997002997,
+      "frames": 424,
+      "label_rows": 53,
+      "reason": "ok",
+      "rows": 53,
+      "video": "MSAD_anomaly/Robbery/Robbery_8.mp4"
+    },
+    "Shooting_10": {
+      "clip_rows": 113,
+      "cls": "Shooting",
+      "fps": 29.97,
+      "frames": 903,
+      "label_rows": 113,
+      "reason": "ok",
+      "rows": 113,
+      "video": "MSAD_anomaly/Shooting/Shooting_10.mp4"
+    },
+    "Shooting_12": {
+      "clip_rows": 28,
+      "cls": "Shooting",
+      "fps": 30.0,
+      "frames": 224,
+      "label_rows": 28,
+      "reason": "ok",
+      "rows": 28,
+      "video": "MSAD_anomaly/Shooting/Shooting_12.mp4"
+    },
+    "Shooting_13": {
+      "clip_rows": 52,
+      "cls": "Shooting",
+      "fps": 30.0,
+      "frames": 413,
+      "label_rows": 52,
+      "reason": "ok",
+      "rows": 52,
+      "video": "MSAD_anomaly/Shooting/Shooting_13.mp4"
+    },
+    "Shooting_16": {
+      "clip_rows": 31,
+      "cls": "Shooting",
+      "fps": 30.0,
+      "frames": 243,
+      "label_rows": 31,
+      "reason": "ok",
+      "rows": 31,
+      "video": "MSAD_anomaly/Shooting/Shooting_16.mp4"
+    },
+    "Shooting_17": {
+      "clip_rows": 64,
+      "cls": "Shooting",
+      "fps": 30.0,
+      "frames": 505,
+      "label_rows": 64,
+      "reason": "ok",
+      "rows": 64,
+      "video": "MSAD_anomaly/Shooting/Shooting_17.mp4"
+    },
+    "Shooting_2": {
+      "clip_rows": 30,
+      "cls": "Shooting",
+      "fps": 25.0,
+      "frames": 237,
+      "label_rows": 30,
+      "reason": "ok",
+      "rows": 30,
+      "video": "MSAD_anomaly/Shooting/Shooting_2.mp4"
+    },
+    "Shooting_4": {
+      "clip_rows": 36,
+      "cls": "Shooting",
+      "fps": 30.0,
+      "frames": 284,
+      "label_rows": 36,
+      "reason": "ok",
+      "rows": 36,
+      "video": "MSAD_anomaly/Shooting/Shooting_4.mp4"
+    },
+    "Shooting_5": {
+      "clip_rows": 23,
+      "cls": "Shooting",
+      "fps": 25.0,
+      "frames": 177,
+      "label_rows": 23,
+      "reason": "ok",
+      "rows": 23,
+      "video": "MSAD_anomaly/Shooting/Shooting_5.mp4"
+    },
+    "Shooting_6": {
+      "clip_rows": 39,
+      "cls": "Shooting",
+      "fps": 25.0,
+      "frames": 309,
+      "label_rows": 39,
+      "reason": "ok",
+      "rows": 39,
+      "video": "MSAD_anomaly/Shooting/Shooting_6.mp4"
+    },
+    "Traffic_accident_11": {
+      "clip_rows": 37,
+      "cls": "Traffic_accident",
+      "fps": 29.97002997002997,
+      "frames": 293,
+      "label_rows": 37,
+      "reason": "ok",
+      "rows": 37,
+      "video": "MSAD_anomaly/Traffic_accident/Traffic_accident_11.mp4"
+    },
+    "Traffic_accident_12": {
+      "clip_rows": 49,
+      "cls": "Traffic_accident",
+      "fps": 29.97,
+      "frames": 387,
+      "label_rows": 49,
+      "reason": "ok",
+      "rows": 49,
+      "video": "MSAD_anomaly/Traffic_accident/Traffic_accident_12.mp4"
+    },
+    "Traffic_accident_15": {
+      "clip_rows": 45,
+      "cls": "Traffic_accident",
+      "fps": 29.97002997002997,
+      "frames": 360,
+      "label_rows": 45,
+      "reason": "ok",
+      "rows": 45,
+      "video": "MSAD_anomaly/Traffic_accident/Traffic_accident_15.mp4"
+    },
+    "Traffic_accident_16": {
+      "clip_rows": 32,
+      "cls": "Traffic_accident",
+      "fps": 29.97002997002997,
+      "frames": 253,
+      "label_rows": 32,
+      "reason": "ok",
+      "rows": 32,
+      "video": "MSAD_anomaly/Traffic_accident/Traffic_accident_16.mp4"
+    },
+    "Traffic_accident_19": {
+      "clip_rows": 30,
+      "cls": "Traffic_accident",
+      "fps": 30.0,
+      "frames": 235,
+      "label_rows": 30,
+      "reason": "ok",
+      "rows": 30,
+      "video": "MSAD_anomaly/Traffic_accident/Traffic_accident_19.mp4"
+    },
+    "Traffic_accident_2": {
+      "clip_rows": 46,
+      "cls": "Traffic_accident",
+      "fps": 30.0,
+      "frames": 366,
+      "label_rows": 46,
+      "reason": "ok",
+      "rows": 46,
+      "video": "MSAD_anomaly/Traffic_accident/Traffic_accident_2.mp4"
+    },
+    "Traffic_accident_20": {
+      "clip_rows": 54,
+      "cls": "Traffic_accident",
+      "fps": 30.0,
+      "frames": 431,
+      "label_rows": 54,
+      "reason": "ok",
+      "rows": 54,
+      "video": "MSAD_anomaly/Traffic_accident/Traffic_accident_20.mp4"
+    },
+    "Traffic_accident_21": {
+      "clip_rows": 87,
+      "cls": "Traffic_accident",
+      "fps": 29.97,
+      "frames": 694,
+      "label_rows": 87,
+      "reason": "ok",
+      "rows": 87,
+      "video": "MSAD_anomaly/Traffic_accident/Traffic_accident_21.mp4"
+    },
+    "Traffic_accident_23": {
+      "clip_rows": 57,
+      "cls": "Traffic_accident",
+      "fps": 29.97,
+      "frames": 450,
+      "label_rows": 57,
+      "reason": "ok",
+      "rows": 57,
+      "video": "MSAD_anomaly/Traffic_accident/Traffic_accident_23.mp4"
+    },
+    "Traffic_accident_25": {
+      "clip_rows": 35,
+      "cls": "Traffic_accident",
+      "fps": 29.97002997002997,
+      "frames": 274,
+      "label_rows": 35,
+      "reason": "ok",
+      "rows": 35,
+      "video": "MSAD_anomaly/Traffic_accident/Traffic_accident_25.mp4"
+    },
+    "Traffic_accident_26": {
+      "clip_rows": 26,
+      "cls": "Traffic_accident",
+      "fps": 30.001477905315532,
+      "frames": 203,
+      "label_rows": 26,
+      "reason": "ok",
+      "rows": 26,
+      "video": "MSAD_anomaly/Traffic_accident/Traffic_accident_26.mp4"
+    },
+    "Traffic_accident_27": {
+      "clip_rows": 30,
+      "cls": "Traffic_accident",
+      "fps": 30.001287608910253,
+      "frames": 233,
+      "label_rows": 30,
+      "reason": "ok",
+      "rows": 30,
+      "video": "MSAD_anomaly/Traffic_accident/Traffic_accident_27.mp4"
+    },
+    "Traffic_accident_31": {
+      "clip_rows": 61,
+      "cls": "Traffic_accident",
+      "fps": 30.0,
+      "frames": 483,
+      "label_rows": 61,
+      "reason": "ok",
+      "rows": 61,
+      "video": "MSAD_anomaly/Traffic_accident/Traffic_accident_31.mp4"
+    },
+    "Traffic_accident_32": {
+      "clip_rows": 49,
+      "cls": "Traffic_accident",
+      "fps": 30.0,
+      "frames": 389,
+      "label_rows": 49,
+      "reason": "ok",
+      "rows": 49,
+      "video": "MSAD_anomaly/Traffic_accident/Traffic_accident_32.mp4"
+    },
+    "Traffic_accident_35": {
+      "clip_rows": 51,
+      "cls": "Traffic_accident",
+      "fps": 15.0,
+      "frames": 405,
+      "label_rows": 51,
+      "reason": "ok",
+      "rows": 51,
+      "video": "MSAD_anomaly/Traffic_accident/Traffic_accident_35.mp4"
+    },
+    "Traffic_accident_36": {
+      "clip_rows": 32,
+      "cls": "Traffic_accident",
+      "fps": 25.0,
+      "frames": 250,
+      "label_rows": 32,
+      "reason": "ok",
+      "rows": 32,
+      "video": "MSAD_anomaly/Traffic_accident/Traffic_accident_36.mp4"
+    },
+    "Traffic_accident_39": {
+      "clip_rows": 63,
+      "cls": "Traffic_accident",
+      "fps": 25.0,
+      "frames": 503,
+      "label_rows": 63,
+      "reason": "ok",
+      "rows": 63,
+      "video": "MSAD_anomaly/Traffic_accident/Traffic_accident_39.mp4"
+    },
+    "Traffic_accident_4": {
+      "clip_rows": 42,
+      "cls": "Traffic_accident",
+      "fps": 30.0,
+      "frames": 336,
+      "label_rows": 42,
+      "reason": "ok",
+      "rows": 42,
+      "video": "MSAD_anomaly/Traffic_accident/Traffic_accident_4.mp4"
+    },
+    "Traffic_accident_7": {
+      "clip_rows": 45,
+      "cls": "Traffic_accident",
+      "fps": 30.0,
+      "frames": 358,
+      "label_rows": 45,
+      "reason": "ok",
+      "rows": 45,
+      "video": "MSAD_anomaly/Traffic_accident/Traffic_accident_7.mp4"
+    },
+    "Traffic_accident_8": {
+      "clip_rows": 45,
+      "cls": "Traffic_accident",
+      "fps": 30.0,
+      "frames": 354,
+      "label_rows": 45,
+      "reason": "ok",
+      "rows": 45,
+      "video": "MSAD_anomaly/Traffic_accident/Traffic_accident_8.mp4"
+    },
+    "Vandalism_1": {
+      "clip_rows": 126,
+      "cls": "Vandalism",
+      "fps": 29.97,
+      "frames": 1003,
+      "label_rows": 126,
+      "reason": "ok",
+      "rows": 126,
+      "video": "MSAD_anomaly/Vandalism/Vandalism_1.mp4"
+    },
+    "Vandalism_12": {
+      "clip_rows": 48,
+      "cls": "Vandalism",
+      "fps": 30.0,
+      "frames": 383,
+      "label_rows": 48,
+      "reason": "ok",
+      "rows": 48,
+      "video": "MSAD_anomaly/Vandalism/Vandalism_12.mp4"
+    },
+    "Vandalism_3": {
+      "clip_rows": 51,
+      "cls": "Vandalism",
+      "fps": 29.97,
+      "frames": 407,
+      "label_rows": 51,
+      "reason": "ok",
+      "rows": 51,
+      "video": "MSAD_anomaly/Vandalism/Vandalism_3.mp4"
+    },
+    "Vandalism_4": {
+      "clip_rows": 82,
+      "cls": "Vandalism",
+      "fps": 29.97,
+      "frames": 654,
+      "label_rows": 82,
+      "reason": "ok",
+      "rows": 82,
+      "video": "MSAD_anomaly/Vandalism/Vandalism_4.mp4"
+    },
+    "Vandalism_6": {
+      "clip_rows": 78,
+      "cls": "Vandalism",
+      "fps": 29.97002997002997,
+      "frames": 623,
+      "label_rows": 78,
+      "reason": "ok",
+      "rows": 78,
+      "video": "MSAD_anomaly/Vandalism/Vandalism_6.mp4"
+    },
+    "Vandalism_9": {
+      "clip_rows": 58,
+      "cls": "Vandalism",
+      "fps": 29.97,
+      "frames": 462,
+      "label_rows": 58,
+      "reason": "ok",
+      "rows": 58,
+      "video": "MSAD_anomaly/Vandalism/Vandalism_9.mp4"
+    },
+    "Water_incident_10": {
+      "clip_rows": 124,
+      "cls": "Water_incident",
+      "fps": 30.0,
+      "frames": 990,
+      "label_rows": 124,
+      "reason": "ok",
+      "rows": 124,
+      "video": "MSAD_anomaly/Water_incident/Water_incident_10.mp4"
+    },
+    "Water_incident_2": {
+      "clip_rows": 31,
+      "cls": "Water_incident",
+      "fps": 29.97002997002997,
+      "frames": 241,
+      "label_rows": 31,
+      "reason": "ok",
+      "rows": 31,
+      "video": "MSAD_anomaly/Water_incident/Water_incident_2.mp4"
+    },
+    "Water_incident_4": {
+      "clip_rows": 95,
+      "cls": "Water_incident",
+      "fps": 29.97,
+      "frames": 759,
+      "label_rows": 95,
+      "reason": "ok",
+      "rows": 95,
+      "video": "MSAD_anomaly/Water_incident/Water_incident_4.mp4"
+    },
+    "Water_incident_6": {
+      "clip_rows": 98,
+      "cls": "Water_incident",
+      "fps": 29.97002997002997,
+      "frames": 779,
+      "label_rows": 98,
+      "reason": "ok",
+      "rows": 98,
+      "video": "MSAD_anomaly/Water_incident/Water_incident_6.mp4"
+    },
+    "Water_incident_8": {
+      "clip_rows": 75,
+      "cls": "Water_incident",
+      "fps": 30.00050505900773,
+      "frames": 594,
+      "label_rows": 75,
+      "reason": "ok",
+      "rows": 75,
+      "video": "MSAD_anomaly/Water_incident/Water_incident_8.mp4"
+    }
+  }
+}

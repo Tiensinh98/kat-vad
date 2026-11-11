@@ -2395,4 +2395,13 @@ Promote if a second harness needs the same split.
 **Good:** keep the reference's sampling mode as an opt-in flag (`--legacy-shared-verbalizer`), gate the reproduction on it, and run the compared rows on the current mode; print the other gap
 **Rule:** Record how conditioning was sampled beside every reference number, and change that sampling only behind a flag that can reproduce the old record.
 **Files:** core/evaluate.py (--legacy-shared-verbalizer), core/data/definitions.py:item_verbalizer, core/docs/final/KIM_RUN.md §18 MS4 note 2026-11-11
-**Why pending:** the legacy read is not yet run; if it does not reproduce 0.8949 the cause is something else and this lesson is void.
+**Why pending:** one corpus. Confirmed 2026-11-11: the legacy read reproduces 0.894897 vs 0.8949 (gap −0.00000), macro per-item 0.7176 vs legacy 0.7177, `KIM_RUN.md` §18.1.
+
+## (da) [MEDIUM] Gate - when a gate moves to another artifact, move it in every consumer; the report tool kept the old one (2026-11-11)
+**Triggers:** gate, M0, report tool, notebook, legacy run, per-item read, two consumers, k5_msad_report
+**Problem:** the notebook gated M0 on the `LaGoVAD_legacy` run and passed, but `k5_msad_report.gate_m0` still gated on the per-item run (0.8986 vs 0.8949) and raised after the K5 read, so the failure showed only on the last cell.
+**Bad:** change the gate's input in the runbook and leave the aggregation tool gating on the earlier artifact
+**Good:** one reference + one artifact per gate, read by both; the report takes the gated run as an explicit input, refuses if it scored other videos or labels, and prints the other read's gap
+**Rule:** Grep every consumer of a gate's reference constant (`MSAD_ZS_GATE_A_MICRO`) when its input changes, and test the tool with a gated run that differs from the table's row.
+**Files:** core/tools/k5_msad_report.py:gate_m0, core/tests/test_k5_msad_report.py:test_per_item_gap_does_not_gate, colab/final/k5_msad.ipynb
+**Why pending:** one tool; found and fixed in the same session.
