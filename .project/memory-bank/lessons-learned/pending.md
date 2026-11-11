@@ -2405,3 +2405,21 @@ Promote if a second harness needs the same split.
 **Rule:** Grep every consumer of a gate's reference constant (`MSAD_ZS_GATE_A_MICRO`) when its input changes, and test the tool with a gated run that differs from the table's row.
 **Files:** core/tools/k5_msad_report.py:gate_m0, core/tests/test_k5_msad_report.py:test_per_item_gap_does_not_gate, colab/final/k5_msad.ipynb
 **Why pending:** one tool; found and fixed in the same session.
+
+## (db) [MEDIUM] Gate - a ratio bar needs the ruler's achievable range under the measured floor; write it before the bar (2026-11-11)
+**Triggers:** ratio bar, cosine distance, floor, noise floor, gate, pre-registered threshold, pos_neg_gap
+**Problem:** `pos_neg_gap` gated STOP iff `gap / floor < 1.5` with both a cosine distance (about [0, 1]); the measured floor was 0.741, so the bar needed a mean cosine below -0.11 and the ratio could not realistically exceed about 1.35 -- STOP was close to forced whatever the data.
+**Bad:** fix `ratio < 1.5` from intuition, define the floor afterwards, read the number
+**Good:** compute the ruler's maximum (and the floor's plausible range) first; state the largest ratio the rule can return; refuse a bar above it
+**Rule:** Derive the largest value a gated ratio can take from the ruler's range and the floor before fixing its bar, and write that maximum beside the bar in the rule document.
+**Files:** core/tools/pos_neg_gap.py:summarize, core/docs/final/POSNEG_GAP.md
+**Why pending:** one tool, one read (n = 1); the rule stayed unchanged and the read-out records the cap instead.
+
+## (dc) [MEDIUM] Probe - at tau = 0.02 an attention pool is an argmin; comparing frame sets that share the argmin compares nothing (2026-11-11)
+**Triggers:** attention pooling, softmax temperature, CONTRASTIVE_TEMP, n3 mining, argmin, hard negative, frame set
+**Problem:** `softmax(-logit / 0.02)` put mass 1.0000 on one GT-normal frame, so N-label, N-thr and N-soft negatives were the same vector (agree to 4 digits) and the three-way comparison carried no information.
+**Bad:** compare candidate frame sets under a pool whose temperature makes the set irrelevant
+**Good:** print the pool's effective support (entropy or top-1 mass) before comparing selections; if it is about 1 frame, the selection is not the variable
+**Rule:** Print the top-1 attention mass of any `softmax(logit / tau)` pool before reading a contrast between the sets it pools over.
+**Files:** core/losses/contrastive.py:CapContrastLoss.forward, core/tools/pos_neg_gap.py:video_metrics
+**Why pending:** one tool, one read (n = 1); the per-video file was not inspected.
