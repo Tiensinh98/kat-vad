@@ -1138,3 +1138,11 @@ NORMAL_PROBE_TEXT_MINOR_W = 0.9  # §15 step 1: pre-fusion w at or above this = 
 NORMAL_PROBE_REPRO_TOL = 1e-4  # §15 gate: in-process original-text macro vs the recorded K5 read
 NORMAL_PROBE_REPORT_DIRNAME = "normal_text_probe"  # OUTPUT_ROOT/kim/REPORTS/normal_text_probe
 NORMAL_PROBE_ADP_ALPHA_KEY = "bin_head.adp_alpha"  # BinaryHead's learned blend parameter
+
+# --- pos/neg feature gap probe (core/docs/final/POSNEG_GAP.md, rule dated 2026-11-11) ---
+POSNEG_GAP_RATIO = 1.5  # STOP iff mean gap(pos, N-label) < this x mean floor(pos, neg of normal frames)
+POSNEG_SIGMOID_THRESHOLD = 0.5  # N-thr: frames whose sigmoid(logit) is below this are "normal"
+POSNEG_FLOOR_DRAWS = 20  # random half-splits of a video's normal frames per video (floor)
+POSNEG_BOOTSTRAP_DRAWS = 2000  # video-level bootstrap for the printed intervals
+POSNEG_MIN_NORMAL_FRAMES = 2  # a floor needs two halves of >= 1 normal frame each
+POSNEG_REPORT_STEM = "pos_neg_gap"
