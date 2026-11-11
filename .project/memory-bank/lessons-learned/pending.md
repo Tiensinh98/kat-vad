@@ -2423,3 +2423,12 @@ Promote if a second harness needs the same split.
 **Rule:** Print the top-1 attention mass of any `softmax(logit / tau)` pool before reading a contrast between the sets it pools over.
 **Files:** core/losses/contrastive.py:CapContrastLoss.forward, core/tools/pos_neg_gap.py:video_metrics
 **Why pending:** one tool, one read (n = 1); the per-video file was not inspected.
+
+## (dd) [MEDIUM] Proposal - grep the tool directory and RESULTS_* for the idea's mechanism before calling it new (2026-11-11)
+**Triggers:** propose, idea, gate, clip-level, video-level, micro, false positive, normal videos, new experiment
+**Problem:** Asked how to raise K5's micro without costing macro, Claude proposed a "new" video-level gate and blamed CRN; K5 has no CRN (`KIM_RUN.md` D1) and the gate was v2's §27 (`tad_clip_gate.py`, `RESULTS_TADZ.md` §3, lesson (bp) — which already records the same CRN mis-attribution). The user caught the CRN error; the prior gate was found only while building.
+**Bad:** propose from memory of the design docs, then search the code for helpers.
+**Good:** `ls core/tools | grep -i <mechanism>` + grep `core/docs/**/RESULTS_*.md` and pending.md for the mechanism (gate, clip-level, minmax) and read the arm's config before naming a cause.
+**Rule:** Search tools, RESULTS docs and pending lessons for the mechanism, and read the arm's config, before proposing an experiment or a cause.
+**Files:** core/tools/tad_clip_gate.py; core/docs/v2/RESULTS_TADZ.md §3; core/docs/final/KIM_RUN.md §19
+**Gates:** recurring? yes (memory `check-prior-probes-before-proposing`, tw_probe 2026-10-09); HIGH-impact? no (caught before any GPU) → pending.

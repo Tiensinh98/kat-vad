@@ -1146,3 +1146,9 @@ POSNEG_FLOOR_DRAWS = 20  # random half-splits of a video's normal frames per vid
 POSNEG_BOOTSTRAP_DRAWS = 2000  # video-level bootstrap for the printed intervals
 POSNEG_MIN_NORMAL_FRAMES = 2  # a floor needs two halves of >= 1 normal frame each
 POSNEG_REPORT_STEM = "pos_neg_gap"
+
+# --- K5 micro headroom + MSAD clip gate (KIM_RUN.md §19, read 2026-11-11) ---
+K5G_REPORT_STEM = "k5_clip_gate"  # OUTPUT_ROOT/kim/REPORTS/k5_clip_gate.{json,md}
+KIM_GATE_OUTPUT_DIRNAME = "kim_gate"  # OUTPUT_ROOT/kim_gate: gates/, eval/nexar/K5/, REPORTS/ (§20)
+KIM_GATE_NEXAR_TRAIN_COUNTS = (451, 449)  # §20 NX5 R4: nexar_train abnormal / normal videos
+KIM_GATE_REPRO_TOL = 1e-4  # §20 NX5 R1: K5's nexar_val re-read vs §13's recorded read

@@ -68,6 +68,7 @@ READOUT_JSON = "nexar_readout.json"
 READOUT_MD = "nexar_readout.md"
 ITEM_AUCS_JSON = "item_aucs.json"
 VIDEO_STATS_JSON = "video_stats.json"  # per whole video: peak, mean, range, label, scene (§17 NG5)
+SCORES_DIRNAME = "scores"  # --save-scores: <out>/scores/<video>.npz {score, gt} (tadz format)
 CROP_SEP = "@"
 
 
@@ -220,6 +221,22 @@ def video_stats(
     }
 
 
+def save_whole_scores(
+    out_dir: Path, scores: dict[str, np.ndarray], labels: dict[str, np.ndarray], ids: list[str],
+) -> int:
+    """Whole-video native curves as ``<out>/scores/<video>.npz`` (``score``, ``gt``).
+
+    The format ``core.evaluate --save-scores`` writes, so ``tadz_readout.load_run`` reads it
+    (``KIM_RUN.md`` §20). Crops are not saved.
+    """
+    target = out_dir / SCORES_DIRNAME
+    target.mkdir(parents=True, exist_ok=True)
+    for v in ids:
+        np.savez(target / f"{v}.npz", score=np.asarray(scores[v], dtype=np.float32),
+                 gt=np.asarray(labels[v], dtype=np.float32))
+    return len(ids)
+
+
 def summarize(
     scores: dict[str, np.ndarray], labels: dict[str, np.ndarray], ids: list[str],
     rows: dict[str, dict[str, Any]], items: dict[str, tuple[str, int, int]], seed: int,
@@ -329,6 +346,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     args.out_dir.mkdir(parents=True, exist_ok=True)
     write_json_atomic(args.out_dir / ITEM_AUCS_JSON, summary["item_aucs"])
     write_json_atomic(args.out_dir / VIDEO_STATS_JSON, video_stats(averaged, ids, rows))
+    if args.save_scores:
+        LOGGER.info("saved %d whole-video curves", save_whole_scores(args.out_dir, averaged,
+                                                                    labels, ids))
     write_json_atomic(args.out_dir / READOUT_JSON, readout)
     write_text_atomic(args.out_dir / READOUT_MD, render_markdown(readout))
     LOGGER.info("whole macro %s; crop mean %s -> %s", readout["whole"]["macro"],
@@ -410,6 +430,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--seed", type=int, default=constants.SEED, help="bootstrap seed")
     parser.add_argument("--device", default="auto")
     parser.add_argument("--out-dir", type=Path, required=True)
+    parser.add_argument("--save-scores", action="store_true",
+                        help="also write every whole video's native curve to <out>/scores/")
     return parser
 
 

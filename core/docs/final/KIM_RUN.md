@@ -964,3 +964,63 @@ Macro per class on MSAD-full (printed, no interval, few videos per class), K5 �
 **Mechanics.** `core.tools.k5_msad_report` first gated M0 on the per-item run and raised on the first Colab run (0.8986 vs 0.8949) although the notebook had already passed M0 on the legacy run. Fixed 2026-11-11: M0 gates `eval/LaGoVAD_legacy/released/`; the per-item micro and its gap are printed in the report and JSON (`per_item_micro`, `per_item_gap`); the report refuses if the legacy run scored other videos or labels than the table's rows. Test `test_per_item_gap_does_not_gate`; `core/tests/test_k5_msad_report.py` 9 passed. The table was produced after the fix, from the same saved scores.
 
 **What may follow (MS8).** Nothing adopted; no limitation written (the traffic macro is not "below"). Open, each needing its own dated note: the clip-normalized micro above; more K5 seeds for the 19-video traffic interval; an MSAD-trained arm read on TAD.
+
+## 19. K5's micro: per-video headroom and v2's §27 MSAD clip gate on K5 (2026-11-11; user)
+
+**Question (user).** K5's macro is high but its micro is lower, because normal videos score high. Can micro rise without macro falling? **Disclosure:** Claude first proposed a video-level gate as a new idea, plus a CRN explanation; K5 has no CRN (D1), and the gate is v2's §27 (`RESULTS_TADZ.md` §3, `tad_clip_gate.py`, 2026-10-21). This section re-uses that frozen gate. It fits and trains nothing.
+
+**Why a per-video gate cannot cost macro.** Macro ranks frames inside one video. Adding a per-video constant, or multiplying by one that is > 0, leaves every within-video order unchanged; only how videos interleave in the pooled micro ranking can move. A global calibration (temperature, sigmoid) moves neither metric.
+
+**Step 0 (headroom, local saved scores, K5 s2024, no new run).** Tool `core.tools.k5_clip_gate`. "Offset by X" = `s + K·X(v)` with `K` = the set's score spread + 1 (exactly a lexicographic rank only for the 0/1 oracle). DoTA-CAP and DADA whole have **no normal videos** (569 / 370 all two-class), so no video-label gate can help them; they are not read.
+
+| Set (videos / normal) | macro | micro raw | oracle per-video gate | per-video min-max | offset by K5's peak | offset by K5's mean | clip oracle | length ruler |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| TAD (100 / 40) | 0.7002 | 0.6781 | **0.9394** | 0.7517 | 0.5551 | 0.6628 | 0.9226 | 0.8968 |
+| DAD (466 / 301) | 0.7916 | 0.7050 | **0.8830** | 0.7758 | 0.6251 | 0.6334 | 0.8390 | 0.5000 |
+| MSAD-full (240 / 121) | 0.6810 | 0.5386 | **0.9238** | 0.5555 | 0.5093 | 0.5188 | 0.8943 | 0.6466 |
+
+- The micro gap is almost all **between videos**: a correct per-video gate lifts micro by +0.18 … +0.39.
+- **K5's own curve does not carry that signal.** Clip AUC of K5's peak / mean / range: TAD 0.64 / 0.69 / 0.62, DAD 0.65 / 0.65 / 0.65, MSAD 0.50 / 0.53 / 0.50, and offsetting by them lowers micro. A gate needs information K5's score does not have.
+- Per-video min-max alone raises micro on TAD (+0.074) and DAD (+0.071). It is an eval-protocol change chosen after seeing these sets: printed, never a K5 number.
+
+**Step 1 (written before the read, here):** n = 1 (K5 s2024 × §27's frozen gate, `outputs/v2/v2_tadg/gate/c_{test,msad_test}.json`). TAD is zero-shot for both. Sentence: "the MSAD gate restores clip-level discrimination for K5 on TAD" iff the video bootstrap of micro(K5 × gate) − micro(K5) lies above 0. Expected: above (A3-ign had +0.157 with this gate at the same raw micro). MSAD-test is **in-domain for the gate** (fitted on MSAD-train): printed, not read. Macro must not move (|Δ| ≤ 1e-9, else the tool raises).
+
+**Read (2026-11-11), `outputs/v_final/kim/REPORTS/k5_clip_gate.{md,json}` (untracked):**
+
+| Set | row | micro | AP | clip AUC |
+|---|---|---:|---:|---:|
+| TAD | K5 raw | 0.6781 | 0.2568 | 0.6358 |
+| | min-max only | 0.7517 | 0.2594 | 0.6146 |
+| | gate only (`c(v)` on every frame) | 0.8599 | 0.2462 | 0.8512 |
+| | **K5 × gate** | **0.8692** | **0.3695** | 0.8512 |
+| MSAD-test (gate in-domain) | K5 raw | 0.5386 | 0.2607 | 0.5020 |
+| | gate only | 0.8738 | 0.5990 | 0.9484 |
+| | K5 × gate | 0.8474 | 0.5776 | 0.9484 |
+
+- TAD: micro(K5 × gate) − micro(K5) **+0.1911 [+0.1149, +0.2693]** → **above**; the expectation held. Macro drift 0. Versus min-max only +0.1175 [+0.0712, +0.1675].
+- **Most of it is the gate, not K5:** micro(K5 × gate) − micro(gate only) = +0.0093 [−0.0454, +0.0798] on TAD (not separated) and −0.0265 [−0.0498, −0.0029] on in-domain MSAD. AP is where K5 adds: 0.246 → 0.370 on TAD (localization inside the videos the gate keeps).
+- Still below the length ruler (0.8968) and the clip oracle (0.9226) on TAD.
+
+**Licensed:** "On TAD, v2's MSAD-fitted clip gate (no TAD video, no Nexar video, fitted before K5 existed) lifts K5's micro 0.678 → 0.869, Δ +0.191 [+0.115, +0.269], macro unchanged by construction; nearly all of the micro comes from the gate (gate alone 0.860). PRELIMINARY (n = 1)." **Not licensed:** "K5 detects better", "the gate detects accidents" (MSAD's 11 classes, recording style not ruled out, §27 limits); any MSAD sentence (gate in-domain); TAD micro beside 89.56 or LaGoVAD's 0.7912 without "not matched" (both rows have different training data and the system now has two components); a streaming claim (the gate needs the whole video's mean); any DAD or Nexar sentence (no gate scores yet).
+
+**What may follow, none authorized:** (a) score §27's gate on DAD (`DAD_s7_ncc`) and `nexar_val` (Colab; CLIP mean only) — the zero-shot dashcam reads; (b) a gate fitted on `nexar_train` (dashcam, both classes; NG5's scene / weather shortcut applies), read on `nexar_val`, DAD, TAD; needs K5's `nexar_val` per-frame scores, which `nexar_eval` does not save; (c) a causal gate on a running mean.
+
+## 20. A clip gate fitted on `nexar_train`, applied to K5 (dated note 2026-11-11, before any number; user)
+
+**Question (user, option (b) of §19).** §19's gate was fitted on MSAD (CCTV, 11 mostly non-traffic classes). Does a gate fitted on K5's own training corpus (Nexar dashcam, both classes) lift K5's micro in-domain and zero-shot, with macro unchanged by construction? Nothing in K5 is trained; only a 513-parameter logistic gate is fitted.
+
+| # | Choice | Value |
+|---|---|---|
+| NX1 | Gate `NG` | `tad_clip_gate fit` unchanged (§27 G2: standardized mean raw CLIP, class-balanced logistic, `C` = 1.0, no tuning) on **every `nexar_train` video** (451 positive / 449 negative; `--expect-counts 451 449`), features `Nexar_s1_ncc` (every native frame). Video label = census `label`. No `nexar_val` / `nexar_test` video is fitted on |
+| NX2 | Gate `MS` | §27's frozen `gate.npz` (MSAD-train), printed beside `NG` on every set |
+| NX3 | Scored sets | `nexar_val` (225: 112 / 113; `Nexar_s1_ncc`), TAD-test (100; `TAD_ncc`), DAD test (466; `DAD_s7_ncc`), MSAD-test (240; `MSAD_ncc`). Same `_ncc` extractor everywhere (C2); the mean is taken at each cache's own stride |
+| NX4 | K5 curves | `nexar_val`: K5 s2024 re-read by `nexar_eval --save-scores` (whole videos, protocol N-B, native frames). TAD / DAD / MSAD: the saved `core.evaluate` runs of §13 / §18 (`kim/eval/{tad,dad}/K5/s2024`, `kim_msad/eval/K5/s2024`) |
+| NX5 | Gates (stop on any) | **R1** the re-read's whole micro and crop endpoint equal §13's (`kim_t2/eval/nexar/K5`) within 1e-4; **R2** every gate row count equals the curve length (Nexar: s1 rows = native frames); **R3** macro of every fusion equals K5's (|Δ| ≤ 1e-9); **R4** `NG`'s fit counts are 451 / 449 |
+| NX6 | Fusion, rows | `c(v) · minmax_v(s)` (§27 G3). Per set and gate: K5 raw, min-max only, gate only, K5 × gate (micro, AP, clip AUC); clip oracle and length ruler beside |
+| NX7 | Sentences | Per set: micro(K5 × `NG`) − micro(K5), video bootstrap (10,000, seed 2026): "above / below / not separated". **E1 (in-domain) = `nexar_val`**; zero-shot = TAD, DAD, MSAD-full (`NG` saw none of them). For `MS`, MSAD is in-domain: printed, no sentence |
+| NX8 | Printed, never gating | micro(K5 × `NG`) − micro(K5 × `MS`) and − micro(gate only) per set; on `nexar_val` the clip AUC of `NG`, `MS` and K5's peak **within each census scene and weather value** with both classes (the NG5 shortcut: `nexar_train` Sub-urban 41 / 122, Rain 42 / 14) |
+| NX9 | What may follow | **Candidate add-on** (Claude may propose it; the user decides) iff E1 is "above" **and** no zero-shot set is "below". Otherwise no claim. Never a K5 change; the gate needs the whole video's mean (offline) |
+
+**Expectations, written before the numbers:** (a) E1 above: K5's clip AUC on `nexar_val` is 0.774, and an in-domain gate should separate videos better. (b) DAD above (dashcam, zero-shot). (c) TAD and MSAD not separated, and `MS` ahead of `NG` on both (CCTV; `MS` reached 0.851 on TAD). (d) Within-scene clip AUC of `NG` lower than its pooled one (some scene shortcut). A wrong expectation changes nothing.
+
+**Limits.** n = 1 (one K5 checkpoint, one deterministic fit). `nexar_val` already judged K5's recipe choices (in-domain, a dev set). The gate reads video-level CLIP content, so on Nexar it can learn recording conditions that differ by class (NX8 prints it, does not rule it out).
