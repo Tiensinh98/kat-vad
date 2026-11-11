@@ -377,6 +377,28 @@ class TestInferenceEvalViz:
                 err_msg=f"{video_id} changed because another clip was skipped (C30)",
             )
 
+    def test_legacy_shared_verbalizer_is_recorded_and_opt_in(
+        self, fixture: FixtureLayout, trained: Path, tmp_path: Path
+    ) -> None:
+        """The pre-C30 stream (``full_gate_a``'s): a gate flag, off by default, stamped when on."""
+        base = [
+            "--ckpt", str(trained),
+            "--data-dir", str(fixture.data_dir),
+            "--clip-dir", str(fixture.clip_dir),
+            "--text-encoder", "stub",
+            "--set", "train.device=cpu",
+        ]
+        for name, extra in (("plain", []), ("legacy", ["--legacy-shared-verbalizer"])):
+            evaluate.main([*base, "--output-dir", str(tmp_path / name), *extra])
+        plain = json.loads((tmp_path / "plain" / evaluate.RESULTS_FILENAME).read_text("utf-8"))
+        legacy = json.loads((tmp_path / "legacy" / evaluate.RESULTS_FILENAME).read_text("utf-8"))
+        assert "legacy_shared_verbalizer" not in plain
+        assert legacy["legacy_shared_verbalizer"] is True
+        assert legacy["num_videos"] == plain["num_videos"]
+        with pytest.raises(ValueError, match="needs verbalization"):
+            evaluate.main([*base, "--output-dir", str(tmp_path / "bad"),
+                           "--legacy-shared-verbalizer", "--no-verbalize"])
+
     def test_evaluate_cli_and_visualize(
         self, fixture: FixtureLayout, trained: Path, tmp_path: Path
     ) -> None:

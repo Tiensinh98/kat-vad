@@ -48,11 +48,33 @@ class TestPure:
         ref = np.zeros((4, 3), dtype=np.float32)
         assert msad_zs.max_abs_diff(ref, ref + 5e-4) == pytest.approx(5e-4, rel=1e-3)
         assert msad_zs.max_abs_diff(ref, np.zeros((5, 3))) is None
-        good = msad_zs.identity_report({"a": 1e-4, "b": 0.0}, 1e-3)
-        assert good["pass"] and good["max_abs"] == pytest.approx(1e-4)
-        bad = msad_zs.identity_report({"a": 1e-4, "b": None, "c": 0.01}, 1e-3)
-        assert not bad["pass"] and set(bad["failures"]) == {"b", "c"}
-        assert not msad_zs.identity_report({}, 1e-3)["pass"]
+
+    @staticmethod
+    def _rows(seed: int, n: int = 6) -> np.ndarray:
+        return np.random.default_rng(seed).normal(size=(n, 16)).astype(np.float32)
+
+    def test_identity_same_video_small_drift_passes_but_is_not_bit_identical(self) -> None:
+        """The 2026-11-10 read: max abs 1.6e-2 over 8 of 12 videos, cosine >= 0.999992."""
+        a, b = self._rows(0), self._rows(1)
+        noise = 1e-2 * np.random.default_rng(2).normal(size=a.shape).astype(np.float32)
+        rep = msad_zs.identity_report({"a": (a, a + noise), "b": (b, b)}, 1e-3, 0.999)
+        assert rep["pass"] and not rep["failures"]
+        assert not rep["bit_identical"] and rep["max_abs"] > 1e-3
+        assert rep["min_cos"] >= 0.999
+        exact = msad_zs.identity_report({"a": (a, a), "b": (b, b)}, 1e-3, 0.999)
+        assert exact["pass"] and exact["bit_identical"]
+
+    def test_identity_fails_other_video_row_mismatch_and_swap(self) -> None:
+        a, b = self._rows(0), self._rows(1)
+        other = msad_zs.identity_report({"a": (a, self._rows(9))}, 1e-3, 0.999)
+        assert not other["pass"] and set(other["failures"]) == {"a"}
+        rows = msad_zs.identity_report({"a": (a, a[:-1])}, 1e-3, 0.999)
+        assert not rows["pass"] and rows["failures"]["a"]["min_cos"] is None
+        swapped = msad_zs.identity_report({"a": (a, b), "b": (b, a)}, 1e-3, -1.0)
+        assert not swapped["pass"] and set(swapped["failures"]) == {"a", "b"}  # nearest_is_own
+        zero = msad_zs.identity_report({"a": (np.zeros((3, 4)), np.ones((3, 4)))}, 1e-3, 0.999)
+        assert not zero["pass"]
+        assert not msad_zs.identity_report({}, 1e-3, 0.999)["pass"]
 
 
 class TestCensus:

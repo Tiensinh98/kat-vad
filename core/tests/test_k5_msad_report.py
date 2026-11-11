@@ -29,11 +29,14 @@ def _write_run(d: Path, scores: dict[str, np.ndarray]) -> None:
         np.savez(d / "scores" / f"{vid}.npz", score=scores[vid], gt=_labels(vid, n))
 
 
-def _runs(root: Path, k5_shift: float = 0.0, k5_labels_off: bool = False) -> None:
+def _runs(root: Path, k5_shift: float = 0.0, k5_labels_off: bool = False,
+          legacy_shift: float = 0.0) -> None:
     rng = np.random.default_rng(0)
     lag = {v: rng.random(n) for v, n in IDS.items()}
     k5 = {v: s + k5_shift * _labels(v, len(s)) for v, s in lag.items()}
     _write_run(root / "eval" / rep.LAG / constants.ZS_LAGOVAD_RUN, lag)
+    legacy = {v: s + legacy_shift * rng.random(len(s)) for v, s in lag.items()}
+    _write_run(root / "eval" / rep.LAG_LEGACY / constants.ZS_LAGOVAD_RUN, legacy)
     _write_run(root / "eval" / rep.K5 / "s2024", k5)
     if k5_labels_off:
         p = root / "eval" / rep.K5 / "s2024" / "scores" / "Fire_1.npz"
@@ -51,7 +54,7 @@ def _args(root: Path) -> argparse.Namespace:
 
 
 def _gate_to(root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    s, g = td.load_run(root / "eval" / rep.LAG / constants.ZS_LAGOVAD_RUN)
+    s, g = td.load_run(root / "eval" / rep.LAG_LEGACY / constants.ZS_LAGOVAD_RUN)
     monkeypatch.setattr(constants, "MSAD_ZS_GATE_A_MICRO", td.micro(s, g))
 
 
@@ -69,9 +72,11 @@ class TestPure:
         assert rep.equal_video_micro(scores, labels) > td.micro(scores, labels)
 
     def test_gate_m0_raises(self) -> None:
-        assert rep.gate_m0(constants.MSAD_ZS_GATE_A_MICRO)["pass"]
+        ref = constants.MSAD_ZS_GATE_A_MICRO
+        out = rep.gate_m0(ref, ref + 0.0037)  # per-item gap is printed, never gated (C30)
+        assert out["pass"] and out["per_item_gap"] == pytest.approx(0.0037)
         with pytest.raises(ValueError, match="M0"):
-            rep.gate_m0(constants.MSAD_ZS_GATE_A_MICRO + 0.01)
+            rep.gate_m0(ref + 0.01, ref)
 
 
 class TestRun:
@@ -101,6 +106,13 @@ class TestRun:
         _gate_to(tmp_path, monkeypatch)
         with pytest.raises(ValueError, match="labels differ"):
             rep.run(_args(tmp_path))
+
+    def test_per_item_gap_does_not_gate(self, tmp_path: Path, small: None,
+                                        monkeypatch: pytest.MonkeyPatch) -> None:
+        _runs(tmp_path, legacy_shift=0.5)  # table row differs from the legacy read
+        _gate_to(tmp_path, monkeypatch)
+        m0 = rep.run(_args(tmp_path))["m0"]
+        assert m0["pass"] and m0["per_item_gap"] != pytest.approx(0.0)
 
     def test_refuses_m0_miss(self, tmp_path: Path, small: None) -> None:
         _runs(tmp_path)

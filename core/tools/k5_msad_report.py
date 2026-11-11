@@ -3,10 +3,13 @@
 Pure aggregation over two ``core.evaluate --save-scores`` runs; no model is loaded. Refuses to
 write when the two rows did not score the same videos with the same labels, when the protocol size
 is not 240 videos / 96 two-class (19 on MSAD-traffic), or when LaGoVAD misses gate M0 (its micro
-must reproduce ``full_gate_a``'s 0.8949). Two sets (MS5): **MSAD-traffic** (``Traffic_accident`` +
-every normal; answers the CCTV question) and **MSAD-full** (paper comparison). Inputs::
+on the legacy shared-verbalizer read must reproduce ``full_gate_a``'s 0.8949; the per-item read the
+table uses is printed against it, not gated, ``KIM_RUN.md`` §18 MS4 / lesson C30). Two sets (MS5):
+**MSAD-traffic** (``Traffic_accident`` + every normal; answers the CCTV question) and
+**MSAD-full** (paper comparison). Inputs::
 
-    <root>/eval/LaGoVAD/released/   <root>/eval/K5/s<seed>/   [<root>/REPORTS/msad_census.json]
+    <root>/eval/LaGoVAD/released/   <root>/eval/LaGoVAD_legacy/released/   (M0 gate only)
+    <root>/eval/K5/s<seed>/   [<root>/REPORTS/msad_census.json]
 
 CLI::
 
@@ -37,6 +40,7 @@ LOGGER = logging.getLogger(__name__)
 REPORT_STEM = "k5_msad_report"
 LABEL = "PRELIMINARY (n = 1), not matched"
 LAG, K5 = constants.ZS_LAGOVAD_ARM, constants.KIM_MAIN_ARM
+LAG_LEGACY = f"{LAG}_legacy"  # the notebook's row name for the `--legacy-shared-verbalizer` read
 FULL, TRAFFIC = constants.MSAD_ZS_FULL_SET, constants.MSAD_ZS_TRAFFIC_SET
 SET_ORDER = (TRAFFIC, FULL)
 SET_NAME = {TRAFFIC: "MSAD-traffic", FULL: "MSAD-full"}
@@ -91,12 +95,15 @@ def per_class_macro(items: dict[str, float]) -> dict[str, float]:
     return {c: float(np.mean(x)) for c, x in sorted(out.items())}
 
 
-def gate_m0(lagovad_micro: float) -> dict[str, Any]:
-    gap = float(lagovad_micro) - constants.MSAD_ZS_GATE_A_MICRO
-    out = {"micro": float(lagovad_micro), "reference": constants.MSAD_ZS_GATE_A_MICRO,
-           "gap": gap, "pass": abs(gap) <= constants.MSAD_ZS_GATE_A_TOL}
+def gate_m0(legacy_micro: float, per_item_micro: float) -> dict[str, Any]:
+    """M0 on the legacy-stream read; the per-item micro (the table's row) is printed, not gated."""
+    gap = float(legacy_micro) - constants.MSAD_ZS_GATE_A_MICRO
+    out = {"micro": float(legacy_micro), "reference": constants.MSAD_ZS_GATE_A_MICRO,
+           "gap": gap, "pass": abs(gap) <= constants.MSAD_ZS_GATE_A_TOL,
+           "per_item_micro": float(per_item_micro),
+           "per_item_gap": float(per_item_micro) - constants.MSAD_ZS_GATE_A_MICRO}
     if not out["pass"]:
-        raise ValueError(f"M0: LaGoVAD micro {lagovad_micro:.4f} does not reproduce "
+        raise ValueError(f"M0: LaGoVAD legacy-stream micro {legacy_micro:.4f} does not reproduce "
                          f"full_gate_a {constants.MSAD_ZS_GATE_A_MICRO} (gap {gap:+.5f}): "
                          "checkpoint or MSAD_ncc drifted")
     return out
@@ -145,8 +152,11 @@ def render(report: dict[str, Any]) -> str:
     lines = [
         "# K5 vs LaGoVAD (released ckpt), zero-shot MSAD test — KIM_RUN.md §18",
         "",
-        f"**{LABEL}.** K5 s{report['seed']}; nothing trained. Gate M0: LaGoVAD micro "
-        f"{m0['micro']:.4f} vs `full_gate_a` {m0['reference']} (gap {m0['gap']:+.5f}) PASS. "
+        f"**{LABEL}.** K5 s{report['seed']}; nothing trained. Gate M0 (legacy shared-verbalizer "
+        f"read): LaGoVAD micro {m0['micro']:.4f} vs `full_gate_a` {m0['reference']} "
+        f"(gap {m0['gap']:+.5f}) PASS. The table's per-item read (definitions drawn per video, "
+        f"same draws for both rows) is {m0['per_item_micro']:.4f} (gap {m0['per_item_gap']:+.5f}, "
+        "printed, not gated: the draws differ, C30). "
         f"LaGoVAD's printed MSAD AUC is {constants.MSAD_ZS_PAPER_MICRO} (beside its re-read only).",
         "",
         "| Set | Metric | LaGoVAD | K5 | K5 - LaGoVAD |",
@@ -201,12 +211,17 @@ def render(report: dict[str, Any]) -> str:
 def run(args: argparse.Namespace) -> dict[str, Any]:
     runs = {LAG: td.load_run(args.root / "eval" / LAG / constants.ZS_LAGOVAD_RUN),
             K5: td.load_run(args.root / "eval" / K5 / f"s{args.seed}")}
+    legacy_scores, legacy_labels = td.load_run(
+        args.root / "eval" / LAG_LEGACY / constants.ZS_LAGOVAD_RUN)
     labels = td.check_labels(runs, None)
+    if legacy_labels.keys() != labels.keys() or any(
+            not np.array_equal(legacy_labels[v], labels[v]) for v in labels):
+        raise ValueError("M0: the legacy read scored other videos or labels than the table's rows")
     if len(labels) != constants.MSAD_ZS_TEST_VIDEOS:
         raise ValueError(f"{len(labels)} videos scored, protocol {constants.MSAD_ZS_TEST_VIDEOS}")
     report: dict[str, Any] = {
         "seed": args.seed,
-        "m0": gate_m0(td.micro(runs[LAG][0], labels)),
+        "m0": gate_m0(td.micro(legacy_scores, labels), td.micro(runs[LAG][0], labels)),
         "sets": {s: read_set(runs, s) for s in SET_ORDER},
     }
     census = args.root / "REPORTS" / constants.MSAD_ZS_CENSUS_FILENAME

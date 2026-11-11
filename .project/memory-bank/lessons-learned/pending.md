@@ -2379,3 +2379,20 @@ Promote if a second harness needs the same split.
 **Files:** core/tools/k5_msad_report.py, core/docs/final/KIM_RUN.md §18
 **Why pending:** extends C12/TAD's oracle lesson to a new set; not yet seen to change a decision.
 
+## (cy) [MEDIUM] Gate - an identity gate must test "same video", not "same bits"; a tolerance written for fp16 slack passes none of the real drift (2026-11-11)
+**Triggers:** identity gate, atol, max abs, re-extract, MSAD_ncc, same video, cosine, M1
+**Problem:** M1 required max abs <= 1e-3 between re-extracted CLIP rows and `MSAD_ncc`; 4 of 12 videos matched at 1e-5 and 8 differed at 3.7e-3..1.6e-2 (cosine >= 0.999992, against 0.787 between adjacent frames and 0.779 between different videos), so the gate failed on the same videos. The cause of the drift is unidentified (the source files are gone).
+**Bad:** `assert max_abs <= 1e-3` as proof two feature sets come from the same pixels
+**Good:** per-row cosine floor + "nearest video-mean is its own"; print max abs and a bit-identical flag beside it; measure the same-video / other-video gap before choosing a floor
+**Rule:** Define an identity gate by separation from the nearest wrong answer, and print the bit-level difference without gating on it.
+**Files:** core/tools/msad_zs.py:identity_report, core/constants.py:MSAD_ZS_IDENTITY_MIN_COS, core/docs/final/KIM_RUN.md §18 MS4
+**Why pending:** one corpus; the floor was set after the first read (every floor in 0.8..0.99999 gives the same verdict, written in §18).
+
+## (cz) [MEDIUM] Gate - a reproduction gate is only valid if the sampling that made the reference is reproducible; stamp the RNG stream with the reference (2026-11-11)
+**Triggers:** reproduction gate, full_gate_a, M0, verbalizer, definition sampling, per-item seed, C30, tolerance
+**Problem:** M0 (LaGoVAD re-read micro 0.8949 +- 1e-3) failed at 0.8986 with identical frames and `gt`, because `full_gate_a` (2026-08-12) drew class definitions from one run-wide RNG stream and `core.evaluate` has drawn per video id since 2026-09-13 (C30); 197 of 240 curves moved (max 0.43), macro did not (0.7176 vs 0.7177).
+**Bad:** gate a re-read against a record made before an RNG-stream change, with a tolerance tighter than the old draw noise (+-0.003)
+**Good:** keep the reference's sampling mode as an opt-in flag (`--legacy-shared-verbalizer`), gate the reproduction on it, and run the compared rows on the current mode; print the other gap
+**Rule:** Record how conditioning was sampled beside every reference number, and change that sampling only behind a flag that can reproduce the old record.
+**Files:** core/evaluate.py (--legacy-shared-verbalizer), core/data/definitions.py:item_verbalizer, core/docs/final/KIM_RUN.md §18 MS4 note 2026-11-11
+**Why pending:** the legacy read is not yet run; if it does not reproduce 0.8949 the cause is something else and this lesson is void.

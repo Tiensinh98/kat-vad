@@ -32,6 +32,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import random
 from pathlib import Path
 
 import numpy as np
@@ -39,7 +40,7 @@ import numpy as np
 from core import constants
 from core.config import load_config
 from core.data.dataset import FeatureEvalDataset
-from core.data.definitions import dataset_abbr, item_verbalizer
+from core.data.definitions import DatasetSpecVerbalizer, dataset_abbr, item_verbalizer
 from core.data.stp_patches import eval_patches
 from core.data.v2_inputs import check_input_manifest
 from core.device import resolve_device
@@ -121,6 +122,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         default=TEXT_ENCODER_CLIP)
     parser.add_argument("--no-verbalize", action="store_true",
                         help="encode raw class names instead of sampled definitions")
+    parser.add_argument("--legacy-shared-verbalizer", action="store_true",
+                        help="ONE definition-sampling RNG stream for the whole run, in dataset "
+                             "order (this module before 2026-09-13, lesson C30): reproduces "
+                             "full_gate_a (2026-08-12). A gate only, never a read that is compared")
     parser.add_argument("--save-scores", action="store_true",
                         help="write per-video score .npz files for visualization")
     parser.add_argument(
@@ -179,6 +184,13 @@ def main(argv: list[str] | None = None) -> None:
     # `item_verbalizer` keys the stream on the video id, so any subset of a test
     # set reproduces the full run's curves bit-for-bit.
     verbalizer_dataset = None if args.no_verbalize else dataset_abbr(dataset_name)
+    shared_verbalizer: DatasetSpecVerbalizer | None = None
+    if args.legacy_shared_verbalizer:
+        if verbalizer_dataset is None:
+            raise ValueError("--legacy-shared-verbalizer needs verbalization (no --no-verbalize)")
+        shared_verbalizer = DatasetSpecVerbalizer(
+            verbalizer_dataset, rng=random.Random(constants.SEED)  # nosec B311 - conditioning
+        )
 
     all_scores: list[np.ndarray] = []
     all_labels: list[np.ndarray] = []
@@ -201,13 +213,10 @@ def main(argv: list[str] | None = None) -> None:
             )
             feats, frame_label = feats[start:end], frame_label[start:end]
             positives_after += int(frame_label.sum())
-        class_feats_fn = make_class_feats_fn(
-            text_encode_fn,
-            class_names,
-            None
-            if verbalizer_dataset is None
-            else item_verbalizer(verbalizer_dataset, video_id),
-        )
+        verbalizer = shared_verbalizer
+        if verbalizer is None and verbalizer_dataset is not None:
+            verbalizer = item_verbalizer(verbalizer_dataset, video_id)
+        class_feats_fn = make_class_feats_fn(text_encode_fn, class_names, verbalizer)
         score, sim = sliding_window_scores(
             model, feats, class_feats_fn, cfg.data.max_vis_len
         )
@@ -249,6 +258,8 @@ def main(argv: list[str] | None = None) -> None:
         "checkpoint": str(args.ckpt or args.baseline_ckpt),
         "per_video": per_video,
     }
+    if shared_verbalizer is not None:
+        results["legacy_shared_verbalizer"] = True  # never compare this row with a per-item one
     if args.equalize_length is not None:
         results["equalize"] = {
             "length": args.equalize_length,

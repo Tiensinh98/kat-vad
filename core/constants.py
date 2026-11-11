@@ -1083,7 +1083,8 @@ MSAD_ZS_GATE_A_MICRO = 0.8949  # §18 M0: full_gate_a, released ckpt on MSAD_ncc
 MSAD_ZS_GATE_A_TOL = 1e-3
 MSAD_ZS_PAPER_MICRO = 0.9041  # LaGoVAD's printed MSAD AUC: beside LaGoVAD's re-read only (C8b)
 MSAD_ZS_ASSUMED_FPS = 30  # Nexar's V2-S geometry: 16 x 3 frames = 1.6 s at 30 fps (§18 MS3)
-MSAD_ZS_IDENTITY_ATOL = 1e-3  # §18 M1: re-extracted CLIP vs MSAD_ncc, max abs (fp16 slack)
+MSAD_ZS_IDENTITY_ATOL = 1e-3  # §18 M1: bit-identical bar on max abs; printed, not gated
+MSAD_ZS_IDENTITY_MIN_COS = 0.999  # §18 M1': per-row cosine vs MSAD_ncc; set after the first read
 MSAD_ZS_CENSUS_FILENAME = "msad_census.json"
 MSAD_ZS_IDENTITY_FILENAME = "msad_identity.json"
 MSAD_ZS_FULL_SET = "msad_full"

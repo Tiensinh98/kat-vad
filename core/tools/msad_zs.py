@@ -11,7 +11,9 @@ Subcommands::
                ceil(decoded / stride) == rows(MSAD_ncc). rows != len(labels) is counted only
                (core.evaluate truncates both rows alike). Exit non-zero on failure
     pick       the 12 ids of gate M1 (first test id of each class + first normal) -> ids file
-    identity   gate M1: re-extracted CLIP rows == MSAD_ncc rows, max abs <= MSAD_ZS_IDENTITY_ATOL
+    identity   gate M1: re-extracted CLIP rows are MSAD_ncc's rows -- per-row cosine >=
+               MSAD_ZS_IDENTITY_MIN_COS and the nearest video-mean is the video's own; max abs
+               is printed against MSAD_ZS_IDENTITY_ATOL, not gated (§18 note 2026-11-11)
     decode     mp4 -> one JPEG folder per test video (VM disk), for V2-S
 
 CLI::
@@ -121,16 +123,59 @@ def max_abs_diff(ref: np.ndarray, new: np.ndarray) -> float | None:
     return float(np.max(np.abs(ref.astype(np.float64) - new.astype(np.float64))))
 
 
-def identity_report(diffs: dict[str, float | None], atol: float) -> dict[str, Any]:
-    bad = {v: d for v, d in diffs.items() if d is None or d > atol}
-    known = [d for d in diffs.values() if d is not None]
+def _unit(rows: np.ndarray) -> np.ndarray:
+    """Row-normalise; a zero row stays zero (its cosine then reads 0, never NaN)."""
+    norm = np.linalg.norm(rows, axis=-1, keepdims=True)
+    return np.asarray(rows / np.where(norm > 0, norm, 1.0))
+
+
+def min_row_cosine(ref: np.ndarray, new: np.ndarray) -> float | None:
+    """Lowest per-row cosine; ``None`` when the row counts differ."""
+    if ref.shape != new.shape:
+        return None
+    ref64, new64 = ref.astype(np.float64), new.astype(np.float64)
+    return float(np.min(np.sum(_unit(ref64) * _unit(new64), axis=1)))
+
+
+def identity_report(pairs: dict[str, tuple[np.ndarray, np.ndarray]], atol: float,
+                    min_cos: float) -> dict[str, Any]:
+    """Gate M1 over ``{video: (MSAD_ncc rows, re-extracted rows)}``.
+
+    PASS needs, for every video: the same row count, per-row cosine >= ``min_cos``, and the
+    video-mean embedding of the re-extraction closest to its own ``MSAD_ncc`` mean among all the
+    sampled videos. ``max_abs`` and ``bit_identical`` (every max abs <= ``atol``) are printed,
+    never gated: the original M1 (max abs <= 1e-3) measured bit identity, not "same video"
+    (``KIM_RUN.md`` §18, note 2026-11-11).
+    """
+    ids = list(pairs)
+    per_video: dict[str, dict[str, float | bool | None]] = {}
+    for v, (ref, new) in pairs.items():
+        per_video[v] = {"max_abs": max_abs_diff(ref, new), "min_cos": min_row_cosine(ref, new)}
+    matched: dict[str, bool] = {}
+    if ids:
+        ref_mean = _unit(np.stack([pairs[v][0].astype(np.float64).mean(axis=0) for v in ids]))
+        new_mean = _unit(np.stack([pairs[v][1].astype(np.float64).mean(axis=0) for v in ids]))
+        nearest = (ref_mean @ new_mean.T).argmax(axis=1)
+        matched = {v: bool(nearest[i] == i) for i, v in enumerate(ids)}
+    for v in ids:
+        per_video[v]["nearest_is_own"] = matched[v]
+    failures: dict[str, dict[str, float | bool | None]] = {}
+    for v, stats in per_video.items():
+        cos = stats["min_cos"]
+        if not isinstance(cos, float) or not cos >= min_cos or not stats["nearest_is_own"]:
+            failures[v] = stats
+    abs_known = [s["max_abs"] for s in per_video.values() if isinstance(s["max_abs"], float)]
+    cos_known = [s["min_cos"] for s in per_video.values() if isinstance(s["min_cos"], float)]
     return {
-        "videos": len(diffs),
+        "videos": len(ids),
         "atol": atol,
-        "max_abs": max(known) if known else None,
-        "per_video": diffs,
-        "failures": bad,
-        "pass": bool(diffs) and not bad,
+        "min_cos_floor": min_cos,
+        "max_abs": max(abs_known) if abs_known else None,
+        "min_cos": min(cos_known) if cos_known else None,
+        "bit_identical": bool(abs_known) and len(abs_known) == len(ids) and max(abs_known) <= atol,
+        "per_video": per_video,
+        "failures": failures,
+        "pass": bool(ids) and not failures,
     }
 
 
@@ -183,10 +228,10 @@ def census_current(doc: dict[str, Any]) -> bool:
         constants.MSAD_ZS_SOURCE_DIRS)
 
 
-def identity(ref_dir: Path, new_dir: Path, ids: list[str], atol: float) -> dict[str, Any]:
-    diffs = {v: max_abs_diff(np.load(ref_dir / f"{v}.npy"), np.load(new_dir / f"{v}.npy"))
-             for v in ids}
-    return identity_report(diffs, atol)
+def identity(ref_dir: Path, new_dir: Path, ids: list[str], atol: float,
+             min_cos: float = constants.MSAD_ZS_IDENTITY_MIN_COS) -> dict[str, Any]:
+    pairs = {v: (np.load(ref_dir / f"{v}.npy"), np.load(new_dir / f"{v}.npy")) for v in ids}
+    return identity_report(pairs, atol, min_cos)
 
 
 def _read_json(path: Path) -> Any:
@@ -209,7 +254,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     i.add_argument("--ref", type=Path, required=True)
     i.add_argument("--new", type=Path, required=True)
     i.add_argument("--ids-file", type=Path, required=True)
-    i.add_argument("--atol", type=float, default=constants.MSAD_ZS_IDENTITY_ATOL)
+    i.add_argument("--atol", type=float, default=constants.MSAD_ZS_IDENTITY_ATOL,
+                   help="bit-identical threshold on max abs: printed, not gated")
+    i.add_argument("--min-cos", type=float, default=constants.MSAD_ZS_IDENTITY_MIN_COS,
+                   help="every row's cosine(MSAD_ncc, re-extracted) must reach this")
     i.add_argument("--out", type=Path, required=True)
     d = sub.add_parser("decode", help="mp4 -> JPEG folders (VM disk)")
     d.add_argument("--videos-root", type=Path, required=True)
@@ -231,10 +279,11 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "identity":
         ids = [v for v in args.ids_file.read_text(encoding="utf-8").split() if v]
-        rep = identity(args.ref, args.new, ids, args.atol)
+        rep = identity(args.ref, args.new, ids, args.atol, args.min_cos)
         args.out.parent.mkdir(parents=True, exist_ok=True)
         write_json_atomic(args.out, rep)
-        LOGGER.info("identity: %s", json.dumps({k: rep[k] for k in ("videos", "max_abs", "pass")}))
+        LOGGER.info("identity: %s", json.dumps(
+            {k: rep[k] for k in ("videos", "max_abs", "min_cos", "bit_identical", "pass")}))
         if not rep["pass"]:
             raise SystemExit(f"M1 FAILED: these are not MSAD_ncc's videos: {rep['failures']}")
         return
