@@ -1025,6 +1025,61 @@ Macro per class on MSAD-full (printed, no interval, few videos per class), K5 �
 
 **Limits.** n = 1 (one K5 checkpoint, one deterministic fit). `nexar_val` already judged K5's recipe choices (in-domain, a dev set). The gate reads video-level CLIP content, so on Nexar it can learn recording conditions that differ by class (NX8 prints it, does not rule it out).
 
+### 20.1 Read-out (2026-11-12, K5 s2024, `NG` fitted once, `MS` = §27's frozen gate; raw `outputs/v_final/kim_gate/REPORTS/k5_clip_gate.{md,json}` + `strata_nexar_val.json`; PRELIMINARY, n = 1)
+
+**Decision (NX9): no candidate add-on, no claim.** E1 is "below", so the add-on condition fails before the zero-shot sets are read. Nothing about K5 changes.
+
+**Gates.** R1 passed: the `--save-scores` re-read of K5 on `nexar_val` gives whole micro **0.9000** and crop endpoint **0.8981**, the same as §13 (`kim_t2/eval/nexar/K5`: 0.9000 / 0.8981). R2 passed: the tool raises when a gate's row count differs from the curve length. R3 passed: macro drift is 0.0 for every fusion. R4 passed: `NG` was fitted on 451 / 449 videos (`gates/NG/gate.json`: 900 videos). The notebook also asserts that `nexar_train` and `nexar_val` do not overlap, and that `MS` re-scored on TAD equals §27's `c_test.json` within 1e-9.
+
+micro(K5 × gate) − micro(K5 raw), video bootstrap 10,000 draws, seed 2026:
+
+| set | macro | K5 raw micro | `NG`: K5 × gate | Δ vs K5 raw | sentence | `MS`: K5 × gate | Δ vs K5 raw | sentence |
+|---|---:|---:|---:|---|---|---:|---|---|
+| `nexar_val` (E1, in-domain for `NG`) | 0.9245 | 0.9000 | 0.8571 | −0.0429 [−0.0728, −0.0161] | **below** | 0.8842 | −0.0159 [−0.0293, −0.0014] | below |
+| TAD | 0.7002 | 0.6781 | 0.7185 | +0.0404 [−0.0311, +0.1116] | not separated | 0.8692 | +0.1911 [+0.1149, +0.2693] | above |
+| DAD | 0.7916 | 0.7050 | 0.6973 | −0.0077 [−0.0526, +0.0358] | not separated | 0.6832 | −0.0218 [−0.0626, +0.0196] | not separated |
+| MSAD-full | 0.6810 | 0.5386 | 0.4641 | −0.0745 [−0.1714, +0.0197] | not separated | 0.8474 | +0.3088 [+0.2333, +0.3832] | in-domain for `MS`: printed, no sentence |
+
+Printed, never gating (NX8):
+
+| set | clip AUC: K5 peak | `NG` | `MS` | `NG` vs min-max only | `MS` vs min-max only | `MS` − `NG` (K5 × gate) | min-max only − K5 raw |
+|---|---:|---:|---:|---|---|---|---:|
+| `nexar_val` | 0.774 | 0.677 | 0.292 | −0.0397 [−0.0691, −0.0132] | −0.0126 [−0.0217, −0.0052] | +0.0270 [−0.0017, +0.0581] | −0.0032 |
+| TAD | 0.636 | 0.283 | 0.851 | −0.0332 [−0.0701, −0.0029] | +0.1175 [+0.0712, +0.1675] | +0.1507 [+0.0931, +0.2119] | +0.0736 |
+| DAD | 0.652 | 0.525 | 0.513 | −0.0785 [−0.1163, −0.0431] | −0.0926 [−0.1256, −0.0587] | −0.0141 [−0.0566, +0.0295] | +0.0708 |
+| MSAD-full | 0.502 | 0.304 | 0.948 | −0.0914 [−0.1519, −0.0376] | +0.2919 [+0.2446, +0.3374] | +0.3833 [+0.3212, +0.4468] | +0.0169 |
+
+`NG`'s clip AUC on its own training videos is **0.984** (`gate.json`: `train_clip_auc`), against 0.677 on `nexar_val`. Gate-only micro on `nexar_val`: `NG` 0.5869, `MS` 0.3784. `MS` on TAD: gate alone 0.8599, fused − gate-only +0.0093 [−0.0454, +0.0798] (§19 unchanged).
+
+Clip AUC within census strata on `nexar_val` (NX8; strata with both classes and n ≥ 10; pooled K5 peak 0.774, `NG` 0.677, `MS` 0.292):
+
+| stratum (abnormal / videos) | K5 peak | `NG` | `MS` |
+|---|---:|---:|---:|
+| scene Urban (75 / 116) | 0.771 | 0.708 | 0.308 |
+| scene Highway (24 / 60) | 0.817 | 0.617 | 0.343 |
+| scene Sub-urban (10 / 39) | 0.697 | 0.483 | 0.238 |
+| weather Clear (66 / 146) | 0.770 | 0.674 | 0.327 |
+| weather Cloudy (39 / 69) | 0.797 | 0.669 | 0.240 |
+| weather Rain (7 / 10) | 0.619 | 0.571 | 0.381 |
+| light Normal (103 / 204) | 0.787 | 0.674 | 0.269 |
+| light Twilight (5 / 11) | 0.533 | 0.667 | 0.533 |
+
+Strata with fewer than 10 videos (Dark 3 / 9, Industrial, Other, Rural, Bright) are in the raw report and too small to read. The census field `time_to_accident` is empty for every `nexar_val` video, so its "stratum" is the pooled set.
+
+**Expectations, scored.** (a) E1 above: **wrong**. `NG` is below K5 in-domain, and its clip AUC (0.677) is below K5's own peak (0.774). (b) DAD above: **wrong**. It is not separated, and `NG`'s DAD clip AUC is 0.525. (c) TAD and MSAD not separated with `MS` ahead of `NG` on both: **held** (`MS` − `NG` +0.151 on TAD, +0.383 on MSAD, the latter in-domain for `MS`). (d) Within-stratum clip AUC of `NG` below its pooled 0.677: **mixed**. It is lower in Highway (0.617), Sub-urban (0.483) and Rain (0.571), and higher in Urban (0.708). No interval was computed, so the shortcut is neither shown nor excluded.
+
+**What this licenses.**
+1. **A video-level CLIP gate fitted on `nexar_train` does not raise K5's micro on any set read here.** It is below in-domain and not separated on TAD, DAD and MSAD. Against min-max alone it is below on all four sets.
+2. **The gate does not transfer even within Nexar.** Training clip AUC 0.984 against `nexar_val` 0.677 means a 513-parameter mean-CLIP logistic fit separates its own 900 videos and not new ones. K5's own peak separates `nexar_val` videos better (0.774) than any gate here.
+3. **A gate fitted on one corpus inverts on another.** `MS` (MSAD) reads 0.292 on `nexar_val`. `NG` (Nexar) reads 0.283 on TAD and 0.304 on MSAD. The video-level CLIP content that marks an abnormal video differs in sign between dashcam and CCTV corpora. The mechanism was not tested.
+4. §19's TAD result stands as written: `MS` on TAD is "above" K5, but the gate alone carries it (fused − gate-only not separated). It is a CCTV gate on a CCTV-like set. With `NG` and `MS` both below on `nexar_val` and not separated on DAD, no clip gate is proposed for K5.
+
+**Not licensed:** "K5 needs a video-level gate", "an in-domain gate helps", any micro from a gated row beside an ungated or published number, or "the gate learns a scene shortcut" (the strata are mixed and carry no intervals).
+
+**Parked.** The clip-gate line for K5 is parked after §19 + §20. Reopening it needs a new dated note. Candidates not authorized: a causal or streaming gate; a gate on K5's own features instead of raw CLIP.
+
+**Limits.** n = 1 (one checkpoint, one deterministic fit). `nexar_val` is a dev set that already judged K5's recipe. The strata are printed without intervals. Lesson candidate: pending (df).
+
 ## 21. K5's between-video baseline: micro under per-video transforms (dated note 2026-11-12, before any number; user)
 
 **Question (user).** K5's zero-shot micro is 0.7449 on DoTA-CAP-dev and 0.7222 on DADA-2000 against macro 0.8195 and 0.7740 (`K5_ZS_REPORT.md`). Every video in both sets holds normal and abnormal frames, so micro below macro can mean that the level of one video's normal frames sits near another video's abnormal frames. Is that the cause, how much would calibrating each video recover, and what does per-video min-max do on DADA?

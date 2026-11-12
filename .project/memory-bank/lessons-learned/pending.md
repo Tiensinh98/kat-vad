@@ -2441,3 +2441,12 @@ Promote if a second harness needs the same split.
 **Rule:** Print the within-video pair share and an offset-oracle row before attributing a micro-versus-macro gap to a per-video baseline.
 **Files:** core/tools/k5_baseline_micro.py:within_video, core/docs/final/KIM_RUN.md §21.1
 **Gates:** recurring? no (one tool, one read, n = 1); HIGH-impact? no (caught before any training) -> pending.
+
+## (df) [MEDIUM] Gate - a video-level gate's training clip AUC is not its transfer; read held-out clip AUC against the host's own peak first (2026-11-12)
+**Triggers:** clip gate, video-level gate, logistic, mean CLIP, micro, fusion, in-domain gate, nexar_train, transfer
+**Problem:** §20 expected an in-domain gate (`NG`, fitted on all 900 `nexar_train` videos) to lift K5's `nexar_val` micro. Its training clip AUC was 0.984 but on `nexar_val` it read 0.677, below K5's own peak (0.774), and the fusion was below K5 (-0.0429 [-0.0728, -0.0161]). The MSAD gate inverts on Nexar (0.292), and the Nexar gate inverts on TAD and MSAD (0.283 / 0.304).
+**Bad:** fit a video gate, then go straight to a GPU fusion read, expecting "in-domain" to mean "separates videos".
+**Good:** before any fusion, print the gate's held-out clip AUC beside the host's own peak clip AUC (`k5_clip_gate` step 0 already prints the peak). Fuse only if the gate is above the peak.
+**Rule:** Compare a gate's held-out clip AUC with the host model's own peak clip AUC before proposing or running a gate fusion.
+**Files:** core/tools/k5_clip_gate.py, core/docs/final/KIM_RUN.md §20.1
+**Gates:** recurring? partly (§19 and §20 are the same line, n = 1 each); HIGH-impact? no (no training, CPU-cheap fit) -> pending.

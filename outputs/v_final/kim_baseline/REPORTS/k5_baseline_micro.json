@@ -1,0 +1,486 @@
+{
+  "draws": 2000,
+  "seed": 2026,
+  "sets": {
+    "DADA-2000/K5": {
+      "as_read": "raw",
+      "base_rate": 0.28850217526413924,
+      "baseline_spread_as_read": {
+        "mean_gap": 0.34333540610758656,
+        "normal_level_std": 0.22909185576673846,
+        "ratio": 0.6672538039812618
+      },
+      "cluster": "item",
+      "clusters": 370,
+      "excluded_single_class": 0,
+      "headroom_sentence": "not shown",
+      "label": "DADA-2000/K5",
+      "pairs": {
+        "total": 53141616.0,
+        "within": 146579.0,
+        "within_auc": 0.7584101406067718
+      },
+      "readout": "/content/drive/MyDrive/Thesis-Final/outputs/kim/eval/dada/K5/dada_readout.json",
+      "rows": {
+        "min-max": {
+          "ap": 0.5640028216265838,
+          "cross_video_auc": 0.7634959760477193,
+          "delta_vs_as_read": {
+            "high": 0.05136211596401493,
+            "low": 0.03140378042903272,
+            "mean": 0.041300644677421894
+          },
+          "macro": 0.7740035001758967,
+          "micro": 0.7634819479332356,
+          "sentence": "above",
+          "share_of_headroom": 1.7134018839916185
+        },
+        "minus median": {
+          "ap": 0.5400794540135154,
+          "cross_video_auc": 0.7423092939816233,
+          "delta_vs_as_read": {
+            "high": 0.0360217785732229,
+            "low": 0.0041927094651599,
+            "mean": 0.020172401230703962
+          },
+          "macro": 0.7740035001758967,
+          "micro": 0.7423537044865177,
+          "sentence": "above",
+          "share_of_headroom": 0.8368738682720378
+        },
+        "minus q20": {
+          "ap": 0.5451520488992925,
+          "cross_video_auc": 0.7314399365359441,
+          "delta_vs_as_read": {
+            "high": 0.01657591373197916,
+            "low": 0.001147405456539791,
+            "mean": 0.009333024422892966
+          },
+          "macro": 0.7740035001758967,
+          "micro": 0.7315143276787067,
+          "sentence": "above",
+          "share_of_headroom": 0.3871906057259834
+        },
+        "oracle normal-z": {
+          "ap": 0.626282042374984,
+          "cross_video_auc": 0.7462522386766142,
+          "delta_vs_as_read": {
+            "high": 0.04072194808712124,
+            "low": 0.007293393688553253,
+            "mean": 0.024104470214078466
+          },
+          "macro": 0.7740035001758967,
+          "micro": 0.7462857734698922,
+          "share_of_headroom": 1.0
+        },
+        "oracle offset": {
+          "ap": 0.5578406892171165,
+          "cross_video_auc": 0.7276426092503718,
+          "delta_vs_as_read": {
+            "high": 0.02048518421108618,
+            "low": -0.009401528857552664,
+            "mean": 0.005546171196600391
+          },
+          "macro": 0.7740035001758967,
+          "micro": 0.7277274744524141,
+          "share_of_headroom": 0.23008890663612647
+        },
+        "rank": {
+          "ap": 0.5276130605388902,
+          "cross_video_auc": 0.7538447326680798,
+          "delta_vs_as_read": {
+            "high": 0.04806172108230026,
+            "low": 0.01480909887827054,
+            "mean": 0.03167602204645026
+          },
+          "macro": 0.7740035001758967,
+          "micro": 0.753857325302264,
+          "sentence": "above",
+          "share_of_headroom": 1.3141140114313548
+        },
+        "raw": {
+          "ap": 0.5556699353475769,
+          "cross_video_auc": 0.7220810978960164,
+          "delta_vs_as_read": null,
+          "macro": 0.7740035001758967,
+          "micro": 0.7221813032558138,
+          "share_of_headroom": null
+        },
+        "z-score": {
+          "ap": 0.5106239899109754,
+          "cross_video_auc": 0.7547671114938556,
+          "delta_vs_as_read": {
+            "high": 0.04738741914521971,
+            "low": 0.01754927359182877,
+            "mean": 0.03259585670108334
+          },
+          "macro": 0.7740035001758967,
+          "micro": 0.7547771599568971,
+          "sentence": "above",
+          "share_of_headroom": 1.352274346276459
+        }
+      },
+      "videos": 370
+    },
+    "DADA-2000/LaGoVAD": {
+      "as_read": "raw",
+      "base_rate": 0.28850217526413924,
+      "baseline_spread_as_read": {
+        "mean_gap": 0.02708240315330693,
+        "normal_level_std": 0.18810981756437942,
+        "ratio": 6.945831819264164
+      },
+      "cluster": "item",
+      "clusters": 370,
+      "excluded_single_class": 0,
+      "headroom_sentence": "shown",
+      "label": "DADA-2000/LaGoVAD",
+      "pairs": {
+        "total": 53141616.0,
+        "within": 146579.0,
+        "within_auc": 0.6286780507439674
+      },
+      "readout": "/content/drive/MyDrive/Thesis-Final/outputs/zs_lagovad/eval/dada/LaGoVAD/dada_readout.json",
+      "rows": {
+        "min-max": {
+          "ap": 0.3531800230626634,
+          "cross_video_auc": 0.6127692863012812,
+          "delta_vs_as_read": {
+            "high": 0.09745493753357574,
+            "low": 0.049483117331674174,
+            "mean": 0.0740570629240932
+          },
+          "macro": 0.6202179109302967,
+          "micro": 0.6128131669913838,
+          "sentence": "above",
+          "share_of_headroom": 1.0936671432600913
+        },
+        "minus median": {
+          "ap": 0.364165568101319,
+          "cross_video_auc": 0.6156613307015901,
+          "delta_vs_as_read": {
+            "high": 0.10168475868982632,
+            "low": 0.04991910934933561,
+            "mean": 0.07694113028102134
+          },
+          "macro": 0.6202179109302967,
+          "micro": 0.6156972343483119,
+          "sentence": "above",
+          "share_of_headroom": 1.1362587554936776
+        },
+        "minus q20": {
+          "ap": 0.3574156102249004,
+          "cross_video_auc": 0.6146821069301263,
+          "delta_vs_as_read": {
+            "high": 0.09157620510789749,
+            "low": 0.05903126282450341,
+            "mean": 0.07596460747448863
+          },
+          "macro": 0.6202179109302967,
+          "micro": 0.6147207115417792,
+          "sentence": "above",
+          "share_of_headroom": 1.121837566400024
+        },
+        "oracle normal-z": {
+          "ap": 0.4754425647235348,
+          "cross_video_auc": 0.6064091246884119,
+          "delta_vs_as_read": {
+            "high": 0.09435578914153324,
+            "low": 0.040110913677653806,
+            "mean": 0.06771444436315233
+          },
+          "macro": 0.6202179109302967,
+          "micro": 0.6064705484304429,
+          "share_of_headroom": 1.0
+        },
+        "oracle offset": {
+          "ap": 0.3803955415828233,
+          "cross_video_auc": 0.598663710716911,
+          "delta_vs_as_read": {
+            "high": 0.0835694469407013,
+            "low": 0.03626911508519079,
+            "mean": 0.05999039434555409
+          },
+          "macro": 0.6202179109302967,
+          "micro": 0.5987464984128447,
+          "share_of_headroom": 0.8859320180466344
+        },
+        "rank": {
+          "ap": 0.356082290462967,
+          "cross_video_auc": 0.6166478853482072,
+          "delta_vs_as_read": {
+            "high": 0.10215336439220232,
+            "low": 0.052433929234097926,
+            "mean": 0.07792496374216407
+          },
+          "macro": 0.6202179109302967,
+          "micro": 0.6166810678094546,
+          "sentence": "above",
+          "share_of_headroom": 1.1507879075881176
+        },
+        "raw": {
+          "ap": 0.3138491717536379,
+          "cross_video_auc": 0.5385073889088896,
+          "delta_vs_as_read": null,
+          "macro": 0.6202179109302967,
+          "micro": 0.5387561040672906,
+          "share_of_headroom": null
+        },
+        "z-score": {
+          "ap": 0.35344434422882026,
+          "cross_video_auc": 0.6151400554734966,
+          "delta_vs_as_read": {
+            "high": 0.10199992445559336,
+            "low": 0.050583164882861284,
+            "mean": 0.07642129287148536
+          },
+          "macro": 0.6202179109302967,
+          "micro": 0.6151773969387759,
+          "sentence": "above",
+          "share_of_headroom": 1.1285818497105025
+        }
+      },
+      "videos": 370
+    },
+    "DoTA-CAP-dev/K5": {
+      "as_read": "min-max",
+      "base_rate": 0.3271185548006531,
+      "baseline_spread_as_read": {
+        "mean_gap": 0.4021422010088005,
+        "normal_level_std": 0.27327423974744197,
+        "ratio": 0.6795462875120177
+      },
+      "cluster": "dota",
+      "clusters": 91,
+      "excluded_single_class": 0,
+      "headroom_sentence": "not shown",
+      "label": "DoTA-CAP-dev/K5",
+      "pairs": {
+        "total": 714165624.0,
+        "within": 1161385.0,
+        "within_auc": 0.80329606461251
+      },
+      "readout": "/content/drive/MyDrive/Thesis-Final/outputs/kim/eval/dota/K5/protocol_b_readout.json",
+      "rows": {
+        "min-max": {
+          "ap": 0.5789650808902485,
+          "cross_video_auc": 0.7448111952950115,
+          "delta_vs_as_read": null,
+          "macro": 0.8195184689731452,
+          "micro": 0.7449063041152483,
+          "share_of_headroom": null
+        },
+        "minus median": {
+          "ap": 0.555537306513141,
+          "cross_video_auc": 0.7479915108891799,
+          "delta_vs_as_read": {
+            "high": 0.0166653439578083,
+            "low": -0.009924384323753596,
+            "mean": 0.0031751437254838866
+          },
+          "macro": 0.8195184689731452,
+          "micro": 0.7480814478407322,
+          "sentence": "not separated",
+          "share_of_headroom": 0.1356701272469879
+        },
+        "minus q20": {
+          "ap": 0.5444813171651162,
+          "cross_video_auc": 0.7213218482702457,
+          "delta_vs_as_read": {
+            "high": -0.014485251333867095,
+            "low": -0.03206568776580926,
+            "mean": -0.023451148357149232
+          },
+          "macro": 0.8195184689731452,
+          "micro": 0.721455155758099,
+          "sentence": "below",
+          "share_of_headroom": -1.0020397678903668
+        },
+        "oracle normal-z": {
+          "ap": 0.6806613945958548,
+          "cross_video_auc": 0.768252727036031,
+          "delta_vs_as_read": {
+            "high": 0.03678064155902576,
+            "low": 0.010307448642018852,
+            "mean": 0.02340341083121067
+          },
+          "macro": 0.8195184689731452,
+          "micro": 0.7683097149464589,
+          "share_of_headroom": 1.0
+        },
+        "oracle offset": {
+          "ap": 0.5806512046751697,
+          "cross_video_auc": 0.736808824217944,
+          "delta_vs_as_read": {
+            "high": 0.00632371262064201,
+            "low": -0.02152118559496104,
+            "mean": -0.00798935752191865
+          },
+          "macro": 0.8195184689731452,
+          "micro": 0.7369169465933296,
+          "share_of_headroom": -0.3413757755029486
+        },
+        "rank": {
+          "ap": 0.591496622572599,
+          "cross_video_auc": 0.7734267278318383,
+          "delta_vs_as_read": {
+            "high": 0.03962939377687787,
+            "low": 0.017155491239147228,
+            "mean": 0.02856899760271847
+          },
+          "macro": 0.8195184689731452,
+          "micro": 0.7734753017179667,
+          "sentence": "above",
+          "share_of_headroom": 1.2207193989270573
+        },
+        "raw": {
+          "ap": 0.5459234116013371,
+          "cross_video_auc": 0.6978570614080178,
+          "delta_vs_as_read": {
+            "high": -0.038653377710596265,
+            "low": -0.05561112586539055,
+            "mean": -0.04687777649180158
+          },
+          "macro": 0.8195184689731452,
+          "micro": 0.6980285276234467,
+          "sentence": "below",
+          "share_of_headroom": -2.003031815742243
+        },
+        "z-score": {
+          "ap": 0.5564621079881866,
+          "cross_video_auc": 0.7596469436979042,
+          "delta_vs_as_read": {
+            "high": 0.025404134030220907,
+            "low": 0.004675017196132721,
+            "mean": 0.014811622324739537
+          },
+          "macro": 0.8195184689731452,
+          "micro": 0.7597179264399878,
+          "sentence": "above",
+          "share_of_headroom": 0.6328830627109632
+        }
+      },
+      "videos": 569
+    },
+    "DoTA-CAP-dev/LaGoVAD": {
+      "as_read": "min-max",
+      "base_rate": 0.3271185548006531,
+      "baseline_spread_as_read": {
+        "mean_gap": 0.15734626017734768,
+        "normal_level_std": 0.22570447067804741,
+        "ratio": 1.434444456599426
+      },
+      "cluster": "dota",
+      "clusters": 91,
+      "excluded_single_class": 0,
+      "headroom_sentence": "not shown",
+      "label": "DoTA-CAP-dev/LaGoVAD",
+      "pairs": {
+        "total": 714165624.0,
+        "within": 1161385.0,
+        "within_auc": 0.6353138709385776
+      },
+      "readout": "/content/drive/MyDrive/Thesis-Final/outputs/zs_lagovad/eval/dota/LaGoVAD/B/protocol_b_readout.json",
+      "rows": {
+        "min-max": {
+          "ap": 0.383827357562876,
+          "cross_video_auc": 0.6104160896861093,
+          "delta_vs_as_read": null,
+          "macro": 0.6417983519012194,
+          "micro": 0.6104565787669445,
+          "share_of_headroom": null
+        },
+        "minus median": {
+          "ap": 0.37626966966860165,
+          "cross_video_auc": 0.5913307248934883,
+          "delta_vs_as_read": {
+            "high": -0.006313776015293917,
+            "low": -0.03151421916417309,
+            "mean": -0.01905432793556039
+          },
+          "macro": 0.6417983519012194,
+          "micro": 0.5914022508313841,
+          "sentence": "below",
+          "share_of_headroom": -0.7841410643564477
+        },
+        "minus q20": {
+          "ap": 0.3738335698255064,
+          "cross_video_auc": 0.6035866246792398,
+          "delta_vs_as_read": {
+            "high": 0.008559720681746942,
+            "low": -0.021901192909543375,
+            "mean": -0.006818358846126804
+          },
+          "macro": 0.6417983519012194,
+          "micro": 0.6036382199208177,
+          "sentence": "not separated",
+          "share_of_headroom": -0.2805953157123949
+        },
+        "oracle normal-z": {
+          "ap": 0.5583807229064894,
+          "cross_video_auc": 0.6347552878994875,
+          "delta_vs_as_read": {
+            "high": 0.040901435469002045,
+            "low": 0.007641270267022313,
+            "mean": 0.024299617507212767
+          },
+          "macro": 0.6417983519012194,
+          "micro": 0.6347561962741572,
+          "share_of_headroom": 1.0
+        },
+        "oracle offset": {
+          "ap": 0.40818809099530756,
+          "cross_video_auc": 0.5875188001512008,
+          "delta_vs_as_read": {
+            "high": -0.007419626166133204,
+            "low": -0.03796744146734058,
+            "mean": -0.022860053678528836
+          },
+          "macro": 0.6417983519012194,
+          "micro": 0.5875965250884156,
+          "share_of_headroom": -0.9407577576784231
+        },
+        "rank": {
+          "ap": 0.40040789040728436,
+          "cross_video_auc": 0.6214000124619175,
+          "delta_vs_as_read": {
+            "high": 0.019975950007197794,
+            "low": 0.002201979669074024,
+            "mean": 0.010966060584288062
+          },
+          "macro": 0.6417983519012194,
+          "micro": 0.6214226393512325,
+          "sentence": "above",
+          "share_of_headroom": 0.45128531677640793
+        },
+        "raw": {
+          "ap": 0.32738481398964403,
+          "cross_video_auc": 0.49936960402839903,
+          "delta_vs_as_read": {
+            "high": -0.08258476789563961,
+            "low": -0.13725931150584017,
+            "mean": -0.11086590048473133
+          },
+          "macro": 0.6417983519012194,
+          "micro": 0.49959067828221315,
+          "sentence": "below",
+          "share_of_headroom": -4.562454551057168
+        },
+        "z-score": {
+          "ap": 0.4001505653903181,
+          "cross_video_auc": 0.6216963038280057,
+          "delta_vs_as_read": {
+            "high": 0.018573425730636747,
+            "low": 0.004297840028587864,
+            "mean": 0.011261870117680095
+          },
+          "macro": 0.6417983519012194,
+          "micro": 0.6217184488846246,
+          "sentence": "above",
+          "share_of_headroom": 0.46345874021832956
+        }
+      },
+      "videos": 569
+    }
+  }
+}
