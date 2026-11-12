@@ -1138,3 +1138,185 @@ Printed (no sentence): normal-level spread of the videos' medians against the me
 **Inferred, not tested.** On DADA, per-video min-max (0.7635) and rank sit **above** `oracle normal-z` (0.7463) although the oracle reads the labels. Both use the video's own peak, and every video here contains an accident, so they plausibly encode the prior "this video holds an anomaly" that a stream with normal videos does not have. If so, their gain is specific to an all-abnormal benchmark (C12), not a calibration that transfers. What would test it: the same rows on a set with normal videos (TAD, DAD, MSAD saved curves exist; the gate notebooks left them), not run. Likewise untested: that micro is held down by videos whose within-video AUC is weak; the saved scores can answer it (per-video AUC against that video's share of the cross-video pairs), not authorized.
 
 **Limits.** n = 1 checkpoint, one seed; K5 was chosen after both sets were read; the transforms are offline (whole video). Lesson candidate: pending (de).
+
+## 22. Why K5's micro stays below 0.8 after min-max, and what K5 responds to on DADA, Nexar and DAD (dated note 2026-11-12, post-hoc; user)
+
+**Status: post-hoc diagnostics, printed only, never gating; n = 1 (K5 s2024); nothing trained, nothing adopted.** Each read was decided after the numbers before it, so none of these is a test. The user asked (1) what holds DoTA / DADA micro below 0.8 now that both are min-max pooled (§21.1 BM7(i)), (2) what to do about it, and (3) why DAD's macro and micro are below 0.8. Saved scores only. The scripts are scratch, not `core/` tools: `micro_diag.py`, `dada_phase_diag.py` and `lag_diag.py` in the session scratchpad. They would need porting before any of these numbers is re-derived.
+
+### 22.1 Where min-max micro loses pairs (DoTA-CAP-dev protocol B, DADA-2000 whole)
+
+| read (min-max per video) | DoTA K5 | DoTA K5-T2 | DADA K5 |
+|---|---:|---:|---:|
+| micro | 0.745 | 0.712 | 0.763 |
+| micro if every video ranked its own frames perfectly (K5's own values reassigned) | **0.859** | 0.804 | **0.911** |
+| micro without the worst 25 % of videos (by own AUC) | 0.820 | 0.762 | 0.850 |
+| share of videos with own AUC < 0.5 | 0.083 | 0.081 | 0.159 |
+| share of videos whose peak lies outside the span | 0.29 | 0.31 | 0.36 |
+| abnormal vs normal frames within 15 % of the length from a span boundary | 0.643 | 0.613 | 0.673 |
+| abnormal vs normal frames farther away | 0.818 | 0.783 | 0.820 |
+| abnormal vs normal frames after the span | 0.751 | **0.634** | 0.741 |
+| early half / late half of the span vs all normal | 0.759 / 0.731 | 0.679 / 0.743 | 0.736 / 0.789 |
+
+LaGoVAD (DoTA / DADA): micro 0.611 / 0.613; the perfect-ranking ceiling is 0.888 / 0.935; own AUC < 0.5 in 0.30 / 0.33 of the videos.
+
+**Reading.** With the between-video offset gone (§21.1), what holds micro below 0.8 is within-video ranking. A tail of videos puts its peak outside the span, and normal frames close to the span boundaries are scored like abnormal ones. K5-T2 (§13) is worse at the boundary and holds its score after the span (mean min-max score of post-span normals 0.555 against pre-span 0.352). This fits T2's label, which runs to DADA's "abnormal end"; the cause was not tested. DoTA's span definition was not checked.
+
+### 22.2 DADA: risk phase against collision phase
+
+Each DADA span is split at the workbook's `accident frame`: **R** = `[abnormal start, accident)` (median 6 rows = 48 frames) and **C** = `[accident, abnormal end)` (median 6 rows). Each is read against the same video's normal frames. Gate: the stride-8 labels rebuilt from `dada标注.xlsx` equal the saved labels on 370 / 370 videos. Without the census, 110 videos have an accident row that is not unique, and they are dropped. The selection is not neutral: K5 macro is 0.765 on the 260 kept videos and 0.796 on the 110 dropped.
+
+| arm (260 videos) | R vs normal | C vs normal | R − C per video [95 %, 2,000 video draws] | peak in R / C / after span |
+|---|---:|---:|---|---|
+| LaGoVAD (PreVAD) | 0.611 | 0.616 | −0.005 [−0.034, +0.023] | 0.23 / 0.14 / 0.32 |
+| W0 (Nexar) | 0.712 | 0.778 | −0.066 [−0.089, −0.043] | 0.16 / 0.46 / 0.26 |
+| K0 (Nexar) | 0.660 | 0.765 | −0.105 [−0.134, −0.076] | 0.14 / 0.44 / 0.30 |
+| **K5 (Nexar)** | 0.743 | 0.783 | **−0.040 [−0.061, −0.018]** | 0.18 / 0.43 / 0.26 |
+
+K5's mean min-max score, from 6 rows before to 6 rows after the accident row: 0.45 0.47 0.48 0.51 0.54 0.56 **[0.57]** 0.58 0.60 0.60 0.59 0.55 0.49. The peak falls 2–3 rows (16–24 frames) after the accident.
+
+**Claude's hypothesis of 2026-11-12, that K5 fires early because Nexar's span starts at `t_alert`, is refuted on DADA.** Every Nexar-trained arm scores C above R. **K5-T2 does not test it either:** T2's span also starts before the accident (DADA start → accident median 1.50 s, Nexar alert → event 1.43 s; `NEXAR_SETUP.md`), and D-N1 copied its post-event 1.4 s from DADA. Changing corpus therefore did not change the label definition.
+
+### 22.3 Nexar (in-domain): where K5 peaks relative to `t_event`
+
+`nexar_val` positives (112), per-frame scores from §20's `--save-scores` re-read. Gate: the saved span equals `[t_alert, t_event + 1.4 s]` rebuilt from `nexar_n0/census.json` within one frame at both ends on every positive (fps = scored frames / `duration_s`, as in `nexar_eval.crop_bounds`).
+
+| read | value |
+|---|---|
+| peak time − `t_event`, median [95 %] | **+0.45 s [+0.32, +0.60]** (local search from `t_alert` − 2 s to `t_event` + 4 s; the whole-video argmax gives +0.44) |
+| share of peaks after `t_event` / after the span end (`t_event` + 1.4 s) | 0.78 / 0.08 |
+| R = `[t_alert, t_event)` vs normal, C = `[t_event, t_event + 1.4 s]` vs normal | 0.888 / 0.953; R − C per video −0.049 [−0.072, −0.026] |
+| mean min-max score: pre-span / R / C / post-span | 0.037 / 0.429 / 0.738 / 0.047 |
+
+Aligned mean profile, in 0.25 s bins: 0.12 at −2.0 s, 0.44 at −1.0 s, 0.62 at −0.5 s, **0.81 at +0.25 s**, 0.66 at +1.0 s, 0.37 at +1.5 s, 0.21 at +2.0 s. The label runs from about −1.43 s (median alert) to +1.4 s. The curve crosses 0.5 near −0.85 s on the way up and near +1.3 s on the way down.
+
+**Reading.** In-domain there is no long aftermath tail (post-span 0.047), but **the onset is late.** The rise starts about 0.6 s after the label starts, and the peak lands about 0.45 s after the event, so the first part of the span (R) is underscored. The same shape appears zero-shot on DADA (§22.2). Suspected source, not tested: the causal 1.5 s VideoMAE window sees motion only after it has begun. The temporal encoder and score head read in both directions, so they are not the obvious cause.
+
+### 22.4 DAD: does K5 respond at the collision rows?
+
+DAD has 15 rows; the accident rows are 13–14 (`toa` = 90, stride 7). Read: the rise from row 12 to row 14 in positive videos against negative videos. A collision response would make the positives rise more.
+
+| arm | rise 12→14, pos − neg [95 %] | AUC of the 12→14 rise, pos vs neg | rise 10→12 (before the accident), pos / neg |
+|---|---|---:|---|
+| K5 (Nexar) | +0.020 [−0.006, +0.047] | 0.529 | +0.030 / +0.000 |
+| K5-T2 | +0.004 [−0.028, +0.036] | 0.467 | +0.013 / +0.012 |
+| W0 (Nexar) | +0.003 [−0.016, +0.022] | 0.494 | +0.032 / +0.006 |
+| LaGoVAD | **+0.006 [+0.003, +0.009]** | 0.565 | +0.006 / +0.001 |
+
+**Reading.** K5 shows no collision-row response separable from the negatives. Its positives rise as much **before** the accident (rows 10→12) as during it. The positive − negative gap builds steadily from row 0 (0.017 → 0.179, §21.1 DAD read), and K5-T2 has the same shape with a larger gap (0.017 → 0.334). Only LaGoVAD shows a separable rise at the collision rows, and it is tiny (+0.006). The guess Claude made earlier the same day, that DAD's 0.5 s post-accident tail ends before K5's +0.45 s response builds, does not fit: if it were right, the rise at rows 13–14 would at least be starting. What K5 separates on DAD is which videos are risky, not when the collision happens. DAD macro still rides the time ramp (`ZS_DAD.md` §8) and DAD micro is still mostly clip classification (clip oracle 0.839). **No read here licenses chasing DAD 0.8.**
+
+### 22.5 What this licenses, and what may follow (user decides; nothing authorized)
+
+**Licensed (post-hoc, n = 1):** "K5's min-max micro on DoTA-CAP-dev and DADA is limited by within-video ranking: a tail of videos peaks outside the span, and frames near the span boundaries are confused. On Nexar and DADA, K5's response peaks after the event (Nexar +0.45 s) and underscores the risk phase before it. On DAD, K5 shows no response at the collision rows." **Not licensed:** "K5 anticipates accidents", "the Nexar label causes the DAD gap", "a centred window would fix micro" (untested), or any number from these reads beside a published one.
+
+Candidates (each needs its own dated note before any number):
+- **(a) Offline lag shift, fitted in-domain (CPU).** Fit one shift δ on `nexar_val` only (e.g. the δ that maximises within-video AUC there; the +0.45 s above is post-hoc), then read DoTA-CAP-dev and DADA once with δ fixed. This is an **offline protocol change** (it uses future frames) and is never a model result.
+- **(b) Centred VideoMAE window instead of causal (GPU).** Re-extract and retrain K5, 2 seeds. Inference becomes non-causal (needs about 0.75 s of future), and the change has to be weighed against online use.
+- **(c) Characterise the failing tail (CPU).** Per-video AUC by DADA type, DoTA category, length and light, to see whether the 16 % / 8 % of videos with own AUC < 0.5 share a cause.
+- **Closed or not recommended:** per-video calibration (§21), clip gates (§19 / §20), retraining with a span that starts at `t_event` (§22.2 removed its premise), adding a position prior (DF8).
+
+**Limits.** n = 1 checkpoint, one seed. The DADA phase split drops 110 videos non-neutrally. DADA's frame rate (30 fps) is assumed from the literature (A1), so the seconds quoted for DADA are approximate. `nexar_val` is a dev set that already judged K5's recipe. The scratch scripts are not committed.
+
+## 23. Offline lag shift fitted on `nexar_val`, read once on DoTA-CAP-dev and DADA-2000 (dated note 2026-11-12, before any number; user)
+
+**Question (user, §22.5 candidate (a)).** §22.3 found K5's in-domain response peaking about +0.45 s after `t_event`, with a late onset. If K5's curve is advanced by a lag δ fitted **on `nexar_val` only**, does its within-video ranking on the zero-shot sets improve? How large such a gain is decides whether the costly fix, a centred VideoMAE window (§22.5 (b)), is worth proposing. Nothing is trained; saved scores only (CPU).
+
+| # | Choice | Value |
+|---|---|---|
+| LS1 | Shift | Advance each curve by δ seconds: `s_δ(i) = s(i + δ·r)` by linear interpolation over the step index, clamped to the last step (edge value repeated). `r` = steps per second: Nexar `len(curve) / duration_s` (native frames, as `nexar_eval.crop_bounds`), DoTA-CAP-dev `DOTA_FPS` = 10 (protocol B scores native frames), DADA-2000 `DADA_ASSUMED_FPS / FRAME_STRIDE` = 30 / 8 (stride-8 rows; A1). δ = 0 is the identity |
+| LS2 | Grid | δ ∈ {0.00, 0.05, …, 1.50} s (31 values), fixed here |
+| LS3 | Fit (in-domain only) | δ* = argmax over the grid of K5's **whole-video macro on the 112 `nexar_val` positives** (§20's `--save-scores` re-read); ties within 1e-9 → the smallest δ. DoTA and DADA play no part in choosing δ* |
+| LS4 | Read | K5 s2024 saved scores, once at δ*: DoTA-CAP-dev protocol B (569 clips, clusters = 91 source videos) and DADA-2000 whole (370 videos). Macro: per-video paired Δ (δ* − 0), cluster bootstrap. Micro: per-video min-max pooled (§21.1 BM7(i)), Δ by `micro_bootstrap_pairs` over the same clusters. 2,000 draws, seed 2026. Sentence "above / below / not separated" for macro and micro on each set |
+| LS5 | Gates (stop on any) | **G1** at δ = 0: Nexar whole macro equals `nexar_readout.json` (0.9245) within 1e-4; DoTA and DADA macro equal their read-outs within 1e-6; DADA raw micro equals 0.7222 within 1e-4. **G2** every shifted curve keeps its length; δ = 0 reproduces the curve bit for bit. **G3** at least one positive on `nexar_val` has a census row; every positive does, or the tool raises |
+| LS6 | Printed, never choosing δ | The full grid on `nexar_val` (macro), and on DoTA / DADA (macro and min-max micro at every δ: shows whether δ* is near the zero-shot optimum, **post-hoc**); the `nexar_val` pooled raw micro at δ* |
+| LS7 | What may follow | If macro is "above" on **both** zero-shot sets at δ*: the lag is a transferable cost, and Claude may propose §22.5 (b) (a centred window, GPU, its own note; the user decides). If "above" on one: report it, propose nothing. Otherwise: (b) loses its motivation and is recorded as not supported. Never a K5 change or a model result; never beside a published number |
+
+**Expectations, written before the numbers.** (a) δ* lies in [0.3, 0.6] s (§22.3's peak +0.45 s). (b) DADA macro "above" (§22.2: K5 peaks 2–3 rows after the accident). (c) DoTA macro "above" but smaller (§22.1: on DoTA the late half of the span is the weaker one, so advancing could hurt the end of the span). (d) Min-max micro moves in the same direction as macro on both sets. A wrong expectation changes nothing.
+
+**Limits.** n = 1 checkpoint. `nexar_val` is a dev set that already judged K5's recipe, and §22.3 looked at it, so δ* is fitted on a set whose lag was already seen. That is acceptable for an in-domain fit, but the zero-shot sets must not be looked at to choose δ (LS6 prints them only). The shift uses δ seconds of future frames, so it is an **offline protocol change**. Seconds on DADA rest on A1 (30 fps). A position effect is not excluded: advancing a curve moves its mass earlier in the video, and DoTA / DADA spans sit mid-video (§14.5.1 position probes).
+
+**Code (to build after this note).** `core/tools/k5_lag_shift.py` + `core/tests/test_k5_lag_shift.py`; constants `LAGSHIFT_*`; output `outputs/v_final/kim_lag/REPORTS/k5_lag_shift.{md,json}`.
+
+### 23.1 Read-out (2026-11-12, K5 s2024, saved scores; raw `outputs/v_final/kim_lag/REPORTS/k5_lag_shift.{md,json}`; PRELIMINARY, n = 1)
+
+Gates G1 / G2 / G3 passed (the tool raises otherwise). At δ = 0 the scores reproduce Nexar whole macro 0.9245, DoTA macro 0.8195, DADA macro 0.7740 and DADA raw micro 0.7222. Every `nexar_val` video has a census row. Run on CPU, about 70 s.
+
+**Fit (LS3).** **δ\* = 0.25 s.** `nexar_val` whole macro goes 0.9245 → 0.9289 (+0.0044) and pooled raw micro 0.9000 → 0.9049. The grid curve is flat near its top (0.9284–0.9289 for δ from 0.15 to 0.25 s) and falls steadily past 0.4 s (0.7983 at 1.5 s).
+
+**Zero-shot at δ\* (LS4), cluster bootstrap 2,000 draws, seed 2026:**
+
+| set | shift | macro δ = 0 → δ* | Δ macro [95 %] | sentence | min-max micro δ = 0 → δ* | Δ micro [95 %] | sentence |
+|---|---:|---|---|---|---|---|---|
+| DoTA-CAP-dev (569 / 91 clusters) | 2.5 frames | 0.8195 → 0.8136 | −0.0059 [−0.0107, −0.0013] | **below** | 0.7449 → 0.7372 | −0.0077 [−0.0109, −0.0047] | below |
+| DADA-2000 (370) | 0.94 rows | 0.7740 → 0.7773 | +0.0033 [−0.0011, +0.0081] | not separated | 0.7635 → 0.7649 | +0.0014 [−0.0019, +0.0049] | not separated |
+
+**LS7: macro is not above on either set, so §22.5 (b) (a centred VideoMAE window) is not supported by this read.**
+
+**Printed (LS6, post-hoc, never choosing δ).** The best grid point on the zero-shot sets is DoTA δ = 0.05 s (macro 0.8197, +0.0002) and DADA δ = 0.15 s (0.7799, +0.0059). Even the shift chosen by looking at each test set buys at most +0.006 of macro.
+
+**Expectations, scored.** (a) δ\* in [0.3, 0.6] s: **wrong** (0.25 s, against §22.3's peak offset of +0.45 s). (b) DADA macro above: **wrong** (not separated). (c) DoTA macro above but smaller: **wrong** (below). (d) Micro moves with macro: **held**.
+
+**What this licenses.**
+1. **A uniform time offset is not what costs K5 its within-video ranking.** Fitted in-domain, the shift gains +0.004 on `nexar_val`, costs DoTA 0.006 and does not separate on DADA. No offset on the grid is worth more than about +0.006 on either zero-shot set.
+2. §22.3's "peak +0.45 s after the event" and "late onset" stand as descriptions, but they do not translate into a correctable lag. The curve is broad (on Nexar it takes about 2 s to rise from 0.12 to its peak and about 1.5 s to fall back). Advancing it gains at the onset and loses about as much at the end of the span. **Inferred, not tested:** the boundary loss of §22.1 is a matter of width (temporal blur), not offset. A centred window shortens the delay; it does not obviously narrow the response.
+3. Do not quote any δ ≠ 0 row as K5's performance. It is an offline protocol and was read once.
+
+**Not licensed:** "K5 has no lag", "a centred window would not help" (it was not built; only its main motivation is removed), or "sharpening would help" (untested).
+
+**Limits.** n = 1. δ\* was fitted on a dev set whose lag §22.3 had already looked at. The seconds on DADA rest on A1. Position is not excluded (LS limits).
+
+## 24. K5's failing tail: are the videos it ranks wrongly concentrated anywhere? (dated note 2026-11-12, before any number; user)
+
+**Question (user, §22.5 candidate (c)).** §22.1 found that 8 % of DoTA-CAP-dev clips and 16 % of DADA-2000 videos have their own AUC below 0.5 under K5. Do these failures share a recorded attribute (night, ego involvement, accident type, scene, span geometry), and are they the same videos LaGoVAD fails on? If they cluster, that is a lead for a targeted fix. If they do not, K5's within-video ranking is probably near its ceiling for this model, and the micro line should stop. Saved scores and annotations only; nothing trained.
+
+| # | Choice | Value |
+|---|---|---|
+| FT1 | Items | K5 s2024 saved scores: DoTA-CAP-dev protocol B (569 clips, clusters = source video) and DADA-2000 whole (370 videos). **Fail** = own frame AUC < 0.5 |
+| FT2 | Categorical strata | DoTA (per-clip `raw_annotations/annotations/<id>.json`): `ego_involve`, `night`, `accident_name`. DADA (`dada标注.xlsx`): `light` (day / night), `weather`, `scenes`, `linear`; **ego** = the clip's `texts` names "ego-car"; **actor** = first of pedestrian / cyclist / motorbike / vehicle named in `texts`, else other. A stratum is read only with ≥ 20 items; smaller ones are pooled into "other" or printed as too small |
+| FT3 | Continuous covariates | video length (steps), span share, span centre (t/T), span length in seconds (DoTA 10 fps; DADA A1); DADA also the risk-phase length (start → accident) |
+| FT4 | Reads | Per stratum: n, fail share, mean own AUC; Δ fail share (stratum − rest), cluster bootstrap 2,000, seed 2026. Per covariate: AUC of the covariate separating failing from other items (Mann–Whitney), bootstrap CI. Peak location of the failing items: before / inside / after the span. Shared difficulty: Spearman ρ of per-item AUC, K5 against LaGoVAD (public checkpoint), and LaGoVAD's fail share among K5's failures against its overall fail share |
+| FT5 | Lead (written before the numbers) | A **categorical lead** is a stratum with ≥ 20 items whose fail share is ≥ 2 × the set's overall share **and** whose Δ interval excludes 0. A **covariate lead** is a covariate whose AUC interval excludes 0.5 with \|AUC − 0.5\| ≥ 0.10. About 25 strata and covariates are read, so roughly one false lead at 95 % is expected by chance. A lead is a lead, not a finding |
+| FT6 | What may follow | Leads found: Claude describes them and may propose one targeted check (the user decides). No lead: "K5's failures are not concentrated in any recorded attribute", and Claude recommends closing the micro line and writing it up. Never a K5 change |
+
+**Expectations, written before the numbers.** (a) Night fails more on both sets. (b) Ego-uninvolved (DoTA `ego_involve` false, DADA no "ego-car") fails more: the motion of a third party is smaller in the frame than ego motion. (c) Short spans (span length in seconds) fail more. (d) K5's and LaGoVAD's per-item AUC correlate positively (ρ > 0.2): some videos are hard for any model. A wrong expectation changes nothing.
+
+**Limits.** n = 1 checkpoint. Descriptive only, with many comparisons. The strata are the datasets' own annotations, not checked by eye. DADA's ego flag comes from a free-text field (`texts`, 83 strings).
+
+**Code (built after this note).** `core/tools/k5_fail_tail.py` + `core/tests/test_k5_fail_tail.py`, constants `FAILTAIL_*`, output `outputs/v_final/kim_tail/REPORTS/k5_fail_tail.{md,json}`.
+
+### 24.1 Read-out (2026-11-12, K5 s2024 and LaGoVAD public checkpoint, saved scores; raw `outputs/v_final/kim_tail/REPORTS/k5_fail_tail.{md,json}`; PRELIMINARY, n = 1)
+
+K5 fails on 47 / 569 DoTA-CAP-dev clips (0.083; 91 clusters) and 59 / 370 DADA-2000 videos (0.159). Every DoTA clip has its raw annotation, and every DADA video has its workbook row.
+
+**Leads by FT5: two, both at the edge of their bars.**
+- DoTA `accident_name = leave_to_left`: n = 35, fail share 0.200 against 0.083 overall, Δ +0.125 [+0.003, +0.250]. The lower bound is 0.003 above zero.
+- DoTA clip length: failing clips are longer (107 against 99 frames), AUC 0.603 [0.506, 0.695]. That is 0.003 past the 0.10 margin, and the lower bound is 0.006 above 0.5.
+
+About 30 strata and covariates were read, so about one false lead is expected by chance. Neither lead replicates on DADA: length there is 0.557 [0.480, 0.633], and DADA has no lane-departure stratum.
+
+**The most consistent pattern is not a lead by the 2× rule: accidents that do not involve the ego car.**
+
+| set | ego-uninvolved fail share (n) | ego-involved fail share (n) | Δ [95 %] | mean own AUC, uninvolved / involved |
+|---|---|---|---|---|
+| DoTA-CAP-dev (`ego_involve`) | 0.129 (248) | 0.047 (321) | +0.082 [+0.034, +0.135] | 0.753 / 0.871 |
+| DADA-2000 (`texts` without "ego-car") | 0.178 (275) | 0.105 (95) | +0.073 [−0.004, +0.147] | 0.753 / 0.835 |
+
+The direction is the same on both sets, and on DoTA the interval excludes 0. The ratio to the overall share (1.55, 1.12) is below FT5's 2×, so by the rule it is not a lead. Recorded here as a printed pattern, not a finding.
+
+**Where failing items peak.** DoTA: before the span 0.447, inside 0.191, after 0.362. DADA: before 0.441, inside 0.085, after 0.475. A failing curve is not flat: it peaks somewhere else, before or after the accident about equally often.
+
+**Shared difficulty.** On DoTA, Spearman ρ(K5, LaGoVAD per-item AUC) = 0.134, and LaGoVAD fails on 0.319 of K5's failures against 0.295 overall, so K5's DoTA failures are mostly its own. On DADA ρ = 0.227, and LaGoVAD fails on 0.492 of K5's failures against 0.330 overall, so part of DADA's failing tail is hard for both models (cause not read: annotation, visibility or content).
+
+**No effect, intervals including 0:** night or light (DoTA Δ +0.027, DADA +0.008), weather, span share, span centre, span seconds, DADA risk-phase length, DADA scene and road type (DADA `linear = 4` fails less, −0.093 [−0.168, −0.014], a single cell).
+
+**Expectations, scored.** (a) Night fails more: **wrong** on both. (b) Ego-uninvolved fails more: **held in direction on both sets** (DoTA interval excludes 0, DADA borderline), not a lead by FT5. (c) Short spans fail more: **wrong**. (d) ρ > 0.2: **held on DADA** (0.227), **wrong on DoTA** (0.134).
+
+**What this licenses.**
+1. K5's failing tail is **not concentrated in any recorded attribute strongly enough to target.** The two formal leads are at the edge of both bars and do not replicate across sets.
+2. The one pattern consistent across sets is that **accidents without the ego car fail about 1.5× as often** (DoTA). This fits frame-global features: a distant third-party collision moves few pixels compared with ego motion. That reading is inferred, not tested. Its fix would need spatial or object evidence, and the token line (`SA2V2_RUN.md` §12) and KIM's spatial forms (§14.1) are closed.
+3. On DoTA, K5's failures are its own; on DADA, about half are shared with LaGoVAD.
+
+**FT6.** Leads were found, so Claude may propose one targeted check; the user decides. Claude's recommendation, given that both leads are marginal, is to **close the micro line and write it up**, stating the ego-uninvolved pattern as a limitation. If one check is wanted, the cheapest is to look by eye at DADA's ego-uninvolved failing videos (frames exist on Drive; DoTA pixels do not) with their curves.
+
+**Not licensed:** "K5 fails on lane departures", "longer clips fail", "K5 cannot see third-party accidents" (1.5×, one set separated), or any stratum number beside a published one.
+
+**Limits.** n = 1; many comparisons; DADA's ego flag comes from free text; strata were not checked by eye.

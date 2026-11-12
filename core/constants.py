@@ -1162,3 +1162,17 @@ BASEMICRO_HEADROOM_MARGIN = 0.02  # §21 BM5: headroom shown iff the oracle's lo
 BASEMICRO_MACRO_TOL = 1e-6  # §21 BM4 G1: macro from clip_scores.npz vs its recorded read
 BASEMICRO_MICRO_TOL = 1e-4  # §21 BM4 G1: as-read micro vs the recorded micro (if recorded)
 BASEMICRO_INVARIANCE_TOL = 1e-9  # §21 BM4 G2: macro under every transform == the raw macro
+LAGSHIFT_REPORT_STEM = "k5_lag_shift"  # KIM_RUN §23: REPORTS/k5_lag_shift.{json,md}
+LAGSHIFT_OUTPUT_DIRNAME = "kim_lag"  # OUTPUT_ROOT/kim_lag: REPORTS/ only
+LAGSHIFT_GRID_STEP_S = 0.05  # §23 LS2: grid step of the lag delta, seconds
+LAGSHIFT_GRID_MAX_S = 1.5  # §23 LS2: largest delta, seconds (grid 0.00 ... 1.50, 31 values)
+LAGSHIFT_TIE_TOL = 1e-9  # §23 LS3: macros this close tie; the smallest delta wins
+LAGSHIFT_NEXAR_MACRO_TOL = 1e-4  # §23 LS5 G1: Nexar whole macro at delta 0 vs its read-out
+FAILTAIL_REPORT_STEM = "k5_fail_tail"  # KIM_RUN §24: REPORTS/k5_fail_tail.{json,md}
+FAILTAIL_OUTPUT_DIRNAME = "kim_tail"  # OUTPUT_ROOT/kim_tail: REPORTS/ only
+FAILTAIL_FAIL_AUC = 0.5  # §24 FT1: an item fails when its own frame AUC is below this
+FAILTAIL_MIN_STRATUM = 20  # §24 FT2: a stratum is read only with at least this many items
+FAILTAIL_LEAD_RATIO = 2.0  # §24 FT5: a categorical lead's fail share is >= this x the overall
+FAILTAIL_COVARIATE_MARGIN = 0.10  # §24 FT5: a covariate lead's |AUC - 0.5| is at least this
+FAILTAIL_DADA_ACTORS = ("pedestrian", "cyclist", "motorbike", "vehicle")  # §24 FT2, in order
+FAILTAIL_DADA_EGO_TOKEN = "ego-car"  # §24 FT2: DADA ego flag = the clip's texts name this

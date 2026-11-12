@@ -2450,3 +2450,12 @@ Promote if a second harness needs the same split.
 **Rule:** Compare a gate's held-out clip AUC with the host model's own peak clip AUC before proposing or running a gate fusion.
 **Files:** core/tools/k5_clip_gate.py, core/docs/final/KIM_RUN.md §20.1
 **Gates:** recurring? partly (§19 and §20 are the same line, n = 1 each); HIGH-impact? no (no training, CPU-cheap fit) -> pending.
+
+## (dg) [MEDIUM] Hypothesis - read every corpus's span rule, and where the model peaks, before blaming a label definition (2026-11-12)
+**Triggers:** label definition, anticipation, early firing, t_alert, abnormal start, span rule, corpus swap, T2, Nexar, DAD, lag
+**Problem:** Claude told the user that Nexar's span (starting at `t_alert`) made K5 fire early and so explained DAD and the DoTA / DADA boundary loss. The user asked why K5-T2 was not better then. T2's span also starts before the accident (DADA start → accident 1.50 s vs Nexar alert → event 1.43 s; D-N1 copied DADA), so the corpus swap never changed the label definition. The saved scores then showed K5 peaking *after* the event (Nexar +0.45 s, DADA +2–3 rows), the opposite of "fires early".
+**Bad:** name a label-definition cause from the training rule alone and propose a retrain on it.
+**Good:** first print where the model's curve peaks relative to the event on an in-domain set with event times (`nexar_val`), and read every compared corpus's span rule (`dada_origin.COL_START`, `NEXAR_SETUP.md` D-N1).
+**Rule:** Measure the peak-to-event offset and compare the span rules of all compared corpora before attributing a localization gap to a label definition.
+**Files:** core/docs/final/KIM_RUN.md §22.2–§22.3, core/data/dada_origin.py, core/docs/v2/NEXAR_SETUP.md
+**Gates:** recurring? partly (same family as (dd): a cause proposed before reading what exists); HIGH-impact? no (caught before any GPU) -> pending.
