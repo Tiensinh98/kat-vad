@@ -1046,3 +1046,39 @@ Macro per class on MSAD-full (printed, no interval, few videos per class), K5 �
 **Limits.** n = 1 checkpoint and one seed; K5 was chosen after both sets were read. Every transform except the oracles needs the whole video (offline) and is a **protocol change**: it never sits beside LaGoVAD's published 62.60, beside a raw-pooled cell, or beside another set's micro. It is not a model improvement; K5's scores are unchanged. Not position-free: a no-pixel middle ruler reaches macro 0.7342 on DADA (`dada_readout.md`), and per-video transforms that track the accident's position are not excluded. Not licensed by any outcome: "K5 localizes better", "micro 0.8x" as a model result, "the gap is a baseline problem" without the decomposition above.
 
 **Code.** `core/tools/k5_baseline_micro.py` (+ `core/tests/test_k5_baseline_micro.py`); `tad_clip_gate.micro_bootstrap_pairs` gained `groups=` and `draws=` (defaults bit-identical to before); constants `BASEMICRO_*`. Notebook `colab/final/k5_baseline_micro.ipynb`, CPU only, outputs `Thesis-Final/outputs/kim_baseline/REPORTS`.
+
+### 21.1 Read-out (2026-11-12, K5 s2024 and LaGoVAD public checkpoint, saved `clip_scores.npz`, `REPORTS/k5_baseline_micro.md`; PRELIMINARY, n = 1)
+
+Gates G1 / G2 / G3 passed (the report is written only if they do): recorded macro and micro reproduce, macro is unchanged under every row, no single-class video was left out (DoTA 569, DADA 370). Bootstrap 2,000 draws, seed 2026, clusters = DoTA source video (91) / the DADA video (370). **Nothing is adopted; every row except the two oracles is an offline protocol change, printed only.**
+
+**What micro is on these sets (BM6).** Only **0.2 % (DoTA) and 0.3 % (DADA)** of the abnormal × normal frame pairs lie inside one video, so micro is almost entirely a cross-video AUC (DoTA 0.7448, DADA 0.7221). The within-video pair-weighted AUC is 0.8033 and 0.7584; macro (mean of per-video AUCs) is 0.8195 and 0.7740 — a different quantity, not the same one measured badly.
+
+K5, micro (Δ against the as-read row, cluster bootstrap):
+
+| row | DoTA-CAP-dev (as read: min-max 0.7449) | DADA-2000 (as read: raw 0.7222) |
+|---|---|---|
+| raw | 0.6980, −0.0469 [−0.0556, −0.0387] below | as read |
+| min-max | as read | **0.7635, +0.0413 [+0.0314, +0.0514] above** |
+| z-score | 0.7597, +0.0148 [+0.0047, +0.0254] above | 0.7548, +0.0326 [+0.0175, +0.0474] above |
+| minus median | 0.7481, +0.0032 [−0.0099, +0.0167] not separated | 0.7424, +0.0202 [+0.0042, +0.0360] above |
+| minus q20 | 0.7215, −0.0235 [−0.0321, −0.0145] below | 0.7315, +0.0093 [+0.0011, +0.0166] above |
+| rank | **0.7735, +0.0286 [+0.0172, +0.0396] above** | 0.7539, +0.0317 [+0.0148, +0.0481] above |
+| oracle offset | 0.7369, −0.0080 [−0.0215, +0.0063] | 0.7277, +0.0055 [−0.0094, +0.0205] |
+| oracle normal-z | 0.7683, +0.0234 [+0.0103, +0.0368] | 0.7463, +0.0241 [+0.0073, +0.0407] |
+| headroom (BM5, lower bound > +0.02) | **not shown** | **not shown** |
+
+Printed (no sentence): normal-level spread of the videos' medians against the mean normal-to-abnormal gap, K5 0.2733 / 0.4021 (ratio 0.68) on DoTA and 0.2291 / 0.3433 (0.67) on DADA; LaGoVAD 0.2257 / 0.1573 (1.43) on DoTA and **0.1881 / 0.0271 (6.95) on DADA**. LaGoVAD, same rows: DoTA min-max 0.6105 → z-score 0.6217 and rank 0.6214 (above), median / q20 below or not separated, headroom not shown; DADA raw 0.5388 → min-max 0.6128 (+0.0741 [+0.0495, +0.0975]), every label-free row +0.074…+0.078, oracle normal-z +0.0677 [+0.0401, +0.0944] → **headroom shown for LaGoVAD on DADA**. AP under min-max: K5 DADA 0.5557 → 0.5640; DoTA rank 0.5790 → 0.5915; rank lowers K5's DADA AP (0.5276).
+
+**Expectations, scored.** (a) DADA min-max above raw: **held**. (b) DoTA z-score and rank near the as-read row, oracle normal-z above it with headroom shown: **wrong** (z-score and rank are above; headroom not shown, lower bounds +0.0103 / +0.0073 < +0.02). (c) Cross-video AUC below within-video AUC on both sets: **held**. (d) On DADA the label-free offsets recover at least half of the offset oracle: **held, and empty** (the oracle itself is +0.0055, not separated from 0). (e) LaGoVAD's micro − macro gap smaller than K5's on DoTA, larger on DADA (−0.031 / −0.075, −0.081 / −0.052): **held**.
+
+**What this licenses.**
+1. **No row reaches 0.8.** The best K5 micro is rank on DoTA, 0.7735, and min-max on DADA, 0.7635. Even `oracle normal-z`, which reads the ground truth, gives 0.7683 and 0.7463; the upper bounds of its intervals are +0.0368 and +0.0407 over the as-read rows. Per-video level or scale calibration is not what holds K5's micro below 0.8. "Not shown" at a +0.02 margin is not "zero": the point estimates are +0.023 and +0.024.
+2. **The between-video level offset is not the lever for K5.** The offset oracle is −0.0080 and +0.0055 (both include 0). The videos' normal levels do differ (ratio 0.68), but aligning them does not move micro. The user's premise (a frame abnormal in one video scoring below a normal frame of another) holds as a statement about cross-video pairs (cross-video AUC < within-video AUC), but its cure by baseline alignment is **not supported for K5**. It is supported for **LaGoVAD on DADA** (spread 0.188 against a gap of 0.027, headroom shown). §21's expectation that DADA was where the premise was most likely to hold was wrong for K5.
+3. **BM7(i), a protocol note, user decides:** on DADA-2000 whole sources (no normal video) per-video min-max is "above" raw for both K5 (0.7222 → 0.7635) and LaGoVAD (0.5388 → 0.6128), and `core.evaluate --score-norm auto` would have chosen it (C12); the raw DADA micro of `K5_ZS_REPORT.md` is the odd row beside DoTA's min-max. If the DADA micro is restated, state the pooling and re-pool LaGoVAD's cell the same way (K5 0.7635, LaGoVAD 0.6128; no paired interval was computed between them, so no sign is written). DoTA stays on LaGoVAD's min-max; `rank` / z-score are above it for both models but are a new protocol, not proposed.
+4. **BM7(ii):** headroom is not shown for K5, so no training-side calibration idea is proposed. BM7(iii): no change to K5.
+
+**Not licensed:** "micro 0.8x" or "K5 localizes better" from any row; "the gap is a baseline problem" for K5; any sentence putting a transformed micro beside a raw-pooled cell or a published number; a K5 − LaGoVAD sign under min-max on DADA.
+
+**Inferred, not tested.** On DADA, per-video min-max (0.7635) and rank sit **above** `oracle normal-z` (0.7463) although the oracle reads the labels. Both use the video's own peak, and every video here contains an accident, so they plausibly encode the prior "this video holds an anomaly" that a stream with normal videos does not have. If so, their gain is specific to an all-abnormal benchmark (C12), not a calibration that transfers. What would test it: the same rows on a set with normal videos (TAD, DAD, MSAD saved curves exist; the gate notebooks left them), not run. Likewise untested: that micro is held down by videos whose within-video AUC is weak; the saved scores can answer it (per-video AUC against that video's share of the cross-video pairs), not authorized.
+
+**Limits.** n = 1 checkpoint, one seed; K5 was chosen after both sets were read; the transforms are offline (whole video). Lesson candidate: pending (de).

@@ -2432,3 +2432,12 @@ Promote if a second harness needs the same split.
 **Rule:** Search tools, RESULTS docs and pending lessons for the mechanism, and read the arm's config, before proposing an experiment or a cause.
 **Files:** core/tools/tad_clip_gate.py; core/docs/v2/RESULTS_TADZ.md §3; core/docs/final/KIM_RUN.md §19
 **Gates:** recurring? yes (memory `check-prior-probes-before-proposing`, tw_probe 2026-10-09); HIGH-impact? no (caught before any GPU) → pending.
+
+## (de) [MEDIUM] Metrics - on an all-abnormal set micro is a cross-video AUC; print the pair split before blaming a per-video baseline (2026-11-12)
+**Triggers:** micro, macro, all-abnormal, DoTA, DADA, baseline offset, per-video min-max, cross-video, pair decomposition
+**Problem:** K5's micro (0.745 / 0.722) sat below its macro (0.820 / 0.774) and Claude told the user the DADA gap was where a between-video baseline offset was most likely; the saved scores showed only 0.2-0.3 % of abnormal x normal pairs are within one video and an oracle offset moves micro by -0.008 / +0.005 (both include 0).
+**Bad:** read micro < macro as "videos sit at different levels" and propose per-video calibration.
+**Good:** split micro into within-video and cross-video pairs, add an oracle offset and an oracle scale row, then name the cause (`k5_baseline_micro.py`).
+**Rule:** Print the within-video pair share and an offset-oracle row before attributing a micro-versus-macro gap to a per-video baseline.
+**Files:** core/tools/k5_baseline_micro.py:within_video, core/docs/final/KIM_RUN.md §21.1
+**Gates:** recurring? no (one tool, one read, n = 1); HIGH-impact? no (caught before any training) -> pending.
