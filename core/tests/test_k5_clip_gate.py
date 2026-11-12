@@ -8,8 +8,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from core import constants
+from core.metrics import frame_auc
 from core.tools import k5_clip_gate as kg
 from core.tools import nexar_eval
+from core.tools import tad_clip_gate as tg
 from core.tools.tadz_readout import load_run
 
 
@@ -46,6 +49,62 @@ class TestHeadroom:
         scores, _ = _toy()
         out = kg.offset(scores, {"a1": 1.0, "a2": 1.0, "n1": 0.0, "n2": 0.0})
         assert min(out["a1"].min(), out["a2"].min()) > max(out["n1"].max(), out["n2"].max())
+
+
+def _reference_bootstrap(a: dict[str, np.ndarray], b: dict[str, np.ndarray],
+                         labels: dict[str, np.ndarray], seed: int) -> dict[str, float]:
+    """The pre-2026-11-12 single-pair loop, kept verbatim as the oracle for the shared one."""
+    ids = sorted(labels)
+    rng = np.random.default_rng(seed)
+    draws = rng.integers(0, len(ids), size=(constants.V2_E1_BOOTSTRAP, len(ids)))
+    deltas = np.empty(len(draws))
+    for i, draw in enumerate(draws):
+        pick = [ids[j] for j in draw]
+        y = np.concatenate([labels[v] for v in pick])
+        if y.min() == y.max():
+            deltas[i] = np.nan
+            continue
+        deltas[i] = frame_auc(np.concatenate([a[v] for v in pick]), y) - frame_auc(
+            np.concatenate([b[v] for v in pick]), y)
+    alpha = (1.0 - constants.V2_E1_CI) / 2.0
+    low, high = np.nanquantile(deltas, [alpha, 1.0 - alpha])
+    return {"mean": tg.micro(a, labels) - tg.micro(b, labels),
+            "low": float(low), "high": float(high)}
+
+
+class TestSharedBootstrap:
+    """``micro_bootstrap_pairs`` / ``set_reads`` reproduce the one-pair loop exactly."""
+
+    def test_pairs_equal_the_single_pair_loop(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(constants, "V2_E1_BOOTSTRAP", 200)
+        scores, labels = _toy()
+        other = {v: s[::-1].copy() for v, s in scores.items()}
+        pairs = {"x": ("s", "o"), "y": ("o", "s")}
+        got = tg.micro_bootstrap_pairs({"s": scores, "o": other}, pairs, labels, 7)
+        for key, (a, b) in pairs.items():
+            want = _reference_bootstrap({"s": scores, "o": other}[a], {"s": scores, "o": other}[b],
+                                        labels, 7)
+            assert got[key] == pytest.approx(want, abs=0, rel=0)
+        assert tg.micro_bootstrap(scores, other, labels, 7) == got["x"]
+
+    def test_set_reads_equal_the_old_per_pair_calls(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(constants, "V2_E1_BOOTSTRAP", 200)
+        scores, labels = _toy()
+        gates = {"NG": {"a1": 0.9, "a2": 0.8, "n1": 0.1, "n2": 0.2},
+                 "MS": {"a1": 0.6, "a2": 0.7, "n1": 0.5, "n2": 0.3}}
+        reads, cross = kg.set_reads(scores, labels, gates)
+        minmaxed = {v: tg.minmax(s) for v, s in scores.items()}
+        fused = {g: kg.fused_curves(scores, labels, c) for g, c in gates.items()}
+        def ref(x: dict[str, np.ndarray], y: dict[str, np.ndarray]) -> dict[str, float]:
+            return _reference_bootstrap(x, y, labels, kg.SEED)
+
+        for g, c in gates.items():
+            only = {v: np.full(len(s), c[v]) for v, s in scores.items()}
+            assert reads[g]["delta_vs_raw"] == ref(fused[g], scores)
+            assert reads[g]["delta_vs_minmax"] == ref(fused[g], minmaxed)
+            assert reads[g]["delta_vs_gate_only"] == ref(fused[g], only)
+        assert cross["MS - NG"] == ref(fused["MS"], fused["NG"])
+        assert reads["NG"] == kg.gate_read(scores, labels, gates["NG"])
 
 
 class TestGate:

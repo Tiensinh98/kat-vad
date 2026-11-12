@@ -174,24 +174,42 @@ def clip_level(values: dict[str, float], labels: dict[str, int]) -> float:
     return frame_auc(np.array([values[v] for v in ids]), np.array([labels[v] for v in ids]))
 
 
-def micro_bootstrap(a: Curves, b: Curves, labels: Curves, seed: int) -> dict[str, float]:
-    """Percentile CI of micro(a) - micro(b), resampling whole videos (each its own cluster)."""
+def micro_bootstrap_pairs(
+    curves: dict[str, Curves], pairs: dict[str, tuple[str, str]], labels: Curves, seed: int
+) -> dict[str, dict[str, float]]:
+    """Percentile CI of micro(a) - micro(b) for every named pair, resampling whole videos.
+
+    All pairs share one set of resamples and each distinct curve is scored once per
+    resample, so k pairs over m curves cost m AUCs per draw, not 2k. The draws and the
+    arithmetic are those of a single-pair call with the same seed (bit-identical).
+    """
     ids = sorted(labels)
+    needed = sorted({name for pair in pairs.values() for name in pair})
     rng = np.random.default_rng(seed)
     draws = rng.integers(0, len(ids), size=(constants.V2_E1_BOOTSTRAP, len(ids)))
-    deltas = np.empty(len(draws))
+    deltas = {key: np.empty(len(draws)) for key in pairs}
     for i, draw in enumerate(draws):
         pick = [ids[j] for j in draw]
         y = np.concatenate([labels[v] for v in pick])
         if y.min() == y.max():
-            deltas[i] = np.nan
+            for column in deltas.values():
+                column[i] = np.nan
             continue
-        deltas[i] = frame_auc(np.concatenate([a[v] for v in pick]), y) - frame_auc(
-            np.concatenate([b[v] for v in pick]), y
-        )
+        auc = {n: frame_auc(np.concatenate([curves[n][v] for v in pick]), y) for n in needed}
+        for key, (a, b) in pairs.items():
+            deltas[key][i] = auc[a] - auc[b]
     alpha = (1.0 - constants.V2_E1_CI) / 2.0
-    low, high = np.nanquantile(deltas, [alpha, 1.0 - alpha])
-    return {"mean": micro(a, labels) - micro(b, labels), "low": float(low), "high": float(high)}
+    out: dict[str, dict[str, float]] = {}
+    for key, (a, b) in pairs.items():
+        low, high = np.nanquantile(deltas[key], [alpha, 1.0 - alpha])
+        out[key] = {"mean": micro(curves[a], labels) - micro(curves[b], labels),
+                    "low": float(low), "high": float(high)}
+    return out
+
+
+def micro_bootstrap(a: Curves, b: Curves, labels: Curves, seed: int) -> dict[str, float]:
+    """Percentile CI of micro(a) - micro(b), resampling whole videos (each its own cluster)."""
+    return micro_bootstrap_pairs({"a": a, "b": b}, {"d": ("a", "b")}, labels, seed)["d"]
 
 
 def gate_sentence(paired: dict[str, Any], boot: dict[str, float]) -> str:

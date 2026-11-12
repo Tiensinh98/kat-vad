@@ -42,7 +42,7 @@ from core import constants
 from core.metrics import frame_ap, frame_auc, normalize_scores
 from core.tools import tadz_readout as td
 from core.tools.kill_switch_probe import write_json_atomic, write_text_atomic
-from core.tools.tad_clip_gate import fuse, micro_bootstrap, minmax
+from core.tools.tad_clip_gate import fuse, micro_bootstrap_pairs, minmax
 from core.tools.zs_lagovad_readout import versus_sentence
 
 LOGGER = logging.getLogger(__name__)
@@ -121,25 +121,47 @@ def fused_curves(scores: Curves, labels: Curves, gate: dict[str, float]) -> Curv
     return fused
 
 
+def set_reads(scores: Curves, labels: Curves, gates: dict[str, dict[str, float]]
+              ) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, float]]]:
+    """Per-gate reads (K5 raw / min-max / gate only / ``c · minmax(s)``) and the cross-gate deltas.
+
+    Every bootstrap of the set runs on one set of resamples (``micro_bootstrap_pairs``):
+    each distinct curve is scored once per draw. Cross-gate keys are ``a - b`` over sorted names.
+    """
+    minmaxed = {v: minmax(s) for v, s in scores.items()}
+    curves: dict[str, Curves] = {"K5 raw": scores, "min-max only": minmaxed}
+    pairs: dict[str, tuple[str, str]] = {}
+    for name, gate in gates.items():
+        curves[f"fused {name}"] = fused_curves(scores, labels, gate)
+        curves[f"gate only {name}"] = {v: np.full(len(s), gate[v]) for v, s in scores.items()}
+        pairs[f"{name} raw"] = (f"fused {name}", "K5 raw")
+        pairs[f"{name} minmax"] = (f"fused {name}", "min-max only")
+        pairs[f"{name} gate only"] = (f"fused {name}", f"gate only {name}")
+    names = sorted(gates)
+    cross = {f"{a} - {b}": (f"fused {a}", f"fused {b}")
+             for i, a in enumerate(names) for b in names[i + 1:]}
+    boots = micro_bootstrap_pairs(curves, {**pairs, **{f"cross {k}": v for k, v in cross.items()}},
+                                  labels, SEED)
+    reads: dict[str, dict[str, Any]] = {}
+    for name in gates:
+        rows = {"K5 raw": scores, "min-max only": minmaxed,
+                "gate only": curves[f"gate only {name}"], FUSED: curves[f"fused {name}"]}
+        delta = boots[f"{name} raw"]
+        reads[name] = {
+            "macro": macro(scores, labels),
+            "macro_drift": abs(macro(rows[FUSED], labels) - macro(scores, labels)),
+            "rows": {k: _row(x, labels) for k, x in rows.items()},
+            "delta_vs_raw": delta,
+            "sentence": versus_sentence(delta),
+            "delta_vs_minmax": boots[f"{name} minmax"],
+            "delta_vs_gate_only": boots[f"{name} gate only"],
+        }
+    return reads, {k: boots[f"cross {k}"] for k in cross}
+
+
 def gate_read(scores: Curves, labels: Curves, gate: dict[str, float]) -> dict[str, Any]:
-    """K5 raw / min-max / gate only / ``c · minmax(s)`` and the bootstraps against each."""
-    fused = fused_curves(scores, labels, gate)
-    rows = {
-        "K5 raw": scores,
-        "min-max only": {v: minmax(s) for v, s in scores.items()},
-        "gate only": {v: np.full(len(s), gate[v]) for v, s in scores.items()},
-        FUSED: fused,
-    }
-    delta = micro_bootstrap(fused, scores, labels, SEED)
-    return {
-        "macro": macro(scores, labels),
-        "macro_drift": abs(macro(fused, labels) - macro(scores, labels)),
-        "rows": {k: _row(x, labels) for k, x in rows.items()},
-        "delta_vs_raw": delta,
-        "sentence": versus_sentence(delta),
-        "delta_vs_minmax": micro_bootstrap(fused, rows["min-max only"], labels, SEED),
-        "delta_vs_gate_only": micro_bootstrap(fused, rows["gate only"], labels, SEED),
-    }
+    """``set_reads`` for one gate."""
+    return set_reads(scores, labels, {"gate": gate})[0]["gate"]
 
 
 def strata_read(scores: Curves, labels: Curves, gates: dict[str, dict[str, float]],
@@ -162,19 +184,6 @@ def strata_read(scores: Curves, labels: Curves, gates: dict[str, dict[str, float
                 for name, g in gates.items():
                     entry[name] = frame_auc(np.array([g[v] for v in ids]), target)
             out[key][value] = entry
-    return out
-
-
-def cross_gate(scores: Curves, labels: Curves, gates: dict[str, dict[str, float]]
-               ) -> dict[str, dict[str, float]]:
-    """micro(K5 x a) - micro(K5 x b) for every pair of gates (names sorted)."""
-    names = sorted(gates)
-    out: dict[str, dict[str, float]] = {}
-    for i, a in enumerate(names):
-        for b in names[i + 1:]:
-            out[f"{a} - {b}"] = micro_bootstrap(fused_curves(scores, labels, gates[a]),
-                                                fused_curves(scores, labels, gates[b]),
-                                                labels, SEED)
     return out
 
 
@@ -275,14 +284,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         name, run_dir, gate_files = parse_set(spec)
         scores, labels = td.load_run(run_dir)
         gates = {g: read_gate_file(p, scores) for g, p in gate_files.items()}
+        reads, cross = set_reads(scores, labels, gates)
         entry: dict[str, Any] = {
             "run": str(run_dir), "gate_files": {g: str(p) for g, p in gate_files.items()},
             "in_domain_gates": sorted(in_domain.get(name, set())),
             "headroom": headroom(scores, labels),
-            "gates": {g: gate_read(scores, labels, c) for g, c in gates.items()},
+            "gates": reads,
         }
         if len(gates) > 1:
-            entry["cross_gate"] = cross_gate(scores, labels, gates)
+            entry["cross_gate"] = cross
         if name in strata_files:
             strata = json.loads(strata_files[name].read_text(encoding="utf-8"))
             entry["strata"] = strata_read(scores, labels, gates, strata)
