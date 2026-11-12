@@ -1320,3 +1320,18 @@ The direction is the same on both sets, and on DoTA the interval excludes 0. The
 **Not licensed:** "K5 fails on lane departures", "longer clips fail", "K5 cannot see third-party accidents" (1.5×, one set separated), or any stratum number beside a published one.
 
 **Limits.** n = 1; many comparisons; DADA's ego flag comes from free text; strata were not checked by eye.
+
+### 24.2 Post-hoc (2026-11-12, user's question): did the SA²-v2 token arms help ego-uninvolved accidents?
+
+Printed only, n = 1. Per-item AUC from each arm's `clip_aucs.json` (on W0D DoTA these equal the AUCs recomputed from `clip_scores.npz` to 1e-9; SV4 has no saved curves). Arm − W0D (the SA²-v2 control) per item, split by §24's ego flag; cluster bootstrap 2,000, seed 2026.
+
+| set | stratum (n) | W0D macro | SV2 − W0D | SV3 − W0D | SV4 − W0D |
+|---|---|---:|---|---|---|
+| DoTA-CAP-dev | ego-involved (321) | 0.884 | −0.038 [−0.051, −0.026] | −0.028 [−0.038, −0.018] | −0.012 [−0.025, −0.001] |
+| | **ego-uninvolved (248)** | 0.727 | −0.021 [−0.043, +0.002] | −0.031 [−0.051, −0.012] | +0.002 [−0.012, +0.015] |
+| DADA-2000 | ego-involved (95) | 0.808 | −0.022 [−0.046, +0.001] | −0.013 [−0.037, +0.011] | +0.005 [−0.015, +0.026] |
+| | **ego-uninvolved (275)** | 0.734 | −0.045 [−0.065, −0.025] | −0.028 [−0.045, −0.012] | −0.020 [−0.037, −0.004] |
+
+**No SA²-v2 arm improves ego-uninvolved accidents on either set.** On DADA every arm costs there. On DoTA, SV3 costs there, and SV2 and SV4 are not separated from W0D. This agrees with `SA2V2_RUN.md` §7.2 / §11.5: SV2's map does not point at non-ego agents (hit − chance −0.006, against +0.283 for ego accidents). The ego gap is a property of the host, not of K5: W0D shows it too (0.884 against 0.727 on DoTA).
+
+**Correction to §24.1 item 2.** "Its fix would need spatial or object evidence" overstates what is open. **Every spatial attempt made here** has failed to beat the frame-global motion prior: 7×7 tokens (SA²-v2, this table, `SA2V2_RUN.md` §12.2), crops (`LOCAL_STEP1.md` §7, `LOCAL_STEP1B.md` §5) and KIM's spatial forms (§14.1). What has not been tried is object-level evidence (detector boxes) or native-resolution input. Those are untested and costly, and `SA2V2_RUN.md` §12.2 does not license any claim about them either way.

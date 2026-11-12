@@ -444,6 +444,8 @@ resolution or a larger training set; "SA²-v2 did not learn" (C2 shows it did); 
 and not gating:** the SV3 maps (§10.3), and an optional free read of where the SV2 map peaks (frame position,
 ego flag) on the existing outputs.
 
+**2026-11-12, partial read (post-hoc, printed only; `KIM_RUN.md` §24.2):** detection AUC by ego flag. No SA²-v2 arm improves ego-uninvolved accidents (DADA: SV2 −0.045, SV3 −0.028, SV4 −0.020 against W0D, all excluding 0; DoTA: SV3 −0.031, SV2 / SV4 not separated). Where the map *peaks* by ego flag is still unread.
+
 **Implication for the thesis claim (a decision for the user, not made here).** On the 528 boxed clips the
 training-free Mo map has the highest STAUC (0.3343, against SV2 0.2844, centre 0.2677, uniform 0.2544) and ties
 the centre prior on the pointing game (hit − centre −0.010 [−0.051, +0.030]); SV2 is below the centre prior on
