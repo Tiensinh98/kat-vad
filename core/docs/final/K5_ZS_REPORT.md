@@ -17,14 +17,21 @@ misses Gate T0 on TAD. DAD adds `ZS_DAD.md` §8's ruler, placebo and same-positi
 | | AUC micro | 0.6105 | 0.7449 | |
 | | AP | 0.3838 | 0.5790 | 0.3271 |
 | **DADA-2000** | AUC macro | 0.6202 [0.5925, 0.6480] | 0.7740 [0.7492, 0.7982] | |
-| | AUC micro | 0.5388 | 0.7222 | |
-| | AP | 0.3138 | 0.5557 | 0.2885 |
+| | AUC micro | 0.6128 | 0.7635 | |
+| | AP | 0.3532 | 0.5640 | 0.2885 |
 | **TAD** | AUC macro | 0.7579 [0.6955, 0.8147] | 0.7002 [0.6246, 0.7724] | |
 | | AUC micro | 0.7912 | 0.6781 | |
 | | AP | 0.2571 | 0.2568 | 0.0724 |
 | **DAD** | AUC macro | 0.6462 [0.5881, 0.7016] | 0.7916 [0.7513, 0.8294] | |
 | | AUC micro | 0.5681 | 0.7050 | |
 | | AP | 0.0640 | 0.1156 | 0.0472 |
+
+**DADA-2000 micro and AP are pooled after per-video min-max since 2026-11-12** (user's decision on
+`KIM_RUN.md` §21.1 BM7(i)). DADA-2000 whole sources hold no normal video, so this is the pooling
+DoTA-CAP-dev already uses and the one `core.evaluate --score-norm auto` picks (C12). Before that the
+cells were raw: LaGoVAD 0.5388 / AP 0.3138, K5 0.7222 / AP 0.5557. Never put a raw-pooled DADA micro
+beside these. Macro does not change. No paired micro interval was computed, so no K5 - LaGoVAD sign
+is written for micro.
 
 K5 - LaGoVAD, macro, paired per item: DoTA-CAP-dev +0.1777 [+0.1495, +0.2067] above; DADA-2000
 +0.1538 [+0.1212, +0.1861] above; TAD -0.0577 [-0.1389, +0.0239] not separated; DAD +0.1455 [+0.0814, +0.2100] above, read the next

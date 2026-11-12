@@ -51,11 +51,11 @@ DOTA, DADA, TAD, DAD = (zs_compare_table.DOTA, zs_compare_table.DADA, zs_compare
                         zs_compare_table.DAD)
 SET_ORDER = zs_compare_table.SET_ORDER
 SET_NAME = zs_compare_table.SET_NAME
-MICRO_TOLERANCE = zs_compare_table.MICRO_TOLERANCE
 RUN_SETS = (TAD, DAD)  # core.evaluate outputs; the others are clip_scores.npz reads
 PROTOCOL = {
     DOTA: "569 two-class clips; protocol B (`s1[::3]`, native frames); per-clip min-max",
-    DADA: "370 two-class T2-test sources; stride 8, whole video; raw scores",
+    DADA: ("370 two-class T2-test sources; stride 8, whole video; per-video min-max (no normal "
+           "video; since 2026-11-12, `KIM_RUN.md` §21.1)"),
     TAD: "100 test videos, macro over the 60 two-class; stride 8; raw scores",
     DAD: ("466 test videos, macro over the 165 positives; stride 7 at 25 fps, `toa = 90`; "
           "raw scores"),
@@ -141,11 +141,8 @@ def set_report(args: argparse.Namespace, set_name: str) -> dict[str, Any]:
         loaded = zs_compare_table.load_scores(score_source(args, set_name, row))
         if loaded is None:
             raise FileNotFoundError(f"{set_name}/{row}: no scores, AP cannot be computed")
-        pooled = zs_compare_table.pooled_reads(*loaded, minmax=set_name == DOTA)
-        if abs(pooled["micro"] - read["micro"]) > MICRO_TOLERANCE:
-            raise ValueError(f"{set_name}/{row}: micro {pooled['micro']:.6f} from the scores != "
-                             f"{read['micro']:.6f} in the read: not the same scores")
-        rows[row] = {"macro": read["macro"], "micro": read["micro"], "ap": pooled["ap"],
+        pooled = zs_compare_table.gated_reads(loaded, set_name, read["micro"], f"{set_name}/{row}")
+        rows[row] = {"macro": read["macro"], "micro": pooled["micro"], "ap": pooled["ap"],
                      "clip_auc": read["clip_auc"]}
         base_rate = pooled["base_rate"]
     delta = delta_ci(reads[K5], reads[LAG])

@@ -74,11 +74,9 @@ def zero_shot_row(view: argparse.Namespace, set_name: str) -> tuple[ArmRead, dic
     loaded = zs_compare_table.load_scores(zs.score_source(view, set_name, K5))
     if loaded is None:
         raise FileNotFoundError(f"{set_name}: no scores under {view.kim_root}: no AP")
-    pooled = zs_compare_table.pooled_reads(*loaded, minmax=set_name == zs.DOTA)
-    if abs(pooled["micro"] - read["micro"]) > zs.MICRO_TOLERANCE:
-        raise ValueError(f"{set_name} ({view.kim_root}): micro {pooled['micro']:.6f} from the "
-                         f"scores != {read['micro']:.6f} in the read: not the same scores")
-    cells = {"macro": read["macro"], "micro": read["micro"], "ap": pooled["ap"],
+    pooled = zs_compare_table.gated_reads(loaded, set_name, read["micro"],
+                                          f"{set_name} ({view.kim_root})")
+    cells = {"macro": read["macro"], "micro": pooled["micro"], "ap": pooled["ap"],
              "base_rate": pooled["base_rate"]}
     return read, cells
 

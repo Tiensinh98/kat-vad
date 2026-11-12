@@ -8,8 +8,8 @@
 | | AUC micro | 0.6105 | 0.7255 | 0.7291 | |
 | | AP | 0.3838 | 0.5562 | 0.5783 | 0.3271 |
 | **DADA-2000** | AUC macro | 0.6202 [0.5925, 0.6480] | 0.7615 [0.7369, 0.7859] | 0.7579 [0.7334, 0.7820] | |
-| | AUC micro | 0.5388 | 0.6981 | 0.7048 | |
-| | AP | 0.3138 | 0.5268 | 0.5363 | 0.2885 |
+| | AUC micro | 0.6128 | 0.7463 | 0.7398 | |
+| | AP | 0.3532 | 0.5424 | 0.5412 | 0.2885 |
 | **TAD** | AUC macro | 0.7579 [0.6955, 0.8147] | 0.6983 [0.6222, 0.7695] | 0.7220 [0.6515, 0.7889] | |
 | | AUC micro | 0.7912 | 0.6034 | 0.7167 | |
 | | AP | 0.2571 | 0.2117 | 0.2747 | 0.0724 |
@@ -22,7 +22,7 @@
 | Set | Items | Rows and pooling of micro / AP |
 |---|---|---|
 | DoTA-CAP-dev | 569 two-class clips | protocol B (`s1[::3]`, native frames); per-clip min-max |
-| DADA-2000 | 370 two-class T2-test sources | stride 8, whole video; raw scores |
+| DADA-2000 | 370 two-class T2-test sources | stride 8, whole video; per-video min-max (§21.1) |
 | TAD | 100 test videos, macro over the 60 two-class | stride 8; raw scores |
 | DAD | 466 test videos, macro over the 165 positives | stride 7 at 25 fps, `toa = 90`; raw scores |
 
@@ -39,5 +39,9 @@
   two rows, so a no-pixel `t/N` ruler scores 1.000.
 * **Micro on TAD and DAD measures clip classification.** A constant-score-per-clip oracle reaches
   0.9226 on TAD and 0.8390 on DAD.
+* **DADA-2000 micro and AP are pooled after per-video min-max since 2026-11-12** (user's decision,
+  `KIM_RUN.md` §21.1 BM7(i), which lists the earlier raw cells). The set has no normal video (C12).
+  Never put a raw-pooled DADA micro beside these. No paired micro interval exists, so no row order
+  on micro is a finding.
 * **Read AP against the base rate in its row**: the share of positive frames, which is what a
   random scorer gets.

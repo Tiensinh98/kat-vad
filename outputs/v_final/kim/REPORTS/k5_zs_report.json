@@ -158,10 +158,10 @@
         "low": 0.12121177629574076,
         "mean": 0.1537855892456001
       },
-      "protocol": "370 two-class T2-test sources; stride 8, whole video; raw scores",
+      "protocol": "370 two-class T2-test sources; stride 8, whole video; per-video min-max (no normal video; since 2026-11-12, `KIM_RUN.md` \u00a721.1)",
       "rows": {
         "K5": {
-          "ap": 0.5556699353475769,
+          "ap": 0.5640028216265838,
           "clip_auc": null,
           "macro": {
             "clips": 370,
@@ -170,10 +170,10 @@
             "low": 0.7492336545041942,
             "mean": 0.7740035001758967
           },
-          "micro": 0.7221813032558138
+          "micro": 0.7634819479332356
         },
         "LaGoVAD": {
-          "ap": 0.3138491717536379,
+          "ap": 0.3531800230626634,
           "clip_auc": null,
           "macro": {
             "clips": 370,
@@ -182,7 +182,7 @@
             "low": 0.5924833004630622,
             "mean": 0.6202179109302967
           },
-          "micro": 0.5387561040672906
+          "micro": 0.6128131669913838
         }
       },
       "sentence": "above"
@@ -209,7 +209,7 @@
             "low": 0.8048156895081369,
             "mean": 0.8195184689731452
           },
-          "micro": 0.7449063041152483
+          "micro": 0.7449063041152482
         },
         "LaGoVAD": {
           "ap": 0.383827357562876,
@@ -239,7 +239,7 @@
       "protocol": "100 test videos, macro over the 60 two-class; stride 8; raw scores",
       "rows": {
         "K5": {
-          "ap": 0.25682557377073145,
+          "ap": 0.2568255737707314,
           "clip_auc": 0.6358333333333333,
           "macro": {
             "clips": 60,

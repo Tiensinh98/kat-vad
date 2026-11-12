@@ -42,6 +42,12 @@ ROW_NAME = {
     constants.ZS_SA2_ARM: "LaGoVAD + R4",
 }
 MICRO_TOLERANCE = 1e-6
+# Pooling of micro / AP. The read-out tools pool DoTA after per-clip min-max and every other set
+# raw; their micro is the provenance gate. The tables pool DADA-2000 after per-video min-max too:
+# it holds no normal video, so raw pooling ranks accident videos against each other's levels
+# (C12, ``resolve_score_norm``). User's decision 2026-11-12, ``KIM_RUN.md`` §21.1 BM7(i).
+READOUT_MINMAX_SETS = (DOTA,)
+TABLE_MINMAX_SETS = (DOTA, DADA)
 BLANK = "—"
 NOTES = """
 ## Protocol per set
@@ -49,7 +55,7 @@ NOTES = """
 | Set | Items | Rows and pooling of micro / AP |
 |---|---|---|
 | DoTA-CAP-dev | 569 two-class clips | protocol B (`s1[::3]`, native frames); per-clip min-max |
-| DADA-2000 | 370 two-class T2-test sources | stride 8, whole video; raw scores |
+| DADA-2000 | 370 two-class T2-test sources | stride 8, whole video; per-video min-max (§21.1) |
 | TAD | 100 test videos, macro over the 60 two-class | stride 8; raw scores |
 | DAD | 466 test videos, macro over the 165 positives | stride 7 at 25 fps, `toa = 90`; raw scores |
 
@@ -66,6 +72,10 @@ NOTES = """
   two rows, so a no-pixel `t/N` ruler scores 1.000.
 * **Micro on TAD and DAD measures clip classification.** A constant-score-per-clip oracle reaches
   0.9226 on TAD and 0.8390 on DAD.
+* **DADA-2000 micro and AP are pooled after per-video min-max since 2026-11-12** (user's decision,
+  `KIM_RUN.md` §21.1 BM7(i), which lists the earlier raw cells). The set has no normal video (C12).
+  Never put a raw-pooled DADA micro beside these. No paired micro interval exists, so no row order
+  on micro is a finding.
 * **Read AP against the base rate in its row**: the share of positive frames, which is what a
   random scorer gets.
 """
@@ -116,6 +126,23 @@ def pooled_reads(scores: Curves, labels: Curves, minmax: bool) -> dict[str, floa
             "base_rate": float(np.mean(truth > 0))}
 
 
+def repooled(set_name: str) -> bool:
+    """True when the table pools ``set_name`` differently from the read-out that gates it."""
+    return (set_name in TABLE_MINMAX_SETS) != (set_name in READOUT_MINMAX_SETS)
+
+
+def gated_reads(loaded: tuple[Curves, Curves], set_name: str, read_micro: float,
+                where: str) -> dict[str, float]:
+    """Micro, AP and base rate under the table's pooling, once the read-out's micro reproduces."""
+    as_read = pooled_reads(*loaded, minmax=set_name in READOUT_MINMAX_SETS)
+    if abs(as_read["micro"] - read_micro) > MICRO_TOLERANCE:
+        raise ValueError(f"{where}: micro {as_read['micro']:.6f} from the score file != "
+                         f"{read_micro:.6f} in the read-out: not the same scores")
+    if not repooled(set_name):
+        return as_read
+    return pooled_reads(*loaded, minmax=set_name in TABLE_MINMAX_SETS)
+
+
 def build_table(args: argparse.Namespace, readout: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """``{set: {row: {macro, micro, ap}, "base_rate": float | None}}``, gated on the read-out."""
     table: dict[str, dict[str, Any]] = {}
@@ -123,16 +150,13 @@ def build_table(args: argparse.Namespace, readout: dict[str, Any]) -> dict[str, 
         reported = readout["sets"][set_name]["rows"]
         table[set_name] = {"base_rate": None}
         for row in ROWS:
-            cell = {"macro": reported[row]["macro"], "micro": reported[row]["micro"], "ap": None}
+            # Without scores the read-out's micro stands only where its pooling is the table's.
+            cell = {"macro": reported[row]["macro"],
+                    "micro": None if repooled(set_name) else reported[row]["micro"], "ap": None}
             loaded = load_scores(_sources(args, set_name, row))
             if loaded is not None:
-                reads = pooled_reads(*loaded, minmax=set_name == DOTA)
-                if abs(reads["micro"] - cell["micro"]) > MICRO_TOLERANCE:
-                    raise ValueError(
-                        f"{set_name}/{row}: micro {reads['micro']:.6f} from the score file != "
-                        f"{cell['micro']:.6f} in the read-out: not the same scores"
-                    )
-                cell["ap"] = reads["ap"]
+                reads = gated_reads(loaded, set_name, reported[row]["micro"], f"{set_name}/{row}")
+                cell["micro"], cell["ap"] = reads["micro"], reads["ap"]
                 table[set_name]["base_rate"] = reads["base_rate"]
             table[set_name][row] = cell
     return table

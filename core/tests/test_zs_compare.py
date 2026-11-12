@@ -104,6 +104,24 @@ class TestCompareTable:
                       if line.startswith("| | AP"))
         assert zs_compare_table.BLANK in ap_row
 
+    def test_dada_is_gated_raw_and_tabled_after_minmax(self, tmp_path: Path) -> None:
+        argv = _layout(tmp_path)
+        loaded = zs_compare_table.load_scores(
+            tmp_path / "zs" / "eval" / "dada" / R4 / protocol_b_eval.CLIP_SCORES_NPZ)
+        assert loaded is not None
+        table = zs_compare_table.run(_args(argv))
+        mm = zs_compare_table.pooled_reads(*loaded, minmax=True)
+        assert table["dada"][R4]["micro"] == mm["micro"]
+        assert table["dada"][R4]["ap"] == mm["ap"]
+        assert table["dada"][R4]["micro"] != zs_compare_table.pooled_reads(*loaded, False)["micro"]
+
+    def test_missing_dada_scores_never_show_the_raw_micro(self, tmp_path: Path) -> None:
+        argv = _layout(tmp_path)
+        (tmp_path / "zs" / "eval" / "dada" / R4 / protocol_b_eval.CLIP_SCORES_NPZ).unlink()
+        table = zs_compare_table.run(_args(argv))
+        assert table["dada"][R4]["micro"] is None and table["dada"][R4]["ap"] is None
+        assert table["tad"][R4]["micro"] is not None
+
     def test_scores_that_disagree_with_the_readout_refuse(self, tmp_path: Path) -> None:
         argv = _layout(tmp_path)
         path = tmp_path / "lag" / "REPORTS" / "zs_lagovad_readout.json"
