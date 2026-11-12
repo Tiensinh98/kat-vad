@@ -175,21 +175,36 @@ def clip_level(values: dict[str, float], labels: dict[str, int]) -> float:
 
 
 def micro_bootstrap_pairs(
-    curves: dict[str, Curves], pairs: dict[str, tuple[str, str]], labels: Curves, seed: int
+    curves: dict[str, Curves],
+    pairs: dict[str, tuple[str, str]],
+    labels: Curves,
+    seed: int,
+    groups: dict[str, str] | None = None,
+    draws: int | None = None,
 ) -> dict[str, dict[str, float]]:
-    """Percentile CI of micro(a) - micro(b) for every named pair, resampling whole videos.
+    """Percentile CI of micro(a) - micro(b) for every named pair, resampling whole clusters.
 
     All pairs share one set of resamples and each distinct curve is scored once per
-    resample, so k pairs over m curves cost m AUCs per draw, not 2k. The draws and the
-    arithmetic are those of a single-pair call with the same seed (bit-identical).
+    resample, so k pairs over m curves cost m AUCs per draw, not 2k. Without ``groups`` every
+    video is its own cluster and ``draws`` defaults to ``V2_E1_BOOTSTRAP``: the draws and the
+    arithmetic are then those of a single-pair call with the same seed (bit-identical).
+    ``groups`` maps a video to its cluster (DoTA clips share a source video, D3).
     """
     ids = sorted(labels)
+    if groups is None:
+        units = [[v] for v in ids]
+    else:
+        members: dict[str, list[str]] = {}
+        for v in ids:
+            members.setdefault(groups[v], []).append(v)
+        units = [members[g] for g in sorted(members)]
+    n_draws = constants.V2_E1_BOOTSTRAP if draws is None else draws
     needed = sorted({name for pair in pairs.values() for name in pair})
     rng = np.random.default_rng(seed)
-    draws = rng.integers(0, len(ids), size=(constants.V2_E1_BOOTSTRAP, len(ids)))
-    deltas = {key: np.empty(len(draws)) for key in pairs}
-    for i, draw in enumerate(draws):
-        pick = [ids[j] for j in draw]
+    resamples = rng.integers(0, len(units), size=(n_draws, len(units)))
+    deltas = {key: np.empty(n_draws) for key in pairs}
+    for i, draw in enumerate(resamples):
+        pick = [v for j in draw for v in units[j]]
         y = np.concatenate([labels[v] for v in pick])
         if y.min() == y.max():
             for column in deltas.values():

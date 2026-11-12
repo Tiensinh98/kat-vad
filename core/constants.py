@@ -1152,3 +1152,13 @@ K5G_REPORT_STEM = "k5_clip_gate"  # OUTPUT_ROOT/kim/REPORTS/k5_clip_gate.{json,m
 KIM_GATE_OUTPUT_DIRNAME = "kim_gate"  # OUTPUT_ROOT/kim_gate: gates/, eval/nexar/K5/, REPORTS/ (§20)
 KIM_GATE_NEXAR_TRAIN_COUNTS = (451, 449)  # §20 NX5 R4: nexar_train abnormal / normal videos
 KIM_GATE_REPRO_TOL = 1e-4  # §20 NX5 R1: K5's nexar_val re-read vs §13's recorded read
+
+# --- K5 between-video baseline, micro under per-video transforms (KIM_RUN.md §21, 2026-11-12) ---
+BASEMICRO_REPORT_STEM = "k5_baseline_micro"  # REPORTS/k5_baseline_micro.{json,md}
+BASEMICRO_OUTPUT_DIRNAME = "kim_baseline"  # OUTPUT_ROOT/kim_baseline: REPORTS/ only
+BASEMICRO_LOW_QUANTILE = 0.2  # label-free offset: this quantile of the video's own scores
+BASEMICRO_BOOTSTRAP_DRAWS = 2000  # cluster bootstrap draws (§21 BM3); POSNEG precedent
+BASEMICRO_HEADROOM_MARGIN = 0.02  # §21 BM5: headroom shown iff the oracle's lower bound > this
+BASEMICRO_MACRO_TOL = 1e-6  # §21 BM4 G1: macro from clip_scores.npz vs its recorded read
+BASEMICRO_MICRO_TOL = 1e-4  # §21 BM4 G1: as-read micro vs the recorded micro (if recorded)
+BASEMICRO_INVARIANCE_TOL = 1e-9  # §21 BM4 G2: macro under every transform == the raw macro
