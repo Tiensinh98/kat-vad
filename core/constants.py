@@ -1059,6 +1059,7 @@ KIM_START_TOL = 1e-4  # step-1 mil within this of the control = same start (KIM_
 KIM_DVS_ARM = "K5d"  # K5, DVS on, seam mask (KIM_RUN.md §12); not in KIM_ARMS
 KIM_MAIN_ARM = "K5"  # the user's choice of main model (KIM_RUN.md §12.3), not a rule's outcome
 KIM_LN_ARM = "K5ln"  # K5 + model.motion_norm=layernorm (KIM_RUN.md §25); not in KIM_ARMS
+ZS_ARM_TABLE_STEM = "zs_arm_table"  # REPORTS/<stem>_<name>.{md,json}: macro + micro, 4 sets (§25.2)
 KIM_T2_OUTPUT_DIRNAME = "kim_t2"  # OUTPUT_ROOT/kim_t2: K5/s<seed>/, eval/, REPORTS/ (KIM_RUN.md §13)
 KIM_T2_ROW = "K5T2"  # K5 trained on T2, its row under eval/nexar/ (KIM_RUN.md §13)
 KIM_T2_EPOCHS = 20  # E3's recipe: 20 x 87 = NEXAR_STEP_BUDGET steps

@@ -1356,3 +1356,34 @@ The user asked whether the motion stream's fixed Nexar-train statistics (`m_u`, 
 - **Prediction (written before the number):** K5ln − K5 on DADA "no difference shown", with a cost more likely than a gain, because the per-step magnitude is part of the signal on a CRN-off host. Per-step norm medians differ by less than 20 % across corpora.
 
 Code: `core/models/motion_residual.py` (`norm`, `set_norm_scale`, `normalize`), `core/config.py` (`model.motion_norm`, validated), `core/train.py` (scale from the manifest), `core/tools/kim_readout.py` (`ln_rule`, `start_check`, `--motion-cache`). Tests: `core/tests/test_motion_norm.py` and `core/tests/test_kim_tools.py::TestLayerNormReadout`. Runbook: `colab/final/k5_ln.ipynb`.
+
+### 25.1 Read-out (2026-11-14, s2024; raw `outputs/v_final/kim/REPORTS/kim_readout_k5ln_s2024.{md,json}`; PRELIMINARY, n = 1)
+
+Run checks: checkpoint step 1,749 (`verified.json`, J10); config differs from K5 in `model.motion_norm` only; start check step-1 `mil` K5ln 0.687794 = K5 0.687794 (gap 0, matched).
+
+| set | K5 | K5ln | K5ln − K5 [95 %] | sentence |
+| --- | --- | --- | --- | --- |
+| DoTA-CAP-dev macro (protocol B) | 0.8195 | 0.8175 | −0.0020 [−0.0058, +0.0020] | no difference shown |
+| DADA-2000 macro (370, whole) | 0.7740 | 0.7767 | +0.0027 [−0.0030, +0.0086] | no difference shown |
+| TAD macro (printed) | 0.7002 | 0.6954 | −0.0048 [−0.0227, +0.0126] | no difference shown |
+
+**`ln_rule`: no gain on DADA → the LayerNorm line CLOSES.** No s2025, no affine variant, no un-rescaled variant, no LN on the CLIP columns, no sweep (fixed in §25 before the number).
+
+Printed, never decides:
+- K5ln − W0 DADA +0.0153 [+0.0020, +0.0285] ("gain shown"), while K5 − W0 is +0.0125 [−0.0006, +0.0253] on the same seed. The difference between the two (+0.0027) is K5ln − K5, which shows nothing; the K5ln − W0 sentence is K5 − W0's interval shifted across +0.01 by noise, not an effect of LN. Never quote it as "LN gives a gain over W0".
+- DoTA-CAP-dev non-ego: K5ln − K5 −0.0055 [−0.0134, +0.0021]; ego +0.0007.
+- TAD micro K5 0.6781 → K5ln 0.7070 while TAD macro falls; TAD micro measures clip classification (§14.5.1) and decides nothing.
+- Per-step norm ‖ũ_t‖ medians: Nexar 7.68, DoTA-CAP-dev 8.30 (+8 %), DADA 8.08 (+5 %), TAD 9.43 (+23 %). The zero-shot corpora sit only slightly above Nexar-train except TAD. The prediction "< 20 % across corpora" **failed on TAD** (+23 %) and held on DoTA-CAP-dev and DADA.
+- Training: K5ln ends at a lower last-epoch `mil` (0.1572 vs 0.1637) and a higher `kim_anchor_share` (0.942 vs 0.904); it fits Nexar slightly tighter without transferring better.
+
+**Reading.** Erasing the per-step magnitude neither helps nor hurts on any held-out set at n = 1: the fixed Nexar-train statistics are not what limits K5's zero-shot transfer, at least not through the per-step norm. The prediction's direction ("a cost more likely") was not borne out either: DADA's point estimate is +0.0027, inside the noise. K5 stays the main model unchanged.
+
+### 25.2 Macro and micro on all four sets (dated note 2026-11-14, after §25.1; user; printed, decides nothing)
+
+The user asked for macro **and** micro of K5ln on DoTA-CAP-dev, DADA-2000, TAD and DAD. §25.1 had no DoTA micro (`kim_readout` records none), a raw-pooled DADA micro, and no DAD read. This note adds them; it cannot reopen §25, which decided on macro before any number.
+
+- **Read added:** K5ln on DAD (whole video, s7, raw, `core.evaluate --save-scores`), as `k5_dad.ipynb` read K5.
+- **Pooling of micro / AP:** DoTA-CAP-dev and DADA-2000 after per-video min-max (every item holds an accident; §21.1, user's decision 2026-11-12); TAD and DAD raw (they hold normal videos; their micro measures clip classification, clip oracle printed).
+- **Contrasts:** K5ln − K5 and W0 − K5 where W0's scores exist, paired per item. Macro: `delta_ci` (the read-outs' bootstrap). Micro: cluster bootstrap of the pooled AUC (2,000 draws, seed 2026; DoTA clusters = source video). Three-way sentence on the interval (above / below / not separated), no margin.
+- **Tool:** `core/tools/zs_arm_table.py` (+ `core/tests/test_zs_arm_table.py`); it refuses rows that scored other items or labels and a score file whose as-read micro disagrees with its read-out. Local check on K5 / W0: K5 0.7449 (DoTA min-max), 0.7635 (DADA min-max), 0.6781 (TAD), 0.7050 (DAD) reproduce `K5_ZS_REPORT.md`; W0 DADA min-max 0.7463 reproduces `ZS_COMPARISON.md`.
+- **Runbook:** `colab/final/k5_ln.ipynb` step 5 (DAD read) and step 7, report `REPORTS/zs_arm_table_k5ln_s2024.{md,json}`.
