@@ -1387,3 +1387,25 @@ The user asked for macro **and** micro of K5ln on DoTA-CAP-dev, DADA-2000, TAD a
 - **Contrasts:** K5ln − K5 and W0 − K5 where W0's scores exist, paired per item. Macro: `delta_ci` (the read-outs' bootstrap). Micro: cluster bootstrap of the pooled AUC (2,000 draws, seed 2026; DoTA clusters = source video). Three-way sentence on the interval (above / below / not separated), no margin.
 - **Tool:** `core/tools/zs_arm_table.py` (+ `core/tests/test_zs_arm_table.py`); it refuses rows that scored other items or labels and a score file whose as-read micro disagrees with its read-out. Local check on K5 / W0: K5 0.7449 (DoTA min-max), 0.7635 (DADA min-max), 0.6781 (TAD), 0.7050 (DAD) reproduce `K5_ZS_REPORT.md`; W0 DADA min-max 0.7463 reproduces `ZS_COMPARISON.md`.
 - **Runbook:** `colab/final/k5_ln.ipynb` step 5 (DAD read) and step 7, report `REPORTS/zs_arm_table_k5ln_s2024.{md,json}`.
+
+#### 25.2.1 Read-out (2026-11-14, s2024; raw `outputs/v_final/kim/REPORTS/zs_arm_table_k5ln_s2024.{md,json}`; PRELIMINARY, n = 1, printed only)
+
+Macro / micro (DoTA-CAP-dev, DADA min-max; TAD, DAD raw):
+
+| arm | DoTA-CAP-dev | DADA-2000 | TAD | DAD |
+| --- | --- | --- | --- | --- |
+| K5 | 0.8195 / 0.7449 | 0.7740 / 0.7635 | 0.7002 / 0.6781 | 0.7916 / 0.7050 |
+| K5ln | 0.8175 / 0.7422 | 0.7767 / 0.7668 | 0.6954 / 0.7070 | 0.7718 / 0.6980 |
+| W0 | 0.8110 / 0.7255 | 0.7615 / 0.7463 | 0.6983 / 0.6034 | 0.7317 / 0.6693 |
+
+| contrast | set | Δ macro | Δ micro |
+| --- | --- | --- | --- |
+| K5ln − K5 | DoTA-CAP-dev | −0.0020 [−0.0058, +0.0020] n.s. | −0.0027 [−0.0074, +0.0022] n.s. |
+| K5ln − K5 | DADA | +0.0027 [−0.0030, +0.0086] n.s. | +0.0034 [−0.0019, +0.0087] n.s. |
+| K5ln − K5 | TAD | −0.0048 [−0.0227, +0.0126] n.s. | **+0.0289 [+0.0073, +0.0547] above** |
+| K5ln − K5 | DAD | **−0.0198 [−0.0359, −0.0054] below** | −0.0070 [−0.0141, +0.0002] n.s. |
+| W0 − K5 | DoTA / DADA / TAD / DAD | n.s. / n.s. / n.s. / −0.0599 below | −0.0194 / −0.0172 / −0.0747 / −0.0357, all below |
+
+**Reading.** §25 stays closed; nothing here could reopen it. LN changes nothing on the two all-abnormal sets under either pooling. It **costs DAD macro** (−0.020, interval excludes 0), the one new read, which is the direction §25 predicted (magnitude is signal); DAD macro is not clean localization (`ZS_DAD.md` §8: every positive is abnormal on the same last rows). The TAD micro gain (+0.029) sits beside a clip oracle of 0.9226 and a macro that does not move: a clip-level ranking change, not localization. Never write "LN helps TAD".
+
+**Printed beside, post-hoc:** W0 − K5 micro is below on all four sets (−0.017 … −0.075), while macro separates only on DAD. This is one seed, K5 was chosen after its reads, and the contrast is not part of any rule: quote it as "K5's micro is above W0's on all four sets at s2024 (n = 1)", never as a K5 adoption result.
