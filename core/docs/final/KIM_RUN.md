@@ -1437,3 +1437,46 @@ So the premise holds for about one positive window in five (edge windows with 1�
 - **Prediction (written before the number):** K5k2 − K5 "no difference shown" on DoTA-CAP-dev and DADA. Only about 20 % of positive bags change composition, and in those the top-4 mean already had the right sign. K5's measured limits are the cross-video ordering (§21/§22) and the ego-uninvolved tail (§24), which k does not touch. If anything moves, it moves the curves' peakedness: within-video range up and micro on TAD / DAD down.
 
 Code: `core/constants.py` (`KIM_TOPK_ARM`, `KIM_TOPK_MIL_PCT`), `core/tools/kim_readout.py` (`topk_rule`, through `_single_change_rule` shared with §25). Tests: `core/tests/test_kim_tools.py::TestTopkReadout`. Runbook: `colab/final/k5_k2.ipynb`.
+
+### 26.1 Read-out (2026-11-14, s2024; raw `outputs/v_final/kim/REPORTS/kim_readout_k5k2_s2024.{md,json}`; PRELIMINARY, n = 1)
+
+Run checks: checkpoint step 1,749 (`verified.json`, J10) = the last `global_step` of `metrics.jsonl`. The config differs from K5 in `loss.mil_topk_pct` (5 → 10) only. The three other diff lines (`model.motion_norm: none`, `kim.capacity_control: false`, `kim.seam_mask: false`) are keys added after K5 trained, all at their off defaults. No start check (§26): step-1 `mil` K5 0.6878, K5k2 0.6954 (a different top-k mean of the same forward).
+
+| set | K5 | K5k2 | K5k2 − K5 [95 %] | sentence |
+| --- | --- | --- | --- | --- |
+| DoTA-CAP-dev macro (protocol B) | 0.8195 | 0.8058 | −0.0137 [−0.0213, −0.0060] | cost shown |
+| DADA-2000 macro (370, whole) | 0.7740 | 0.7402 | −0.0338 [−0.0425, −0.0252] | cost shown |
+| TAD macro (printed) | 0.7002 | 0.6808 | −0.0194 [−0.0493, +0.0121] | no difference shown |
+
+**`topk_rule`: no gain on DADA and a cost on DoTA-CAP-dev → the top-k line CLOSES.** No s2025, no other divisor, no `min_positive` change, no per-head split, no sweep (fixed in §26 before the number). K5 stays the main model, with `mil_topk_pct = 5`.
+
+**The prediction failed.** It said "no difference shown" on DoTA-CAP-dev and DADA. Both show a cost, and DADA's is the largest single-key effect measured on K5 so far.
+
+Printed, never decides:
+- K5k2 − W0: DoTA-CAP-dev −0.0052 [−0.0145, +0.0048] (no difference), DADA −0.0213 [−0.0349, −0.0079] (**cost**), TAD −0.0175 (no difference). K5k2 falls below the DVS-on host on DADA.
+- DoTA-CAP-dev by ego: non-ego −0.0220 [−0.0349, −0.0093], ego −0.0073 [−0.0148, +0.0005]. The cost sits mostly in the ego-uninvolved tail (§24).
+- Micro, raw-pooled as `kim_readout` records it: DADA K5 0.7222 → K5k2 0.7184 (≈ flat), TAD 0.6781 → 0.6451. TAD micro measures clip classification (§14.5.1).
+- Training: K5k2 fits Nexar much tighter. Last-batch `mil` 0.1613 → 0.0639, last-epoch mean 0.1637 → 0.1270; `kim_mil` 0.1262 → 0.0746; `kim_nkc` 0.2771 → 0.1307; `kim_w_out_norm` 0.93 → 1.16; `kim_anchor_share` 0.904 → 0.962. `kim_proto_cos` is unchanged (−0.73).
+- Four sets, macro + micro, the DAD read included: §26.2.
+
+**Reading (post-hoc, printed, decides nothing).** §26 was built on a dilution worry: too many top-k rows pull a positive bag's mean toward its normal rows. The data point the other way. The median positive window holds 8 abnormal rows. k = 4 pushes up about half of the abnormal span, k = 2 only its peak, so the rest of the span is left low inside the video. That fits a large macro cost (within-video ordering) with micro on DADA nearly flat, and a lower training loss that does not transfer (an easier, peakier objective). This is the opposite of the dilution premise, so it is not licensed to propose k > 4 here. Under lesson 14, §26's "no other divisor" stands.
+§26.2 qualifies this reading: DoTA-CAP-dev and DAD micro go **up** under k = 2.
+
+### 26.2 Macro and micro on all four sets (2026-11-14, s2024; raw `outputs/v_final/kim/REPORTS/zs_arm_table_k5k2_s2024.{md,json}`; PRELIMINARY, n = 1; printed, decides nothing)
+
+The §25.2 tool is reused: DoTA-CAP-dev and DADA micro / AP are pooled after per-video min-max, TAD and DAD raw. Δ macro uses the read-outs' bootstrap, Δ micro a cluster bootstrap (2,000, seed 2026). This table cannot reopen §26, which decided on macro before any number.
+
+| set | K5 macro / micro | K5k2 macro / micro | Δ macro [95 %] | Δ micro [95 %] |
+| --- | --- | --- | --- | --- |
+| DoTA-CAP-dev (569) | 0.8195 / 0.7449 | 0.8058 / 0.7672 | −0.0137 [−0.0213, −0.0060] below | **+0.0223 [+0.0127, +0.0317] above** |
+| DADA-2000 (370) | 0.7740 / 0.7635 | 0.7402 / 0.7455 | −0.0338 [−0.0425, −0.0252] below | −0.0180 [−0.0264, −0.0087] below |
+| TAD (100; macro over 60) | 0.7002 / 0.6781 | 0.6808 / 0.6451 | −0.0194 [−0.0493, +0.0121] n.s. | −0.0330 [−0.0546, −0.0109] below |
+| DAD (466; macro over 165) | 0.7916 / 0.7050 | 0.8042 / 0.7516 | +0.0126 [−0.0054, +0.0310] n.s. | **+0.0466 [+0.0362, +0.0570] above** |
+
+AP: DoTA-CAP-dev 0.5790 → 0.5922, DADA 0.5640 → 0.5335, TAD 0.2568 → 0.2438, DAD 0.1156 → 0.1549. TAD's clip oracle is 0.9226 and DAD's 0.8390: micro on both measures clip classification (§14.5.1).
+
+Reading (post-hoc, decides nothing):
+- **k = 2 does not cost everywhere. It trades.** On DoTA-CAP-dev, within-video ordering (macro) falls and cross-clip pooling (micro) rises. On DAD both point up, micro clearly. On DADA both fall. So §26.1's coverage reading explains the macro side only. The peakier curves also separate across clips better on DoTA-CAP-dev and DAD, but not on DADA or TAD.
+- **§26's prediction, micro half:** "micro on TAD / DAD down". It held on TAD (−0.033) and **failed on DAD** (+0.047).
+- **DAD is the only set where K5k2 is not worse on any column.** It is n = 1, a set that never decides, and a micro that measures clip classification. It does not reopen the line. Never write "k = 2 helps on DAD" without all three qualifiers.
+- The verdict stands: the decision sets (DoTA-CAP-dev, DADA) lose macro, DADA loses on every column, and the line is closed.
