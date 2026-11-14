@@ -50,6 +50,9 @@ class ModelConfig:
     # host motion dropout (SA2V2_RUN.md §8, arm W0D): share of training bags whose W_u term is
     # zero, without SA²-v2. 0 = off (every other arm); SV2 uses stp.motion_dropout instead
     motion_dropout: float = 0.0
+    # per-step LayerNorm (no affine) on the motion columns before W_u, rescaled by the cache's
+    # c (KIM_RUN.md §25, arm K5ln). "none" = every earlier arm, which builds and loads unchanged
+    motion_norm: str = constants.MOTION_NORM_OFF
 
 
 @dataclass
@@ -353,6 +356,16 @@ def validate_v2(cfg: Config) -> None:
         raise ValueError(f"model.motion_dropout must be in [0, 1), got {cfg.model.motion_dropout}")
     if cfg.model.motion_dropout > 0 and not has_motion:
         raise ValueError("model.motion_dropout needs a motion stream (W_u)")
+    if cfg.model.motion_norm not in constants.MOTION_NORM_CHOICES:
+        raise ValueError(
+            f"model.motion_norm must be one of {constants.MOTION_NORM_CHOICES}, "
+            f"got {cfg.model.motion_norm!r}"
+        )
+    if cfg.model.motion_norm != constants.MOTION_NORM_OFF and not has_motion:
+        raise ValueError("model.motion_norm needs a motion stream (W_u)")
+    has_v5 = cfg.v5.readout != constants.V5_READOUT_OFF
+    if cfg.model.motion_norm != constants.MOTION_NORM_OFF and has_v5:
+        raise ValueError("model.motion_norm is not defined for the v5 grid readout")
     if cfg.model.motion_dropout > 0 and cfg.stp.sa2v2:
         raise ValueError("stp.sa2v2 carries its own motion dropout (stp.motion_dropout): "
                          "leave model.motion_dropout at 0")

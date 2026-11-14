@@ -430,3 +430,75 @@ class TestReadout:
         with pytest.raises(ValueError, match="at least one"):
             kim_readout.run(kim_readout.build_arg_parser().parse_args(
                 ["--out-dir", str(tmp_path)]))
+
+
+class TestLayerNormReadout:
+    """§25: K5ln - K5 decides on DADA with no DoTA cost; start check and motion norms printed."""
+
+    @pytest.mark.parametrize(("k5ln", "verdict"), [
+        ((0.0, 0.02), kim_readout.LN_GOES_ON),
+        ((0.02, 0.0), kim_readout.LN_CLOSED),  # a DoTA-only gain does not count
+        ((-0.02, 0.02), kim_readout.LN_CLOSED),  # a DADA gain with a DoTA cost does not go on
+        ((0.0, -0.02), kim_readout.LN_CLOSED),
+    ])
+    def test_ln_rule(self, tmp_path: Path, k5ln: tuple[float, float], verdict: str) -> None:
+        argv = _runs(tmp_path, {"W0": (0.0, 0.0), "K5": (0.0, 0.0), "K5ln": k5ln})
+        r = kim_readout.run(kim_readout.build_arg_parser().parse_args(
+            [*argv, "--out-dir", str(tmp_path / "rep")]))
+        assert r["decisions"] == {"ln_rule": verdict}  # no §6 / §12 verdict beside §25's
+        c = r["sets"]["dada"]["contrasts"]
+        assert c["K5ln - K5"]["delta"]["mean"] == pytest.approx(k5ln[1], abs=1e-9)
+        assert "K5ln - W0" in c
+
+    @pytest.mark.parametrize(("dada", "verdict"), [
+        (0.02, kim_readout.LN_REPRODUCED),
+        (0.0, kim_readout.LN_NOT_REPRODUCED),
+    ])
+    def test_replicate_seed(self, tmp_path: Path, dada: float, verdict: str) -> None:
+        argv = _runs(tmp_path, {"K5": (0.0, 0.0), "K5ln": (-0.02, dada)})
+        r = kim_readout.run(kim_readout.build_arg_parser().parse_args(
+            [*argv, "--seed", str(constants.KIM_REPLICATE_SEED),
+             "--out-dir", str(tmp_path / "rep")]))
+        assert r["decisions"] == {"ln_rule": verdict}
+
+    def test_no_k5ln_row_changes_nothing(self, tmp_path: Path) -> None:
+        argv = _runs(tmp_path, {"K0": (0.0, 0.0), "K5": (0.0, 0.0)})
+        r = kim_readout.run(kim_readout.build_arg_parser().parse_args(
+            [*argv, "--out-dir", str(tmp_path / "rep")]))
+        assert "ln_rule" not in r["decisions"] and r["start_check"] is None
+
+    @pytest.mark.parametrize(("ln_mil", "matched"), [(0.69441, True), (0.6906, False)])
+    def test_start_check(self, tmp_path: Path, ln_mil: float, matched: bool) -> None:
+        argv = _runs(tmp_path, {"K5": (0.0, 0.0), "K5ln": (0.0, 0.0)})
+        for name, mil in (("K5", 0.69440), ("K5ln", ln_mil)):
+            d = tmp_path / "runs" / name
+            d.mkdir(parents=True)
+            row = {"global_step": 1, "epoch": 0, "mil": mil}
+            (d / "metrics.jsonl").write_text(json.dumps(row) + "\n")
+            argv += ["--run", name, str(d)]
+        r = kim_readout.run(kim_readout.build_arg_parser().parse_args(
+            [*argv, "--out-dir", str(tmp_path / "rep")]))
+        assert r["start_check"]["matched"] is matched
+        md = (tmp_path / "rep" / "kim_readout.md").read_text()
+        assert "Start check" in md and ("NOT matched" in md) is not matched
+
+    def test_motion_profile(self, tmp_path: Path) -> None:
+        cache = tmp_path / "bake"
+        cache.mkdir()
+        rows = np.zeros((4, BASE), dtype=np.float32)
+        rows[:, constants.HIDDEN_DIM] = [1.0, 2.0, 3.0, 4.0]
+        rows[:, 0] = 100.0  # CLIP columns must not count
+        np.save(cache / "v0.npy", rows)
+        prof = kim_readout.motion_profile(cache)
+        assert prof["videos"] == 1 and prof["steps"] == 4
+        assert prof["mean"] == pytest.approx(2.5) and prof["median"] == pytest.approx(2.5)
+        argv = _runs(tmp_path, {"K5": (0.0, 0.0), "K5ln": (0.0, 0.0)})
+        kim_readout.run(kim_readout.build_arg_parser().parse_args(
+            [*argv, "--motion-cache", "nexar", str(cache), "--out-dir", str(tmp_path / "rep")]))
+        md = (tmp_path / "rep" / "kim_readout.md").read_text()
+        assert "| nexar | 1 | 4 | 2.5000 |" in md
+
+    def test_motion_profile_refuses_a_clip_only_cache(self, tmp_path: Path) -> None:
+        np.save(tmp_path / "v0.npy", np.zeros((3, constants.HIDDEN_DIM), dtype=np.float32))
+        with pytest.raises(ValueError, match="not a motion-baked"):
+            kim_readout.motion_profile(tmp_path)

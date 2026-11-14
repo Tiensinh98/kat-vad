@@ -95,13 +95,16 @@ class KATVAD(nn.Module):
         sa2v2: SA2V2 | None = None,
         motion_dropout: float = 0.0,
         kim: KIM | None = None,
+        motion_norm: str = constants.MOTION_NORM_OFF,
     ) -> None:
         super().__init__()
         # v2 motion stream (architecture §5): absent unless motion_dim > 0, so every
         # v1 / A0 / A1 checkpoint builds -- and loads -- exactly as before. W_u starts at
         # zero unless motion_init_std > 0 (core/docs/final/WU_ARMS.md, arm WI).
         self.motion_residual = (
-            MotionResidual(hidden_dim, motion_dim, motion_init_std, motion_init_seed)
+            MotionResidual(
+                hidden_dim, motion_dim, motion_init_std, motion_init_seed, motion_norm
+            )
             if motion_dim > 0
             else None
         )
@@ -210,6 +213,7 @@ class KATVAD(nn.Module):
                 cfg.stp.motion_dropout if cfg.stp.sa2v2 else cfg.model.motion_dropout
             ),
             kim=_build_kim(cfg) if cfg.kim.enabled else None,
+            motion_norm=cfg.model.motion_norm,
         )
         if load_clip and model.sa2v2 is not None:
             model.sa2v2.set_text_projection(clip_text_projection())  # rule D3

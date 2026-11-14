@@ -49,7 +49,7 @@ from core.data.definitions import (
 )
 from core.data.knn_cache import load_knn_cache
 from core.data.stp_patches import check_cell_cache, check_patch_cache, read_level_stats
-from core.data.v2_inputs import check_input_manifest
+from core.data.v2_inputs import check_input_manifest, read_input_manifest
 from core.data.v5_grids import change_lag, read_grid_geometry
 from core.device import resolve_device
 from core.kim.losses import kim_anchors, kim_mil_loss, kim_nkc_loss, normal_steps
@@ -969,6 +969,15 @@ def build_trainer(
     device = resolve_device(cfg.train.device)
     needs_clip = text_encoder == TEXT_ENCODER_CLIP and cfg.train.stage == STAGE_FULL
     model = KATVAD.from_config(cfg, load_clip=needs_clip)
+    if model.motion_residual is not None and cfg.model.motion_norm != constants.MOTION_NORM_OFF:
+        # K5ln (KIM_RUN.md §25): rescale LN(u) by the c this cache was baked with
+        manifest = read_input_manifest(clip_dir)
+        assert manifest is not None  # nosec B101 - check_input_manifest refused a plain cache
+        if "c" not in manifest:
+            raise ValueError(
+                f"model.motion_norm needs the cache's c, but {clip_dir}'s manifest has none"
+            )
+        model.motion_residual.set_norm_scale(float(manifest["c"]))
     if model.sa2v2 is not None:
         assert checked_patches is not None  # nosec B101 - stp_patch_dir refused None
         level = read_level_stats(checked_patches)

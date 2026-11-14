@@ -446,6 +446,11 @@ V2_MOTION_CHOICES = (V2_OFF, VIDEOMAE_ENCODER_B, VIDEOMAE_ENCODER_S)
 V2_INPUT_MANIFEST_FILENAME = "v2_input_manifest.json"
 V2_MIN_SIGMA = 1e-6  # a constant motion channel is left unscaled rather than divided by ~0
 V2_NORM_EPS = 1e-12  # guards rho_u = ||W_u u|| / ||x|| against an all-zero x
+# per-step LayerNorm on the baked motion columns before W_u (KIM_RUN.md §25, arm K5ln)
+MOTION_NORM_OFF = V2_OFF
+MOTION_NORM_LAYERNORM = "layernorm"
+MOTION_NORM_CHOICES = (MOTION_NORM_OFF, MOTION_NORM_LAYERNORM)
+MOTION_NORM_EPS = 1e-5  # torch LayerNorm's default eps
 
 # --- MM-AU / CAP-DATA Phase 0: provenance probe (.project/plans/katvad-mmau-phase0.md §3-§4) ---
 MMAU_CAP_DATASET = "MMAU_CAP"
@@ -1053,6 +1058,7 @@ KIM_ARMS = ("K0", "K0k9", "K2", "K5")  # first pass (KIM_RUN.md §3); K0k9 = hos
 KIM_START_TOL = 1e-4  # step-1 mil within this of the control = same start (KIM_RUN.md §12)
 KIM_DVS_ARM = "K5d"  # K5, DVS on, seam mask (KIM_RUN.md §12); not in KIM_ARMS
 KIM_MAIN_ARM = "K5"  # the user's choice of main model (KIM_RUN.md §12.3), not a rule's outcome
+KIM_LN_ARM = "K5ln"  # K5 + model.motion_norm=layernorm (KIM_RUN.md §25); not in KIM_ARMS
 KIM_T2_OUTPUT_DIRNAME = "kim_t2"  # OUTPUT_ROOT/kim_t2: K5/s<seed>/, eval/, REPORTS/ (KIM_RUN.md §13)
 KIM_T2_ROW = "K5T2"  # K5 trained on T2, its row under eval/nexar/ (KIM_RUN.md §13)
 KIM_T2_EPOCHS = 20  # E3's recipe: 20 x 87 = NEXAR_STEP_BUDGET steps

@@ -2459,3 +2459,12 @@ Promote if a second harness needs the same split.
 **Rule:** Measure the peak-to-event offset and compare the span rules of all compared corpora before attributing a localization gap to a label definition.
 **Files:** core/docs/final/KIM_RUN.md §22.2–§22.3, core/data/dada_origin.py, core/docs/v2/NEXAR_SETUP.md
 **Gates:** recurring? partly (same family as (dd): a cause proposed before reading what exists); HIGH-impact? no (caught before any GPU) -> pending.
+
+## (dh) [MEDIUM] Git - never put `git stash pop` in a shell chain after a step that can fail (2026-11-14)
+**Triggers:** git stash, stash pop, baseline comparison, mypy baseline, bandit baseline, && chain, ;
+**Problem:** To compare mypy/bandit against HEAD, Claude ran `ruff ... && git stash -q && mypy ...; bandit ...; git stash pop -q`. Ruff failed, so `git stash` never ran, but `; git stash pop` still did and tried to pop an unrelated older stash (`stash@{0}`, WIP on v5) onto the working tree. Git aborted on a conflict in `core/constants.py`, so nothing was lost. Without that conflict, someone else's stash would have been applied silently.
+**Bad:** `cmd_that_can_fail && git stash -q && check; git stash pop -q`
+**Good:** read the baseline without touching the tree: `git show HEAD:path > $SCRATCH/x.py && bandit $SCRATCH/x.py`; or check that the touched lines don't appear in `git diff -U0`.
+**Rule:** Compare against HEAD with `git show HEAD:<path>` into the scratchpad; never stash and pop the user's tree to read a baseline.
+**Files:** (process; no code path)
+**Gates:** recurring? first time; HIGH-impact? could be (applying an unrelated stash mixes branches' WIP) -> pending.

@@ -16,7 +16,11 @@ Decisions fixed before the numbers: K0k9 - K0 gain on **both** endpoints → ker
 row (§3.1), else kernel 3; K5 - control cost on **both** endpoints → KIM line closed (§6), else
 continue. §6.1's stricter stop is read from the numbers. At the replicate seed the ``replication``
 line replaces ``stop_rule``: K5 - control gain on DADA → reproduced (§6.2). K5d - W0 gain on DADA
-→ arm K5d goes on, else the KIM line closes (``dvs_host``, §12). Printed: K0 - W0 (the
+→ arm K5d goes on, else the KIM line closes (``dvs_host``, §12). K5ln - K5 gain on DADA with no
+cost on DoTA-CAP-dev → s2025 next, else the LayerNorm line closes (``ln_rule``, §25); at the
+replicate seed a DADA gain alone reproduces it. Printed beside K5ln: the step-1 start check
+(``mil`` within ``KIM_START_TOL`` of K5's) and, with ``--motion-cache``, each corpus' per-step
+norm of the baked motion columns (what the LayerNorm erases). Printed: K0 - W0 (the
 cost of DVS off alone), K5 - W0, Kcap - W0, K5 - K0k9, ego / non-ego splits, the position rulers,
 the training diagnostics of every run (first → last, plus the last-epoch mean ``mil``), and with
 ``--pilot`` the training-free rank average of the host with ``vt2`` (§5.2).
@@ -37,6 +41,8 @@ import logging
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 from core import constants
 from core.data.dota import parse_metadata, read_split_ids
 from core.tools.kill_switch_probe import write_json_atomic, write_text_atomic
@@ -49,7 +55,7 @@ from core.tools.zs_readout import video_ci
 LOGGER = logging.getLogger(__name__)
 
 READOUT_NAME = "kim_readout"
-RULE = "core/docs/final/KIM_RUN.md §3.1, §6, §6.1, §6.2, §6.3"
+RULE = "core/docs/final/KIM_RUN.md §3.1, §6, §6.1, §6.2, §6.3, §12, §25"
 LABEL = "PRELIMINARY (n = 1)"
 DOTA, DADA, TAD = "dota", "dada", "tad"
 ENDPOINTS = (DOTA, DADA)
@@ -60,6 +66,7 @@ SET_TITLE = {
 }
 K0K9, K2, K5 = "K0k9", "K2", "K5"
 K5D = constants.KIM_DVS_ARM
+K5LN = constants.KIM_LN_ARM
 DIAG_KEYS = ("mil", "dvs_sup", "kim_mil", "kim_nkc", *constants.KIM_DIAG_KEYS,
              *constants.KIM_SEAM_DIAG_KEYS,
              "motion_share", "w_u_norm")
@@ -69,6 +76,10 @@ REPRODUCED = "reproduced at n = 2: the line goes on (§6.2)"
 NOT_REPRODUCED = "not reproduced: no Kcap or K2 run, no variants (§6.2)"
 DVS_GOES_ON = "gain on DADA vs the DVS-on host: s2025 and a DVS-on Kcap next, nothing adopted (§12)"
 DVS_CLOSED = "no gain on DADA vs the DVS-on host: the KIM line closes (§12)"
+LN_GOES_ON = "gain on DADA, no cost on DoTA-CAP-dev: K5ln s2025 next, nothing adopted (§25)"
+LN_CLOSED = "no gain on DADA, or a cost on DoTA-CAP-dev: the LayerNorm line closes (§25)"
+LN_REPRODUCED = "K5ln - K5 gain on DADA at n = 2: reproduced, still nothing adopted (§25)"
+LN_NOT_REPRODUCED = "not reproduced at the replicate seed: the LayerNorm line closes (§25)"
 
 
 def _json(path: Path) -> Any:
@@ -121,6 +132,10 @@ def contrast_pairs(names: list[str], control: str) -> list[tuple[str, str, str]]
         pairs.append((K5D, constants.KIM_W0, "full KIM + seam mask, both DVS on (§12)"))
     if K5D in names and K5 in names:
         pairs.append((K5D, K5, "DVS on vs off, both full KIM (printed)"))
+    if K5LN in names and K5 in names:
+        pairs.append((K5LN, K5, "per-step LayerNorm on the motion columns (§25)"))
+    if K5LN in names and constants.KIM_W0 in names:
+        pairs.append((K5LN, constants.KIM_W0, "K5ln vs the DVS-on host (printed)"))
     return pairs
 
 
@@ -163,6 +178,9 @@ def decide(
 ) -> dict[str, str]:
     """§3.1 and §6 at the first seed; at the replicate seed §6.2 alone (DADA decides)."""
     out: dict[str, str] = {}
+    ln = _ln_rule(sets, seed)
+    if ln is not None:
+        return ln  # §25 is the rule in force once K5ln is read
     if control == constants.KIM_CONTROL:
         k9 = _endpoint_sentences(sets, f"{K0K9} - {control}")
         if k9 is not None:
@@ -180,6 +198,47 @@ def decide(
     out["stop_rule"] = PENDING if k5 is None else (
         CLOSED if all(s == COST for s in k5) else CONTINUE)
     return out
+
+
+def _ln_rule(sets: dict[str, Any], seed: int) -> dict[str, str] | None:
+    """§25 on K5ln - K5; ``None`` when that contrast was not read on DADA."""
+    key = f"{K5LN} - {K5}"
+    dada = sets.get(DADA, {}).get("contrasts", {}).get(key)
+    if dada is None:
+        return None
+    if seed == constants.KIM_REPLICATE_SEED:
+        return {"ln_rule": LN_REPRODUCED if dada["sentence"] == GAIN else LN_NOT_REPRODUCED}
+    dota = sets.get(DOTA, {}).get("contrasts", {}).get(key)
+    if dota is None:
+        return {"ln_rule": PENDING}
+    ok = dada["sentence"] == GAIN and dota["sentence"] != COST
+    return {"ln_rule": LN_GOES_ON if ok else LN_CLOSED}
+
+
+def start_check(diagnostics: dict[str, Any], arm: str, control: str) -> dict[str, Any] | None:
+    """Step-1 ``mil`` of ``arm`` vs ``control`` (printed, never decides; §12, §25)."""
+    a, b = diagnostics.get(arm, {}).get("mil"), diagnostics.get(control, {}).get("mil")
+    if a is None or b is None:
+        return None
+    gap = abs(float(a["first"]) - float(b["first"]))
+    return {"arm": arm, "control": control, "arm_mil": a["first"], "control_mil": b["first"],
+            "gap": gap, "matched": gap <= constants.KIM_START_TOL}
+
+
+def motion_profile(cache_dir: Path, hidden_dim: int = constants.HIDDEN_DIM) -> dict[str, Any]:
+    """Per-step L2 norm of the baked motion columns over every ``.npy`` row file in a cache."""
+    norms = []
+    for path in sorted(cache_dir.glob("*.npy")):
+        rows = np.load(path, mmap_mode="r")
+        if rows.ndim != 2 or rows.shape[1] <= hidden_dim:
+            raise ValueError(f"{path} has shape {rows.shape}: not a motion-baked (A2) row file")
+        norms.append(np.linalg.norm(np.asarray(rows[:, hidden_dim:], dtype=np.float64), axis=1))
+    if not norms:
+        raise ValueError(f"no .npy row files in {cache_dir}")
+    flat = np.concatenate(norms)
+    q10, q50, q90 = np.quantile(flat, [0.1, 0.5, 0.9])
+    return {"videos": len(norms), "steps": int(flat.size), "mean": float(flat.mean()),
+            "q10": float(q10), "median": float(q50), "q90": float(q90)}
 
 
 def run_diagnostics(run_dir: Path) -> dict[str, Any] | None:
@@ -237,6 +296,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "diagnostics": {n: d for n, rd in args.run or []
                         if (d := run_diagnostics(Path(rd))) is not None},
     }
+    result["start_check"] = start_check(result["diagnostics"], K5LN, K5)
+    result["motion_profile"] = {n: motion_profile(Path(d)) for n, d in args.motion_cache or []}
     args.out_dir.mkdir(parents=True, exist_ok=True)
     write_json_atomic(args.out_dir / f"{READOUT_NAME}.json", result)
     write_text_atomic(args.out_dir / f"{READOUT_NAME}.md", render_markdown(result))
@@ -261,9 +322,14 @@ def _diag(d: dict[str, Any], key: str) -> str:
     return "—" if v is None else f"{v['first']:.4f} → {v['last']:.4f}"
 
 
+def _control_note(control: str) -> str:
+    return " (W0 + DVS off)" if control == constants.KIM_CONTROL else ""
+
+
 def render_markdown(r: dict[str, Any]) -> str:
     lines = [f"# KIM first-pass read-out, Nexar-trained, seed {r['seed']} — **{r['label']}**", "",
-             f"Rule: `{r['rule']}`. Control = **{r['control']}** (W0 + DVS off); W0 printed. "
+             f"Rule: `{r['rule']}`. Control = **{r['control']}**{_control_note(r['control'])}; "
+             "W0 printed. "
              f"{r['disclosure']}", ""]
     for s in r["sets"].values():
         lines += [f"## {s['title']}", "", "| row | macro | micro | t/N ruler | middle ruler |",
@@ -290,6 +356,18 @@ def render_markdown(r: dict[str, Any]) -> str:
         lines.append("")
     lines += ["## Decisions (fixed before the numbers)", ""]
     lines += [f"- **{k}**: {v}" for k, v in r["decisions"].items()]
+    start = r.get("start_check")
+    if start:
+        verdict = "matched" if start["matched"] else "NOT matched: the contrast carries this flag"
+        lines += ["", f"Start check (printed, never decides): step-1 `mil` {start['arm']} "
+                  f"{start['arm_mil']:.6f} vs {start['control']} {start['control_mil']:.6f}, "
+                  f"gap {start['gap']:.2e} (tol {constants.KIM_START_TOL:.0e}) — {verdict}."]
+    if r.get("motion_profile"):
+        lines += ["", "## Per-step norm of the baked motion columns (what LN erases; printed)", "",
+                  "| cache | videos | steps | mean | q10 | median | q90 |",
+                  "| --- | --- | --- | --- | --- | --- | --- |"]
+        lines += [f"| {n} | {m['videos']} | {m['steps']} | {m['mean']:.4f} | {m['q10']:.4f} | "
+                  f"{m['median']:.4f} | {m['q90']:.4f} |" for n, m in r["motion_profile"].items()]
     if r["diagnostics"]:
         keys = ("mil", "kim_mil", "kim_nkc", "kim_w_out_norm", "kim_vel_gate", "kim_acc_gate",
                 "kim_anchor_share", "kim_proto_cos")
@@ -318,6 +396,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
         parser.add_argument(flag, nargs=2, action="append", metavar=("NAME", "DIR"), help=what)
     parser.add_argument("--run", nargs=2, action="append", metavar=("NAME", "RUN_DIR"),
                         help="training dir with metrics.jsonl (diagnostics)")
+    parser.add_argument("--motion-cache", nargs=2, action="append", metavar=("NAME", "DIR"),
+                        help="A2 baked cache: per-step motion norm profile (§25, printed)")
     parser.add_argument("--control", default=constants.KIM_CONTROL,
                         help="K0, or K0k9 once §3.1 moved the host to kernel 9")
     parser.add_argument("--seed", type=int, default=constants.KIM_SEED)
