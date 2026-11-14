@@ -1409,3 +1409,31 @@ Macro / micro (DoTA-CAP-dev, DADA min-max; TAD, DAD raw):
 **Reading.** §25 stays closed; nothing here could reopen it. LN changes nothing on the two all-abnormal sets under either pooling. It **costs DAD macro** (−0.020, interval excludes 0), the one new read, which is the direction §25 predicted (magnitude is signal); DAD macro is not clean localization (`ZS_DAD.md` §8: every positive is abnormal on the same last rows). The TAD micro gain (+0.029) sits beside a clip oracle of 0.9226 and a macro that does not move: a clip-level ranking change, not localization. Never write "LN helps TAD".
 
 **Printed beside, post-hoc:** W0 − K5 micro is below on all four sets (−0.017 … −0.075), while macro separates only on DAD. This is one seed, K5 was chosen after its reads, and the contrast is not part of any rule: quote it as "K5's micro is above W0's on all four sets at s2024 (n = 1)", never as a K5 adoption result.
+
+## 26. K5k2: MIL top-k 4 → 2 rows per window (dated note 2026-11-14, before any number; user)
+
+**Question (user).** On a 20-row Nexar window, `mil_topk_pct = 5` gives k = 20 // 5 = 4 rows (`core/losses/mil.py:22`; the key is a divisor, pending (cv)). Are 4 rows too many, so that a positive bag's top-k mean takes in normal rows and the abnormal bag is diluted toward the normal ones?
+
+**Measured before this rule (annotation only, no score).** A window is positive iff it holds ≥ 1 abnormal row (`WINDOW_MIN_POSITIVE = 1`). The span is `t_alert … t_event + 1.4 s` (D-N1), at s8, windows of 20 rows with hop 8. Over Nexar's 750 clean positives (the census `outputs/v2/REPORTS/nexar_n0/census.json`; all splits, so `nexar_train` may differ slightly), the result is 2,841 positive windows. The median positive window holds **8** abnormal rows (mean share 0.37). Positive windows holding fewer abnormal rows than k:
+
+| k (pct) | share of positive windows |
+|---|---|
+| 4 (5, K5) | **0.205** |
+| 2 (10) | 0.070 |
+| 1 (20) | 0 (a plain max; the T2 EDA marked this HIGH, which is why 5 was chosen) |
+
+So the premise holds for about one positive window in five (edge windows with 1–3 abnormal rows), not for most.
+
+- **Arm K5k2 = K5 s2024 + `loss.mil_topk_pct=10`** (`KIM_TOPK_MIL_PCT`). k = 2. **The one key drives three things:** `mil`, `kim_mil` and KIM's anchor selection (`kim_anchors`, top-k of each abnormal bag above `anchor_thresh`). They are not separated, and the contrast names the key, not one of them. The CLIP and motion stream, `W_u`, KIM, DVS off, kernel 3, `mul_mil_topk_pct` 16 (k = 1 already), s2024 and 1,749 steps are all exactly as K5. **The config differs from K5 in that one key** (the runbook asserts this).
+- **Why 10:** picked from the table above (the share falls from 0.205 to 0.070) without k = 1. No other value is run. **No sweep follows any outcome** (lesson 14).
+- **No start check:** step 1's forward is identical, but its `mil` is the mean of a different top-k. Both step-1 values are printed.
+- **Control:** K5 s2024, with its checkpoint and its four reads on Drive. It is not retrained.
+- **Reads:** DoTA-CAP-dev (protocol B), DADA-2000 whole (370), TAD, DAD (s7). `kim_readout --control K5` gives macro and the sentence. Then `zs_arm_table` (§25.2) prints macro and micro on all four sets with paired Δ.
+- **Decision, fixed now (`topk_rule`, the §25 shape):**
+  - K5k2 − K5 **gain on DADA and no cost on DoTA-CAP-dev** (macro, `kim_readout` sentence, margin +0.01) → K5k2 s2025 against K5 s2025. Nothing is adopted at n = 1.
+  - **Anything else → the top-k line closes.** No other divisor, no `min_positive` change, no per-head split.
+  - At s2025: a gain on DADA → "reproduced, still nothing adopted"; anything else → closed.
+- **Printed, never decides:** K5k2 − W0; TAD; DAD; every micro; the training diagnostics (`kim_anchor_share`, `kim_proto_cos`).
+- **Prediction (written before the number):** K5k2 − K5 "no difference shown" on DoTA-CAP-dev and DADA. Only about 20 % of positive bags change composition, and in those the top-4 mean already had the right sign. K5's measured limits are the cross-video ordering (§21/§22) and the ego-uninvolved tail (§24), which k does not touch. If anything moves, it moves the curves' peakedness: within-video range up and micro on TAD / DAD down.
+
+Code: `core/constants.py` (`KIM_TOPK_ARM`, `KIM_TOPK_MIL_PCT`), `core/tools/kim_readout.py` (`topk_rule`, through `_single_change_rule` shared with §25). Tests: `core/tests/test_kim_tools.py::TestTopkReadout`. Runbook: `colab/final/k5_k2.ipynb`.

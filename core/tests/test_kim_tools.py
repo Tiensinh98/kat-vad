@@ -502,3 +502,44 @@ class TestLayerNormReadout:
         np.save(tmp_path / "v0.npy", np.zeros((3, constants.HIDDEN_DIM), dtype=np.float32))
         with pytest.raises(ValueError, match="not a motion-baked"):
             kim_readout.motion_profile(tmp_path)
+
+
+class TestTopkReadout:
+    """§26: K5k2 - K5 decides like §25 (DADA gain, no DoTA cost); its own decision key."""
+
+    def test_the_arm_is_k5_with_k_two_on_a_window(self) -> None:
+        window = constants.NEXAR_WINDOW_LENGTH
+        assert max(1, window // constants.KIM_TOPK_MIL_PCT) == 2
+        assert max(1, window // constants.DADA_ORIGIN_MIL_TOPK_PCT) == 4  # K5's k
+
+    @pytest.mark.parametrize(("k5k2", "verdict"), [
+        ((0.0, 0.02), kim_readout.TOPK_GOES_ON),
+        ((0.02, 0.0), kim_readout.TOPK_CLOSED),  # a DoTA-only gain does not count
+        ((-0.02, 0.02), kim_readout.TOPK_CLOSED),
+        ((0.0, -0.02), kim_readout.TOPK_CLOSED),
+    ])
+    def test_topk_rule(self, tmp_path: Path, k5k2: tuple[float, float], verdict: str) -> None:
+        argv = _runs(tmp_path, {"W0": (0.0, 0.0), "K5": (0.0, 0.0), "K5k2": k5k2})
+        r = kim_readout.run(kim_readout.build_arg_parser().parse_args(
+            [*argv, "--out-dir", str(tmp_path / "rep")]))
+        assert r["decisions"] == {"topk_rule": verdict}
+        c = r["sets"]["dada"]["contrasts"]
+        assert c["K5k2 - K5"]["delta"]["mean"] == pytest.approx(k5k2[1], abs=1e-9)
+        assert "K5k2 - W0" in c
+
+    @pytest.mark.parametrize(("dada", "verdict"), [
+        (0.02, kim_readout.TOPK_REPRODUCED),
+        (0.0, kim_readout.TOPK_NOT_REPRODUCED),
+    ])
+    def test_replicate_seed(self, tmp_path: Path, dada: float, verdict: str) -> None:
+        argv = _runs(tmp_path, {"K5": (0.0, 0.0), "K5k2": (-0.02, dada)})
+        r = kim_readout.run(kim_readout.build_arg_parser().parse_args(
+            [*argv, "--seed", str(constants.KIM_REPLICATE_SEED),
+             "--out-dir", str(tmp_path / "rep")]))
+        assert r["decisions"] == {"topk_rule": verdict}
+
+    def test_no_k5k2_row_leaves_the_ln_rule_alone(self, tmp_path: Path) -> None:
+        argv = _runs(tmp_path, {"K5": (0.0, 0.0), "K5ln": (0.0, 0.02)})
+        r = kim_readout.run(kim_readout.build_arg_parser().parse_args(
+            [*argv, "--out-dir", str(tmp_path / "rep")]))
+        assert r["decisions"] == {"ln_rule": kim_readout.LN_GOES_ON}

@@ -18,7 +18,8 @@ continue. §6.1's stricter stop is read from the numbers. At the replicate seed 
 line replaces ``stop_rule``: K5 - control gain on DADA → reproduced (§6.2). K5d - W0 gain on DADA
 → arm K5d goes on, else the KIM line closes (``dvs_host``, §12). K5ln - K5 gain on DADA with no
 cost on DoTA-CAP-dev → s2025 next, else the LayerNorm line closes (``ln_rule``, §25); at the
-replicate seed a DADA gain alone reproduces it. Printed beside K5ln: the step-1 start check
+replicate seed a DADA gain alone reproduces it. K5k2 - K5 decides §26 the same way
+(``topk_rule``: the top-k line). Printed beside K5ln: the step-1 start check
 (``mil`` within ``KIM_START_TOL`` of K5's) and, with ``--motion-cache``, each corpus' per-step
 norm of the baked motion columns (what the LayerNorm erases). Printed: K0 - W0 (the
 cost of DVS off alone), K5 - W0, Kcap - W0, K5 - K0k9, ego / non-ego splits, the position rulers,
@@ -55,7 +56,7 @@ from core.tools.zs_readout import video_ci
 LOGGER = logging.getLogger(__name__)
 
 READOUT_NAME = "kim_readout"
-RULE = "core/docs/final/KIM_RUN.md §3.1, §6, §6.1, §6.2, §6.3, §12, §25"
+RULE = "core/docs/final/KIM_RUN.md §3.1, §6, §6.1, §6.2, §6.3, §12, §25, §26"
 LABEL = "PRELIMINARY (n = 1)"
 DOTA, DADA, TAD = "dota", "dada", "tad"
 ENDPOINTS = (DOTA, DADA)
@@ -67,6 +68,7 @@ SET_TITLE = {
 K0K9, K2, K5 = "K0k9", "K2", "K5"
 K5D = constants.KIM_DVS_ARM
 K5LN = constants.KIM_LN_ARM
+K5K2 = constants.KIM_TOPK_ARM
 DIAG_KEYS = ("mil", "dvs_sup", "kim_mil", "kim_nkc", *constants.KIM_DIAG_KEYS,
              *constants.KIM_SEAM_DIAG_KEYS,
              "motion_share", "w_u_norm")
@@ -80,6 +82,15 @@ LN_GOES_ON = "gain on DADA, no cost on DoTA-CAP-dev: K5ln s2025 next, nothing ad
 LN_CLOSED = "no gain on DADA, or a cost on DoTA-CAP-dev: the LayerNorm line closes (§25)"
 LN_REPRODUCED = "K5ln - K5 gain on DADA at n = 2: reproduced, still nothing adopted (§25)"
 LN_NOT_REPRODUCED = "not reproduced at the replicate seed: the LayerNorm line closes (§25)"
+TOPK_GOES_ON = "gain on DADA, no cost on DoTA-CAP-dev: K5k2 s2025 next, nothing adopted (§26)"
+TOPK_CLOSED = "no gain on DADA, or a cost on DoTA-CAP-dev: the top-k line closes (§26)"
+TOPK_REPRODUCED = "K5k2 - K5 gain on DADA at n = 2: reproduced, still nothing adopted (§26)"
+TOPK_NOT_REPRODUCED = "not reproduced at the replicate seed: the top-k line closes (§26)"
+# one-change arms read against K5: (arm, decision key, verdicts goes-on / closed / repro / not)
+SINGLE_CHANGE_RULES = (
+    (K5LN, "ln_rule", (LN_GOES_ON, LN_CLOSED, LN_REPRODUCED, LN_NOT_REPRODUCED)),
+    (K5K2, "topk_rule", (TOPK_GOES_ON, TOPK_CLOSED, TOPK_REPRODUCED, TOPK_NOT_REPRODUCED)),
+)
 
 
 def _json(path: Path) -> Any:
@@ -136,6 +147,10 @@ def contrast_pairs(names: list[str], control: str) -> list[tuple[str, str, str]]
         pairs.append((K5LN, K5, "per-step LayerNorm on the motion columns (§25)"))
     if K5LN in names and constants.KIM_W0 in names:
         pairs.append((K5LN, constants.KIM_W0, "K5ln vs the DVS-on host (printed)"))
+    if K5K2 in names and K5 in names:
+        pairs.append((K5K2, K5, "MIL top-k 4 -> 2 rows per window (§26)"))
+    if K5K2 in names and constants.KIM_W0 in names:
+        pairs.append((K5K2, constants.KIM_W0, "K5k2 vs the DVS-on host (printed)"))
     return pairs
 
 
@@ -178,9 +193,10 @@ def decide(
 ) -> dict[str, str]:
     """§3.1 and §6 at the first seed; at the replicate seed §6.2 alone (DADA decides)."""
     out: dict[str, str] = {}
-    ln = _ln_rule(sets, seed)
-    if ln is not None:
-        return ln  # §25 is the rule in force once K5ln is read
+    for arm, name, verdicts in SINGLE_CHANGE_RULES:
+        one = _single_change_rule(sets, seed, arm, name, verdicts)
+        if one is not None:
+            return one  # §25 / §26 is the rule in force once its arm is read
     if control == constants.KIM_CONTROL:
         k9 = _endpoint_sentences(sets, f"{K0K9} - {control}")
         if k9 is not None:
@@ -200,19 +216,26 @@ def decide(
     return out
 
 
-def _ln_rule(sets: dict[str, Any], seed: int) -> dict[str, str] | None:
-    """§25 on K5ln - K5; ``None`` when that contrast was not read on DADA."""
-    key = f"{K5LN} - {K5}"
+def _single_change_rule(
+    sets: dict[str, Any], seed: int, arm: str, name: str, verdicts: tuple[str, str, str, str]
+) -> dict[str, str] | None:
+    """§25 / §26 on ``arm - K5``; ``None`` when that contrast was not read on DADA.
+
+    A gain on DADA with no cost on DoTA-CAP-dev goes on; at the replicate seed a DADA gain
+    alone reproduces. ``verdicts`` = (goes on, closed, reproduced, not reproduced).
+    """
+    goes_on, closed, reproduced, not_reproduced = verdicts
+    key = f"{arm} - {K5}"
     dada = sets.get(DADA, {}).get("contrasts", {}).get(key)
     if dada is None:
         return None
     if seed == constants.KIM_REPLICATE_SEED:
-        return {"ln_rule": LN_REPRODUCED if dada["sentence"] == GAIN else LN_NOT_REPRODUCED}
+        return {name: reproduced if dada["sentence"] == GAIN else not_reproduced}
     dota = sets.get(DOTA, {}).get("contrasts", {}).get(key)
     if dota is None:
-        return {"ln_rule": PENDING}
+        return {name: PENDING}
     ok = dada["sentence"] == GAIN and dota["sentence"] != COST
-    return {"ln_rule": LN_GOES_ON if ok else LN_CLOSED}
+    return {name: goes_on if ok else closed}
 
 
 def start_check(diagnostics: dict[str, Any], arm: str, control: str) -> dict[str, Any] | None:
