@@ -1210,6 +1210,7 @@ ZS_CURVES_GT_SHARE_ALPHA = 0.08  # ... its fill
 ZS_CURVES_FINAL_ROOT = OUTPUT_ROOT / "v_final"
 ZS_CURVES_MAIN_LABEL = "LaGoVAD+KIM"  # K5's name on the figures (legend, title, rank)
 ZS_CURVES_DEFAULT_TAG = "lagovad_kim_vs_lagovad_s2024"
+ZS_CURVES_MAIN_ONLY_TAG = "lagovad_kim_s2024"  # plot_zs_curves --main-only: no LaGoVAD read
 ZS_CURVES_FIGURES_DIRNAME = "figures"  # <final>/kim/REPORTS/figures/train_<train>/<set>/<tag>/
 ZS_CURVES_DEFAULT_TRAIN = "nexar"
 # training corpus -> its name on the figures: "LaGoVAD+KIM (trained on <name>)". T2 is cut
@@ -1231,6 +1232,8 @@ ZS_CURVES_MAIN_SOURCES = {
         "dada": "kim/eval/dada/K5/clip_scores.npz",
         "tad": "kim/eval/tad/K5/s2024",
         DAD_OUTPUT_SET: "kim/eval/dad/K5/s2024",
+        # in-domain: K5 trains on Nexar_window (20 rows at s8, hop 8), read on nexar_val whole
+        ZS_CURVES_NEXAR_SET: "kim_gate/eval/nexar/K5",
     },
     "t2": {
         "dota": "kim_t2/eval/dota/K5/clip_scores.npz",
@@ -1259,4 +1262,8 @@ ZS_CURVES_STEP_SECONDS = {
 # onset bin width in rows where ZS_CURVES_ONSET_BIN_ROWS is too fine: Nexar's native rows are
 # 1/30 s, so 8 rows = 0.27 s, the s8 bin width of DADA / TAD
 ZS_CURVES_ONSET_BIN_ROWS_BY_SET = {ZS_CURVES_NEXAR_SET: 8}
+ZS_CURVES_DOMAIN_ZERO_SHOT = "zero-shot"  # figure titles: the set is unseen in training ...
+ZS_CURVES_DOMAIN_IN = "in-domain"  # ... or it is the training corpus's own split
+ZS_CURVES_DOMAINS = (ZS_CURVES_DOMAIN_ZERO_SHOT, ZS_CURVES_DOMAIN_IN)
+ZS_CURVES_IN_DOMAIN_PAIRS = {("nexar", ZS_CURVES_NEXAR_SET)}  # (--train, set) read in-domain
 ZS_CURVES_COLORS = ("tab:blue", "tab:orange", "tab:green", "tab:purple")  # one per --read model

@@ -18,6 +18,10 @@ Usage::
     python scripts/plot_zs_curves.py --set dota                       # trained on Nexar
     python scripts/plot_zs_curves.py --train t2 --set dota tad dad    # trained on T2 (DADA2000)
     python scripts/plot_zs_curves.py --set tad --main <run dir> --lagovad <run dir>
+    python scripts/plot_zs_curves.py --set nexar --main-only          # in-domain, K5 alone
+
+A set that is the training corpus's own split (Nexar val for ``--train nexar``) is titled
+"in-domain" instead of "zero-shot".
 """
 
 from __future__ import annotations
@@ -56,33 +60,56 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--set", dest="sets", nargs="+", required=True,
                         choices=list(LAGOVAD_SOURCES),
                         help="one or more zero-shot sets, each drawn into its own folder")
-    parser.add_argument("--tag", default=constants.ZS_CURVES_DEFAULT_TAG,
-                        help="output folder name under train_<train>/<set>/ and the json name")
+    parser.add_argument("--tag", default=None,
+                        help="output folder name under train_<train>/<set>/ and the json name "
+                             f"(default {constants.ZS_CURVES_DEFAULT_TAG}, or "
+                             f"{constants.ZS_CURVES_MAIN_ONLY_TAG} with --main-only)")
     parser.add_argument("--main", type=Path, default=None,
                         help="LaGoVAD+KIM scores (one --set only); default per train and set")
     parser.add_argument("--lagovad", type=Path, default=None,
                         help=f"{LAGOVAD} scores (one --set only); default per set")
     parser.add_argument("--seed-label", default=f"s{constants.KIM_SEED}, n = 1")
+    parser.add_argument("--main-only", action="store_true",
+                        help=f"draw LaGoVAD+KIM alone (no {LAGOVAD} read, e.g. not synced yet)")
     parser.add_argument("--dry-run", action="store_true", help="print the zs_curves calls only")
     return parser
 
 
-def sources(set_name: str, args: argparse.Namespace) -> tuple[Path, Path]:
-    """(LaGoVAD+KIM, LaGoVAD) score paths of a set: the CLI override, else the default."""
+def sources(set_name: str, args: argparse.Namespace) -> tuple[Path, ...]:
+    """(LaGoVAD+KIM[, LaGoVAD]) score paths of a set: the CLI override, else the default."""
     root = constants.ZS_CURVES_FINAL_ROOT
     main_src = args.main or root / MAIN_SOURCES[args.train][set_name]
+    if args.main_only:
+        return (main_src,)
     return main_src, args.lagovad or root / LAGOVAD_SOURCES[set_name]
+
+
+def domain(train: str, set_name: str) -> str:
+    """Figure-title domain: the training corpus's own split is in-domain, the rest zero-shot."""
+    if (train, set_name) in constants.ZS_CURVES_IN_DOMAIN_PAIRS:
+        return constants.ZS_CURVES_DOMAIN_IN
+    return constants.ZS_CURVES_DOMAIN_ZERO_SHOT
+
+
+def tag_of(args: argparse.Namespace) -> str:
+    """``--tag``, else the default for a two-model or a ``--main-only`` figure."""
+    if args.tag:
+        return str(args.tag)
+    return constants.ZS_CURVES_MAIN_ONLY_TAG if args.main_only else constants.ZS_CURVES_DEFAULT_TAG
 
 
 def tool_argv(set_name: str, args: argparse.Namespace) -> list[str]:
     """The ``core.tools.zs_curves`` arguments this wrapper stands for, for one set."""
-    main_src, lagovad_src = sources(set_name, args)
+    paths = sources(set_name, args)
     label = main_label(args.train)
-    return ["--all", "--rank-by", label, "--name", args.tag,
-            "--out-dir", str(out_dir(args.train, set_name, args.tag)),
-            "--seed-label", args.seed_label,
-            "--read", set_name, label, str(main_src),
-            "--read", set_name, LAGOVAD, str(lagovad_src)]
+    tag = tag_of(args)
+    argv = ["--all", "--rank-by", label, "--name", tag,
+            "--out-dir", str(out_dir(args.train, set_name, tag)),
+            "--seed-label", args.seed_label, "--domain", domain(args.train, set_name),
+            "--read", set_name, label, str(paths[0])]
+    if len(paths) > 1:
+        argv += ["--read", set_name, LAGOVAD, str(paths[1])]
+    return argv
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -91,6 +118,8 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
     if len(args.sets) > 1 and (args.main or args.lagovad):
         parser.error("--main / --lagovad take one path, so they need exactly one --set")
+    if args.main_only and args.lagovad:
+        parser.error("--main-only draws no LaGoVAD read: drop --lagovad")
     no_read = [s for s in args.sets if s not in MAIN_SOURCES[args.train] and not args.main]
     if no_read:
         parser.error(f"--train {args.train} has no zero-shot read on {no_read} "

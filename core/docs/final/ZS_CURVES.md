@@ -102,9 +102,26 @@ draws with `zs_curves` (grid, onset, `--all`) into
   `nexar_val`: 29.0–30.6, 123 / 225 at 30.0; ≤ ~2 % time error). Onset bins are 8 rows
   (0.27 s, `ZS_CURVES_ONSET_BIN_ROWS_BY_SET`) instead of 2.
 - `scripts/plot_zs_curves.py --train t2 --set nexar` re-draws locally once
-  `kim_t2/eval/nexar_curves/` is synced under `outputs/v_final/`. `--train nexar --set nexar`
-  is refused: K5 on Nexar is in-domain there.
+  `kim_t2/eval/nexar_curves/` is synced under `outputs/v_final/`.
+- **In-domain, K5 trained on Nexar (`Nexar_window`, 20 rows at s8, hop 8), drawn 2026-11-15:**
+  `python scripts/plot_zs_curves.py --set nexar --main-only` reads the scores already on disk
+  (`outputs/v_final/kim_gate/eval/nexar/K5/scores/`, 225 videos, ckpt step 1,749) and titles
+  the figures "in-domain" (`ZS_CURVES_IN_DOMAIN_PAIRS`). `--main-only` drops LaGoVAD (its Nexar
+  scores are not local until the T2 notebook runs) and defaults the tag to `lagovad_kim_s2024`.
+  That K5-only set was drawn once and deleted the same day (superseded by the two-model set
+  below, once LaGoVAD's Nexar scores were synced). Median
+  per-video AUC 0.967 (112 two-class videos, one below 0.5: `01028`) — in-domain and
+  position-confounded, so it says nothing about localization; quote the crop endpoint 0.8981.
 - **Position caveat.** On Nexar the event sits mid-video: the middle ruler `-|t/T − 0.5|`
   scores whole-video macro **0.9735**, above K5-T2's 0.8201 and LaGoVAD's 0.5832 (§13). A
   curve peaking in the GT span here does not show localization; the crop endpoint (0.7816) is
   the number to quote. Titles say "zero-shot": true for K5-T2 and LaGoVAD, the only rows drawn.
+- **Run 2026-11-15 (commit `3855fb2`), synced and drawn locally.** Both rows reproduce §13
+  exactly (max |Δ| 0.0 on crops / whole macro / micro / AP; 225 score files each). Drawn:
+  `figures/train_t2/nexar/lagovad_kim_vs_lagovad_s2024/` (K5-T2 vs LaGoVAD) and
+  `figures/train_nexar/nexar/lagovad_kim_vs_lagovad_s2024/` (K5 on Nexar vs LaGoVAD; titled
+  "in-domain", which is true for K5 only — LaGoVAD is zero-shot on every set). Median per-video
+  AUC (112 two-class): K5 (Nexar) 0.967, K5-T2 0.878, LaGoVAD 0.609. Onset picture: K5 (Nexar)
+  sits near 0 before the onset and peaks ≈ 0.65 at +1.5–2 s; K5-T2 has the same shape on a
+  raised floor (≈ 0.40 → 0.78), i.e. more false alarm level on normal Nexar rows; LaGoVAD is
+  flat at ≈ 0.27. Position-confounded on Nexar (middle ruler 0.9735): shape only.

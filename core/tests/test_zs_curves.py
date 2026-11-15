@@ -204,7 +204,7 @@ def test_plot_script_maps_each_set_to_the_tool() -> None:
     script = _load_plot_script()
     assert set(script.LAGOVAD_SOURCES) == set(zc.SET_ORDER)
     assert zc.NEXAR in constants.ZS_CURVES_MAIN_SOURCES["t2"]
-    assert zc.NEXAR not in constants.ZS_CURVES_MAIN_SOURCES["nexar"]  # in-domain: not drawn
+    assert zc.NEXAR in constants.ZS_CURVES_MAIN_SOURCES["nexar"]  # in-domain, titled so
     assert set(constants.ZS_CURVES_TRAIN_LABELS) == set(script.MAIN_SOURCES)
     label = script.main_label("nexar")
     assert label == "LaGoVAD+KIM (trained on Nexar)"
@@ -228,10 +228,10 @@ def test_plot_script_refusals(tmp_path: Path) -> None:
     script = _load_plot_script()
     with pytest.raises(SystemExit):
         script.main(["--set", "dota", "dada", "--main", "a.npz"])
-    with pytest.raises(SystemExit):  # K5 trained on Nexar has no zero-shot Nexar read
-        script.main(["--set", "nexar"])
     with pytest.raises(SystemExit):  # T2 is cut from DADA-2000: no zero-shot DADA read
         script.main(["--train", "t2", "--set", "dada"])
+    with pytest.raises(SystemExit):
+        script.main(["--set", "tad", "--main-only", "--lagovad", "b"])
     with pytest.raises(FileNotFoundError):
         script.main(["--set", "dota", "--main", str(tmp_path / "none.npz"),
                      "--lagovad", str(tmp_path / "x.npz")])
@@ -256,3 +256,21 @@ def test_nexar_set_is_raw_native_frames_with_wider_onset_bins(tmp_path: Path) ->
         "--read", "nexar", "K5T2", str(main), "--read", "nexar", "LaGoVAD", str(base)]))
     assert (tmp_path / "out" / "grid_nexar.png").is_file()
     assert (tmp_path / "out" / "onset_aligned.png").is_file()
+
+
+def test_plot_script_titles_nexar_in_domain_and_can_draw_main_only() -> None:
+    script = _load_plot_script()
+    args = script.build_arg_parser().parse_args(["--set", "nexar", "--main-only"])
+    call = zc.build_arg_parser().parse_args(script.tool_argv("nexar", args))
+    assert call.domain == constants.ZS_CURVES_DOMAIN_IN
+    assert [r[1] for r in call.read] == [script.main_label("nexar")]
+    tag = constants.ZS_CURVES_MAIN_ONLY_TAG
+    assert call.out_dir == script.FIGURES / "train_nexar" / "nexar" / tag
+    args = script.build_arg_parser().parse_args(["--train", "t2", "--set", "nexar",
+                                                  "--tag", "t"])
+    call = zc.build_arg_parser().parse_args(script.tool_argv("nexar", args))
+    assert call.domain == constants.ZS_CURVES_DOMAIN_ZERO_SHOT
+    assert [r[1] for r in call.read] == [script.main_label("t2"), "LaGoVAD"]
+    args = script.build_arg_parser().parse_args(["--set", "tad"])
+    assert script.domain("nexar", "tad") == constants.ZS_CURVES_DOMAIN_ZERO_SHOT
+    assert len(script.sources("tad", args)) == 2

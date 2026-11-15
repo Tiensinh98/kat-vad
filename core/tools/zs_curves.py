@@ -200,7 +200,8 @@ def draw_video(ax: Axes, video: str, loaded: Loaded, set_name: str,
 
 
 def render_grid(path: Path, set_name: str, loaded: Loaded, picks: list[str],
-                aucs: dict[str, dict[str, float]], rank_by: str, seed_label: str) -> None:
+                aucs: dict[str, dict[str, float]], rank_by: str, seed_label: str,
+                domain: str = constants.ZS_CURVES_DOMAIN_ZERO_SHOT) -> None:
     cols = min(constants.ZS_CURVES_GRID_COLS, len(picks))
     rows = math.ceil(len(picks) / cols)
     fig, axes = plt.subplots(rows, cols, figsize=(5.0 * cols, 3.0 * rows), squeeze=False)
@@ -210,7 +211,7 @@ def render_grid(path: Path, set_name: str, loaded: Loaded, picks: list[str],
         ax.set_visible(False)
     faint = ("faint = raw" if set_name in MINMAX_SETS else "dashed = min-max, shape only")
     n_videos = len(next(iter(loaded.values()))[1])
-    fig.suptitle(f"{SET_NAME[set_name]} zero-shot, {n_videos} videos: picks spread worst -> best "
+    fig.suptitle(f"{SET_NAME[set_name]} {domain}, {n_videos} videos: picks spread worst -> best "
                  f"{rank_by} per-video AUC; {faint} ({seed_label})", fontsize=10)
     fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.95))
     fig.savefig(path, dpi=constants.ZS_CURVES_DPI)
@@ -218,14 +219,15 @@ def render_grid(path: Path, set_name: str, loaded: Loaded, picks: list[str],
 
 
 def render_videos(out_dir: Path, set_name: str, loaded: Loaded, order: list[str],
-                  aucs: dict[str, dict[str, float]], rank_by: str, seed_label: str) -> int:
+                  aucs: dict[str, dict[str, float]], rank_by: str, seed_label: str,
+                  domain: str = constants.ZS_CURVES_DOMAIN_ZERO_SHOT) -> int:
     """One PNG per video, ``<rank>_<video>.png`` so the folder sorts worst -> best."""
     out_dir.mkdir(parents=True, exist_ok=True)
     width = len(str(len(order)))
     for rank, video in enumerate(order, start=1):
         fig, ax = plt.subplots(figsize=constants.ZS_CURVES_VIDEO_FIGSIZE)
         draw_video(ax, video, loaded, set_name, aucs)
-        fig.suptitle(f"{SET_NAME[set_name]} zero-shot, {rank}/{len(order)} by {rank_by} "
+        fig.suptitle(f"{SET_NAME[set_name]} {domain}, {rank}/{len(order)} by {rank_by} "
                      f"per-video AUC ({seed_label})", fontsize=9)
         fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.93))
         fig.savefig(out_dir / f"{rank:0{width}d}_{video}.png", dpi=constants.ZS_CURVES_DPI)
@@ -348,6 +350,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
                        help="draw EVERY video, one PNG each, in <out-dir>/"
                             f"{constants.ZS_CURVES_VIDEO_SUBDIR}/<set>/ (no grid)")
     parser.add_argument("--seed-label", default=f"s{constants.KIM_SEED}, n = 1")
+    parser.add_argument("--domain", default=constants.ZS_CURVES_DOMAIN_ZERO_SHOT,
+                        choices=constants.ZS_CURVES_DOMAINS,
+                        help="figure titles: is the set unseen in training, or its own split")
     parser.add_argument("--name", required=True, help="json = zs_curves_<name>.json")
     parser.add_argument("--out-dir", type=Path, required=True)
     return parser
@@ -366,15 +371,16 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         if args.all:
             video_dir = args.out_dir / constants.ZS_CURVES_VIDEO_SUBDIR / set_name
             n = render_videos(video_dir, set_name, data[set_name], t["picks"], aucs,
-                              args.rank_by, args.seed_label)
+                              args.rank_by, args.seed_label, args.domain)
             LOGGER.info("%s: %d per-video figures -> %s", set_name, n, video_dir)
             continue
         render_grid(args.out_dir / f"grid_{set_name}.png", set_name, data[set_name],
-                    t["picks"], aucs, args.rank_by, args.seed_label)
+                    t["picks"], aucs, args.rank_by, args.seed_label, args.domain)
     render_onset(args.out_dir / "onset_aligned.png",
                  {s: t["onset"] for s, t in table.items()}, args.seed_label)
     write_json_atomic(args.out_dir / f"{constants.ZS_CURVES_STEM}_{args.name}.json",
                       {"rank_by": args.rank_by, "label": LABEL, "seed_label": args.seed_label,
+                       "domain": args.domain,
                        "sets": table})
     return table
 
