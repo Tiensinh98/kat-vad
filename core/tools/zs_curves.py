@@ -4,7 +4,9 @@ Reads the per-frame score files the zero-shot reads already wrote (nothing is re
 ``clip_scores.npz`` for DoTA-CAP-dev (protocol B) and DADA-2000 whole, a ``core.evaluate
 --save-scores`` run dir (``<dir>/scores/*.npz``) for TAD and DAD -- the same sources
 ``zs_arm_table`` reads, through the same loader. Every model must have scored the same videos
-with identical frame labels, or the tool raises.
+with identical frame labels, or the tool raises. Set ``nexar`` = ``nexar_val`` whole videos
+from ``nexar_eval --save-scores`` (a run dir, raw, native frames); the event sits mid-video
+there, so those curves show shape only (``ZS_CURVES.md``).
 
 Per set it writes ``grid_<set>.png``: ``--n`` videos spread evenly over the rank model's
 per-video frame AUC (worst -> best, so the grid is not a best-case pick; on TAD / DAD the last
@@ -48,8 +50,9 @@ from core.tools.zs_arm_table import check_same_labels
 
 LOGGER = logging.getLogger(__name__)
 
-SET_ORDER = zs_compare_table.SET_ORDER
-SET_NAME = zs_compare_table.SET_NAME
+NEXAR = constants.ZS_CURVES_NEXAR_SET
+SET_ORDER = (*zs_compare_table.SET_ORDER, NEXAR)
+SET_NAME = {**zs_compare_table.SET_NAME, NEXAR: "Nexar val (whole video)"}
 MINMAX_SETS = zs_compare_table.TABLE_MINMAX_SETS
 LABEL = "illustration (n = 1 seed); decides nothing"
 
@@ -154,6 +157,12 @@ def onset_curve(scores: Curves, labels: Curves, step_s: float, use_minmax: bool,
         gt_share.append(float(gt_stack[keep, b].mean()))
     return {"centers_s": centers.tolist(), "mean": mean, "sem": sem, "gt_share": gt_share,
             "n_per_bin": count.astype(int).tolist(), "videos": len(per_video), "bin_s": bin_s}
+
+
+def onset_bin_rows(set_name: str) -> int:
+    """Score rows per onset bin on one set (finer native-frame sets get wider bins)."""
+    return constants.ZS_CURVES_ONSET_BIN_ROWS_BY_SET.get(set_name,
+                                                         constants.ZS_CURVES_ONSET_BIN_ROWS)
 
 
 def _nan(values: list[float | None]) -> np.ndarray:
@@ -306,7 +315,7 @@ def build(data: dict[str, Loaded], rank_by: str, n: int,
             picks = pick_videos(aucs[rank_by], labels, n)
         onset = {m: onset_curve(s, lab, constants.ZS_CURVES_STEP_SECONDS[set_name],
                                 set_name in MINMAX_SETS, constants.ZS_CURVES_ONSET_WINDOW_S,
-                                constants.ZS_CURVES_ONSET_BIN_ROWS,
+                                onset_bin_rows(set_name),
                                 constants.ZS_CURVES_MIN_VIDEOS_PER_BIN)
                  for m, (s, lab) in loaded.items()}
         out[set_name] = {
@@ -329,7 +338,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         metavar=("SET", "MODEL", "PATH"),
                         help=f"one model's scores on one set; SET in {SET_ORDER}. PATH = "
                              "clip_scores.npz (dota / dada) or the run dir holding scores/ "
-                             "(tad / dad)")
+                             "(tad / dad / nexar)")
     parser.add_argument("--rank-by", required=True, help="model whose per-video AUC ranks picks")
     parser.add_argument("--n", type=int, default=constants.ZS_CURVES_N_PICK)
     which = parser.add_mutually_exclusive_group()
@@ -378,5 +387,5 @@ def main(argv: list[str] | None = None) -> None:
 if __name__ == "__main__":
     main()
 
-__all__ = ["build", "load_reads", "onset_curve", "pick_videos", "rank_all", "run",
-           "video_aucs"]
+__all__ = ["build", "load_reads", "onset_bin_rows", "onset_curve", "pick_videos", "rank_all",
+           "run", "video_aucs"]

@@ -84,3 +84,27 @@ python scripts/plot_zs_curves.py --set tad --tag my_tag --main <run dir> --lagov
   stops at +0.4 s. That is DAD's structure, not a drawing bug.
 - Several videos have a raw curve near 0 throughout (e.g. DADA `t56_v021`, `t50_v090`); their
   min-max curve and per-video AUC rest on tiny differences.
+
+## Nexar val, K5 trained on T2 (2026-11-15, user; illustration, decides nothing)
+
+The user asked to see K5 trained on T2 (shown as DADA2000) read zero-shot on `nexar_val`, on
+the **uncut videos**. §13 of `KIM_RUN.md` already read that row on whole videos (`nexar_eval`
+scores each whole video in one pass, `s1[::3]`, interpolated to native frames), so nothing is
+re-assembled from crops. §13 kept no per-frame scores, so
+`colab/final/k5_t2_nexar_curves.ipynb` scores LaGoVAD and K5-T2 again with `--save-scores` into
+`outputs/kim_t2/eval/nexar_curves/<row>/scores/` (a new folder: §13's read-outs are not
+overwritten), asserts that crops / whole macro / micro / AP reproduce §13 within 1e-4, and
+draws with `zs_curves` (grid, onset, `--all`) into
+`outputs/kim_t2/REPORTS/figures/train_t2/nexar/<tag>/`. `nexar_test` is never read.
+
+- Set `nexar` in `zs_curves`: a `nexar_eval --save-scores` run dir, **raw** pooling (as
+  `nexar_eval`), one row per native frame at `NEXAR_NOMINAL_FPS` = 30 (measured on
+  `nexar_val`: 29.0–30.6, 123 / 225 at 30.0; ≤ ~2 % time error). Onset bins are 8 rows
+  (0.27 s, `ZS_CURVES_ONSET_BIN_ROWS_BY_SET`) instead of 2.
+- `scripts/plot_zs_curves.py --train t2 --set nexar` re-draws locally once
+  `kim_t2/eval/nexar_curves/` is synced under `outputs/v_final/`. `--train nexar --set nexar`
+  is refused: K5 on Nexar is in-domain there.
+- **Position caveat.** On Nexar the event sits mid-video: the middle ruler `-|t/T − 0.5|`
+  scores whole-video macro **0.9735**, above K5-T2's 0.8201 and LaGoVAD's 0.5832 (§13). A
+  curve peaking in the GT span here does not show localization; the crop endpoint (0.7816) is
+  the number to quote. Titles say "zero-shot": true for K5-T2 and LaGoVAD, the only rows drawn.

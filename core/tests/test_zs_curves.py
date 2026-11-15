@@ -109,7 +109,7 @@ def test_load_reads_refuses_other_labels_and_lengths(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="lengths differ"):
         zc.load_reads([("dota", "K5", c)])
     with pytest.raises(ValueError, match="unknown set"):
-        zc.load_reads([("nexar", "K5", a)])
+        zc.load_reads([("msad", "K5", a)])
     with pytest.raises(FileNotFoundError):
         zc.load_reads([("dota", "K5", tmp_path / "missing.npz")])
 
@@ -203,6 +203,8 @@ def _load_plot_script():
 def test_plot_script_maps_each_set_to_the_tool() -> None:
     script = _load_plot_script()
     assert set(script.LAGOVAD_SOURCES) == set(zc.SET_ORDER)
+    assert zc.NEXAR in constants.ZS_CURVES_MAIN_SOURCES["t2"]
+    assert zc.NEXAR not in constants.ZS_CURVES_MAIN_SOURCES["nexar"]  # in-domain: not drawn
     assert set(constants.ZS_CURVES_TRAIN_LABELS) == set(script.MAIN_SOURCES)
     label = script.main_label("nexar")
     assert label == "LaGoVAD+KIM (trained on Nexar)"
@@ -226,10 +228,31 @@ def test_plot_script_refusals(tmp_path: Path) -> None:
     script = _load_plot_script()
     with pytest.raises(SystemExit):
         script.main(["--set", "dota", "dada", "--main", "a.npz"])
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit):  # K5 trained on Nexar has no zero-shot Nexar read
         script.main(["--set", "nexar"])
     with pytest.raises(SystemExit):  # T2 is cut from DADA-2000: no zero-shot DADA read
         script.main(["--train", "t2", "--set", "dada"])
     with pytest.raises(FileNotFoundError):
         script.main(["--set", "dota", "--main", str(tmp_path / "none.npz"),
                      "--lagovad", str(tmp_path / "x.npz")])
+
+
+def test_nexar_set_is_raw_native_frames_with_wider_onset_bins(tmp_path: Path) -> None:
+    scores, labels = _curves(9, normal_videos=2)
+    main = _write_run(tmp_path / "k5t2", scores, labels)
+    base = _write_run(tmp_path / "lag", {v: s * 0.5 for v, s in scores.items()}, labels)
+    data = zc.load_reads([("nexar", "K5T2", main), ("nexar", "LaGoVAD", base)])
+    table = zc.build(data, "K5T2", 4, None)
+    t = table["nexar"]
+    assert t["pooling"] == "raw"
+    assert t["step_s"] == pytest.approx(1.0 / constants.NEXAR_NOMINAL_FPS)
+    assert zc.onset_bin_rows("nexar") == constants.ZS_CURVES_ONSET_BIN_ROWS_BY_SET["nexar"]
+    assert zc.onset_bin_rows("dota") == constants.ZS_CURVES_ONSET_BIN_ROWS
+    assert t["onset"]["K5T2"]["bin_s"] == pytest.approx(
+        zc.onset_bin_rows("nexar") / constants.NEXAR_NOMINAL_FPS)
+    assert t["videos"] == len(labels) and t["two_class"] == len(labels) - 2
+    zc.run(zc.build_arg_parser().parse_args([
+        "--rank-by", "K5T2", "--name", "nx", "--out-dir", str(tmp_path / "out"),
+        "--read", "nexar", "K5T2", str(main), "--read", "nexar", "LaGoVAD", str(base)]))
+    assert (tmp_path / "out" / "grid_nexar.png").is_file()
+    assert (tmp_path / "out" / "onset_aligned.png").is_file()

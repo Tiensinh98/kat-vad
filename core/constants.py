@@ -1215,6 +1215,14 @@ ZS_CURVES_DEFAULT_TRAIN = "nexar"
 # training corpus -> its name on the figures: "LaGoVAD+KIM (trained on <name>)". T2 is cut
 # from the DADA-2000 original release (KIM_RUN.md §13), so it is shown as DADA2000.
 ZS_CURVES_TRAIN_LABELS = {"nexar": "Nexar", "t2": "DADA2000"}
+# Nexar val as a curve set (ZS_CURVES.md "Nexar val"): nexar_eval --save-scores whole-video
+# native-frame curves, raw pooling. The event sits mid-video (middle ruler 0.9735, KIM_RUN.md §13),
+# so these curves show shape only. nexar_test is never drawn.
+ZS_CURVES_NEXAR_SET = "nexar"
+ZS_CURVES_NEXAR_DIRNAME = "nexar_curves"  # <kim_t2 root>/eval/nexar_curves/<row>/scores/*.npz
+# rows per second on nexar_val's native frames: measured 29.0-30.6 (123 / 225 videos at 30.0),
+# so a fixed 30 puts a 40 s video within ~2 % of its true time axis
+NEXAR_NOMINAL_FPS = 30.0
 # training corpus -> set -> K5 scores, relative to ZS_CURVES_FINAL_ROOT: a clip_scores.npz on
 # DoTA / DADA, a run dir on TAD / DAD. T2 has no DADA read: it is trained on DADA-2000.
 ZS_CURVES_MAIN_SOURCES = {
@@ -1228,6 +1236,7 @@ ZS_CURVES_MAIN_SOURCES = {
         "dota": "kim_t2/eval/dota/K5/clip_scores.npz",
         "tad": "kim_t2/eval/tad/K5/s2024",
         DAD_OUTPUT_SET: "kim_t2/eval/dad/K5/s2024",
+        ZS_CURVES_NEXAR_SET: f"{KIM_T2_OUTPUT_DIRNAME}/eval/{ZS_CURVES_NEXAR_DIRNAME}/{KIM_T2_ROW}",
     },
 }
 # set -> LaGoVAD released-checkpoint scores (DoTA = protocol B, as K5), shared by every corpus
@@ -1236,6 +1245,7 @@ ZS_CURVES_LAGOVAD_SOURCES = {
     "dada": "zs_lagovad/eval/dada/LaGoVAD/clip_scores.npz",
     "tad": "zs_lagovad/eval/tad/LaGoVAD/released",
     DAD_OUTPUT_SET: "zs_lagovad/eval/dad/LaGoVAD/released",
+    ZS_CURVES_NEXAR_SET: f"{KIM_T2_OUTPUT_DIRNAME}/eval/{ZS_CURVES_NEXAR_DIRNAME}/{ZS_LAGOVAD_ARM}",
 }
 # seconds per score row on each zero-shot set: DoTA protocol B is interpolated to native frames;
 # DADA whole and TAD at s8 (30 fps assumed, A1); DAD at s7 of 25 fps (census 2026-11-04)
@@ -1244,5 +1254,9 @@ ZS_CURVES_STEP_SECONDS = {
     "dada": ZS_STRIDE / DADA_ASSUMED_FPS,
     "tad": ZS_STRIDE / DADA_ASSUMED_FPS,
     DAD_OUTPUT_SET: DAD_STRIDE / DAD_ASSUMED_FPS,
+    ZS_CURVES_NEXAR_SET: 1.0 / NEXAR_NOMINAL_FPS,
 }
+# onset bin width in rows where ZS_CURVES_ONSET_BIN_ROWS is too fine: Nexar's native rows are
+# 1/30 s, so 8 rows = 0.27 s, the s8 bin width of DADA / TAD
+ZS_CURVES_ONSET_BIN_ROWS_BY_SET = {ZS_CURVES_NEXAR_SET: 8}
 ZS_CURVES_COLORS = ("tab:blue", "tab:orange", "tab:green", "tab:purple")  # one per --read model
