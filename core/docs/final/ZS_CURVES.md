@@ -39,6 +39,26 @@ python -m core.tools.zs_curves --rank-by K5 --name k5_lagovad_s2024 \
     --read dada K5 ... --read tad K5 ... --read dad K5 ...   # as in the table above
 ```
 
+## Every video (`--all`, 2026-11-15)
+
+`--all` replaces the grid with one PNG per video, `<out-dir>/videos/<set>/<rank>_<video>.png`:
+two-class videos worst -> best by the `--rank-by` model's per-video AUC (rank 1 = worst), then the
+all-normal videos by id. `onset_aligned.png` and the json are written as before (the json's
+`pick_aucs` then holds every video). `--all` and `--clips` are exclusive.
+
+Wrapper `scripts/plot_zs_curves.py` (every video of one or more sets; K5 is drawn and ranked
+as **LaGoVAD+KIM**, LaGoVAD = released checkpoint, DoTA under protocol B; default sources =
+the table above, `constants.ZS_CURVES_DEFAULT_SOURCES`). All four sets take ~95 s on a laptop
+CPU (569 + 370 + 100 + 466 PNGs). `outputs/v_final/kim/REPORTS/figures/` is gitignored.
+
+```bash
+source .venv/bin/activate
+python scripts/plot_zs_curves.py --set dota                 # or: --set dota dada tad dad
+python scripts/plot_zs_curves.py --set tad --tag my_tag --main <run dir> --lagovad <run dir>
+# -> outputs/v_final/kim/REPORTS/figures/<set>/<tag>/videos/<set>/<rank>_<video>.png
+#    tag defaults to lagovad_kim_vs_lagovad_s2024; --dry-run prints the zs_curves calls only
+```
+
 ## What the pictures show (descriptive, n = 1)
 
 - **K5's mean curve rises 2–3 s before the onset, peaks about 1.5–2 s after it, and falls while

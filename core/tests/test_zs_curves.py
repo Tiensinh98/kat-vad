@@ -134,3 +134,79 @@ def test_clips_override_the_picks(tmp_path: Path) -> None:
     data = zc.load_reads([("dada", "K5", _write_npz(tmp_path / "a.npz", scores, labels))])
     table = zc.build(data, "K5", 3, ["v03", "absent", "v07"])
     assert table["dada"]["picks"] == ["v03", "v07"]
+
+
+def test_rank_all_orders_two_class_then_normals() -> None:
+    scores, labels = _curves(11, normal_videos=2)
+    aucs = zc.video_aucs(scores, labels)
+    order = zc.rank_all(aucs, labels)
+    assert sorted(order) == sorted(labels)
+    assert order[-2:] == ["v00", "v01"]
+    assert [aucs[v] for v in order[:-2]] == sorted(aucs.values())
+
+
+def test_all_and_clips_are_exclusive(tmp_path: Path) -> None:
+    scores, labels = _curves(12)
+    data = zc.load_reads([("dada", "K5", _write_npz(tmp_path / "a.npz", scores, labels))])
+    with pytest.raises(ValueError, match="exclusive"):
+        zc.build(data, "K5", 3, ["v01"], every_video=True)
+    with pytest.raises(SystemExit):
+        zc.build_arg_parser().parse_args(["--rank-by", "K5", "--name", "t", "--out-dir", "o",
+                                          "--read", "dada", "K5", "a", "--all",
+                                          "--clips", "v01"])
+
+
+def test_cli_all_writes_one_png_per_video_in_rank_order(tmp_path: Path) -> None:
+    k5, labels = _curves(13, n=5, normal_videos=1)
+    lago, _ = _curves(14, n=5, normal_videos=1)
+    out = tmp_path / "out"
+    table = zc.run(zc.build_arg_parser().parse_args([
+        "--rank-by", "K5", "--all", "--name", "t", "--out-dir", str(out),
+        "--read", "dota", "K5", str(_write_npz(tmp_path / "k5.npz", k5, labels)),
+        "--read", "dota", "LaGoVAD", str(_write_npz(tmp_path / "lg.npz", lago, labels)),
+    ]))
+    picks = table["dota"]["picks"]
+    files = sorted((out / constants.ZS_CURVES_VIDEO_SUBDIR / "dota").glob("*.png"))
+    assert [f.name for f in files] == [f"{i}_{v}.png" for i, v in enumerate(picks, start=1)]
+    assert len(files) == 5 and picks[-1] == "v00"
+    assert not (out / "grid_dota.png").exists() and (out / "onset_aligned.png").exists()
+
+
+
+def _load_plot_script():
+    import importlib.util
+
+    path = constants.REPO_ROOT / "scripts" / "plot_zs_curves.py"
+    spec = importlib.util.spec_from_file_location("plot_zs_curves", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_plot_script_maps_each_set_to_the_tool() -> None:
+    script = _load_plot_script()
+    label = constants.ZS_CURVES_MAIN_LABEL
+    assert set(script.SOURCES) == set(zc.SET_ORDER)
+    args = script.build_arg_parser().parse_args(["--set", "tad", "--tag", "t",
+                                                  "--main", "a", "--lagovad", "b"])
+    call = zc.build_arg_parser().parse_args(script.tool_argv("tad", args))
+    assert call.all and call.rank_by == label and call.name == "t"
+    assert call.out_dir == script.FIGURES / "tad" / "t"
+    assert call.read == [["tad", label, "a"], ["tad", "LaGoVAD", "b"]]
+    args = script.build_arg_parser().parse_args(["--set", "dota", "dada"])
+    main_src, lago_src = script.sources("dada", args)
+    root = constants.ZS_CURVES_FINAL_ROOT
+    defaults = constants.ZS_CURVES_DEFAULT_SOURCES["dada"]
+    assert (main_src, lago_src) == tuple(root / r for r in defaults)
+
+
+def test_plot_script_refusals(tmp_path: Path) -> None:
+    script = _load_plot_script()
+    with pytest.raises(SystemExit):
+        script.main(["--set", "dota", "dada", "--main", "a.npz"])
+    with pytest.raises(SystemExit):
+        script.main(["--set", "nexar"])
+    with pytest.raises(FileNotFoundError):
+        script.main(["--set", "dota", "--main", str(tmp_path / "none.npz"),
+                     "--lagovad", str(tmp_path / "x.npz")])

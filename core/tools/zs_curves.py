@@ -12,7 +12,9 @@ cell is one all-normal video, where false alarms show). Curves are drawn as the 
 them: DoTA / DADA after per-video min-max (raw drawn faint beneath), TAD / DAD raw (min-max
 dashed, shape only). ``onset_aligned.png`` = each model's mean score in seconds from the GT
 onset over every two-class video (+-1 SEM); bins with too few videos are hidden. The numbers
-behind both go to ``zs_curves_<name>.json``. Illustration only (n = 1 seed): decides nothing.
+behind both go to ``zs_curves_<name>.json``. ``--all`` replaces the grid with one PNG per
+video, ``<out-dir>/videos/<set>/<rank>_<video>.png`` (two-class worst -> best by the rank
+model's AUC, then the all-normal ones). Illustration only (n = 1 seed): decides nothing.
 
 CLI::
 
@@ -93,6 +95,12 @@ def pick_videos(aucs: dict[str, float], labels: Curves, n: int) -> list[str]:
     if normals and len(picks) < n:
         picks.append(normals[0])
     return picks
+
+
+def rank_all(aucs: dict[str, float], labels: Curves) -> list[str]:
+    """Every video: two-class ones worst -> best AUC, then the all-normal ones by id."""
+    ranked = sorted(aucs, key=lambda v: (aucs[v], v))
+    return ranked + sorted(v for v in labels if v not in aucs)
 
 
 def onset_curve(scores: Curves, labels: Curves, step_s: float, use_minmax: bool,
@@ -190,6 +198,22 @@ def render_grid(path: Path, set_name: str, loaded: Loaded, picks: list[str],
     plt.close(fig)
 
 
+def render_videos(out_dir: Path, set_name: str, loaded: Loaded, order: list[str],
+                  aucs: dict[str, dict[str, float]], rank_by: str, seed_label: str) -> int:
+    """One PNG per video, ``<rank>_<video>.png`` so the folder sorts worst -> best."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    width = len(str(len(order)))
+    for rank, video in enumerate(order, start=1):
+        fig, ax = plt.subplots(figsize=constants.ZS_CURVES_VIDEO_FIGSIZE)
+        draw_video(ax, video, loaded, set_name, aucs)
+        fig.suptitle(f"{SET_NAME[set_name]} zero-shot, {rank}/{len(order)} by {rank_by} "
+                     f"per-video AUC ({seed_label})", fontsize=9)
+        fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.93))
+        fig.savefig(out_dir / f"{rank:0{width}d}_{video}.png", dpi=constants.ZS_CURVES_DPI)
+        plt.close(fig)
+    return len(order)
+
+
 def render_onset(path: Path, onset: dict[str, dict[str, dict[str, Any]]], seed_label: str) -> None:
     sets = list(onset)
     fig, axes = plt.subplots(1, len(sets), figsize=(4.0 * len(sets), 3.4), squeeze=False)
@@ -238,16 +262,25 @@ def load_reads(reads: list[tuple[str, str, Path]]) -> dict[str, Loaded]:
 
 
 def build(data: dict[str, Loaded], rank_by: str, n: int,
-          clips: list[str] | None) -> dict[str, Any]:
-    """Picks, per-video AUCs and onset curves of every set (pure: nothing is drawn here)."""
+          clips: list[str] | None, every_video: bool = False) -> dict[str, Any]:
+    """Picks, per-video AUCs and onset curves of every set (pure: nothing is drawn here).
+
+    ``every_video`` picks every video in rank order (``rank_all``) instead of ``n`` of them.
+    """
+    if every_video and clips:
+        raise ValueError("every_video and clips are exclusive")
     out: dict[str, Any] = {}
     for set_name, loaded in data.items():
         if rank_by not in loaded:
             raise ValueError(f"{set_name}: the rank model {rank_by} has no read")
         labels = loaded[rank_by][1]
         aucs = {m: video_aucs(s, lab) for m, (s, lab) in loaded.items()}
-        picks = ([c for c in clips if c in labels] if clips
-                 else pick_videos(aucs[rank_by], labels, n))
+        if every_video:
+            picks = rank_all(aucs[rank_by], labels)
+        elif clips:
+            picks = [c for c in clips if c in labels]
+        else:
+            picks = pick_videos(aucs[rank_by], labels, n)
         onset = {m: onset_curve(s, lab, constants.ZS_CURVES_STEP_SECONDS[set_name],
                                 set_name in MINMAX_SETS, constants.ZS_CURVES_ONSET_WINDOW_S,
                                 constants.ZS_CURVES_ONSET_BIN_ROWS,
@@ -262,8 +295,8 @@ def build(data: dict[str, Loaded], rank_by: str, n: int,
             "pick_aucs": {m: {v: aucs[m].get(v) for v in picks} for m in loaded},
             "onset": onset,
         }
-        LOGGER.info("%s: %d videos, %d two-class, picks %s", set_name, len(labels),
-                    len(aucs[rank_by]), picks)
+        LOGGER.info("%s: %d videos, %d two-class, %d picks %s", set_name, len(labels),
+                    len(aucs[rank_by]), len(picks), picks if not every_video else "(all)")
     return out
 
 
@@ -276,8 +309,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
                              "(tad / dad)")
     parser.add_argument("--rank-by", required=True, help="model whose per-video AUC ranks picks")
     parser.add_argument("--n", type=int, default=constants.ZS_CURVES_N_PICK)
-    parser.add_argument("--clips", nargs="+", default=None,
-                        help="video ids to draw instead of the rank picks (per set, if present)")
+    which = parser.add_mutually_exclusive_group()
+    which.add_argument("--clips", nargs="+", default=None,
+                       help="video ids to draw instead of the rank picks (per set, if present)")
+    which.add_argument("--all", action="store_true",
+                       help="draw EVERY video, one PNG each, in <out-dir>/"
+                            f"{constants.ZS_CURVES_VIDEO_SUBDIR}/<set>/ (no grid)")
     parser.add_argument("--seed-label", default=f"s{constants.KIM_SEED}, n = 1")
     parser.add_argument("--name", required=True, help="json = zs_curves_<name>.json")
     parser.add_argument("--out-dir", type=Path, required=True)
@@ -286,7 +323,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
     data = load_reads([(s, m, Path(p)) for s, m, p in args.read])
-    table = build(data, args.rank_by, args.n, args.clips)
+    table = build(data, args.rank_by, args.n, args.clips, every_video=args.all)
     args.out_dir.mkdir(parents=True, exist_ok=True)
     for set_name, t in table.items():
         if not t["picks"]:
@@ -294,6 +331,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             continue
         aucs = {m: {v: a for v, a in t["pick_aucs"][m].items() if a is not None}
                 for m in data[set_name]}
+        if args.all:
+            video_dir = args.out_dir / constants.ZS_CURVES_VIDEO_SUBDIR / set_name
+            n = render_videos(video_dir, set_name, data[set_name], t["picks"], aucs,
+                              args.rank_by, args.seed_label)
+            LOGGER.info("%s: %d per-video figures -> %s", set_name, n, video_dir)
+            continue
         render_grid(args.out_dir / f"grid_{set_name}.png", set_name, data[set_name],
                     t["picks"], aucs, args.rank_by, args.seed_label)
     render_onset(args.out_dir / "onset_aligned.png",
@@ -312,4 +355,5 @@ def main(argv: list[str] | None = None) -> None:
 if __name__ == "__main__":
     main()
 
-__all__ = ["build", "load_reads", "onset_curve", "pick_videos", "run", "video_aucs"]
+__all__ = ["build", "load_reads", "onset_curve", "pick_videos", "rank_all", "run",
+           "video_aucs"]

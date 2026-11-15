@@ -1199,6 +1199,23 @@ ZS_CURVES_MIN_VIDEOS_PER_BIN = 10  # onset bins averaged over fewer videos are n
 ZS_CURVES_DPI = 130  # PNG resolution
 ZS_CURVES_RAW_ALPHA = 0.3  # raw curve under the min-max curve on DoTA / DADA
 ZS_CURVES_GT_ALPHA = 0.22  # ground-truth shading
+ZS_CURVES_VIDEO_SUBDIR = "videos"  # --all: <out-dir>/videos/<rank>_<video>.png, one per video
+ZS_CURVES_VIDEO_FIGSIZE = (8.0, 3.2)  # --all: inches per single-video figure
+# scripts/plot_zs_curves.py: every video of a set, K5 (drawn as LaGoVAD+KIM) vs LaGoVAD
+ZS_CURVES_FINAL_ROOT = OUTPUT_ROOT / "v_final"
+ZS_CURVES_MAIN_LABEL = "LaGoVAD+KIM"  # K5's name on the figures (legend, title, rank)
+ZS_CURVES_DEFAULT_TAG = "lagovad_kim_vs_lagovad_s2024"
+ZS_CURVES_FIGURES_DIRNAME = "figures"  # <final>/kim/REPORTS/figures/<set>/<tag>/
+# per set: (K5 scores, LaGoVAD released scores) relative to ZS_CURVES_FINAL_ROOT; a
+# clip_scores.npz on DoTA / DADA (LaGoVAD DoTA = protocol B, as K5), a run dir on TAD / DAD
+ZS_CURVES_DEFAULT_SOURCES = {
+    "dota": ("kim/eval/dota/K5/clip_scores.npz",
+             "zs_lagovad/eval/dota/LaGoVAD/B/clip_scores.npz"),
+    "dada": ("kim/eval/dada/K5/clip_scores.npz",
+             "zs_lagovad/eval/dada/LaGoVAD/clip_scores.npz"),
+    "tad": ("kim/eval/tad/K5/s2024", "zs_lagovad/eval/tad/LaGoVAD/released"),
+    DAD_OUTPUT_SET: ("kim/eval/dad/K5/s2024", "zs_lagovad/eval/dad/LaGoVAD/released"),
+}
 # seconds per score row on each zero-shot set: DoTA protocol B is interpolated to native frames;
 # DADA whole and TAD at s8 (30 fps assumed, A1); DAD at s7 of 25 fps (census 2026-11-04)
 ZS_CURVES_STEP_SECONDS = {
