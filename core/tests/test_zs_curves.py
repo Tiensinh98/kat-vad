@@ -71,6 +71,21 @@ def test_onset_curve_aligns_at_the_first_gt_row() -> None:
     assert c["videos"] == 3 and c["bin_s"] == 1.0
     assert all(m == 0.0 for x, m in zip(centers, mean, strict=True) if x < 0)
     assert all(m == 1.0 for x, m in zip(centers, mean, strict=True) if 0 < x < 6)
+    share = c["gt_share"]
+    assert all(g == 0.0 for x, g in zip(centers, share, strict=True) if x < 0)
+    assert all(g == 1.0 for x, g in zip(centers, share, strict=True) if 0 < x < 6)
+
+
+def test_gt_share_falls_when_the_gt_ends_and_hides_with_thin_bins() -> None:
+    # GT lasts 2 rows in one video and 6 in the other: at +3 s only half the videos are in it
+    labels = {"a": np.r_[np.zeros(5), np.ones(2), np.zeros(6)].astype(np.int64),
+              "b": np.r_[np.zeros(5), np.ones(6), np.zeros(1)].astype(np.int64)}
+    scores = {v: g.astype(np.float64) for v, g in labels.items()}
+    c = zc.onset_curve(scores, labels, step_s=1.0, use_minmax=False, window_s=8.0, bin_rows=1,
+                       min_videos=2)
+    by_x = dict(zip(c["centers_s"], c["gt_share"], strict=True))
+    assert by_x[0.5] == 1.0 and by_x[3.5] == 0.5 and by_x[6.5] == 0.0
+    assert by_x[7.5] is None  # only one video reaches +7 s
 
 
 def test_onset_curve_hides_thin_bins_and_skips_one_class_videos() -> None:
@@ -184,21 +199,27 @@ def _load_plot_script():
     return module
 
 
+
 def test_plot_script_maps_each_set_to_the_tool() -> None:
     script = _load_plot_script()
-    label = constants.ZS_CURVES_MAIN_LABEL
-    assert set(script.SOURCES) == set(zc.SET_ORDER)
+    assert set(script.LAGOVAD_SOURCES) == set(zc.SET_ORDER)
+    assert set(constants.ZS_CURVES_TRAIN_LABELS) == set(script.MAIN_SOURCES)
+    label = script.main_label("nexar")
+    assert label == "LaGoVAD+KIM (trained on Nexar)"
+    assert script.main_label("t2") == "LaGoVAD+KIM (trained on DADA2000)"
     args = script.build_arg_parser().parse_args(["--set", "tad", "--tag", "t",
                                                   "--main", "a", "--lagovad", "b"])
     call = zc.build_arg_parser().parse_args(script.tool_argv("tad", args))
     assert call.all and call.rank_by == label and call.name == "t"
-    assert call.out_dir == script.FIGURES / "tad" / "t"
+    assert call.out_dir == script.FIGURES / "train_nexar" / "tad" / "t"
     assert call.read == [["tad", label, "a"], ["tad", "LaGoVAD", "b"]]
-    args = script.build_arg_parser().parse_args(["--set", "dota", "dada"])
-    main_src, lago_src = script.sources("dada", args)
+    args = script.build_arg_parser().parse_args(["--train", "t2", "--set", "dota", "dad"])
     root = constants.ZS_CURVES_FINAL_ROOT
-    defaults = constants.ZS_CURVES_DEFAULT_SOURCES["dada"]
-    assert (main_src, lago_src) == tuple(root / r for r in defaults)
+    assert script.sources("dota", args) == (
+        root / constants.ZS_CURVES_MAIN_SOURCES["t2"]["dota"],
+        root / constants.ZS_CURVES_LAGOVAD_SOURCES["dota"])
+    call = zc.build_arg_parser().parse_args(script.tool_argv("dad", args))
+    assert call.out_dir == script.FIGURES / "train_t2" / "dad" / constants.ZS_CURVES_DEFAULT_TAG
 
 
 def test_plot_script_refusals(tmp_path: Path) -> None:
@@ -207,6 +228,8 @@ def test_plot_script_refusals(tmp_path: Path) -> None:
         script.main(["--set", "dota", "dada", "--main", "a.npz"])
     with pytest.raises(SystemExit):
         script.main(["--set", "nexar"])
+    with pytest.raises(SystemExit):  # T2 is cut from DADA-2000: no zero-shot DADA read
+        script.main(["--train", "t2", "--set", "dada"])
     with pytest.raises(FileNotFoundError):
         script.main(["--set", "dota", "--main", str(tmp_path / "none.npz"),
                      "--lagovad", str(tmp_path / "x.npz")])

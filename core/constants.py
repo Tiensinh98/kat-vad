@@ -1201,20 +1201,41 @@ ZS_CURVES_RAW_ALPHA = 0.3  # raw curve under the min-max curve on DoTA / DADA
 ZS_CURVES_GT_ALPHA = 0.22  # ground-truth shading
 ZS_CURVES_VIDEO_SUBDIR = "videos"  # --all: <out-dir>/videos/<rank>_<video>.png, one per video
 ZS_CURVES_VIDEO_FIGSIZE = (8.0, 3.2)  # --all: inches per single-video figure
+ZS_CURVES_ONSET_PANEL_W = 4.5  # onset_aligned.png: inches per set panel
+ZS_CURVES_ONSET_MIN_W = 6.5  # ... and at least this wide, so a one-set title is not cut off
+ZS_CURVES_ONSET_H = 3.8  # ... figure height
+ZS_CURVES_GT_SHARE_COLOR = "dimgray"  # onset: share of rows still inside the GT (right axis)
+ZS_CURVES_GT_SHARE_ALPHA = 0.08  # ... its fill
 # scripts/plot_zs_curves.py: every video of a set, K5 (drawn as LaGoVAD+KIM) vs LaGoVAD
 ZS_CURVES_FINAL_ROOT = OUTPUT_ROOT / "v_final"
 ZS_CURVES_MAIN_LABEL = "LaGoVAD+KIM"  # K5's name on the figures (legend, title, rank)
 ZS_CURVES_DEFAULT_TAG = "lagovad_kim_vs_lagovad_s2024"
-ZS_CURVES_FIGURES_DIRNAME = "figures"  # <final>/kim/REPORTS/figures/<set>/<tag>/
-# per set: (K5 scores, LaGoVAD released scores) relative to ZS_CURVES_FINAL_ROOT; a
-# clip_scores.npz on DoTA / DADA (LaGoVAD DoTA = protocol B, as K5), a run dir on TAD / DAD
-ZS_CURVES_DEFAULT_SOURCES = {
-    "dota": ("kim/eval/dota/K5/clip_scores.npz",
-             "zs_lagovad/eval/dota/LaGoVAD/B/clip_scores.npz"),
-    "dada": ("kim/eval/dada/K5/clip_scores.npz",
-             "zs_lagovad/eval/dada/LaGoVAD/clip_scores.npz"),
-    "tad": ("kim/eval/tad/K5/s2024", "zs_lagovad/eval/tad/LaGoVAD/released"),
-    DAD_OUTPUT_SET: ("kim/eval/dad/K5/s2024", "zs_lagovad/eval/dad/LaGoVAD/released"),
+ZS_CURVES_FIGURES_DIRNAME = "figures"  # <final>/kim/REPORTS/figures/train_<train>/<set>/<tag>/
+ZS_CURVES_DEFAULT_TRAIN = "nexar"
+# training corpus -> its name on the figures: "LaGoVAD+KIM (trained on <name>)". T2 is cut
+# from the DADA-2000 original release (KIM_RUN.md §13), so it is shown as DADA2000.
+ZS_CURVES_TRAIN_LABELS = {"nexar": "Nexar", "t2": "DADA2000"}
+# training corpus -> set -> K5 scores, relative to ZS_CURVES_FINAL_ROOT: a clip_scores.npz on
+# DoTA / DADA, a run dir on TAD / DAD. T2 has no DADA read: it is trained on DADA-2000.
+ZS_CURVES_MAIN_SOURCES = {
+    "nexar": {
+        "dota": "kim/eval/dota/K5/clip_scores.npz",
+        "dada": "kim/eval/dada/K5/clip_scores.npz",
+        "tad": "kim/eval/tad/K5/s2024",
+        DAD_OUTPUT_SET: "kim/eval/dad/K5/s2024",
+    },
+    "t2": {
+        "dota": "kim_t2/eval/dota/K5/clip_scores.npz",
+        "tad": "kim_t2/eval/tad/K5/s2024",
+        DAD_OUTPUT_SET: "kim_t2/eval/dad/K5/s2024",
+    },
+}
+# set -> LaGoVAD released-checkpoint scores (DoTA = protocol B, as K5), shared by every corpus
+ZS_CURVES_LAGOVAD_SOURCES = {
+    "dota": "zs_lagovad/eval/dota/LaGoVAD/B/clip_scores.npz",
+    "dada": "zs_lagovad/eval/dada/LaGoVAD/clip_scores.npz",
+    "tad": "zs_lagovad/eval/tad/LaGoVAD/released",
+    DAD_OUTPUT_SET: "zs_lagovad/eval/dad/LaGoVAD/released",
 }
 # seconds per score row on each zero-shot set: DoTA protocol B is interpolated to native frames;
 # DADA whole and TAD at s8 (30 fps assumed, A1); DAD at s7 of 25 fps (census 2026-11-04)

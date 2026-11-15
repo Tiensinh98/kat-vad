@@ -1,21 +1,22 @@
 """Draw the zero-shot score curve of EVERY video of one or more sets: LaGoVAD+KIM vs LaGoVAD.
 
 A thin wrapper over ``core.tools.zs_curves --all`` so nobody has to remember the paths.
-LaGoVAD+KIM is the K5 main model (s2024); LaGoVAD is the released checkpoint (DoTA under
-protocol B, as K5). Illustration only (n = 1): decides nothing.
+LaGoVAD+KIM is the K5 model (s2024) trained on ``--train`` (Nexar, or T2 shown as DADA2000);
+LaGoVAD is the released checkpoint (DoTA under protocol B, as K5). Illustration only (n = 1):
+decides nothing.
 
 Output per set (``<tag>`` defaults to ``lagovad_kim_vs_lagovad_s2024``)::
 
-    outputs/v_final/kim/REPORTS/figures/<set>/<tag>/videos/<set>/<rank>_<video>.png
+    outputs/v_final/kim/REPORTS/figures/train_<train>/<set>/<tag>/videos/<set>/<rank>_<video>.png
         rank 1 = LaGoVAD+KIM's worst per-video AUC; all-normal videos last
-    outputs/v_final/kim/REPORTS/figures/<set>/<tag>/onset_aligned.png
-    outputs/v_final/kim/REPORTS/figures/<set>/<tag>/zs_curves_<tag>.json
+    outputs/v_final/kim/REPORTS/figures/train_<train>/<set>/<tag>/onset_aligned.png
+    outputs/v_final/kim/REPORTS/figures/train_<train>/<set>/<tag>/zs_curves_<tag>.json
 
 Usage::
 
     source .venv/bin/activate
-    python scripts/plot_zs_curves.py --set dota
-    python scripts/plot_zs_curves.py --set dada tad dad --tag my_tag
+    python scripts/plot_zs_curves.py --set dota                       # trained on Nexar
+    python scripts/plot_zs_curves.py --train t2 --set dota tad dad    # trained on T2 (DADA2000)
     python scripts/plot_zs_curves.py --set tad --main <run dir> --lagovad <run dir>
 """
 
@@ -31,21 +32,34 @@ from core.tools import zs_curves
 
 LOGGER = logging.getLogger(__name__)
 
-MAIN = constants.ZS_CURVES_MAIN_LABEL
 LAGOVAD = constants.ZS_LAGOVAD_ARM
-SOURCES = constants.ZS_CURVES_DEFAULT_SOURCES
+MAIN_SOURCES = constants.ZS_CURVES_MAIN_SOURCES
+LAGOVAD_SOURCES = constants.ZS_CURVES_LAGOVAD_SOURCES
 FIGURES = (constants.ZS_CURVES_FINAL_ROOT / constants.KIM_OUTPUT_DIRNAME / "REPORTS"
            / constants.ZS_CURVES_FIGURES_DIRNAME)
 
 
+def main_label(train: str) -> str:
+    """K5's name on the figures, with the corpus it was trained on."""
+    return (f"{constants.ZS_CURVES_MAIN_LABEL} "
+            f"(trained on {constants.ZS_CURVES_TRAIN_LABELS[train]})")
+
+
+def out_dir(train: str, set_name: str, tag: str) -> Path:
+    return FIGURES / f"train_{train}" / set_name / tag
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Score curve of every video of a set.")
-    parser.add_argument("--set", dest="sets", nargs="+", required=True, choices=list(SOURCES),
-                        help="one or more zero-shot sets, each drawn into figures/<set>/<tag>/")
+    parser.add_argument("--train", default=constants.ZS_CURVES_DEFAULT_TRAIN,
+                        choices=list(MAIN_SOURCES), help="corpus LaGoVAD+KIM was trained on")
+    parser.add_argument("--set", dest="sets", nargs="+", required=True,
+                        choices=list(LAGOVAD_SOURCES),
+                        help="one or more zero-shot sets, each drawn into its own folder")
     parser.add_argument("--tag", default=constants.ZS_CURVES_DEFAULT_TAG,
-                        help="output folder name under figures/<set>/ and the json name")
+                        help="output folder name under train_<train>/<set>/ and the json name")
     parser.add_argument("--main", type=Path, default=None,
-                        help=f"{MAIN} scores (one --set only); default per set")
+                        help="LaGoVAD+KIM scores (one --set only); default per train and set")
     parser.add_argument("--lagovad", type=Path, default=None,
                         help=f"{LAGOVAD} scores (one --set only); default per set")
     parser.add_argument("--seed-label", default=f"s{constants.KIM_SEED}, n = 1")
@@ -54,18 +68,20 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 
 def sources(set_name: str, args: argparse.Namespace) -> tuple[Path, Path]:
-    """(main, LaGoVAD) score paths of a set: the CLI override, else the default."""
-    main_rel, lagovad_rel = SOURCES[set_name]
+    """(LaGoVAD+KIM, LaGoVAD) score paths of a set: the CLI override, else the default."""
     root = constants.ZS_CURVES_FINAL_ROOT
-    return (args.main or root / main_rel, args.lagovad or root / lagovad_rel)
+    main_src = args.main or root / MAIN_SOURCES[args.train][set_name]
+    return main_src, args.lagovad or root / LAGOVAD_SOURCES[set_name]
 
 
 def tool_argv(set_name: str, args: argparse.Namespace) -> list[str]:
     """The ``core.tools.zs_curves`` arguments this wrapper stands for, for one set."""
     main_src, lagovad_src = sources(set_name, args)
-    return ["--all", "--rank-by", MAIN, "--name", args.tag,
-            "--out-dir", str(FIGURES / set_name / args.tag), "--seed-label", args.seed_label,
-            "--read", set_name, MAIN, str(main_src),
+    label = main_label(args.train)
+    return ["--all", "--rank-by", label, "--name", args.tag,
+            "--out-dir", str(out_dir(args.train, set_name, args.tag)),
+            "--seed-label", args.seed_label,
+            "--read", set_name, label, str(main_src),
             "--read", set_name, LAGOVAD, str(lagovad_src)]
 
 
@@ -75,6 +91,10 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
     if len(args.sets) > 1 and (args.main or args.lagovad):
         parser.error("--main / --lagovad take one path, so they need exactly one --set")
+    no_read = [s for s in args.sets if s not in MAIN_SOURCES[args.train] and not args.main]
+    if no_read:
+        parser.error(f"--train {args.train} has no zero-shot read on {no_read} "
+                     f"(available: {sorted(MAIN_SOURCES[args.train])})")
     missing = [str(p) for s in args.sets for p in sources(s, args) if not p.exists()]
     if missing:
         raise FileNotFoundError(f"score source(s) not found: {missing}")

@@ -108,41 +108,51 @@ def onset_curve(scores: Curves, labels: Curves, step_s: float, use_minmax: bool,
     """Mean score per time bin from the GT onset, over the two-class videos.
 
     Each video contributes its own mean per bin first, so long videos do not outweigh short
-    ones. Bins averaged over fewer than ``min_videos`` videos are ``None``.
+    ones. Bins averaged over fewer than ``min_videos`` videos are ``None``. ``gt_share`` is
+    the same average over the GT (share of abnormal rows), so a falling score can be read
+    against a GT that has already ended.
     """
     bin_s = bin_rows * step_s
     n_bins = math.ceil(window_s / bin_s)
     edges = np.arange(-n_bins, n_bins + 1) * bin_s
-    per_video = []
+    per_video, gt_rows = [], []
     for v in sorted(labels):
         gt = labels[v]
         if not is_two_class(gt):
             continue
         curve = minmax(scores[v]) if use_minmax else np.asarray(scores[v], dtype=np.float64)
+        positive = (gt > 0).astype(np.float64)
         rel = (np.arange(len(curve)) - int(np.argmax(gt > 0))) * step_s
         which = np.digitize(rel, edges) - 1
         row = np.full(len(edges) - 1, np.nan)
+        gt_row = np.full(len(edges) - 1, np.nan)
         for b in np.unique(which[(which >= 0) & (which < len(row))]):
             row[b] = curve[which == b].mean()
+            gt_row[b] = positive[which == b].mean()
         per_video.append(row)
+        gt_rows.append(gt_row)
     centers = (edges[:-1] + edges[1:]) / 2
     if not per_video:
         empty: list[float | None] = [None] * len(centers)
-        return {"centers_s": centers.tolist(), "mean": empty, "sem": empty,
+        return {"centers_s": centers.tolist(), "mean": empty, "sem": empty, "gt_share": empty,
                 "n_per_bin": [0] * len(centers), "videos": 0, "bin_s": bin_s}
-    stack = np.vstack(per_video)
+    stack, gt_stack = np.vstack(per_video), np.vstack(gt_rows)
     count = np.sum(~np.isnan(stack), axis=0)
     mean: list[float | None] = []
     sem: list[float | None] = []
+    gt_share: list[float | None] = []
     for b in range(stack.shape[1]):
         if count[b] < min_videos:
             mean.append(None)
             sem.append(None)
+            gt_share.append(None)
             continue
-        col = stack[~np.isnan(stack[:, b]), b]
+        keep = ~np.isnan(stack[:, b])
+        col = stack[keep, b]
         mean.append(float(col.mean()))
         sem.append(float(col.std() / math.sqrt(len(col))))
-    return {"centers_s": centers.tolist(), "mean": mean, "sem": sem,
+        gt_share.append(float(gt_stack[keep, b].mean()))
+    return {"centers_s": centers.tolist(), "mean": mean, "sem": sem, "gt_share": gt_share,
             "n_per_bin": count.astype(int).tolist(), "videos": len(per_video), "bin_s": bin_s}
 
 
@@ -216,27 +226,40 @@ def render_videos(out_dir: Path, set_name: str, loaded: Loaded, order: list[str]
 
 def render_onset(path: Path, onset: dict[str, dict[str, dict[str, Any]]], seed_label: str) -> None:
     sets = list(onset)
-    fig, axes = plt.subplots(1, len(sets), figsize=(4.0 * len(sets), 3.4), squeeze=False)
+    width = max(constants.ZS_CURVES_ONSET_PANEL_W * len(sets), constants.ZS_CURVES_ONSET_MIN_W)
+    fig, axes = plt.subplots(1, len(sets), figsize=(width, constants.ZS_CURVES_ONSET_H),
+                             squeeze=False)
     for ax, set_name in zip(axes.flat, sets, strict=True):
-        ax.axvspan(0.0, constants.ZS_CURVES_ONSET_WINDOW_S, color="tab:red", alpha=0.12)
         ax.axvline(0.0, color="tab:red", lw=1.0)
         videos = 0
+        handles = []
         for color, (model, c) in zip(constants.ZS_CURVES_COLORS, onset[set_name].items(),
                                      strict=False):
             x = np.asarray(c["centers_s"])
             m, s = _nan(c["mean"]), _nan(c["sem"])
-            ax.plot(x, m, color=color, lw=1.8, label=model)
+            handles += ax.plot(x, m, color=color, lw=1.8, label=model)
             ax.fill_between(x, m - s, m + s, color=color, alpha=0.2)
             videos = c["videos"]
+        first = next(iter(onset[set_name].values()))  # the GT is the same for every model
+        share_ax = ax.twinx()
+        x, share = np.asarray(first["centers_s"]), _nan(first["gt_share"])
+        handles += share_ax.plot(x, share, color=constants.ZS_CURVES_GT_SHARE_COLOR, lw=1.2,
+                                 ls="--", label="share of rows in GT (right)")
+        share_ax.fill_between(x, 0.0, share, color="tab:red",
+                              alpha=constants.ZS_CURVES_GT_SHARE_ALPHA)
+        share_ax.set_ylim(0.0, 1.02)
+        share_ax.tick_params(labelsize=7)
         pooling = "min-max" if set_name in MINMAX_SETS else "raw"
         ax.set_title(f"{SET_NAME[set_name]} ({pooling}, n = {videos})", fontsize=10)
         ax.set_xlabel("seconds from GT onset", fontsize=9)
         ax.grid(alpha=0.25)
-        ax.legend(loc="upper left", fontsize=7)
+        ax.legend(handles=handles, loc="upper left", fontsize=7)
     axes.flat[0].set_ylabel("mean score")
-    fig.suptitle(f"Mean score aligned at the GT onset, two-class videos, +-1 SEM ({seed_label})",
-                 fontsize=11)
-    fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.92))
+    fig.text(0.995, 0.5, "share of videos' rows inside the GT", rotation=90, va="center",
+             ha="right", fontsize=8, color=constants.ZS_CURVES_GT_SHARE_COLOR)
+    fig.suptitle("Mean score aligned at the GT onset (two-class videos, +-1 SEM)\n"
+                 f"dashed grey = share of rows still inside the GT ({seed_label})", fontsize=10)
+    fig.tight_layout(rect=(0.0, 0.0, 0.98, 0.88))
     fig.savefig(path, dpi=constants.ZS_CURVES_DPI)
     plt.close(fig)
 
