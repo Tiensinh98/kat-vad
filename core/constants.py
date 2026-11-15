@@ -1188,3 +1188,23 @@ FAILTAIL_LEAD_RATIO = 2.0  # §24 FT5: a categorical lead's fail share is >= thi
 FAILTAIL_COVARIATE_MARGIN = 0.10  # §24 FT5: a covariate lead's |AUC - 0.5| is at least this
 FAILTAIL_DADA_ACTORS = ("pedestrian", "cyclist", "motorbike", "vehicle")  # §24 FT2, in order
 FAILTAIL_DADA_EGO_TOKEN = "ego-car"  # §24 FT2: DADA ego flag = the clip's texts name this
+
+# --- Zero-shot per-video score curves + onset-aligned mean (tools/zs_curves.py, 2026-11-15) ---
+ZS_CURVES_STEM = "zs_curves"  # <out-dir>/<stem>_<name>.json + grid_<set>.png + onset_aligned.png
+ZS_CURVES_N_PICK = 6  # videos per set grid, spread evenly over the rank model's per-video AUC
+ZS_CURVES_GRID_COLS = 3  # grid columns (rows = ceil(n / cols))
+ZS_CURVES_ONSET_WINDOW_S = 5.0  # onset-aligned mean over [-w, +w] seconds around the GT onset
+ZS_CURVES_ONSET_BIN_ROWS = 2  # onset bin width = this many score rows of the set (no empty bins)
+ZS_CURVES_MIN_VIDEOS_PER_BIN = 10  # onset bins averaged over fewer videos are not drawn
+ZS_CURVES_DPI = 130  # PNG resolution
+ZS_CURVES_RAW_ALPHA = 0.3  # raw curve under the min-max curve on DoTA / DADA
+ZS_CURVES_GT_ALPHA = 0.22  # ground-truth shading
+# seconds per score row on each zero-shot set: DoTA protocol B is interpolated to native frames;
+# DADA whole and TAD at s8 (30 fps assumed, A1); DAD at s7 of 25 fps (census 2026-11-04)
+ZS_CURVES_STEP_SECONDS = {
+    "dota": 1.0 / DOTA_FPS,
+    "dada": ZS_STRIDE / DADA_ASSUMED_FPS,
+    "tad": ZS_STRIDE / DADA_ASSUMED_FPS,
+    DAD_OUTPUT_SET: DAD_STRIDE / DAD_ASSUMED_FPS,
+}
+ZS_CURVES_COLORS = ("tab:blue", "tab:orange", "tab:green", "tab:purple")  # one per --read model

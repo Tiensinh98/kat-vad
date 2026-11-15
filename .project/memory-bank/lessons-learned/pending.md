@@ -2468,3 +2468,12 @@ Promote if a second harness needs the same split.
 **Rule:** Compare against HEAD with `git show HEAD:<path>` into the scratchpad; never stash and pop the user's tree to read a baseline.
 **Files:** (process; no code path)
 **Gates:** recurring? first time; HIGH-impact? could be (applying an unrelated stash mixes branches' WIP) -> pending.
+
+## (di) [MEDIUM] Viz - a per-video min-max curve hides a raw curve that never left zero (2026-11-15)
+**Triggers:** min-max, normalize_scores, per-video curve, anomaly curve plot, visualize, zs_curves, per-video AUC
+**Problem:** On DoTA / DADA the tables pool per-video min-max, so a curve drawn only after min-max reaches 1.0 on every video. In the K5 grids, DADA `t56_v021` / `t50_v090` have raw scores ≈ 0 throughout, yet their min-max curve and per-video AUC look like a confident detection.
+**Bad:** `ax.plot(t, normalize_scores(score, "minmax"))` alone
+**Good:** draw the raw curve beside it (faint on min-max sets, or min-max dashed on raw sets), as `core/tools/zs_curves.py:draw_video` does.
+**Rule:** Draw the raw curve beside any min-max curve in a per-video figure.
+**Files:** core/tools/zs_curves.py (draw_video)
+**Gates:** recurring? first time; HIGH-impact? no (a figure, not a metric) -> pending.
