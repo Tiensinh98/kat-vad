@@ -103,6 +103,10 @@ class LossConfig:
     # branch + L_neg inactive). Caveat: same-class captions become InfoNCE
     # false negatives, hence not the default.
     captions_from_definitions: bool = False
+    # L_neg form (KIM_RUN.md §28). "baseline" = the caption path above (off unless
+    # captions_from_definitions); "class" = ClassContrastLoss on the step's class texts,
+    # same-class videos positive, no caption branch. Exclusive with captions_from_definitions.
+    cap_contrast_mode: str = constants.CAP_CONTRAST_MODE_BASELINE
     # A11 mitigations (default off = spec-as-written)
     align_subsample: int = 0  # >0: subsample this many positions per video
     align_exclude_window: int = 0  # >0: exclude ±w temporal neighbors as negatives

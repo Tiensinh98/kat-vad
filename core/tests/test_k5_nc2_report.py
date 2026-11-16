@@ -16,6 +16,7 @@ from core.tests.test_k5_zs_report import CKPT, _layout
 from core.tools import k5_nc2_report, nexar_eval
 
 K5, NEG, NC = k5_nc2_report.K5, k5_nc2_report.NEG, k5_nc2_report.NC
+LNEG = constants.KIM_LNEG_ROW
 NEG_CKPT = "/drive/kim_neg/K5/s2024/checkpoint_last.pt"
 NC_CKPT = "/drive/kim_negcap/K5/s2024/checkpoint_last.pt"
 FPS = int(constants.NEXAR_NOMINAL_FPS)
@@ -54,24 +55,26 @@ NEG_PEAKS = [0.1 * i for i in range(10)]  # 0.0 ... 0.9
 
 
 def _roots(root: Path, nc_crops: float = 0.9, nc_pos: list[float] | None = None,
-           k5_pos: list[float] | None = None) -> argparse.Namespace:
+           k5_pos: list[float] | None = None, new: str = NC) -> argparse.Namespace:
     _layout(root)
-    kim, neg, nc = root / "kim", root / "kim_neg", root / "kim_negcap"
-    for target, ckpt in ((neg, NEG_CKPT), (nc, NC_CKPT)):
+    dirname = {NC: "kim_negcap", LNEG: constants.KIM_LNEG_OUTPUT_DIRNAME}[new]
+    new_ckpt = NC_CKPT.replace("kim_negcap", dirname)
+    kim, neg, nc = root / "kim", root / "kim_neg", root / dirname
+    for target, ckpt in ((neg, NEG_CKPT), (nc, new_ckpt)):
         shutil.copytree(kim, target)
         _rewrite(target, CKPT, ckpt)
     _nexar_row(root / "ref", 0.9, CKPT)
     rows = {K5: (neg / "eval" / "nexar" / K5, 0.9, CKPT, k5_pos or POS),
             NEG: (neg / "eval" / "nexar" / NEG, 0.9, NEG_CKPT, POS),
-            NC: (nc / "eval" / "nexar" / NC, nc_crops, NC_CKPT, nc_pos or POS)}
+            new: (nc / "eval" / "nexar" / new, nc_crops, new_ckpt, nc_pos or POS)}
     for d, auc, ckpt, pos in rows.values():
         _nexar_row(d, auc, ckpt)
         _stats(d, pos, NEG_PEAKS)
     _scores(root / "k5_scores", 10, 10, spike_neg=4, spike_pre=2)
     _scores(root / "neg_scores", 10, 10, spike_neg=1)
-    _scores(rows[NC][0], 10, 10, spike_neg=2, spike_pre=1)
+    _scores(rows[new][0], 10, 10, spike_neg=2, spike_pre=1)
     return k5_nc2_report.build_arg_parser().parse_args(
-        ["--kim-root", str(kim), "--neg-root", str(neg), "--nc-root", str(nc),
+        ["--kim-root", str(kim), "--neg-root", str(neg), "--nc-root", str(nc), "--new-row", new,
          "--k5-reference-dir", str(root / "ref"), "--k5-scores-dir", str(root / "k5_scores"),
          "--neg-scores-dir", str(root / "neg_scores"), "--out-dir", str(root / "out")])
 
@@ -112,6 +115,16 @@ class TestReport:
         assert report["matched"][K5]["0.2"]["detect"] == pytest.approx(0.2)
         assert report["follow_up"]["detect_gain"] == pytest.approx(0.8)
         assert report["follow_up"]["verdict"] == "candidate"
+
+    def test_lneg_row_reads_with_section_28_labels(self, tmp_path: Path) -> None:
+        """§28 reuses the read: same verdict logic, its own row, file and NL clauses."""
+        report = k5_nc2_report.run(_roots(tmp_path, new=LNEG))
+        assert report["new_row"] == LNEG and report["rule"] == "§28"
+        assert set(report["sets"]["dota"]["rows"]) == {K5, LNEG}
+        assert report["follow_up"]["verdict"] == "no claim"
+        text = (tmp_path / "out" / f"{constants.KIM_LNEG_REPORT_STEM}.md").read_text()
+        assert "§28 NL7" in text and "K5Lneg - K5neg" in text and "NC" not in text
+        assert not (tmp_path / "out" / "k5_nc2_report.md").exists()
 
     def test_a_set_below_keeps_k5(self, tmp_path: Path) -> None:
         report = k5_nc2_report.run(_roots(tmp_path, nc_crops=0.6, k5_pos=[0.5] * 10))

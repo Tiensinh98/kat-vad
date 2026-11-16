@@ -98,6 +98,8 @@ def term_weights(cfg: Config) -> dict[str, float]:
         "dvs_sup": loss.pseudo_sup_weight,
         "dvs_sup_mil": loss.pseudo_sup_mil_weight,
         "cap_contrastive": loss.cap_contrastive_weight,
+        "cap_contrastive_floor": 0.0,  # §28 diagnostics, detached, not in `total`
+        "cap_mined": 0.0,
         "kip_rec": loss.lambda_rec,
         "kip_align": loss.lambda_align,
         "kin": loss.gamma_kin,

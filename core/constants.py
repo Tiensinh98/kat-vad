@@ -1101,6 +1101,10 @@ KIM_NEGCAP_DECIDE_FA = 0.20  # §27 NC7: the matched false-alarm rate whose dete
 # §27 NC6(c)(d): chunk length and the pre-onset zone (seconds; Nexar val rows at NEXAR_NOMINAL_FPS)
 KIM_NEGCAP_CHUNK_S = 5.0
 KIM_NEGCAP_PRE_ONSET_S = 5.0
+# OUTPUT_ROOT/kim_lneg: K5/s<seed>/, eval/, REPORTS/ (KIM_RUN.md §28); NL5-NL7 reuse §27's read
+KIM_LNEG_OUTPUT_DIRNAME = "kim_lneg"
+KIM_LNEG_ROW = "K5Lneg"  # K5 + loss.cap_contrast_mode=class, row under eval/nexar/ (§28)
+KIM_LNEG_REPORT_STEM = "k5_lneg_report"
 NORMAL_VIDEO_PEAK = 0.5  # a normal video whose peak score passes this counts as a false alarm
 # OUTPUT_ROOT/kim_msad: eval/<row>/<run>/ + REPORTS/ (KIM_RUN.md §18, zero-shot MSAD)
 MSAD_ZS_OUTPUT_DIRNAME = "kim_msad"

@@ -234,8 +234,51 @@ class TestLossGating:
 
     def test_no_captions_by_default(self, tmp_path: Path) -> None:
         trainer = _make_trainer(tmp_path)
+        assert trainer.cfg.loss.cap_contrast_mode == constants.CAP_CONTRAST_MODE_BASELINE
         losses = trainer.compute_losses(self._batch(trainer))
-        assert "cap_contrastive" not in losses
+        assert not {"cap_contrastive", "cap_contrastive_floor", "cap_mined"} & set(losses)
+
+    # --- L_neg class form (KIM_RUN.md §28) ------------------------------------
+    def test_class_lneg_adds_a_weighted_term(self, tmp_path: Path) -> None:
+        trainer = _make_trainer(tmp_path, kip__enabled=False, dvs__theta=1.0,
+                                dvs__theta_ego=1.0,
+                                loss__cap_contrast_mode=constants.CAP_CONTRAST_MODE_CLASS)
+        batch = self._batch(trainer)
+        losses = trainer.compute_losses(batch)
+        for key in ("cap_contrastive", "cap_contrastive_floor", "cap_mined"):
+            assert key in losses and torch.isfinite(losses[key]), key
+        assert float(losses["cap_contrastive_floor"]) <= float(losses["cap_contrastive"])
+        assert "cap_bin_logits" not in trainer.model(  # no caption branch
+            batch["v_feat"], batch["v_feat_l"],
+        )
+        expected = (losses["mil"] + losses["mul_mil"]
+                    + trainer.cfg.loss.cap_contrastive_weight * losses["cap_contrastive"])
+        for key in ("dvs_sup", "dvs_sup_mil"):
+            if key in losses:
+                weight = (trainer.cfg.loss.pseudo_sup_weight if key == "dvs_sup"
+                          else trainer.cfg.loss.pseudo_sup_mil_weight)
+                expected = expected + weight * losses[key]
+        torch.testing.assert_close(losses["total"], expected)
+        losses["total"].backward()
+
+    def test_class_lneg_keeps_the_rng_stream(self, tmp_path: Path) -> None:
+        """No extra verbalizer draw: the RNG state after a step equals the baseline path's."""
+        states = []
+        for mode in constants.CAP_CONTRAST_MODE_CHOICES:
+            trainer = _make_trainer(tmp_path / mode, kip__enabled=False,
+                                    loss__cap_contrast_mode=mode)
+            trainer.compute_losses(self._batch(trainer))
+            states.append(trainer.verbalizer._rng.getstate())
+        assert states[0] == states[1]
+
+    def test_invalid_cap_contrast_mode_raises(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="cap_contrast_mode"):
+            _make_trainer(tmp_path, loss__cap_contrast_mode="item")
+
+    def test_class_lneg_refuses_the_caption_path(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="captions_from_definitions"):
+            _make_trainer(tmp_path, loss__captions_from_definitions=True,
+                          loss__cap_contrast_mode=constants.CAP_CONTRAST_MODE_CLASS)
 
     # --- Phase 1 arms (DIAGNOSIS_DADA_FRAME_LEVEL_COLLAPSE.md §6) --------
     def test_phase1_arms_are_off_by_default(self, tmp_path: Path) -> None:

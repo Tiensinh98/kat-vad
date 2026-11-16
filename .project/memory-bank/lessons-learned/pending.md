@@ -2468,6 +2468,7 @@ Promote if a second harness needs the same split.
 **Rule:** Compare against HEAD with `git show HEAD:<path>` into the scratchpad; never stash and pop the user's tree to read a baseline.
 **Files:** (process; no code path)
 **Gates:** recurring? first time; HIGH-impact? could be (applying an unrelated stash mixes branches' WIP) -> pending.
+**Recurred 2026-11-16 (other form):** `git stash` to compare ruff against HEAD while a full pytest ran in the background swapped the tree under the running suite; the run was stopped and repeated. Rule extension: never stash, checkout or reset while a background job reads the working tree; compare against HEAD with `git show HEAD:<path> | ruff check --stdin-filename <path> -`.
 
 ## (di) [MEDIUM] Viz - a per-video min-max curve hides a raw curve that never left zero (2026-11-15)
 **Triggers:** min-max, normalize_scores, per-video curve, anomaly curve plot, visualize, zs_curves, per-video AUC
@@ -2486,3 +2487,12 @@ Promote if a second harness needs the same split.
 **Rule:** Compare false-alarm / detection trade-offs at matched false-alarm rates and over length-matched units, never at one raw cut.
 **Files:** core/tools/k5_nc2_report.py (matched_detection, chunk_rates), core/docs/final/KIM_RUN.md §17.1, §27
 **Gates:** recurring? first time; HIGH-impact? no (a reading, caught before a decision) -> pending.
+
+## (dk) [MEDIUM] Losses - a loss that has never run is unverified on a new corpus: read its inputs there before flipping its flag (2026-11-16)
+**Triggers:** L_neg, cap_contrastive, captions_from_definitions, CapContrastLoss, InfoNCE, contrastive, enable a loss, n3 mining, pseudo_frame_label
+**Problem:** `captions_from_definitions=true` would have switched on LaGoVAD's `L_neg` on Nexar with three silent defects: ≈ 32 abnormal items share 4 caption texts (InfoNCE false negatives), DVS off leaves `pseudo_frame_label` all zero so n3 appends an all-zero column per abnormal item (`softmax(empty) @ empty`), and the similarity is a raw dot product of unnormalized features (scale unknown, C37). It also turns on a second fused caption branch, a second factor. Nothing raises.
+**Bad:** `--set loss.captions_from_definitions=true` and train.
+**Good:** read the loss on the target batch first (distinct texts per batch, mined-part sizes, similarity scale); `loss.cap_contrast_mode=class` (`ClassContrastLoss`: same-class positives, cosine / τ, mining falls back to the whole window, no empty column).
+**Rule:** Before enabling a loss no run has exercised, print its per-batch inputs on the target corpus (distinct labels, mask sizes, value scale) and test the empty and duplicate cases.
+**Files:** core/losses/contrastive.py (CapContrastLoss.forward n3 branch, ClassContrastLoss), core/train.py (caption path), core/docs/final/KIM_RUN.md §28
+**Gates:** recurring? first time; HIGH-impact? could be (a silent degenerate term in a trained arm) -> pending.

@@ -58,7 +58,7 @@ from core.kip.losses import (
     kip_alignment_loss,
     kip_reconstruction_loss,
 )
-from core.losses.contrastive import CapContrastLoss
+from core.losses.contrastive import CapContrastLoss, ClassContrastLoss
 from core.losses.dvs import pseudo_sup_mil_loss, supervised_loss
 from core.losses.mil import (
     abnormal_bottomk_loss,
@@ -236,6 +236,21 @@ class Trainer:
         self.cap_contrast = CapContrastLoss(
             cfg.loss.contrastive_neg_mining, cfg.loss.contrastive_temp
         )
+        if cfg.loss.cap_contrast_mode not in constants.CAP_CONTRAST_MODE_CHOICES:
+            raise ValueError(
+                f"loss.cap_contrast_mode must be one of {constants.CAP_CONTRAST_MODE_CHOICES}, "
+                f"got {cfg.loss.cap_contrast_mode!r}"
+            )
+        self.class_contrast: ClassContrastLoss | None = None
+        if cfg.loss.cap_contrast_mode == constants.CAP_CONTRAST_MODE_CLASS:
+            if cfg.loss.captions_from_definitions:
+                raise ValueError(
+                    "loss.cap_contrast_mode=class replaces the caption path; "
+                    "set loss.captions_from_definitions=false (KIM_RUN.md §28 NL2)"
+                )
+            self.class_contrast = ClassContrastLoss(
+                cfg.loss.contrastive_neg_mining, cfg.loss.contrastive_temp
+            )
 
         self.stage = cfg.train.stage
         if self.stage not in (STAGE_KIP_WARMUP, STAGE_FULL):
@@ -462,6 +477,20 @@ class Trainer:
                 cls_idx,
                 pseudo,
             )
+        # L_neg, class form (KIM_RUN.md §28): rows = this step's class texts, no extra
+        # verbalizer draw, so the RNG stream equals the baseline path's.
+        if (
+            self.class_contrast is not None
+            and loss_cfg.cap_contrastive_weight > 0.0
+            and int((cls_idx != 0).sum()) > 0
+        ):
+            cc = self.class_contrast(
+                outputs["cls_bin_logits"], lengths, outputs["vis_feats"], class_feats,
+                cls_idx, pseudo,
+            )
+            losses["cap_contrastive"] = cc["loss"]
+            losses["cap_contrastive_floor"] = cc["floor"]  # logged, never in `total`
+            losses["cap_mined"] = cc["mined"]
 
         # KIP losses
         if rec_align_on:
