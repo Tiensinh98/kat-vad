@@ -1599,3 +1599,39 @@ Printed, never decides (NL6):
 **Limits.** The model sees 8 frames of a few seconds: fast events may fall between frames. Captions are model output, not annotation. One QC rater (the user), 30 of 451 videos. A caption describing the collision type still carries scene information (a highway merge reads differently from an intersection); CP4 lowers it, it does not remove it.
 
 Code: `core/tools/nexar_caption.py` (`run`, `qc`), `core/constants.py` (`NEXAR_CAPTION_*`). Tests `core/tests/test_nexar_caption.py` (fake captioner, no model download). Runbook `colab/final/nexar_captions.ipynb` (L4).
+
+### 29.1 Amendment: follow LaGoVAD's caption protocol (dated note 2026-11-16, before any caption is generated or read; user)
+
+**Why.** The user asked for captions made the way LaGoVAD made PreVAD's descriptions, so they can be compared with them. LaGoVAD's repository has **no caption-generation code**; it only reads the `descriptions` field (`LaGoVAD-PreVAD/src/datasets/PreVAD.py:338`). The protocol is therefore taken from the paper (supp. Sec. D and Tab. B). No caption existed when this was written, so nothing was tuned against an output.
+
+| Key | Was (§29) | Now (§29.1) |
+|---|---|---|
+| CP4' prompt | own prompt: ≤ 30 words, forbids weather / light / road type / colours | LaGoVAD's constrained annotation prompt **verbatim**, `{VIDEO LABEL}` = `Vehicle Accident` (PreVAD level-1): *"You are a helpful video describing assistant. You are good at English communication. Please describe the 'Vehicle Accident' event in the given video in detail in one sentence. The description should focus on the incident. Just describe without any other output."* (`NEXAR_CAPTION_PROMPT`) |
+| CP4' length | 64 new tokens | 96 new tokens (PreVAD mean 22.9 words; "in detail" may exceed 30); captions over 40 words are counted, not cut |
+| NG5 scene words | forbidden in the prompt | **not forbidden**; the share of captions naming one (`NEXAR_CAPTION_FORBIDDEN`) is still printed in the manifest summary. The scene shortcut is measured, not suppressed |
+| CP6' QC | y / n, pass iff ≥ 27 / 30 | LaGoVAD **Tab. B** 1–5 consistency scale (criteria printed on the QC sheet), same 30 seeded videos (2024), **pass iff the mean ≥ 4.0**. LaGoVAD's constrained prompt scored 4.3 (3 raters, 200 videos); print ours beside it |
+
+Unchanged: CP1 (451 train positives), CP2 (8 frames over `[t_alert, t_event + 1.4 s]`, 448×252), CP3 (Qwen2.5-VL-7B, bf16, pinned revision), CP5 (atomic per-video records; the prompt hash is in the identity, so nothing made under §29's prompt can be mixed in), fail → not used and no prompt tuning on these 30. Use in training still needs the new dated note required by §28.1.
+
+**Deviations from LaGoVAD, stated.** Model: Qwen2.5-VL-**7B**, not Qwen2-VL-**72B** (≈ 145 GB in bf16, no L4 fit). Input: 8 frames of the labelled event span of an untrimmed dashcam video; PreVAD's frame sampling is not stated, and its videos are trimmed web clips. QC: one rater (the user), 30 videos, vs three raters on 200. **Never write "PreVAD-style captions" without these three deviations.**
+
+Code: `core/constants.py` (`NEXAR_CAPTION_LABEL`, `NEXAR_CAPTION_PROMPT`, `NEXAR_CAPTION_QC_{SCORE_MIN,SCORE_MAX,MIN_MEAN}`), `core/tools/nexar_caption.py` (`QC_CRITERIA`, `score_qc`), tests `core/tests/test_nexar_caption.py` (16), runbook `colab/final/nexar_captions.ipynb` (cells 0, 14).
+
+### 29.2 Amendment: caption window opens before contact (dated note 2026-11-16, after the 3-video smoke, before any QC caption is generated or read; user)
+
+**Trigger, stated honestly.** The §29.1 smoke caption of `00004` was wrong in kind ("driving past a parked car … involved in an accident"). The user viewed the frames: the camera car steers right towards a shop and a following car clips its mirror; after contact both cars stop. The annotation is right (`t_event` = 19.367 s lies inside the window). The defect is in the **input**, and it can be measured from the annotation alone:
+
+- The §29 window `[t_alert, t_event + 1.4 s]` starts at the alert, and on `nexar_train` positives `t_event − t_alert` is short (median 1.43 s, p10 0.59 s, min 0.03 s). With 8 frames, **51 / 451 videos (11 %) have ≤ 2 frames before contact** (counts 0:5, 1:14, 2:32, 3:110, 4:146, 5:113, 6:31); `00004` has 1.
+- Qwen2.5-VL merges 2 consecutive frames into one time step (temporal patch 2), so 8 frames are 4 steps; `00004`'s only pre-contact frame shares a step with a post-contact one.
+
+The fix is chosen from these counts, not from caption wording; the prompt (CP4') is unchanged. None of the 3 smoke videos (`00003`–`00005`) is in the 30-video QC draw (checked locally), so QC stays clean.
+
+| Key | Was (§29 / §29.1) | Now (§29.2) |
+|---|---|---|
+| CP2' window | `[t_alert, min(duration, t_event + 1.4 s)]`, 1.43–5.67 s | **`[max(0, t_event − 2.0 s), min(duration, t_event + 1.4 s)]`**, 3.4 s on all 451 (none clipped; earliest `t_event` 3.03 s) |
+| CP2' frames | 8 (4 time steps, 576 visual tokens) | **16** (8 time steps ≈ 0.21 s apart, grid (8, 18, 32) = 1,152 tokens); **9 / 16 frames precede contact on every video** |
+| CP5 identity | model, revision, prompt, frames, size, tokens | + `pre_event_s`, `post_event_s`: a record from another window is refused |
+
+2.0 s is a round number, not tuned. The caption window is **not** the training label span: D-N1 (`[t_alert, t_event + 1.4 s]`) is untouched and no training input changes. Cost ≈ 2× (estimate ~1.5–2 h on L4, not measured). The three §29.1 smoke records are deleted by the notebook before the new smoke (step 6).
+
+Code: `core/constants.py` (`NEXAR_CAPTION_FRAMES` = 16, `NEXAR_CAPTION_PRE_EVENT_S`), `core/tools/nexar_caption.py` (`event_frame_indices`, `identity`), tests `core/tests/test_nexar_caption.py` (18), runbook `colab/final/nexar_captions.ipynb` (cells 0, 9, 10, 13).

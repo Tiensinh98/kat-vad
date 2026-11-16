@@ -504,27 +504,36 @@ NEXAR_FPS_ROUND = 1  # decimals when tabulating frame rates
 NEXAR_POST_EVENT_S = 1.4
 # Event captions for option C (core/docs/final/KIM_RUN.md §29; core.tools.nexar_caption)
 NEXAR_CAPTION_MODEL = "Qwen/Qwen2.5-VL-7B-Instruct"
-NEXAR_CAPTION_FRAMES = 8  # CP2: frames evenly spaced over [t_alert, t_event + NEXAR_POST_EVENT_S]
+# CP2' (§29.2): frames evenly spaced over [t_event - PRE, t_event + NEXAR_POST_EVENT_S] (3.4 s);
+# Qwen merges 2 frames per time step, so 16 frames = 8 steps ~0.21 s apart, ~9 before contact
+NEXAR_CAPTION_FRAMES = 16
+NEXAR_CAPTION_PRE_EVENT_S = 2.0  # a round number, not tuned; earliest nexar_train t_event = 3.03 s
 # CP2: every frame is resized to this (W, H) before the processor; both are multiples of 28, so
-# smart_resize keeps it and the video grid is (FRAMES / 2, H / 14, W / 14) = (4, 18, 32): 576 tokens
+# smart_resize keeps it and the grid is (FRAMES / 2, H / 14, W / 14) = (8, 18, 32): 1,152 tokens
 NEXAR_CAPTION_SIZE = (448, 252)
 QWEN_VL_PATCH = 14  # Qwen2-VL video processor: patch_size; merge_size 2, temporal_patch_size 2
 QWEN_VL_TEMPORAL_PATCH = 2
-NEXAR_CAPTION_MAX_NEW_TOKENS = 64  # CP4: one sentence of <= 30 words fits
-NEXAR_CAPTION_MAX_WORDS = 30
+# CP4' (§29.1): one "detailed" sentence; PreVAD's mean is 22.9 words, 96 tokens leaves headroom
+NEXAR_CAPTION_MAX_NEW_TOKENS = 96
+NEXAR_CAPTION_MAX_WORDS = 40  # printed count of captions longer than this (no longer a prompt cap)
 NEXAR_CAPTION_QC_SAMPLE = 30  # CP6: videos the user rates
-NEXAR_CAPTION_QC_PASS = 27  # CP6: right captions needed out of NEXAR_CAPTION_QC_SAMPLE
+# CP6' (§29.1): LaGoVAD Tab. B 1-5 consistency scale; pass iff the mean over the sample >= this
+NEXAR_CAPTION_QC_SCORE_MIN = 1
+NEXAR_CAPTION_QC_SCORE_MAX = 5
+NEXAR_CAPTION_QC_MIN_MEAN = 4.0
 NEXAR_CAPTION_QC_SEED = 2024
 NEXAR_CAPTION_OUTPUT_DIRNAME = "nexar_captions"  # OUTPUT_ROOT/<this>/captions/{id}.json + manifest
+# CP4' (§29.1): LaGoVAD's constrained annotation prompt, verbatim (paper supp. Sec. D), with the
+# PreVAD level-1 label of traffic accidents as {VIDEO LABEL}
+NEXAR_CAPTION_LABEL = "Vehicle Accident"
 NEXAR_CAPTION_PROMPT = (
-    "These frames are from a dashcam video and show a traffic collision or near-collision "
-    "involving the camera car or road users in front of it. In ONE sentence of at most 30 "
-    "words, describe only what happens: which road users are involved (car, truck, motorcycle, "
-    "bicycle, pedestrian, the camera car), how they move relative to each other, and the kind "
-    "of collision or near-collision. Do not mention weather, lighting, time of day, road type, "
-    "location, colours, brands or any text in the image. Start with 'The'."
+    "You are a helpful video describing assistant. You are good at English communication. "
+    f"Please describe the '{NEXAR_CAPTION_LABEL}' event in the given video in detail in one "
+    "sentence. The description should focus on the incident. Just describe without any other "
+    "output."
 )
-# CP6: printed share of captions that still name a scene attribute (the NG5 shortcut)
+# CP6: printed share of captions that name a scene attribute (the NG5 shortcut; printed only,
+# the prompt no longer forbids them since §29.1)
 NEXAR_CAPTION_FORBIDDEN = (
     "rain", "rainy", "snow", "snowy", "fog", "foggy", "wet", "sunny", "cloudy", "night",
     "nighttime", "dark", "daytime", "dusk", "dawn", "highway", "freeway", "urban", "city",

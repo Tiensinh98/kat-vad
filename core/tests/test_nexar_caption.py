@@ -18,7 +18,7 @@ from core.tools import nexar_caption as nc
 
 FPS = 30
 FRAMES = 150  # 5 s
-ALERT, EVENT = 1.0, 2.0  # span [1.0, 3.4] s
+ALERT, EVENT = 1.0, 2.5  # caption window [0.5, 3.9] s (CP2')
 
 
 def _mp4(path: Path, frames: int = FRAMES, fps: int = FPS) -> None:
@@ -73,7 +73,9 @@ IDENT = nc.identity(constants.NEXAR_CAPTION_MODEL, "abc123", constants.NEXAR_CAP
 class TestFrames:
     def test_indices_cover_the_span(self) -> None:
         indices, (start, end) = nc.event_frame_indices(_row("x"))
-        assert (start, end) == (ALERT, pytest.approx(EVENT + constants.NEXAR_POST_EVENT_S))
+        assert (start, end) == (pytest.approx(EVENT - constants.NEXAR_CAPTION_PRE_EVENT_S),
+                                pytest.approx(EVENT + constants.NEXAR_POST_EVENT_S))
+        assert start < ALERT  # CP2': the window opens before the alert, not at it
         assert len(set(indices)) == constants.NEXAR_CAPTION_FRAMES == len(indices)
         assert indices == sorted(indices)
         assert start * FPS <= indices[0] and indices[-1] <= end * FPS
@@ -83,9 +85,18 @@ class TestFrames:
         _, (_, end) = nc.event_frame_indices(row)
         assert end == pytest.approx(FRAMES / FPS)
 
+    def test_window_is_clipped_at_the_video_start(self) -> None:
+        _, (start, _) = nc.event_frame_indices(_row("x") | {"time_of_event": 1.0})
+        assert start == 0.0
+
+    def test_most_frames_precede_contact(self) -> None:
+        indices, _ = nc.event_frame_indices(_row("x"))
+        before = sum(i < EVENT * FPS for i in indices)
+        assert before == 9  # 2.0 s of the 3.4 s window, 16 bins
+
     def test_too_few_frames_raises(self) -> None:
         with pytest.raises(ValueError, match="holds <"):
-            nc.event_frame_indices(_row("x") | {"fps": 2.0})
+            nc.event_frame_indices(_row("x") | {"fps": 4.0})
 
     def test_decode_returns_the_requested_frames_resized(self, tmp_path: Path) -> None:
         _mp4(tmp_path / "v.mp4")
@@ -98,14 +109,14 @@ class TestFrames:
         with pytest.raises(ValueError, match="not decoded"):
             nc.decode_frames(tmp_path / "v.mp4", [10, FRAMES + 5])
 
-    def test_qwen_video_grid_is_576_tokens(self) -> None:
-        """CP2 against the real processor class: 448 x 252 is kept, grid (4, 18, 32)."""
-        assert nc.expected_grid() == (4, 18, 32)
+    def test_qwen_video_grid_is_1152_tokens(self) -> None:
+        """CP2' against the real processor class: 448 x 252 is kept, grid (8, 18, 32)."""
+        assert nc.expected_grid() == (8, 18, 32)
         frames = np.zeros((constants.NEXAR_CAPTION_FRAMES, 252, 448, 3), dtype=np.uint8)
         out = Qwen2VLVideoProcessor()(videos=[frames], min_pixels=3136, max_pixels=12845056,
                                        return_tensors="pt")
         assert tuple(out["video_grid_thw"][0].tolist()) == nc.expected_grid()
-        assert out["pixel_values_videos"].shape[0] // 4 == 576  # merge 2 x 2
+        assert out["pixel_values_videos"].shape[0] // 4 == 1152  # merge 2 x 2
 
 
 class TestText:
@@ -133,7 +144,8 @@ class TestRun:
         assert sorted(records) == positives and fake.calls == 3
         rec = json.loads((root / "out" / "captions" / f"{positives[0]}.json").read_text())
         assert rec["caption"].startswith("The camera car") and rec["revision"] == "abc123"
-        assert rec["forbidden"] == [] and len(rec["frame_indices"]) == 8
+        assert rec["forbidden"] == []
+        assert len(rec["frame_indices"]) == constants.NEXAR_CAPTION_FRAMES
         nc.caption_videos(root / "raw", census, root / "out", IDENT, fake)
         assert fake.calls == 3  # resume: nothing recomputed
 
@@ -168,23 +180,40 @@ class TestQc:
                               monkeypatch: pytest.MonkeyPatch) -> None:
         root, census, _ = setup
         monkeypatch.setattr(constants, "NEXAR_CAPTION_QC_SAMPLE", 2)
-        monkeypatch.setattr(constants, "NEXAR_CAPTION_QC_PASS", 2)
         records = nc.caption_videos(root / "raw", census, root / "out", IDENT, FakeCaptioner())
         nc.write_manifest(root / "out", census, IDENT, records)
         qc = nc.write_qc(root / "raw", census, root / "out")
         assert len(qc["sample"]) == 2 and qc["sample"] == nc.qc_sample(list(records))
         assert len(list((root / "out" / "qc").glob("*.png"))) == 2
+        assert nc.QC_CRITERIA[5] in (root / "out" / "qc" / nc.QC_SHEET_FILENAME).read_text()
         ratings = root / "out" / "qc" / nc.QC_RATINGS_FILENAME
-        with pytest.raises(ValueError, match="not rated"):
+        with pytest.raises(ValueError, match="not scored"):
             nc.score_qc(root / "out")
-        rows = list(csv.DictReader(ratings.open()))
-        rows[0]["right"], rows[1]["right"] = "y", "n"
-        with ratings.open("w", newline="") as fh:
-            writer = csv.DictWriter(fh, fieldnames=list(rows[0]))
-            writer.writeheader()
-            writer.writerows(rows)
-        result = nc.score_qc(root / "out")
-        assert (result["right"], result["verdict"]) == (1, "fail")
+
+        def rate(a: str, b: str) -> dict[str, Any]:
+            rows = list(csv.DictReader(ratings.open()))
+            rows[0][nc.QC_SCORE_COLUMN], rows[1][nc.QC_SCORE_COLUMN] = a, b
+            with ratings.open("w", newline="") as fh:
+                writer = csv.DictWriter(fh, fieldnames=list(rows[0]))
+                writer.writeheader()
+                writer.writerows(rows)
+            return nc.score_qc(root / "out")
+
+        with pytest.raises(ValueError, match="not scored"):
+            rate("6", "4")  # off the 1-5 scale
+        fail = rate("4", "3")  # mean 3.5 < 4.0
+        assert (fail["mean"], fail["verdict"], len(fail["below_bar"])) == (3.5, "fail", 1)
+        ok = rate("5", "3")  # mean exactly 4.0 passes
+        assert (ok["mean"], ok["verdict"], ok["histogram"][3]) == (4.0, "pass", 1)
+
+
+def test_prompt_is_lagovads_constrained_prompt() -> None:
+    """CP4': LaGoVAD supp. Sec. D's annotation prompt with the Vehicle Accident label."""
+    assert constants.NEXAR_CAPTION_PROMPT == (
+        "You are a helpful video describing assistant. You are good at English communication. "
+        "Please describe the 'Vehicle Accident' event in the given video in detail in one "
+        "sentence. The description should focus on the incident. Just describe without any "
+        "other output.")
 
 
 def test_run_requires_a_revision() -> None:
