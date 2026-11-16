@@ -1222,6 +1222,11 @@ POSNEG_FLOOR_DRAWS = 20  # random half-splits of a video's normal frames per vid
 POSNEG_BOOTSTRAP_DRAWS = 2000  # video-level bootstrap for the printed intervals
 POSNEG_MIN_NORMAL_FRAMES = 2  # a floor needs two halves of >= 1 normal frame each
 POSNEG_REPORT_STEM = "pos_neg_gap"
+# --- within-video feature diversity, K5 vs K5Lneg (KIM_RUN.md §28.2, rule dated 2026-11-16) ---
+FEATDIV_MIN_ROWS = 2  # FD4: a video needs this many abnormal and this many normal rows
+FEATDIV_REPORT_STEM = "feature_diversity"  # kim_lneg/REPORTS/<stem>/<stem>{.md,.json,_per_video.json}
+FEATDIV_METRICS = ("row_cos", "eff_rank", "sep")  # FD4 (a), (b), (c)
+FEATDIV_SUPPORTED, FEATDIV_OPPOSITE, FEATDIV_NOT_SUPPORTED = "SUPPORTED", "OPPOSITE", "NOT SUPPORTED"
 
 # --- K5 micro headroom + MSAD clip gate (KIM_RUN.md §19, read 2026-11-11) ---
 K5G_REPORT_STEM = "k5_clip_gate"  # OUTPUT_ROOT/kim/REPORTS/k5_clip_gate.{json,md}

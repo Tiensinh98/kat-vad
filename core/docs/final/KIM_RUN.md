@@ -1583,6 +1583,27 @@ Printed, never decides (NL6):
 
 **Licensed:** "Adding a class-positive caption contrastive term (`loss.cap_contrast_mode=class`, cosine / 0.07) to K5 costs Nexar-val crops −0.120, DoTA-CAP-dev −0.047, DADA −0.080 and DAD −0.062 (TAD not separated), with Nexar false alarms nearly unchanged (0.717 → 0.699). PRELIMINARY (n = 1). K5 stays; the definition-text `L_neg` line is closed (§28 NL7)." **Not licensed:** "L_neg hurts LaGoVAD" (this is not LaGoVAD's form), "contrastive text supervision cannot help" (one form, one seed), any mechanism sentence.
 
+### 28.2 Probe P2: does `L_neg` collapse within-video feature diversity? (dated note 2026-11-16, before any number; user)
+
+**Question.** §28.1's reading names a hypothesis it did not measure: the class-positive term pulls every accident window's pooled `vis_feats` toward one text direction, so rows of the same video lose diversity and the accident rows stop standing apart from the normal ones (macro falls, clip AUC does not). `grad_probe` cannot read this: it refuses `kip.enabled=false`, counts `cap_contrastive` inside "task", and measures gradients, not features. P2 reads the features directly. **Inference only; nothing trains; K5 stays.** It cannot reopen §28 or option C by itself.
+
+| Key | Choice (fixed before reading) |
+|---|---|
+| FD1 checkpoints | K5 s2024 (`kim/K5/s2024`) = base, K5Lneg s2024 (`kim_lneg/K5/s2024`) = new; both J10-verified; same inputs (A2-S Nexar statistics, V2-S motion), K4 checked per checkpoint |
+| FD2 videos | every positive video of `nexar_val`, whole video, protocol N-B rows (`s1[::3]`), windowed as the eval scorer (`pos_neg_gap.video_outputs`); frame labels = D-N1 (`native_labels`), used to measure only |
+| FD3 tensor | `vis_feats` (the tensor `L_neg` acts on, `kat_vad.py:395`), each row L2-normalized, float64 |
+| FD4 metrics, per video | (a) `row_cos` = mean off-diagonal cosine between rows; (b) `eff_rank` = exp(entropy of the normalized singular values of the centred rows), printed; (c) `sep` = ‖μ_abnormal − μ_normal‖² / mean ‖z − μ_own‖² (scale-free Fisher ratio). A video needs ≥ 2 abnormal and ≥ 2 normal rows, else skipped and counted |
+| FD5 contrast | per video Δ = new − base, mean over videos, 95 % percentile bootstrap (2,000 draws, seed 2024) |
+| FD6 verdict | **SUPPORTED** iff Δ`sep` CI entirely < 0 **and** Δ`row_cos` CI entirely > 0. **OPPOSITE** iff Δ`sep` CI entirely > 0. Otherwise **NOT SUPPORTED**. `eff_rank` is printed, never decides |
+
+**Predictions (written now).** If §28.1's hypothesis holds: `sep` falls, `row_cos` rises, `eff_rank` falls.
+
+**What each verdict licenses.** SUPPORTED: "on `nexar_val`, K5Lneg's rows are more alike within a video and its accident rows stand less apart from the normal rows than K5's (n = 1 checkpoint each)". It shows co-occurrence with the term, not a mechanism by itself, and says nothing about per-video captions beyond "a per-video text target would pull on the same pooled feature". NOT SUPPORTED / OPPOSITE: the cost is not a loss of within-video feature separation; §28.1's mechanism sentence is withdrawn and the cause stays unknown (the head, or the fusion path, not `vis_feats`).
+
+**Limits.** n = 1 checkpoint per arm. `sep` is measured in `vis_feats`, before fusion and the head; a score can lose ordering with intact features and vice versa. Val, not train windows.
+
+Code: `core/tools/feature_diversity.py`, constants `FEATDIV_*`, tests `core/tests/test_feature_diversity.py`, runbook `colab/final/lneg_feature_diversity.ipynb`.
+
 ## 29. Nexar event captions with Qwen2.5-VL-7B (dated note 2026-11-16, before any caption is read; user)
 
 **Status 2026-11-16: not used — §28.1 read "below", so under this note the captions have no use; the tool stays, not run.** **A data artifact, not an arm.** The user asked to build option C's input now (one caption per accident event, Qwen2.5-VL-7B on a Colab L4), before §28 is read out. Nothing here trains, and nothing here authorizes training with the captions: that needs §28 NL7 to read "candidate" **and** a new dated note with its own loss rule. If §28 reads "below" or "no claim", the captions stay unused.
