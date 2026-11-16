@@ -1604,6 +1604,43 @@ Printed, never decides (NL6):
 
 Code: `core/tools/feature_diversity.py`, constants `FEATDIV_*`, tests `core/tests/test_feature_diversity.py`, runbook `colab/final/lneg_feature_diversity.ipynb`.
 
+#### 28.2.1 Read-out (2026-11-16; raw `kim_lneg/REPORTS/feature_diversity/feature_diversity.{md,json}`, pasted by the user; n = 1 checkpoint per arm)
+
+Checks: both checkpoints step 1,749 (J10); 112 / 112 `nexar_val` positives scored, 0 skipped.
+
+| metric (per video, unit `vis_feats` rows) | K5 | K5Lneg | Δ [95 %] | share of videos K5Lneg lower |
+|---|---|---|---|---|
+| `sep` (decides) | 2.6290 | 2.0823 | **−0.5467 [−0.6759, −0.4251]** | 0.884 |
+| `row_cos` (decides) | 0.7007 | 0.7087 | **+0.0080 [+0.0046, +0.0115]** | 0.375 |
+| `eff_rank` (printed) | 135.31 | 133.86 | −1.46 [−1.86, −1.02] | 0.714 |
+
+**FD6: SUPPORTED.** The prediction (sep down, row_cos up, eff_rank down) held on all three.
+
+**Reading (post-hoc, printed, decides nothing).** The two deciding numbers are not the same size. `sep` falls by 21 % and on 88 % of videos; `row_cos` rises by 0.008 on a base of 0.70 and on only 62.5 % of videos; `eff_rank` falls by 1 %. So the rows of a video do **not** collapse as a whole: what goes is the **accident-vs-normal direction** inside the video, with a small rise in overall row similarity. Say "K5Lneg's accident rows stand less apart from the normal rows of their own video", not "the features collapse".
+
+**Licensed:** "On `nexar_val`, adding the class-positive caption contrastive term lowers the within-video separation of accident rows from normal rows in `vis_feats` by 21 % (Fisher ratio 2.63 → 2.08, Δ −0.55 [−0.68, −0.43], 88 % of 112 videos), with a small rise in row similarity (+0.008) (n = 1 checkpoint each)." This co-occurs with §28.1's macro cost; it does **not** prove the term causes it through this path (no intervention on the path was run). **Not licensed:** "feature collapse", "L_neg destroys features", any claim about LaGoVAD's own `L_neg`.
+
+**Consequence for option C (remark, not a rule; corrected the same day).** P2 compares "term on" with "term off"; it cannot say which ingredient costs the separation: (A) one shared text target per class (every accident window pulled to the same vector, same-class columns positive) or (B) the pooled-feature objective itself (one attention-pooled vector per window, cosine / 0.07, mining). A per-video caption changes (A) and keeps (B), so P2 neither predicts that good captions would help nor that they would not. A further oddity: the mined `v_neg` term pushes the low-score part away from the accident text, which on its face should *raise* separation; it fell. What blocks option C today is caption quality (§29.1–§29.2 QC 3.43 < 4.0), not P2. A test that separates (A) from (B) without good captions: K5 + a fixed, unique, meaningless text target per video (not built, not authorized).
+
+### 28.3 K5Lnegu: which ingredient of `L_neg` costs? (dated note 2026-11-16, before any number; user)
+
+**Question.** §28.2.1 cannot say whether K5Lneg's cost comes from (A) the **one shared class text** every accident window is pulled to (same-class columns positive) or (B) the **pooled-feature objective** itself (one attention-pooled vector per window, cosine / 0.07, mining, weight 1.0). A per-video caption changes (A) and keeps (B). K5Lnegu does the same with no caption: it answers whether option C could help at all, before anyone writes 451 good captions. **Not a reopening of §28**; K5 stays the main model.
+
+| # | Choice | Value |
+|---|---|---|
+| U1 | Row | **K5Lnegu** = K5's config with `loss.cap_contrast_mode=uniq`, on K5's corpus `Nexar_window`, s2024. **Config diff to K5 = this key only** (asserted) |
+| U1 | Loss | `ClassContrastLoss` unchanged (columns, mining, cosine / `LNEG_CLASS_TEMP`, label smoothing, weight 1.0). Only the rows change: each **source video** present with an accident window gets one fixed unit vector `unique_target(source)` (seeded by `LNEG_UNIQ_TARGET_SEED` = 2024 and the id's sha1, own generator: the training RNG stream equals K5's). Windows of one source share it; accident windows of other sources become negatives; normal windows and mined parts stay negatives. With ≥ 2 sources in a batch the video → text direction is on (in K5Lneg, one class, it was off): the form a per-video caption would have under this loss |
+| U2 | Sentences | Per set, paired, 95 % bootstrap, as NL5: **K5Lnegu − K5** and **K5Lnegu − K5Lneg** ("above / below / not separated"); K5Lneg − K5 re-derived beside them. Deciding sets S = Nexar val crops, DoTA-CAP-dev, DADA, DAD (the four K5Lneg fell on); TAD printed |
+| U2 | Verdict | **A** ("the shared target costs") iff K5Lnegu − K5 is "below" on **no** set of S. **B** ("the pooled objective costs") iff "below" on **≥ 3** of S **and** K5Lnegu − K5Lneg "above" on **≤ 1** of S. Otherwise **MIXED** |
+| U3 | Printed, never deciding | P2 (`feature_diversity`) K5Lnegu vs K5 on `nexar_val`; step-1 / last-epoch `cap_contrastive − floor` beside `mil`; per-frame curves K5 / K5Lneg / K5Lnegu |
+| U4 | What follows | **A** → option C *may* be reopened, only with captions that pass QC (Claude-written route, fresh QC seed) and a new dated note; uniq is the extreme (orthogonal targets), real captions are correlated, so A does not promise a gain. **B** → per-video text targets under this loss form are closed, and option C with them. **MIXED** → no claim; option C stays closed unless the user decides otherwise |
+
+**Prediction (written now):** B or MIXED, not A. Unique targets also push accident videos apart from each other, which adds a pull against MIL.
+
+**Limits.** n = 1. Random targets are not text: they cannot test anything a caption's *content* would add. The video → text direction differs from K5Lneg (on vs off), stated in U1 as part of the per-video form.
+
+Code: `core/losses/contrastive.py` (`unique_target`, `uniq_rows`), `core/train.py` (the `uniq` branch: items mapped to source videos by `dataset.slicer.source_of`), `core/constants.py` (`CAP_CONTRAST_MODE_UNIQ`, `LNEG_UNIQ_TARGET_SEED`, `KIM_LNEG_UNIQ_*`), `core/tools/k5_lneg_uniq_report.py`. Tests `test_class_contrast.py`, `test_train_units.py`, `test_k5_lneg_uniq_report.py`. Runbook `colab/final/k5_lneg_uniq.ipynb`. Outputs `Thesis-Final/outputs/kim_lneg_uniq/`.
+
 ## 29. Nexar event captions with Qwen2.5-VL-7B (dated note 2026-11-16, before any caption is read; user)
 
 **Status 2026-11-16: not used — §28.1 read "below", so under this note the captions have no use; the tool stays, not run.** **A data artifact, not an arm.** The user asked to build option C's input now (one caption per accident event, Qwen2.5-VL-7B on a Colab L4), before §28 is read out. Nothing here trains, and nothing here authorizes training with the captions: that needs §28 NL7 to read "candidate" **and** a new dated note with its own loss rule. If §28 reads "below" or "no claim", the captions stay unused.

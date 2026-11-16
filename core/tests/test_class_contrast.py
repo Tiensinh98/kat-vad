@@ -12,6 +12,8 @@ from core.losses.contrastive import (
     ClassContrastLoss,
     asymmetric_infonce_loss,
     class_infonce_loss,
+    uniq_rows,
+    unique_target,
 )
 
 DIM = 8
@@ -134,3 +136,41 @@ class TestClassContrastLoss:
     def test_unknown_mining_raises(self) -> None:
         with pytest.raises(ValueError, match="contrast_type"):
             ClassContrastLoss(mining="n1")
+
+
+class TestUniqTargets:
+    """§28.3: one fixed meaningless unit target per source video."""
+
+    def test_target_is_fixed_unit_and_key_specific(self) -> None:
+        a = unique_target("00123", DIM)
+        torch.testing.assert_close(a, unique_target("00123", DIM))
+        assert float(a.norm()) == pytest.approx(1.0)
+        assert not torch.allclose(a, unique_target("00124", DIM))
+        assert not torch.allclose(a, unique_target("00123", DIM, seed=1))
+
+    def test_target_leaves_the_global_rng_alone(self) -> None:
+        torch.manual_seed(0)
+        before = torch.get_rng_state()
+        unique_target("00123", DIM)
+        assert torch.equal(before, torch.get_rng_state())
+
+    def test_rows_group_windows_of_one_source(self) -> None:
+        cls_idx = torch.tensor([1, 1, 0, 1])
+        targets, idx = uniq_rows(cls_idx, ["v1", "v1", "v1", "v2"], DIM)
+        assert idx.tolist() == [1, 1, 0, 2]  # the normal window of v1 is no row
+        assert targets.shape == (3, DIM) and float(targets[0].abs().sum()) == 0.0
+        torch.testing.assert_close(targets[2], unique_target("v2", DIM))
+        with pytest.raises(ValueError, match="source ids"):
+            uniq_rows(cls_idx, ["v1"], DIM)
+
+    def test_other_sources_are_negatives(self) -> None:
+        """Two sources: each row's only positive is its own source's column."""
+        b = _batch([1, 1, 0])
+        targets, idx = uniq_rows(b["cls_idx"], ["v1", "v2", "v3"], DIM)
+        loss = ClassContrastLoss(mining=CONTRAST_TYPE_VANILLA)
+        out = loss(b["logits"], b["lengths"], b["v_feats"], targets, idx,
+                   b["pseudo_frame_label"])
+        same = ClassContrastLoss(mining=CONTRAST_TYPE_VANILLA)(
+            b["logits"], b["lengths"], b["v_feats"], targets[[0, 1, 1]],
+            torch.tensor([1, 1, 0]), b["pseudo_frame_label"])
+        assert torch.isfinite(out["loss"]) and not torch.isclose(out["loss"], same["loss"])

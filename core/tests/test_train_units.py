@@ -269,7 +269,27 @@ class TestLossGating:
                                     loss__cap_contrast_mode=mode)
             trainer.compute_losses(self._batch(trainer))
             states.append(trainer.verbalizer._rng.getstate())
-        assert states[0] == states[1]
+        assert all(state == states[0] for state in states)
+
+    def test_uniq_lneg_uses_source_targets(self, tmp_path: Path) -> None:
+        """§28.3: same term keys as the class form; the loss differs, the RNG stream does not."""
+        got = {}
+        for mode in (constants.CAP_CONTRAST_MODE_CLASS, constants.CAP_CONTRAST_MODE_UNIQ):
+            trainer = _make_trainer(tmp_path / mode, kip__enabled=False, dvs__theta=1.0,
+                                    dvs__theta_ego=1.0, loss__cap_contrast_mode=mode)
+            batch = self._batch(trainer)
+            assert int(batch["label"].sum()) > 0
+            losses = trainer.compute_losses(batch)
+            for key in ("cap_contrastive", "cap_contrastive_floor", "cap_mined"):
+                assert key in losses and torch.isfinite(losses[key]), key
+            losses["total"].backward()
+            got[mode] = float(losses["cap_contrastive"])
+        assert got[constants.CAP_CONTRAST_MODE_CLASS] != got[constants.CAP_CONTRAST_MODE_UNIQ]
+
+    def test_uniq_lneg_refuses_the_caption_path(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="captions_from_definitions"):
+            _make_trainer(tmp_path, loss__captions_from_definitions=True,
+                          loss__cap_contrast_mode=constants.CAP_CONTRAST_MODE_UNIQ)
 
     def test_invalid_cap_contrast_mode_raises(self, tmp_path: Path) -> None:
         with pytest.raises(ValueError, match="cap_contrast_mode"):

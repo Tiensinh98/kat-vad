@@ -272,7 +272,11 @@ N3_MIN_SCORE_RANGE = 0.2  # n3 mining: skip videos whose prob range < this
 # "class" = ClassContrastLoss: class-text rows, same-class columns positive, no caption branch.
 CAP_CONTRAST_MODE_BASELINE = "baseline"
 CAP_CONTRAST_MODE_CLASS = "class"
-CAP_CONTRAST_MODE_CHOICES = (CAP_CONTRAST_MODE_BASELINE, CAP_CONTRAST_MODE_CLASS)
+# KIM_RUN.md §28.3: the class form with one fixed, meaningless unit target per source video
+CAP_CONTRAST_MODE_UNIQ = "uniq"
+CAP_CONTRAST_MODE_CHOICES = (CAP_CONTRAST_MODE_BASELINE, CAP_CONTRAST_MODE_CLASS,
+                             CAP_CONTRAST_MODE_UNIQ)
+LNEG_UNIQ_TARGET_SEED = 2024  # §28.3: targets are data, fixed apart from train.seed
 LNEG_CLASS_TEMP = 0.07  # cosine temperature of the class form; CLIP's initial value, not tuned
 PSEUDO_LABEL_IGNORE = -100  # additive mask pushing non-annotated frames out of top-k
 NEG_INF_MASK_VALUE = -1e4
@@ -1143,6 +1147,14 @@ KIM_NEGCAP_PRE_ONSET_S = 5.0
 KIM_LNEG_OUTPUT_DIRNAME = "kim_lneg"
 KIM_LNEG_ROW = "K5Lneg"  # K5 + loss.cap_contrast_mode=class, row under eval/nexar/ (§28)
 KIM_LNEG_REPORT_STEM = "k5_lneg_report"
+KIM_LNEG_UNIQ_OUTPUT_DIRNAME = "kim_lneg_uniq"
+KIM_LNEG_UNIQ_ROW = "K5Lnegu"  # K5 + loss.cap_contrast_mode=uniq, row under eval/nexar/ (§28.3)
+KIM_LNEG_UNIQ_REPORT_STEM = "k5_lneg_uniq_report"
+# §28.3 U2: the sets K5Lneg fell on; TAD is printed only
+KIM_LNEG_UNIQ_SETS = ("nexar", "dota", "dada", "dad")
+KIM_LNEG_UNIQ_B_MIN_BELOW = 3  # B: K5Lnegu - K5 "below" on at least this many of the sets
+KIM_LNEG_UNIQ_B_MAX_ABOVE = 1  # B: and K5Lnegu - K5Lneg "above" on at most this many
+KIM_LNEG_UNIQ_A, KIM_LNEG_UNIQ_B, KIM_LNEG_UNIQ_MIXED = "A", "B", "MIXED"
 NORMAL_VIDEO_PEAK = 0.5  # a normal video whose peak score passes this counts as a false alarm
 # OUTPUT_ROOT/kim_msad: eval/<row>/<run>/ + REPORTS/ (KIM_RUN.md §18, zero-shot MSAD)
 MSAD_ZS_OUTPUT_DIRNAME = "kim_msad"
@@ -1224,9 +1236,11 @@ POSNEG_MIN_NORMAL_FRAMES = 2  # a floor needs two halves of >= 1 normal frame ea
 POSNEG_REPORT_STEM = "pos_neg_gap"
 # --- within-video feature diversity, K5 vs K5Lneg (KIM_RUN.md §28.2, rule dated 2026-11-16) ---
 FEATDIV_MIN_ROWS = 2  # FD4: a video needs this many abnormal and this many normal rows
-FEATDIV_REPORT_STEM = "feature_diversity"  # kim_lneg/REPORTS/<stem>/<stem>{.md,.json,_per_video.json}
+# kim_lneg/REPORTS/<stem>/<stem>{.md,.json,_per_video.json}
+FEATDIV_REPORT_STEM = "feature_diversity"
 FEATDIV_METRICS = ("row_cos", "eff_rank", "sep")  # FD4 (a), (b), (c)
-FEATDIV_SUPPORTED, FEATDIV_OPPOSITE, FEATDIV_NOT_SUPPORTED = "SUPPORTED", "OPPOSITE", "NOT SUPPORTED"
+FEATDIV_SUPPORTED, FEATDIV_OPPOSITE = "SUPPORTED", "OPPOSITE"
+FEATDIV_NOT_SUPPORTED = "NOT SUPPORTED"
 
 # --- K5 micro headroom + MSAD clip gate (KIM_RUN.md §19, read 2026-11-11) ---
 K5G_REPORT_STEM = "k5_clip_gate"  # OUTPUT_ROOT/kim/REPORTS/k5_clip_gate.{json,md}

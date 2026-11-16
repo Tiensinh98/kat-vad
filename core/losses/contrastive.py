@@ -8,6 +8,8 @@ baseline training loop).
 
 from __future__ import annotations
 
+import hashlib
+
 import torch
 import torch.nn.functional as F  # noqa: N812
 from torch import Tensor, nn
@@ -206,5 +208,43 @@ class ClassContrastLoss(nn.Module):
                 "mined": torch.tensor(float(len(mined)), device=logits.device)}
 
 
-__all__ = ["CapContrastLoss", "ClassContrastLoss", "asymmetric_infonce_loss",
-           "class_infonce_loss"]
+def unique_target(key: str, dim: int, seed: int = constants.LNEG_UNIQ_TARGET_SEED) -> Tensor:
+    """§28.3: a fixed unit vector for ``key`` (a source video id), meaningless by design.
+
+    Drawn from its own generator, seeded by ``seed`` and the key's sha1, so it never touches
+    the training RNG and is the same on every step, device and run.
+    """
+    digest = hashlib.sha1(f"{seed}:{key}".encode(), usedforsecurity=False).hexdigest()
+    gen = torch.Generator().manual_seed(int(digest[:15], 16))
+    return F.normalize(torch.randn(dim, generator=gen), dim=0)
+
+
+def uniq_rows(cls_idx: Tensor, sources: list[str], dim: int) -> tuple[Tensor, Tensor]:
+    """§28.3: ``(targets, idx)`` that make :class:`ClassContrastLoss` per source video.
+
+    ``targets (1 + S, dim)``: row 0 is a placeholder for Normal (never a row of the loss),
+    rows 1..S the :func:`unique_target` of each abnormal source in the batch, in first-seen
+    order. ``idx (B,)``: 0 for a normal item, else its source's row, so abnormal windows of
+    one source share a target and every other source is a negative.
+    """
+    if len(sources) != len(cls_idx):
+        raise ValueError(f"{len(sources)} source ids for {len(cls_idx)} items")
+    order: dict[str, int] = {}
+    idx = torch.zeros_like(cls_idx)
+    for b, (c, src) in enumerate(zip(cls_idx.tolist(), sources, strict=True)):
+        if c != 0:
+            idx[b] = order.setdefault(src, len(order) + 1)
+    targets = torch.zeros(len(order) + 1, dim)
+    for src, row in order.items():
+        targets[row] = unique_target(src, dim)
+    return targets.to(cls_idx.device), idx
+
+
+__all__ = [
+    "CapContrastLoss",
+    "ClassContrastLoss",
+    "asymmetric_infonce_loss",
+    "class_infonce_loss",
+    "uniq_rows",
+    "unique_target",
+]

@@ -58,7 +58,7 @@ from core.kip.losses import (
     kip_alignment_loss,
     kip_reconstruction_loss,
 )
-from core.losses.contrastive import CapContrastLoss, ClassContrastLoss
+from core.losses.contrastive import CapContrastLoss, ClassContrastLoss, uniq_rows
 from core.losses.dvs import pseudo_sup_mil_loss, supervised_loss
 from core.losses.mil import (
     abnormal_bottomk_loss,
@@ -242,12 +242,17 @@ class Trainer:
                 f"got {cfg.loss.cap_contrast_mode!r}"
             )
         self.class_contrast: ClassContrastLoss | None = None
-        if cfg.loss.cap_contrast_mode == constants.CAP_CONTRAST_MODE_CLASS:
+        if cfg.loss.cap_contrast_mode in (constants.CAP_CONTRAST_MODE_CLASS,
+                                          constants.CAP_CONTRAST_MODE_UNIQ):
             if cfg.loss.captions_from_definitions:
                 raise ValueError(
-                    "loss.cap_contrast_mode=class replaces the caption path; "
-                    "set loss.captions_from_definitions=false (KIM_RUN.md §28 NL2)"
+                    f"loss.cap_contrast_mode={cfg.loss.cap_contrast_mode} replaces the caption "
+                    "path; set loss.captions_from_definitions=false (KIM_RUN.md §28 NL2)"
                 )
+            if (cfg.loss.cap_contrast_mode == constants.CAP_CONTRAST_MODE_UNIQ
+                    and not hasattr(dataset, "slicer")):
+                raise ValueError("loss.cap_contrast_mode=uniq needs a dataset with a window "
+                                 "slicer to map items to source videos (KIM_RUN.md §28.3)")
             self.class_contrast = ClassContrastLoss(
                 cfg.loss.contrastive_neg_mining, cfg.loss.contrastive_temp
             )
@@ -484,9 +489,15 @@ class Trainer:
             and loss_cfg.cap_contrastive_weight > 0.0
             and int((cls_idx != 0).sum()) > 0
         ):
+            rows_feats, rows_idx = class_feats, cls_idx
+            if loss_cfg.cap_contrast_mode == constants.CAP_CONTRAST_MODE_UNIQ:
+                # §28.3: one fixed meaningless target per source video, same loss otherwise
+                sources = [self.dataset.slicer.source_of(v) for v in batch["video_id"]]
+                targets, rows_idx = uniq_rows(cls_idx, sources, class_feats.shape[-1])
+                rows_feats = targets.to(class_feats.dtype)
             cc = self.class_contrast(
-                outputs["cls_bin_logits"], lengths, outputs["vis_feats"], class_feats,
-                cls_idx, pseudo,
+                outputs["cls_bin_logits"], lengths, outputs["vis_feats"], rows_feats,
+                rows_idx, pseudo,
             )
             losses["cap_contrastive"] = cc["loss"]
             losses["cap_contrastive_floor"] = cc["floor"]  # logged, never in `total`
