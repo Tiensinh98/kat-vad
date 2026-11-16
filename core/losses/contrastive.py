@@ -103,4 +103,108 @@ class CapContrastLoss(nn.Module):
         return asymmetric_infonce_loss(sim_mat, ano_indices)
 
 
-__all__ = ["CapContrastLoss", "asymmetric_infonce_loss"]
+def class_infonce_loss(
+    sim: Tensor,
+    row_class: Tensor,
+    col_class: Tensor,
+    label_smoothing: float = constants.CONTRASTIVE_LABEL_SMOOTHING,
+) -> tuple[Tensor, Tensor]:
+    """Soft-target InfoNCE whose positives are every column of the row's class.
+
+    ``sim (K, N)``, ``row_class (K,)``, ``col_class (N,)``. Each row's target is uniform
+    over its class's columns (the "L_out" form of supervised contrastive), so same-class
+    columns are never negatives. With one positive per row it equals the one-hot loss.
+    Returns ``(loss, floor)``: ``floor`` is the smoothed target's entropy, the lowest
+    value the loss can reach, logged so the excess is readable (KIM_RUN.md §28 NL3).
+    """
+    pos = (row_class[:, None] == col_class[None, :]).to(sim.dtype)
+    counts = pos.sum(dim=1, keepdim=True)
+    if bool((counts == 0).any()):
+        raise ValueError("class_infonce_loss: a row has no positive column")
+    target = pos / counts
+    loss = F.cross_entropy(sim, target, label_smoothing=label_smoothing)
+    smoothed = (1.0 - label_smoothing) * target + label_smoothing / sim.shape[1]
+    floor = -(smoothed * smoothed.clamp_min(torch.finfo(sim.dtype).tiny).log()).sum(1).mean()
+    return loss, floor.detach()
+
+
+class ClassContrastLoss(nn.Module):
+    """``L_neg`` with class positives (KIM_RUN.md §28 NL2); the baseline form stays above.
+
+    Rows are the text features of the abnormal classes present in the batch. Columns are
+    every video's features aggregated under its anomaly curve, plus one mined "normal
+    part" per abnormal video (lowest-scoring rows: over the anchor span when synthesized,
+    over all valid rows when not). Similarity is cosine / ``cosine_temp``.
+    """
+
+    def __init__(
+        self,
+        mining: str = CONTRAST_TYPE_N3,
+        temperature: float = constants.CONTRASTIVE_TEMP,
+        cosine_temp: float = constants.LNEG_CLASS_TEMP,
+    ) -> None:
+        super().__init__()
+        if mining not in (CONTRAST_TYPE_VANILLA, CONTRAST_TYPE_N3):
+            raise ValueError(f"Unknown contrast_type: {mining!r}")
+        self.mining = mining
+        self.temperature = temperature
+        self.cosine_temp = cosine_temp
+
+    def _mine(
+        self, logits: Tensor, lengths: Tensor, v_feats: Tensor, cls_idx: Tensor, pseudo: Tensor
+    ) -> list[Tensor]:
+        mined = []
+        for b in torch.where(cls_idx != 0)[0].tolist():
+            n = int(lengths[b])
+            logit = logits[b, :n]
+            prob = logit.sigmoid()
+            if n == 0 or prob.max() - prob.min() < constants.N3_MIN_SCORE_RANGE:
+                continue
+            part = pseudo[b, :n] != 0
+            if not bool(part.any()):  # un-synthesized: no anchor span, mine the whole window
+                part = torch.ones_like(part)
+            weights = torch.softmax(-logit[part] / self.temperature, dim=0)
+            mined.append(weights @ v_feats[b, :n][part])
+        return mined
+
+    def forward(
+        self,
+        logits: Tensor,
+        lengths: Tensor,
+        v_feats: Tensor,
+        class_feats: Tensor,
+        cls_idx: Tensor,
+        pseudo_frame_label: Tensor,
+    ) -> dict[str, Tensor]:
+        """``logits (B, T)`` pre-sigmoid, ``v_feats (B, T, E)``, ``class_feats (C, E)`` with
+        row 0 = Normal, ``cls_idx (B,)`` with 0 = normal, ``pseudo_frame_label (B, T)``.
+
+        Returns ``loss``, ``floor`` and ``mined`` (number of mined columns, detached).
+        """
+        present = torch.unique(cls_idx[cls_idx != 0])
+        if present.numel() == 0:
+            raise ValueError("ClassContrastLoss: the batch has no abnormal video")
+        max_len = logits.shape[1]
+        pad = torch.arange(max_len, device=logits.device)[None, :] >= lengths[:, None]
+        masked = logits + torch.where(pad, constants.NEG_INF_MASK_VALUE, 0.0)
+        attn = torch.softmax(masked / self.temperature, dim=1).unsqueeze(1)
+        cols = (attn @ v_feats).squeeze(1)  # (B, E)
+        col_class = cls_idx
+        mined = (self._mine(logits, lengths, v_feats, cls_idx, pseudo_frame_label)
+                 if self.mining == CONTRAST_TYPE_N3 else [])
+        if mined:
+            cols = torch.cat([cols, torch.stack(mined)], dim=0)
+            col_class = torch.cat([cls_idx, cls_idx.new_zeros(len(mined))])
+        rows = F.normalize(class_feats[present], dim=-1)
+        sim = rows @ F.normalize(cols, dim=-1).T / self.cosine_temp  # (K, N)
+        loss, floor = class_infonce_loss(sim, present, col_class)
+        if present.numel() > 1:  # video -> text only when the texts can be told apart
+            ano = torch.where(cls_idx != 0)[0]
+            v2t, v2t_floor = class_infonce_loss(sim[:, ano].T, cls_idx[ano], present)
+            loss, floor = (loss + v2t) / 2, (floor + v2t_floor) / 2
+        return {"loss": loss, "floor": floor,
+                "mined": torch.tensor(float(len(mined)), device=logits.device)}
+
+
+__all__ = ["CapContrastLoss", "ClassContrastLoss", "asymmetric_infonce_loss",
+           "class_infonce_loss"]
