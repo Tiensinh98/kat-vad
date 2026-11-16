@@ -1502,3 +1502,31 @@ Reading (post-hoc, decides nothing):
 **Limits.** n = 1. The matched-rate read has one point per rate and no interval (112 / 113 videos). The cap keeps the 2 windows evenly spaced, not the hardest ones. A Nexar scene shortcut stays possible (Sub-urban 41 / 122 in train); NC6(e) only describes it. The `min_positive` change (§26's "no `min_positive` change") is **not** part of this arm and stays closed.
 
 Code: `core/data/dada.py` (`negative_max_per_clip`, default `None` = unchanged for T2 and every other caller), `core/tools/nexar_build.py` (`window_negcap`, `train_negative_video_windows` in the build report), `core/constants.py` (`NEXAR_CONSTRUCTION_WINDOW_NEGCAP`, `NEXAR_NEG_WINDOW_CAP`, `KIM_NEGCAP_*`), `core/tools/k5_nc2_report.py` (NC5–NC7; matched detection = §17.1's arithmetic, reproduced on its numbers). Tests: `core/tests/test_dada.py::TestPlanRecordWindows`, `core/tests/test_nexar_pipeline.py` (negcap), `core/tests/test_k5_nc2_report.py`. Runbook: `colab/final/k5_nc2.ipynb`. Outputs `Thesis-Final/outputs/kim_negcap/`.
+
+### 27.1 Read-out (2026-11-16, s2024; raw `outputs/v_final/kim_negcap/REPORTS/k5_nc2_report.{md,json}`; PRELIMINARY, n = 1)
+
+Run checks: checkpoint step 1,749 (`verified.json`, J10) = the last `global_step` of `metrics.jsonl` = K5's step. The config equals K5neg's except `model.motion_norm: none`, a key added after K5neg trained, at its off default (against K5's original config, `kim.capacity_control: false` and `kim.seam_mask: false` also appear, likewise off): **config diff to K5 = 0** as NC1 requires. Build (`build_report_window_negcap.json`): 449 / 449 negative videos kept, 898 negative-video windows = `train_items` 8,209 − 7,311 (NC2), ≈ 13.8 % of the normal pool; 33 epochs × 53 steps = 1,749. NG4: K5's re-read on `nexar_val` crops 0.8981 = §13, gap 0.
+
+| set | K5 | K5neg | K5nc2 | K5nc2 − K5 [95 %] | sentence (NC5) |
+| --- | --- | --- | --- | --- | --- |
+| Nexar val crops (endpoint, in-domain) | 0.8981 | 0.8597 | 0.8877 | −0.0103 [−0.0177, −0.0029] | **below** |
+| DoTA-CAP-dev macro (protocol B) | 0.8195 | 0.8044 | 0.8187 | −0.0009 [−0.0057, +0.0041] | not separated |
+| DADA-2000 macro (370, whole) | 0.7740 | 0.7531 | 0.7687 | −0.0053 [−0.0106, −0.0000] | **below** |
+| TAD macro | 0.7002 | 0.7097 | 0.7024 | +0.0022 [−0.0150, +0.0194] | not separated |
+| DAD macro | 0.7916 | 0.8086 | 0.7972 | +0.0056 [−0.0049, +0.0159] | not separated |
+
+**NC7: two sets "below" (Nexar val, DADA) → K5 stays and the negative-share line CLOSES.** No m = 1, no other cap, no "hardest windows" variant, no s2025 (fixed in §27 before the number). DADA's upper bound sits at −0.0000; the verdict does not depend on it, since Nexar val is below on its own.
+
+**Expectations:** "macro not separated on every set" **failed** (Nexar val and DADA show a small cost). "False alarms between K5 and K5neg" held (0.717 → 0.425; K5neg 0.283). "Detection at matched FA 0.20 between" held at the bottom edge: 0.5714 vs K5 0.5625 / K5neg 0.6607, Δ +0.0089 against the 0.05 margin.
+
+Printed, never decides (NC6):
+- Nexar val whole macro / micro / AP / clip AUC: K5 0.9245 / 0.9000 / 0.4472 / 0.7735; K5nc2 0.9144 / 0.8902 / 0.4347 / 0.7754; K5neg 0.8838 / 0.8497 / 0.3573 / 0.7909.
+- Detection at matched FA 0.283: K5 0.6071, K5neg 0.6964, K5nc2 0.6696. One point per rate, no interval (112 / 113 videos).
+- Share of 5 s chunks with max > 0.5: positives > 5 s before onset K5 0.0995 / K5neg 0.0379 / K5nc2 **0.0332**; negatives 0.1871 / 0.0680 / 0.0996; last 5 s before onset 0.3214 / 0.1607 / 0.1875.
+- Negatives with peak > 0.5 by scene, K5 → K5nc2: Urban 0.707 → 0.366, Sub-urban 0.759 → 0.448, Highway 0.667 → 0.444, other (n = 7) 0.857 → 0.571. No scene stands out.
+- K5nc2 − K5neg: Nexar val +0.0281, DoTA-CAP-dev +0.0143, DADA +0.0155 (all above); TAD −0.0073, DAD −0.0114 (not separated).
+- Training, last batch K5 / K5neg / K5nc2: `mil` 0.161 / 0.170 / 0.147, `kim_mil` 0.126 / 0.107 / 0.119, `kim_nkc` 0.277 / 0.199 / 0.328, `kim_w_out_norm` 0.93 / 0.77 / 0.92, `kim_anchor_share` 0.904 / 0.942 / 0.933; last-epoch mean `mil` 0.164 / 0.186 / 0.189.
+
+**Reading (post-hoc, printed, decides nothing).** The negative share moves one trade-off in one direction. At ≈ 14 % the cap removes about ¾ of K5neg's macro cost (Nexar val −0.0384 → −0.0103, DADA −0.0209 → −0.0053) and keeps about ⅔ of its false-alarm drop at cut 0.5 (0.292 of 0.434). Detection at matched FA 0.20 barely moves (+0.009), so most of the 0.5-cut drop is a score-scale shift, not better ranking, which is §17.1's reading again. Far-from-onset chunks on positives are the cleanest of the three rows, while negative-video chunks stay ≈ 3× higher (0.0996): the scenes K5 alarms on in negative videos are not taught away by a few more negative windows. A false-alarm target on Nexar is a cut chosen on negatives at deployment, not a training change. This is a remark, not a rule.
+
+**Licensed:** "Capping negative-video windows at 2 per video (≈ 14 % of the normal pool) costs Nexar-val crops −0.010 and DADA −0.005 against K5, separates on no other set, and lowers Nexar-val false alarms at cut 0.5 from 0.717 to 0.425 with no material gain at matched false-alarm rate 0.20 (+0.009). PRELIMINARY (n = 1). K5 stays; the negative-share line is closed (§27 NC7)." **Not licensed:** "the cap lowers false alarms at no cost", "K5nc2 detects better", any streaming or calibrated-threshold claim, any m = 1 extrapolation.
