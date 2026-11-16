@@ -214,6 +214,48 @@ def test_build_window_neg_adds_negative_video_windows(tmp_path: Path) -> None:
     assert "nv" not in {info["source"] for info in windows.values()}  # val negatives stay out
 
 
+def test_build_window_negcap_caps_negative_videos_only(tmp_path: Path) -> None:
+    """§27: window_negcap = window_neg with <= NEXAR_NEG_WINDOW_CAP windows per negative video."""
+    rows, train, val, frames = _rows()
+    neg = nexar_build.build_window(tmp_path / "n", rows, train, val, frames, include_negatives=True)
+    cap = nexar_build.build_window(tmp_path / "c", rows, train, val, frames, include_negatives=True,
+                                   negative_cap=constants.NEXAR_NEG_WINDOW_CAP)
+    w_neg = json.loads((tmp_path / "n" / constants.WINDOWS_FILENAME).read_text())
+    w_cap = json.loads((tmp_path / "c" / constants.WINDOWS_FILENAME).read_text())
+    l_neg = json.loads((tmp_path / "n" / constants.LABELS_TRAIN_FILENAME).read_text())
+    l_cap = json.loads((tmp_path / "c" / constants.LABELS_TRAIN_FILENAME).read_text())
+    positive = {w: i for w, i in w_neg.items() if i["source"] not in ("n1", "n2")}
+    assert {w: i for w, i in w_cap.items() if i["source"] not in ("n1", "n2")} == positive
+    assert all(l_cap[w] == l_neg[w] for w in positive if w in l_neg)
+    per_source = (150 - constants.NEXAR_WINDOW_LENGTH) // constants.NEXAR_WINDOW_STRIDE + 1
+    for source in ("n1", "n2"):
+        starts = sorted(i["start"] for i in w_cap.values() if i["source"] == source)
+        assert starts == [0, (per_source - 1) * constants.NEXAR_WINDOW_STRIDE]  # evenly spaced
+    assert cap["train_negative_video_windows"] == 2 * constants.NEXAR_NEG_WINDOW_CAP
+    assert neg["train_negative_video_windows"] == 2 * per_source
+    dropped = 2 * (per_source - constants.NEXAR_NEG_WINDOW_CAP)
+    assert cap["train_items"] == neg["train_items"] - dropped
+    assert cap["train_abnormal"] == neg["train_abnormal"]  # same positives -> same step plan
+    for name in (constants.FRAME_LABELS_TEST_FILENAME, constants.DEFS_FILENAME):
+        assert (tmp_path / "c" / name).read_text() == (tmp_path / "n" / name).read_text()
+
+
+def test_negative_cap_needs_negatives(tmp_path: Path) -> None:
+    rows, train, val, frames = _rows()
+    with pytest.raises(ValueError, match="negative_cap needs include_negatives"):
+        nexar_build.build_window(tmp_path, rows, train, val, frames, negative_cap=2)
+
+
+def test_window_negcap_is_opt_in() -> None:
+    args = nexar_build.build_arg_parser().parse_args(
+        ["corpus", "--census", "c", "--clip-s1-dir", "x", "--report", "r"])
+    assert constants.NEXAR_CONSTRUCTION_WINDOW_NEGCAP not in args.constructions
+    args = nexar_build.build_arg_parser().parse_args(
+        ["corpus", "--census", "c", "--clip-s1-dir", "x", "--report", "r",
+         "--constructions", constants.NEXAR_CONSTRUCTION_WINDOW_NEGCAP])
+    assert args.constructions == [constants.NEXAR_CONSTRUCTION_WINDOW_NEGCAP]
+
+
 def test_window_neg_is_opt_in() -> None:
     args = nexar_build.build_arg_parser().parse_args(
         ["corpus", "--census", "c", "--clip-s1-dir", "x", "--report", "r"])

@@ -506,7 +506,14 @@ NEXAR_CONSTRUCTION_WINDOW = "window"  # T2-style windows from positive videos on
 NEXAR_CONSTRUCTIONS = (NEXAR_CONSTRUCTION_WHOLE, NEXAR_CONSTRUCTION_WINDOW)
 # KIM_RUN.md §17: `window` + windows cut from the negative videos too; opt-in, not a default build
 NEXAR_CONSTRUCTION_WINDOW_NEG = "window_neg"
-NEXAR_CORPUS_CHOICES = (*NEXAR_CONSTRUCTIONS, NEXAR_CONSTRUCTION_WINDOW_NEG)
+# KIM_RUN.md §27: `window_neg` with at most NEXAR_NEG_WINDOW_CAP windows per NEGATIVE video
+# (evenly spaced); positive videos keep NEXAR_WINDOW_MAX_PER_CLIP. Opt-in, not a default build
+NEXAR_CONSTRUCTION_WINDOW_NEGCAP = "window_negcap"
+# §27 NC2: <= 2 x 449 negative windows vs 5,622 in-video normals = ~14 % of the normal pool
+# (window_neg: ~55 %), every negative video kept. Chosen from the share, never from a score
+NEXAR_NEG_WINDOW_CAP = 2
+NEXAR_CORPUS_CHOICES = (*NEXAR_CONSTRUCTIONS, NEXAR_CONSTRUCTION_WINDOW_NEG,
+                        NEXAR_CONSTRUCTION_WINDOW_NEGCAP)
 NEXAR_WINDOW_LENGTH = DADA_ORIGIN_WINDOW_LENGTH  # 20 rows at s8, T2's geometry
 NEXAR_WINDOW_STRIDE = DADA_ORIGIN_WINDOW_STRIDE  # hop 8
 # No per-video cap: T2's cap of 4 evenly spaced windows would skip the ~11-row event of a
@@ -1079,6 +1086,15 @@ KIM_NEG_OUTPUT_DIRNAME = "kim_neg"
 KIM_NEG_ROW = "K5neg"  # K5 + windows from the negative videos, row under eval/nexar/ (§17)
 KIM_NEG_FA_MARGIN = 0.05  # §17 NG7: false-alarm share on nexar_val negatives must fall this much
 KIM_NEG_REPRO_TOL = 1e-4  # §17 NG4: K5 re-read on nexar_val vs its §13 crop endpoint
+# OUTPUT_ROOT/kim_negcap: K5/s<seed>/, eval/, REPORTS/ (KIM_RUN.md §27)
+KIM_NEGCAP_OUTPUT_DIRNAME = "kim_negcap"
+KIM_NEGCAP_ROW = "K5nc2"  # K5 + <= 2 windows per negative video, row under eval/nexar/ (§27)
+KIM_NEGCAP_DETECT_MARGIN = 0.05  # §27 NC7: detection at matched FA 0.20 must rise this much
+KIM_NEGCAP_MATCHED_FA = (0.20, 0.283)  # §27 NC6(b): false-alarm rates read, from §17.1
+KIM_NEGCAP_DECIDE_FA = 0.20  # §27 NC7: the matched false-alarm rate whose detection may decide
+# §27 NC6(c)(d): chunk length and the pre-onset zone (seconds; Nexar val rows at NEXAR_NOMINAL_FPS)
+KIM_NEGCAP_CHUNK_S = 5.0
+KIM_NEGCAP_PRE_ONSET_S = 5.0
 NORMAL_VIDEO_PEAK = 0.5  # a normal video whose peak score passes this counts as a false alarm
 # OUTPUT_ROOT/kim_msad: eval/<row>/<run>/ + REPORTS/ (KIM_RUN.md §18, zero-shot MSAD)
 MSAD_ZS_OUTPUT_DIRNAME = "kim_msad"

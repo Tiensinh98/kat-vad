@@ -21,6 +21,8 @@ Constructions (both train at ``s1[::8]``, both labelled by the rule above):
 ``window_neg`` -> ``data/Nexar_window_neg/`` (``KIM_RUN.md`` §17, opt-in)
     ``window`` plus train windows cut from the **negative** videos too (all-normal windows). The
     val side is ``window``'s (positive videos only), so the two corpora share one eval set.
+``window_negcap`` -> ``data/Nexar_window_negcap/`` (``KIM_RUN.md`` §27, opt-in)
+    ``window_neg`` with at most ``NEXAR_NEG_WINDOW_CAP`` evenly spaced windows per negative video.
 
 ``subsample`` writes ``cache/clip/Nexar_s8_ncc`` = ``Nexar_s1_ncc[::8]`` for A0 and the KNN key.
 
@@ -157,12 +159,16 @@ def build_whole(
 def build_window(
     out_dir: Path, rows: dict[str, dict[str, Any]], train: list[str], val: list[str],
     frames: dict[str, int], include_negatives: bool = False,
+    negative_cap: int | None = None,
 ) -> dict[str, Any]:
     """``window``: T2's windows over the positive videos of each split.
 
     ``include_negatives`` (``window_neg``, §17) also cuts train windows from the negative videos;
-    the val side never changes.
+    the val side never changes. ``negative_cap`` (``window_negcap``, §27) keeps at most that many
+    evenly spaced windows per negative video; positive videos are never capped.
     """
+    if negative_cap is not None and not include_negatives:
+        raise ValueError("negative_cap needs include_negatives=True")
     train_recs = [make_record(v, rows[v], frames[v]) for v in train
                  if rows[v]["label"] == 1 or include_negatives]
     val_pos = [make_record(v, rows[v], frames[v]) for v in val if rows[v]["label"] == 1]
@@ -179,14 +185,20 @@ def build_window(
         constants.NEXAR_WINDOW_MAX_PER_CLIP,
         {r.video_id: {k: rows[r.video_id].get(f"meta_{k}") for k in ("scene", "weather")}
          for r in train_recs + val_pos},
+        negative_max_per_clip=negative_cap,
     )
     labels = json.loads((out_dir / constants.LABELS_TRAIN_FILENAME).read_text(encoding="utf-8"))
+    windows = json.loads((out_dir / constants.WINDOWS_FILENAME).read_text(encoding="utf-8"))
+    negative_ids = {r.video_id for r in train_recs if not r.is_abnormal}
     test = json.loads((out_dir / constants.FRAME_LABELS_TEST_FILENAME).read_text(encoding="utf-8"))
     return {
         "train_items": len(labels),
         "train_abnormal": sum(labels.values()),
         "train_sources": len(train_recs),
         "train_negative_sources": sum(1 for r in train_recs if not r.is_abnormal),
+        "train_negative_video_windows": sum(
+            1 for w in windows.values() if w["source"] in negative_ids),
+        "negative_cap": negative_cap,
         "val_windows": len(test),
         "val_two_class_windows": sum(1 for lab in test.values() if 0 < sum(lab) < len(lab)),
         "val_abnormal_windows": sum(1 for lab in test.values() if sum(lab) > 0),
@@ -243,6 +255,8 @@ def run_corpus(args: argparse.Namespace) -> dict[str, Any]:
         constants.NEXAR_CONSTRUCTION_WHOLE: build_whole,
         constants.NEXAR_CONSTRUCTION_WINDOW: build_window,
         constants.NEXAR_CONSTRUCTION_WINDOW_NEG: partial(build_window, include_negatives=True),
+        constants.NEXAR_CONSTRUCTION_WINDOW_NEGCAP: partial(
+            build_window, include_negatives=True, negative_cap=constants.NEXAR_NEG_WINDOW_CAP),
     }
     for name in args.constructions:
         out_dir = args.out_root / f"{constants.NEXAR_DATASET}_{name}"

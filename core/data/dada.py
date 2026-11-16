@@ -464,6 +464,7 @@ def plan_record_windows(
     min_positive: int = constants.WINDOW_MIN_POSITIVE,
     weak_mode: str = WINDOW_WEAK_DROP,
     max_per_clip: int = constants.WINDOW_MAX_PER_CLIP,
+    negative_max_per_clip: int | None = None,
 ) -> tuple[dict[str, Window], dict[str, list[int]], dict[str, DadaRecord]]:
     """Re-shard ``records`` into equal-length windows (lesson **C28**).
 
@@ -482,7 +483,13 @@ def plan_record_windows(
     see :func:`core.data.windows.cap_windows`). A fixed hop alone gives each clip
     windows in proportion to its length, which on DADA-2000 manufactures a 10:1
     class imbalance the clip-level corpus never had (lesson **C32**).
+
+    ``negative_max_per_clip`` (default ``None`` = ``max_per_clip`` for every clip) caps the
+    **normal** source clips alone; abnormal clips keep ``max_per_clip``. Nexar's
+    ``window_negcap`` (``KIM_RUN.md`` §27) is its only caller.
     """
+    if negative_max_per_clip is not None and negative_max_per_clip <= 0:
+        raise ValueError(f"negative_max_per_clip must be positive, got {negative_max_per_clip}")
     if weak_mode not in WINDOW_WEAK_MODES:
         raise ValueError(
             f"weak_mode must be one of {WINDOW_WEAK_MODES}, got {weak_mode!r}"
@@ -507,7 +514,9 @@ def plan_record_windows(
         if not planned:
             too_short.append(record.video_id)
             continue
-        planned = cap_windows(planned, max_per_clip)
+        cap = (max_per_clip if negative_max_per_clip is None or record.is_abnormal
+               else negative_max_per_clip)
+        planned = cap_windows(planned, cap)
         for index, window in enumerate(planned):
             wid = window_id(record.video_id, index)
             windows[wid] = window
@@ -704,6 +713,7 @@ def write_windowed(
     weak_mode: str,
     max_per_clip: int,
     extra_meta: dict[str, dict[str, object]] | None = None,
+    negative_max_per_clip: int | None = None,
 ) -> None:
     """Write the windowed corpus: four standard files keyed by window id + ``windows.json``.
 
@@ -712,7 +722,8 @@ def write_windowed(
     difference between the two callers' output beyond the records themselves.
     """
     train_windows, train_labels, train_records = plan_record_windows(
-        train, stride, window_length, window_stride, min_positive, weak_mode, max_per_clip
+        train, stride, window_length, window_stride, min_positive, weak_mode, max_per_clip,
+        negative_max_per_clip,
     )
     test_windows, test_labels, test_records = plan_record_windows(
         test, stride, window_length, window_stride, min_positive, weak_mode, max_per_clip

@@ -606,7 +606,26 @@ class TestPlanRecordWindows:
         with pytest.raises(ValueError, match="No clip is at least"):
             dada.plan_record_windows(self._records(), STRIDE, 99, WINDOW_STRIDE)
 
+    def test_negative_cap_caps_normal_clips_only(self) -> None:
+        """KIM_RUN.md §27: ``negative_max_per_clip`` leaves abnormal clips exactly as they were."""
+        base, base_labels, _ = dada.plan_record_windows(
+            self._records(), STRIDE, WINDOW_LENGTH, WINDOW_STRIDE
+        )
+        capped, capped_labels, _ = dada.plan_record_windows(
+            self._records(), STRIDE, WINDOW_LENGTH, WINDOW_STRIDE, negative_max_per_clip=1
+        )
+        ann = {w: v for w, v in base.items() if v.source == "ann"}
+        assert {w: v for w, v in capped.items() if v.source == "ann"} == ann
+        assert all(capped_labels[w] == base_labels[w] for w in ann)
+        norm_base = [v for v in base.values() if v.source == "norm"]
+        norm_capped = [v for v in capped.values() if v.source == "norm"]
+        assert len(norm_base) > 1 and norm_capped == [norm_base[0]]
+
     def test_rejects_bad_arguments(self) -> None:
+        with pytest.raises(ValueError, match="negative_max_per_clip must be"):
+            dada.plan_record_windows(
+                self._records(), STRIDE, WINDOW_LENGTH, WINDOW_STRIDE, negative_max_per_clip=0
+            )
         with pytest.raises(ValueError, match="weak_mode must be"):
             dada.plan_record_windows(
                 self._records(), STRIDE, WINDOW_LENGTH, WINDOW_STRIDE, weak_mode="keep"

@@ -2477,3 +2477,12 @@ Promote if a second harness needs the same split.
 **Rule:** Draw the raw curve beside any min-max curve in a per-video figure.
 **Files:** core/tools/zs_curves.py (draw_video)
 **Gates:** recurring? first time; HIGH-impact? no (a figure, not a metric) -> pending.
+
+## (dj) [MEDIUM] Metrics - a fixed score cut mixes calibration into a false-alarm / miss trade-off (2026-11-16)
+**Triggers:** false alarm, false positive, false negative, detection rate, peak > 0.5, threshold, NORMAL_VIDEO_PEAK, operating point, negatives, K5neg
+**Problem:** §17.1 read K5neg at peak > 0.5: false alarms 0.717 → 0.283 but detections 0.964 → 0.688, which reads as "more false negatives". With each row's cut set on its own negatives (matched false-alarm rate), K5neg detected *more* (0.661 vs 0.562 at FA 0.20): the 0.5-cut change was mostly a lower score scale. Separately, a peak over a 40 s negative video vs a 13 s pre-event region is not length-matched (1 − (1 − 0.187)^8 ≈ 0.717).
+**Bad:** compare two rows' false alarms and misses at one shared raw cut (`peak > NORMAL_VIDEO_PEAK`) and call the trade-off.
+**Good:** detection at matched false-alarm rates (`np.quantile(neg_peaks, 1 - rate)`, linear; `k5_nc2_report.matched_detection`), plus length-matched chunk rates (`chunk_rates`).
+**Rule:** Compare false-alarm / detection trade-offs at matched false-alarm rates and over length-matched units, never at one raw cut.
+**Files:** core/tools/k5_nc2_report.py (matched_detection, chunk_rates), core/docs/final/KIM_RUN.md §17.1, §27
+**Gates:** recurring? first time; HIGH-impact? no (a reading, caught before a decision) -> pending.
