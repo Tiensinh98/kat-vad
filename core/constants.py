@@ -502,6 +502,35 @@ NEXAR_FPS_ROUND = 1  # decimals when tabulating frame rates
 # D-N1: abnormal = [t_alert, t_event + this]; = median (accident -> abnormal end) of DADA's
 # 1,945 annotated rows at 30 fps (1.40 s), read from the annotation, never from a Nexar score.
 NEXAR_POST_EVENT_S = 1.4
+# Event captions for option C (core/docs/final/KIM_RUN.md §29; core.tools.nexar_caption)
+NEXAR_CAPTION_MODEL = "Qwen/Qwen2.5-VL-7B-Instruct"
+NEXAR_CAPTION_FRAMES = 8  # CP2: frames evenly spaced over [t_alert, t_event + NEXAR_POST_EVENT_S]
+# CP2: every frame is resized to this (W, H) before the processor; both are multiples of 28, so
+# smart_resize keeps it and the video grid is (FRAMES / 2, H / 14, W / 14) = (4, 18, 32): 576 tokens
+NEXAR_CAPTION_SIZE = (448, 252)
+QWEN_VL_PATCH = 14  # Qwen2-VL video processor: patch_size; merge_size 2, temporal_patch_size 2
+QWEN_VL_TEMPORAL_PATCH = 2
+NEXAR_CAPTION_MAX_NEW_TOKENS = 64  # CP4: one sentence of <= 30 words fits
+NEXAR_CAPTION_MAX_WORDS = 30
+NEXAR_CAPTION_QC_SAMPLE = 30  # CP6: videos the user rates
+NEXAR_CAPTION_QC_PASS = 27  # CP6: right captions needed out of NEXAR_CAPTION_QC_SAMPLE
+NEXAR_CAPTION_QC_SEED = 2024
+NEXAR_CAPTION_OUTPUT_DIRNAME = "nexar_captions"  # OUTPUT_ROOT/<this>/captions/{id}.json + manifest
+NEXAR_CAPTION_PROMPT = (
+    "These frames are from a dashcam video and show a traffic collision or near-collision "
+    "involving the camera car or road users in front of it. In ONE sentence of at most 30 "
+    "words, describe only what happens: which road users are involved (car, truck, motorcycle, "
+    "bicycle, pedestrian, the camera car), how they move relative to each other, and the kind "
+    "of collision or near-collision. Do not mention weather, lighting, time of day, road type, "
+    "location, colours, brands or any text in the image. Start with 'The'."
+)
+# CP6: printed share of captions that still name a scene attribute (the NG5 shortcut)
+NEXAR_CAPTION_FORBIDDEN = (
+    "rain", "rainy", "snow", "snowy", "fog", "foggy", "wet", "sunny", "cloudy", "night",
+    "nighttime", "dark", "daytime", "dusk", "dawn", "highway", "freeway", "urban", "city",
+    "suburban", "rural", "red", "blue", "white", "black", "silver", "gray", "grey", "green",
+    "yellow", "orange",
+)
 NEXAR_CLIP_S1_DATASET = "Nexar_s1_ncc"  # cache/clip/<this>/{id}.npy, every native frame
 NEXAR_VIDEO_S1_DATASET = "Nexar_s1"  # cache/video/<encoder>/<this>_squash/, row-aligned
 NEXAR_EXTRACT_CHUNK = 64  # frames decoded + resized per step (C9)

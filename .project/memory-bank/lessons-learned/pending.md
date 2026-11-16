@@ -2496,3 +2496,13 @@ Promote if a second harness needs the same split.
 **Rule:** Before enabling a loss no run has exercised, print its per-batch inputs on the target corpus (distinct labels, mask sizes, value scale) and test the empty and duplicate cases.
 **Files:** core/losses/contrastive.py (CapContrastLoss.forward n3 branch, ClassContrastLoss), core/train.py (caption path), core/docs/final/KIM_RUN.md §28
 **Gates:** recurring? first time; HIGH-impact? could be (a silent degenerate term in a trained arm) -> pending.
+
+## (dl) [MEDIUM] Models - fix a VLM's input size yourself and assert its token grid; do not trust call-time resize kwargs (2026-11-16)
+**Triggers:** Qwen2.5-VL, Qwen2-VL, video processor, min_pixels, max_pixels, smart_resize, video_grid_thw, VLM caption, visual tokens
+**Problem:** A default-built `Qwen2VLVideoProcessor` has `min_pixels` / `max_pixels` = None and `smart_resize` raises; the Hub copy fills them from its config, so whether a call-time `max_pixels` wins is version-dependent. The visual token count (cost, and what the model sees) then depends on a config the run never records.
+**Bad:** `processor(videos=[full_res_frames], max_pixels=...)` and assume the size.
+**Good:** resize every frame to multiples of 28 (`NEXAR_CAPTION_SIZE` = 448 x 252) before the processor and assert `video_grid_thw == (T / 2, H / 14, W / 14)` = (4, 18, 32), i.e. 576 tokens (`nexar_caption.QwenCaptioner.__call__`).
+**Rule:** Resize VLM inputs to the processor's grid yourself and assert the grid it returns.
+**Files:** core/tools/nexar_caption.py (expected_grid, QwenCaptioner), core/tests/test_nexar_caption.py::TestFrames::test_qwen_video_grid_is_576_tokens
+**Gates:** recurring? first time; HIGH-impact? no (cost / input drift, caught by the assert) -> pending.
+
