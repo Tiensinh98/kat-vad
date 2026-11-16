@@ -1557,9 +1557,35 @@ Printed, never decides (NC6):
 
 Code: `core/losses/contrastive.py` (`ClassContrastLoss`, `class_infonce_loss`; `CapContrastLoss` unchanged), `core/config.py` (`loss.cap_contrast_mode`), `core/constants.py` (`CAP_CONTRAST_MODE_*`, `LNEG_CLASS_TEMP`, `KIM_LNEG_*`), `core/train.py` (the `class` branch). Runbook `colab/final/k5_lneg.ipynb`. Outputs `Thesis-Final/outputs/kim_lneg/`.
 
+### 28.1 Read-out (2026-11-16, s2024; raw `outputs/v_final/kim_lneg/REPORTS/k5_lneg_report.{md,json}`; PRELIMINARY, n = 1)
+
+Run checks: checkpoint step 1,749 (`verified.json`, J10) = the last `global_step` of `metrics.jsonl` = K5's step. Config diff to K5 = `loss.cap_contrast_mode: class` only (plus `model.motion_norm: none`, a later key at its off default), as NL1 requires. Every logged step carries `cap_contrastive`; mined columns per batch rise from ≈ 2 (epoch 0) to ≈ 37 (last epoch). NG4: K5's re-read on `nexar_val` crops 0.8981 = §13, gap 0.
+
+| set | K5 | K5neg | K5Lneg | K5Lneg − K5 [95 %] | sentence (NL5) |
+| --- | --- | --- | --- | --- | --- |
+| Nexar val crops (endpoint, in-domain) | 0.8981 | 0.8597 | 0.7779 | −0.1202 [−0.1402, −0.1009] | **below** |
+| DoTA-CAP-dev macro (protocol B) | 0.8195 | 0.8044 | 0.7730 | −0.0465 [−0.0581, −0.0347] | **below** |
+| DADA-2000 macro (370, whole) | 0.7740 | 0.7531 | 0.6943 | −0.0797 [−0.0938, −0.0652] | **below** |
+| TAD macro | 0.7002 | 0.7097 | 0.6666 | −0.0335 [−0.0713, +0.0034] | not separated |
+| DAD macro | 0.7916 | 0.8086 | 0.7296 | −0.0620 [−0.0944, −0.0305] | **below** |
+
+**NL7: four sets "below" → K5 stays and the definition-text `L_neg` line CLOSES.** No s2025, no other τ, weight or mining (lesson 14). §29's captions have no use under this note (§29: "If §28 reads below … the captions stay unused"); reopening option C takes a new dated note that says why per-video captions would differ in kind from this result.
+
+**Expectations:** "macro not separated on every set" **failed**, by the largest single-key cost measured on K5 (DADA −0.080 vs K5k2's −0.034). "False alarms at most slightly below 0.717" held (0.699). Detection at matched FA 0.20: 0.5804 vs K5 0.5625 (+0.018, margin 0.05).
+
+Printed, never decides (NL6):
+- Nexar val whole macro / micro / AP / clip AUC: K5 0.9245 / 0.9000 / 0.4472 / 0.7735; K5Lneg 0.7969 / 0.7801 / 0.3121 / 0.7675.
+- Detection at matched FA 0.283: K5 0.6071, K5Lneg 0.6339. 5 s chunks with max > 0.5: far pre-onset 0.0995 → 0.0664, negatives 0.1871 → 0.1774, last 5 s before onset 0.3214 → 0.2232. Negatives with peak > 0.5 by scene: Urban 0.707 → 0.659, Sub-urban 0.759 → 0.724, Highway 0.667 → 0.694.
+- K5Lneg − K5neg: below on all five sets (Nexar −0.0818, DoTA-CAP-dev −0.0314, DADA −0.0588, TAD −0.0431, DAD −0.0790).
+- Loss, K5Lneg (K5): step 1 `mil` 0.6925 (0.6878), `cap_contrastive` 4.2651 − floor 4.1879 = +0.0772; last epoch `mil` 0.1387 (0.1637), `kim_mil` 0.1312 (0.1613), `cap_contrastive` − floor = +0.0245; `kim_nkc` last batch 0.199 (0.277).
+
+**Reading (post-hoc, printed, decides nothing).** The cost is within-video ordering, not clip classification: Nexar whole macro falls 0.925 → 0.797 while clip AUC barely moves (0.774 → 0.768). The training objective is fitted more tightly than K5's (`mil`, `kim_mil` lower), the K5k2 pattern again: an easier objective, not a better one. The term sits near its floor throughout, yet at cosine / 0.07 its gradient still reshapes `vis_feats`; once curves sharpen, almost every accident window adds a mined "low-score part ≠ accident" negative (what MIL already teaches), and the L_out target pulls every accident window's pooled feature toward one text direction. That this collapses per-row feature diversity is a hypothesis; it is **not measured** (`grad_probe` on the checkpoint would read `rho` / `cos`).
+
+**Licensed:** "Adding a class-positive caption contrastive term (`loss.cap_contrast_mode=class`, cosine / 0.07) to K5 costs Nexar-val crops −0.120, DoTA-CAP-dev −0.047, DADA −0.080 and DAD −0.062 (TAD not separated), with Nexar false alarms nearly unchanged (0.717 → 0.699). PRELIMINARY (n = 1). K5 stays; the definition-text `L_neg` line is closed (§28 NL7)." **Not licensed:** "L_neg hurts LaGoVAD" (this is not LaGoVAD's form), "contrastive text supervision cannot help" (one form, one seed), any mechanism sentence.
+
 ## 29. Nexar event captions with Qwen2.5-VL-7B (dated note 2026-11-16, before any caption is read; user)
 
-**A data artifact, not an arm.** The user asked to build option C's input now (one caption per accident event, Qwen2.5-VL-7B on a Colab L4), before §28 is read out. Nothing here trains, and nothing here authorizes training with the captions: that needs §28 NL7 to read "candidate" **and** a new dated note with its own loss rule. If §28 reads "below" or "no claim", the captions stay unused.
+**Status 2026-11-16: not used — §28.1 read "below", so under this note the captions have no use; the tool stays, not run.** **A data artifact, not an arm.** The user asked to build option C's input now (one caption per accident event, Qwen2.5-VL-7B on a Colab L4), before §28 is read out. Nothing here trains, and nothing here authorizes training with the captions: that needs §28 NL7 to read "candidate" **and** a new dated note with its own loss rule. If §28 reads "below" or "no claim", the captions stay unused.
 
 | # | Choice | Value |
 |---|---|---|
