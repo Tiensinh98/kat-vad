@@ -244,6 +244,7 @@ def test_prompt_names_the_ego_vehicle_and_the_event_types() -> None:
     prompt = constants.NEXAR_CAPTION_PROMPT
     assert "dashcam" in prompt and "'the ego vehicle'" in prompt and "40 words" in prompt
     assert "'Contact: yes. Accident:" in prompt and "'Contact: no. Near-collision:" in prompt
+    assert "left and right edges of the frame" in prompt
     for kind in ("Accident:", "Collision:", "Near-collision:", "Dangerous maneuver:"):
         assert kind in prompt
 
@@ -268,6 +269,15 @@ class TestEventType:
     ])
     def test_split_contact(self, answer: str, contact: str, caption: str) -> None:
         assert nc.split_contact(answer) == (contact, caption)
+
+    def test_dev_type_ok_uses_the_frozen_reference(self) -> None:
+        assert nc.dev_type_ok("00362", "Accident: the ego vehicle rear-ends a truck.") == "y"
+        assert nc.dev_type_ok("00362", "Near-collision: the ego vehicle brakes.") == "n"
+        assert nc.dev_type_ok("00013", "Near-collision: a van merges.") == "y"  # two accepted
+        assert nc.dev_type_ok("99999", "Accident: x.") == ""  # not a dev video
+        assert len(constants.NEXAR_CAPTION_DEV_TRUTH) == constants.NEXAR_CAPTION_DEV_SAMPLE
+        kinds = {k for ks in constants.NEXAR_CAPTION_DEV_TRUTH.values() for k in ks}
+        assert kinds <= set(constants.NEXAR_CAPTION_EVENT_TYPES)
 
     def test_contact_consistency(self) -> None:
         assert nc.contact_consistent("yes", "collision")

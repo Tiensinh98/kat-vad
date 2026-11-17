@@ -179,6 +179,14 @@ def event_type(caption: str) -> str:
     return head if known else constants.NEXAR_CAPTION_EVENT_UNKNOWN
 
 
+def dev_type_ok(vid: str, caption: str) -> str:
+    """§29.3 round 4: ``y`` / ``n`` against the frozen dev reference, ``""`` off the dev set."""
+    truth = constants.NEXAR_CAPTION_DEV_TRUTH.get(vid)
+    if truth is None:
+        return ""
+    return "y" if event_type(caption) in truth else "n"
+
+
 def forbidden_terms(caption: str) -> list[str]:
     """CP6: the scene words a caption still names."""
     words = set(WORD.findall(caption.lower()))
@@ -384,8 +392,8 @@ def write_sheet(raw_root: Path, census: dict[str, Any], captions_dir: Path, shee
             frames = decode_frames(raw_root / rows[vid]["path"], record["frame_indices"])
             contact_sheet(frames).save(sheet_dir / f"{rank:02d}_{vid}.png")
             kind = event_type(record["caption"])
-            blanks = [""] * len(QC_FLAG_COLUMNS)
-            writer.writerow([rank, vid, kind, record["caption"], "", *blanks])
+            flags = [dev_type_ok(vid, record["caption"]), ""]  # QC_FLAG_COLUMNS order
+            writer.writerow([rank, vid, kind, record["caption"], "", *flags])
             start, end = record["span_s"]
             lines.append(f"| {rank} | {vid} | {start:.2f}-{end:.2f} | "
                          f"{record.get('contact', '')} | {kind} | {record['caption']} |")
@@ -472,7 +480,18 @@ def main(argv: list[str] | None = None) -> None:
         dev_dir = args.out_dir / DEV_DIRNAME / prompt_tag(prompt)
         write_text_atomic(dev_dir / "prompt.txt", prompt + "\n")
         dev = dev_sample(ids)
-        caption_videos(args.raw_root, census, dev_dir, ident, captioner, dev)
+        if sorted(constants.NEXAR_CAPTION_DEV_TRUTH) != dev:
+            raise ValueError(f"dev reference covers {sorted(constants.NEXAR_CAPTION_DEV_TRUTH)}, "
+                             f"the dev draw is {dev}")
+        records = caption_videos(args.raw_root, census, dev_dir, ident, captioner, dev)
+        type_ok = sum(dev_type_ok(v, r["caption"]) == "y" for v, r in records.items())
+        write_json_atomic(dev_dir / "dev_summary.json", {
+            "prompt_tag": prompt_tag(prompt), "type_ok": type_ok, "videos": len(records),
+            "freeze_type_ok": constants.NEXAR_CAPTION_DEV_FREEZE_TYPE_OK,
+            "freeze_mean": constants.NEXAR_CAPTION_DEV_FREEZE_MEAN, **summarize(records)})
+        LOGGER.info("dev type_ok %d/%d (freeze needs >= %d and mean score >= %.1f)", type_ok,
+                    len(records), constants.NEXAR_CAPTION_DEV_FREEZE_TYPE_OK,
+                    constants.NEXAR_CAPTION_DEV_FREEZE_MEAN)
         write_sheet(args.raw_root, census, dev_dir / CAPTIONS_DIRNAME, dev_dir, dev,
                     f"Nexar caption dev set, prompt {prompt_tag(prompt)} (§29.3 CP4'')")
         LOGGER.info("dev sheet: %s", dev_dir / QC_SHEET_FILENAME)

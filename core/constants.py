@@ -561,10 +561,29 @@ NEXAR_CAPTION_PROMPT = (
     "'Contact: no. Near-collision: <description>', where the description is one sentence of at "
     "most 40 words saying which road users take part (the ego vehicle, cars, trucks, buses, "
     "motorcycles, cyclists, pedestrians), what each one does, and from which direction. Name "
-    "only road users that take part in the event; ignore those that only stand nearby. Call the "
+    "only road users that take part in the event; ignore those that only stand nearby. Mention a "
+    "pedestrian only if one moves into a vehicle's path. Contact can also happen at the side of "
+    "the ego vehicle: a door opening into it, a vehicle beside it scraping it, or a mirror being "
+    "hit, so check the left and right edges of the frame, not only the road ahead. Call the "
     "camera car 'the ego vehicle'. Describe only what is visible; do not guess. Output only the "
     "answer."
 )
+# §29.3 dev round 4: the user's frozen reference types for the 10 dev videos (2026-11-17, before
+# round 4 ran); a caption's type is right iff it is in the set. type_ok is computed from this
+NEXAR_CAPTION_DEV_TRUTH = {
+    "00013": ("collision", "near-collision"),
+    "00100": ("near-collision",),
+    "00125": ("collision",),
+    "00362": ("accident",),
+    "00474": ("near-collision",),
+    "00546": ("accident",),
+    "00715": ("near-collision",),
+    "00765": ("collision",),
+    "00921": ("near-collision",),
+    "00938": ("dangerous maneuver", "near-collision"),
+}
+NEXAR_CAPTION_DEV_FREEZE_MEAN = 4.0  # freeze iff dev mean >= this and type_ok >= the count below
+NEXAR_CAPTION_DEV_FREEZE_TYPE_OK = 8
 # CP6: printed share of captions that name a scene attribute (the NG5 shortcut; printed only,
 # the prompt no longer forbids them since §29.1)
 NEXAR_CAPTION_FORBIDDEN = (
