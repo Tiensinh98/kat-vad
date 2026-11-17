@@ -2506,3 +2506,12 @@ Promote if a second harness needs the same split.
 **Files:** core/tools/nexar_caption.py (expected_grid, QwenCaptioner), core/tests/test_nexar_caption.py::TestFrames::test_qwen_video_grid_is_576_tokens
 **Gates:** recurring? first time; HIGH-impact? no (cost / input drift, caught by the assert) -> pending.
 
+
+## (dm) [MEDIUM] Models - soft prompts shrink CLIP's text budget, and the tokenizer truncates silently (2026-11-17)
+**Triggers:** CLIP text, soft prompt, num_soft_prompts, max_text_tokens, truncation, caption, L_neg, encode_text, VLM caption length
+**Problem:** `encode_text` tokenizes at `77 - num_soft_prompts` = 45 tokens (BOS + EOS incl.) with `truncation=True`, so a caption longer than that loses its tail with no warning; a "<= 40 words" prompt cap does not bound it (type prefix + 40 words ≈ 47-50 tokens).
+**Bad:** feed free-form VLM captions to `text_encode_fn` and assume the whole sentence is encoded.
+**Good:** count tokens with the model's tokenizer against `CLIP_MAX_TOKENS - n_soft` before training and print the over-budget share and the cut tails (`colab/final/k5_lneg_cap.ipynb` step 5).
+**Rule:** Measure caption token lengths against the soft-prompt budget before any run that encodes free text.
+**Files:** core/models/clip_text.py:76-78 (max_text_tokens), core/models/kat_vad.py:encode_text, colab/final/k5_lneg_cap.ipynb step 5
+**Gates:** recurring? first time; HIGH-impact? no (quality loss, not an exception) -> pending.

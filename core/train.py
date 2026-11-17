@@ -64,6 +64,7 @@ from core.losses.contrastive import (
     ClassContrastLoss,
     caption_rows,
     near_duplicates,
+    same_source_negatives,
     uniq_rows,
 )
 from core.losses.dvs import pseudo_sup_mil_loss, supervised_loss
@@ -507,7 +508,7 @@ class Trainer:
             and loss_cfg.cap_contrastive_weight > 0.0
             and int((cls_idx != 0).sum()) > 0
         ):
-            rows_feats, rows_idx, dup = class_feats, cls_idx, None
+            rows_feats, rows_idx, dup, same_src = class_feats, cls_idx, None, None
             if loss_cfg.cap_contrast_mode == constants.CAP_CONTRAST_MODE_UNIQ:
                 # §28.3: one fixed meaningless target per source video, same loss otherwise
                 sources = [self.dataset.slicer.source_of(v) for v in batch["video_id"]]
@@ -522,12 +523,15 @@ class Trainer:
                 rows_feats = torch.cat([text_feats.new_zeros(1, text_feats.shape[-1]),
                                         text_feats], dim=0)
                 dup = near_duplicates(rows_feats)
+                same_src = same_source_negatives(cls_idx, sources)
             cc = self.class_contrast(
                 outputs["cls_bin_logits"], lengths, outputs["vis_feats"], rows_feats,
                 rows_idx, pseudo, dup=dup,
             )
             if dup is not None:
                 losses["cap_masked_share"] = cc["masked_share"]  # logged, never in `total`
+            if same_src is not None:
+                losses["cap_same_source_neg"] = same_src  # §30.1, logged, never in `total`
             losses["cap_contrastive"] = cc["loss"]
             losses["cap_contrastive_floor"] = cc["floor"]  # logged, never in `total`
             losses["cap_mined"] = cc["mined"]

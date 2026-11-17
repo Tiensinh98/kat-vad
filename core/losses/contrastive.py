@@ -313,6 +313,20 @@ def caption_rows(
     return texts, idx
 
 
+def same_source_negatives(cls_idx: Tensor, sources: list[str]) -> Tensor:
+    """§30.1 (logged only): normal items whose source also has an abnormal item in the batch.
+
+    Such a window is a negative column of its own video's caption row (kept on purpose, the
+    same-scene hard negative). Mined parts are not counted: they are same-source by design.
+    """
+    if len(sources) != len(cls_idx):
+        raise ValueError(f"{len(sources)} source ids for {len(cls_idx)} items")
+    labels = cls_idx.tolist()
+    abnormal = {src for c, src in zip(labels, sources, strict=True) if c != 0}
+    count = sum(1 for c, src in zip(labels, sources, strict=True) if c == 0 and src in abnormal)
+    return torch.tensor(float(count), device=cls_idx.device)
+
+
 def near_duplicates(row_feats: Tensor, threshold: float = constants.LNEG_CAPTION_DUP_COS) -> Tensor:
     """§30.1: ``(R+1, R+1)`` bool, True where two different rows' text cosine >= threshold.
 
@@ -334,6 +348,7 @@ __all__ = [
     "class_infonce_loss",
     "near_duplicates",
     "normalize_caption",
+    "same_source_negatives",
     "uniq_rows",
     "unique_target",
 ]

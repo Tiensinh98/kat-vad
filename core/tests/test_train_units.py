@@ -316,7 +316,8 @@ class TestLossGating:
         batch = self._batch(trainer)
         assert int(batch["label"].sum()) > 0
         losses = trainer.compute_losses(batch)
-        for key in ("cap_contrastive", "cap_contrastive_floor", "cap_mined", "cap_masked_share"):
+        for key in ("cap_contrastive", "cap_contrastive_floor", "cap_mined", "cap_masked_share",
+                    "cap_same_source_neg"):
             assert key in losses and torch.isfinite(losses[key]), key
         losses["total"].backward()
 

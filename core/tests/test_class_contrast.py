@@ -15,6 +15,7 @@ from core.losses.contrastive import (
     class_infonce_loss,
     near_duplicates,
     normalize_caption,
+    same_source_negatives,
     uniq_rows,
     unique_target,
 )
@@ -202,6 +203,15 @@ class TestCaptionRows:
     def test_normal_items_need_no_caption(self) -> None:
         texts, idx = caption_rows(torch.tensor([0, 0]), ["zzz", "yyy"], CAPS)
         assert texts == [] and idx.tolist() == [0, 0]
+
+    def test_same_source_negatives_counts_normals_of_present_sources(self) -> None:
+        cls_idx = torch.tensor([1, 1, 0, 0, 0, 2])
+        got = same_source_negatives(cls_idx, ["a", "a", "a", "x", "b", "b"])
+        assert float(got) == 2.0  # the normal of "a" and the normal of "b"; "x" has no accident
+
+    def test_same_source_negatives_length_mismatch_raises(self) -> None:
+        with pytest.raises(ValueError, match="source ids"):
+            same_source_negatives(torch.tensor([1, 0]), ["a"])
 
     def test_near_duplicates_skip_normal_row_and_diagonal(self) -> None:
         feats = torch.tensor([[9.0, 9.0], [1.0, 0.0], [1.0, 0.01], [0.0, 1.0]])
