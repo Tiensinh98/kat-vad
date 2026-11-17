@@ -39,6 +39,7 @@ from torch.optim.lr_scheduler import LambdaLR
 
 from core import constants
 from core.config import Config, load_config
+from core.data.captions import load_caption_manifest
 from core.data.collate import collate_variable_length
 from core.data.dataset import DVSFeatureDataset
 from core.data.definitions import (
@@ -58,7 +59,13 @@ from core.kip.losses import (
     kip_alignment_loss,
     kip_reconstruction_loss,
 )
-from core.losses.contrastive import CapContrastLoss, ClassContrastLoss, uniq_rows
+from core.losses.contrastive import (
+    CapContrastLoss,
+    ClassContrastLoss,
+    caption_rows,
+    near_duplicates,
+    uniq_rows,
+)
 from core.losses.dvs import pseudo_sup_mil_loss, supervised_loss
 from core.losses.mil import (
     abnormal_bottomk_loss,
@@ -242,19 +249,30 @@ class Trainer:
                 f"got {cfg.loss.cap_contrast_mode!r}"
             )
         self.class_contrast: ClassContrastLoss | None = None
-        if cfg.loss.cap_contrast_mode in (constants.CAP_CONTRAST_MODE_CLASS,
-                                          constants.CAP_CONTRAST_MODE_UNIQ):
+        self.captions: dict[str, str] | None = None
+        per_source = (constants.CAP_CONTRAST_MODE_UNIQ, constants.CAP_CONTRAST_MODE_CAPTION)
+        if cfg.loss.cap_contrast_mode in (constants.CAP_CONTRAST_MODE_CLASS, *per_source):
             if cfg.loss.captions_from_definitions:
                 raise ValueError(
                     f"loss.cap_contrast_mode={cfg.loss.cap_contrast_mode} replaces the caption "
                     "path; set loss.captions_from_definitions=false (KIM_RUN.md §28 NL2)"
                 )
-            if (cfg.loss.cap_contrast_mode == constants.CAP_CONTRAST_MODE_UNIQ
-                    and not hasattr(dataset, "slicer")):
-                raise ValueError("loss.cap_contrast_mode=uniq needs a dataset with a window "
-                                 "slicer to map items to source videos (KIM_RUN.md §28.3)")
+            if cfg.loss.cap_contrast_mode in per_source and not hasattr(dataset, "slicer"):
+                raise ValueError(f"loss.cap_contrast_mode={cfg.loss.cap_contrast_mode} needs a "
+                                 "dataset with a window slicer to map items to source videos "
+                                 "(KIM_RUN.md §28.3, §30)")
+            cosine_temp = constants.LNEG_CLASS_TEMP
+            if cfg.loss.cap_contrast_mode == constants.CAP_CONTRAST_MODE_CAPTION:
+                if not cfg.loss.caption_manifest:
+                    raise ValueError("loss.cap_contrast_mode=caption needs "
+                                     "loss.caption_manifest (KIM_RUN.md §30 C3)")
+                self.captions = load_caption_manifest(Path(cfg.loss.caption_manifest))
+                cosine_temp = constants.LNEG_CAPTION_TEMP
+            elif cfg.loss.caption_manifest:
+                raise ValueError("loss.caption_manifest is read only by "
+                                 "loss.cap_contrast_mode=caption")
             self.class_contrast = ClassContrastLoss(
-                cfg.loss.contrastive_neg_mining, cfg.loss.contrastive_temp
+                cfg.loss.contrastive_neg_mining, cfg.loss.contrastive_temp, cosine_temp
             )
 
         self.stage = cfg.train.stage
@@ -489,16 +507,27 @@ class Trainer:
             and loss_cfg.cap_contrastive_weight > 0.0
             and int((cls_idx != 0).sum()) > 0
         ):
-            rows_feats, rows_idx = class_feats, cls_idx
+            rows_feats, rows_idx, dup = class_feats, cls_idx, None
             if loss_cfg.cap_contrast_mode == constants.CAP_CONTRAST_MODE_UNIQ:
                 # §28.3: one fixed meaningless target per source video, same loss otherwise
                 sources = [self.dataset.slicer.source_of(v) for v in batch["video_id"]]
                 targets, rows_idx = uniq_rows(cls_idx, sources, class_feats.shape[-1])
                 rows_feats = targets.to(class_feats.dtype)
+            elif loss_cfg.cap_contrast_mode == constants.CAP_CONTRAST_MODE_CAPTION:
+                # §30: one row per source caption (DVS: the anchor's, video_id = anchor);
+                # §30.1: identical captions share a row, near-duplicates are masked
+                sources = [self.dataset.slicer.source_of(v) for v in batch["video_id"]]
+                texts, rows_idx = caption_rows(cls_idx, sources, self.captions or {})
+                text_feats = self.text_encode_fn(texts)
+                rows_feats = torch.cat([text_feats.new_zeros(1, text_feats.shape[-1]),
+                                        text_feats], dim=0)
+                dup = near_duplicates(rows_feats)
             cc = self.class_contrast(
                 outputs["cls_bin_logits"], lengths, outputs["vis_feats"], rows_feats,
-                rows_idx, pseudo,
+                rows_idx, pseudo, dup=dup,
             )
+            if dup is not None:
+                losses["cap_masked_share"] = cc["masked_share"]  # logged, never in `total`
             losses["cap_contrastive"] = cc["loss"]
             losses["cap_contrastive_floor"] = cc["floor"]  # logged, never in `total`
             losses["cap_mined"] = cc["mined"]

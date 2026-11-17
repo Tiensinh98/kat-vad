@@ -1788,3 +1788,16 @@ Windows of one source already share one row and are its positives (`uniq_rows` m
 | Otherwise | negative, as §30 C2 |
 
 0.95 is a round number chosen by the user before any number, not tuned. Printed before training (after QC passes): the cross-source caption-cosine histogram, the merged-row count, and per batch in `metrics.jsonl` the masked share. If more than 20 % of cross-source pairs are masked, Claude reports it to the user before training; the threshold is not changed. Build: an optional ignore mask on `class_infonce_loss` (default `None`, so §28 / §28.3 are unchanged).
+
+### 30.2 Captions generated, QC waived; §30 built (dated note 2026-11-17, before any §30 number; user)
+
+**Captions.** The user ran all 451 `nexar_train` positives with the last dev setting: Qwen2.5-VL-72B-Instruct NF4, 32 frames at 700 × 392, prompt v6 `4d213779` (three types, the 70 % rule). Dev round 7 read `type_ok` 7 / 10 (contact recall 4 / 5, one false contact on 00715). **The user waived CP6'' (the 30-video QC) and C3's QC clause.** Every §30 number carries "captions not QC-rated; dev `type_ok` 7 / 10 below the freeze bar"; the manifest is still checked for its `nexar_train` binding (`core/data/captions.py`) and for covering every source with a positive window (runbook step 5).
+
+**Built** (`train.py` blast radius HIGH, grep-based; the codebase-memory MCP is not available in this environment):
+- `loss.cap_contrast_mode=caption` + `loss.caption_manifest`; `ClassContrastLoss` at cosine / `LNEG_CAPTION_TEMP` = 0.02. Rows = the CLIP text features of the batch's captions, encoded each step through `text_encode_fn` (as the class form's texts). A DVS item's `video_id` is its anchor, so a synthesized abnormal bag takes the anchor's caption (C2).
+- §30.1: `caption_rows` merges normalized-identical captions into one row; `near_duplicates` marks rows with text cosine ≥ 0.95, and `class_infonce_loss(ignore=...)` drops those columns from the softmax and from the label-smoothing mass (equal to the unmasked loss when nothing is masked, tested). `cap_masked_share` is logged per batch; the runbook warns above 0.20.
+- `core/tools/k5_lneg_cap_report.py`: the C5 contrasts, the interaction I per item over the items all four rows scored (cluster bootstrap, DoTA by source video), C6 and C7, false alarms on `nexar_val` negatives printed.
+- Runbook `colab/final/k5_lneg_cap.ipynb`: trains K5c and K5dc (K5dc with the KNN cache, as K5d), reads K5d, K5c, K5dc on DoTA-CAP-dev, DADA, TAD, DAD and `nexar_val` with the current code (K5d's reads are redone here so all three rows share one eval path), then the report.
+- **Not built (C8, printed items dropped):** P2 feature diversity and the per-frame curves. Detection at matched FA and the scene split are not in the report; the false-alarm share is.
+
+Tests: `test_class_contrast.py` (caption rows, merge, near-duplicates, masked InfoNCE, `dup` in the loss), `test_train_units.py` (caption mode terms, merge, missing manifest, manifest without caption mode; the RNG-stream test now covers the caption mode), `test_k5_lneg_cap_report.py`. Not run in this environment (no torch); the runbook's step 4 runs them and raises if red.

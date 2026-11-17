@@ -9,6 +9,7 @@ baseline training loop).
 from __future__ import annotations
 
 import hashlib
+import re
 
 import torch
 import torch.nn.functional as F  # noqa: N812
@@ -110,6 +111,7 @@ def class_infonce_loss(
     row_class: Tensor,
     col_class: Tensor,
     label_smoothing: float = constants.CONTRASTIVE_LABEL_SMOOTHING,
+    ignore: Tensor | None = None,
 ) -> tuple[Tensor, Tensor]:
     """Soft-target InfoNCE whose positives are every column of the row's class.
 
@@ -124,9 +126,31 @@ def class_infonce_loss(
     if bool((counts == 0).any()):
         raise ValueError("class_infonce_loss: a row has no positive column")
     target = pos / counts
+    if ignore is not None:
+        return _masked_infonce(sim, target, pos.bool(), ignore, label_smoothing)
     loss = F.cross_entropy(sim, target, label_smoothing=label_smoothing)
     smoothed = (1.0 - label_smoothing) * target + label_smoothing / sim.shape[1]
     floor = -(smoothed * smoothed.clamp_min(torch.finfo(sim.dtype).tiny).log()).sum(1).mean()
+    return loss, floor.detach()
+
+
+def _masked_infonce(
+    sim: Tensor, target: Tensor, pos: Tensor, ignore: Tensor, label_smoothing: float
+) -> tuple[Tensor, Tensor]:
+    """``class_infonce_loss`` with ``ignore (K, N)`` columns left out of each row (§30.1).
+
+    An ignored column is neither positive nor negative: it is dropped from the softmax and
+    from the label-smoothing mass. With no column ignored it equals ``F.cross_entropy``.
+    """
+    if bool((ignore & pos).any()):
+        raise ValueError("class_infonce_loss: a positive column is also ignored")
+    valid = ~ignore
+    logp = torch.log_softmax(sim.masked_fill(ignore, float("-inf")), dim=1)
+    n_valid = valid.sum(dim=1, keepdim=True).to(sim.dtype)
+    smoothed = (1.0 - label_smoothing) * target + label_smoothing * valid.to(sim.dtype) / n_valid
+    loss = -(smoothed * logp.masked_fill(ignore, 0.0)).sum(dim=1).mean()
+    tiny = torch.finfo(sim.dtype).tiny
+    floor = -(smoothed * smoothed.clamp_min(tiny).log()).sum(dim=1).mean()
     return loss, floor.detach()
 
 
@@ -177,11 +201,15 @@ class ClassContrastLoss(nn.Module):
         class_feats: Tensor,
         cls_idx: Tensor,
         pseudo_frame_label: Tensor,
+        dup: Tensor | None = None,
     ) -> dict[str, Tensor]:
         """``logits (B, T)`` pre-sigmoid, ``v_feats (B, T, E)``, ``class_feats (C, E)`` with
         row 0 = Normal, ``cls_idx (B,)`` with 0 = normal, ``pseudo_frame_label (B, T)``.
+        ``dup (C, C)`` bool, optional (§30.1): ``dup[r, c]`` drops the columns of row ``c``
+        from row ``r``'s softmax (near-duplicate captions); row / column 0 must be False.
 
-        Returns ``loss``, ``floor`` and ``mined`` (number of mined columns, detached).
+        Returns ``loss``, ``floor``, ``mined`` (number of mined columns, detached) and
+        ``masked_share`` (share of other-row abnormal columns dropped by ``dup``; 0 without).
         """
         present = torch.unique(cls_idx[cls_idx != 0])
         if present.numel() == 0:
@@ -199,12 +227,20 @@ class ClassContrastLoss(nn.Module):
             col_class = torch.cat([cls_idx, cls_idx.new_zeros(len(mined))])
         rows = F.normalize(class_feats[present], dim=-1)
         sim = rows @ F.normalize(cols, dim=-1).T / self.cosine_temp  # (K, N)
-        loss, floor = class_infonce_loss(sim, present, col_class)
+        ignore = dup[present][:, col_class] if dup is not None else None
+        loss, floor = class_infonce_loss(sim, present, col_class, ignore=ignore)
         if present.numel() > 1:  # video -> text only when the texts can be told apart
             ano = torch.where(cls_idx != 0)[0]
-            v2t, v2t_floor = class_infonce_loss(sim[:, ano].T, cls_idx[ano], present)
+            v2t_ignore = dup[cls_idx[ano]][:, present] if dup is not None else None
+            v2t, v2t_floor = class_infonce_loss(sim[:, ano].T, cls_idx[ano], present,
+                                                ignore=v2t_ignore)
             loss, floor = (loss + v2t) / 2, (floor + v2t_floor) / 2
-        return {"loss": loss, "floor": floor,
+        masked = torch.zeros((), device=logits.device)
+        if ignore is not None:
+            other = (col_class[None, :] != 0) & (col_class[None, :] != present[:, None])
+            if bool(other.any()):
+                masked = (ignore & other).sum().to(sim.dtype) / other.sum()
+        return {"loss": loss, "floor": floor, "masked_share": masked.detach(),
                 "mined": torch.tensor(float(len(mined)), device=logits.device)}
 
 
@@ -240,11 +276,64 @@ def uniq_rows(cls_idx: Tensor, sources: list[str], dim: int) -> tuple[Tensor, Te
     return targets.to(cls_idx.device), idx
 
 
+CAPTION_SPACE = re.compile(r"\s+")
+CAPTION_PUNCT = re.compile(r"[^\w\s-]")
+
+
+def normalize_caption(text: str) -> str:
+    """§30.1: lower case, punctuation and repeated spaces removed (merges identical captions)."""
+    return CAPTION_SPACE.sub(" ", CAPTION_PUNCT.sub("", text.lower())).strip()
+
+
+def caption_rows(
+    cls_idx: Tensor, sources: list[str], captions: dict[str, str]
+) -> tuple[list[str], Tensor]:
+    """§30: ``(texts, idx)`` that make :class:`ClassContrastLoss` per caption.
+
+    ``texts`` = the caption of each row 1..R, in first-seen order; abnormal windows whose
+    sources share one normalized caption (one source, or identical captions, §30.1) share a
+    row. ``idx (B,)``: 0 for a normal item, else its row. A source without a caption raises.
+    """
+    if len(sources) != len(cls_idx):
+        raise ValueError(f"{len(sources)} source ids for {len(cls_idx)} items")
+    order: dict[str, int] = {}
+    texts: list[str] = []
+    idx = torch.zeros_like(cls_idx)
+    for b, (c, src) in enumerate(zip(cls_idx.tolist(), sources, strict=True)):
+        if c == 0:
+            continue
+        if src not in captions:
+            raise KeyError(f"source video {src!r} has an accident window but no caption "
+                           "(KIM_RUN.md §30 C3)")
+        key = normalize_caption(captions[src])
+        if key not in order:
+            order[key] = len(order) + 1
+            texts.append(captions[src])
+        idx[b] = order[key]
+    return texts, idx
+
+
+def near_duplicates(row_feats: Tensor, threshold: float = constants.LNEG_CAPTION_DUP_COS) -> Tensor:
+    """§30.1: ``(R+1, R+1)`` bool, True where two different rows' text cosine >= threshold.
+
+    Row 0 (Normal placeholder) and the diagonal are never duplicates.
+    """
+    unit = F.normalize(row_feats.detach().float(), dim=-1)
+    dup = (unit @ unit.T) >= threshold
+    dup.fill_diagonal_(False)
+    dup[0, :] = False
+    dup[:, 0] = False
+    return dup
+
+
 __all__ = [
     "CapContrastLoss",
     "ClassContrastLoss",
     "asymmetric_infonce_loss",
+    "caption_rows",
     "class_infonce_loss",
+    "near_duplicates",
+    "normalize_caption",
     "uniq_rows",
     "unique_target",
 ]

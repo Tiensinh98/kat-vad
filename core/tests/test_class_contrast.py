@@ -11,7 +11,10 @@ from core.losses.contrastive import (
     CONTRAST_TYPE_VANILLA,
     ClassContrastLoss,
     asymmetric_infonce_loss,
+    caption_rows,
     class_infonce_loss,
+    near_duplicates,
+    normalize_caption,
     uniq_rows,
     unique_target,
 )
@@ -174,3 +177,74 @@ class TestUniqTargets:
             b["logits"], b["lengths"], b["v_feats"], targets[[0, 1, 1]],
             torch.tensor([1, 1, 0]), b["pseudo_frame_label"])
         assert torch.isfinite(out["loss"]) and not torch.isclose(out["loss"], same["loss"])
+
+
+CAPS = {"a": "Collision: a van scrapes the door.", "b": "collision: a van scrapes the door",
+        "c": "Accident: a truck is rear-ended."}
+
+
+class TestCaptionRows:
+    """§30 / §30.1: per-caption rows, merged identical captions, masked near-duplicates."""
+
+    def test_rows_group_one_source_and_identical_captions(self) -> None:
+        texts, idx = caption_rows(torch.tensor([1, 1, 0, 1, 1]), ["a", "a", "x", "b", "c"],
+                                  CAPS)
+        assert texts == [CAPS["a"], CAPS["c"]]
+        assert idx.tolist() == [1, 1, 0, 1, 2]  # a and b normalize to one caption
+
+    def test_normalize(self) -> None:
+        assert normalize_caption("  Collision:  A van,  scrapes!") == "collision a van scrapes"
+
+    def test_missing_caption_raises(self) -> None:
+        with pytest.raises(KeyError, match="no caption"):
+            caption_rows(torch.tensor([1]), ["zzz"], CAPS)
+
+    def test_normal_items_need_no_caption(self) -> None:
+        texts, idx = caption_rows(torch.tensor([0, 0]), ["zzz", "yyy"], CAPS)
+        assert texts == [] and idx.tolist() == [0, 0]
+
+    def test_near_duplicates_skip_normal_row_and_diagonal(self) -> None:
+        feats = torch.tensor([[9.0, 9.0], [1.0, 0.0], [1.0, 0.01], [0.0, 1.0]])
+        dup = near_duplicates(feats)
+        assert dup.tolist() == [[False, False, False, False], [False, False, True, False],
+                                [False, True, False, False], [False, False, False, False]]
+
+
+class TestMaskedInfonce:
+    def test_no_ignored_column_equals_cross_entropy(self) -> None:
+        sim = torch.randn(3, 7, generator=torch.Generator().manual_seed(1))
+        rows, cols = torch.tensor([1, 2, 3]), torch.tensor([1, 2, 3, 0, 0, 1, 2])
+        ref, ref_floor = class_infonce_loss(sim, rows, cols)
+        none = torch.zeros(3, 7, dtype=torch.bool)
+        got, got_floor = class_infonce_loss(sim, rows, cols, ignore=none)
+        torch.testing.assert_close(got, ref)
+        torch.testing.assert_close(got_floor, ref_floor)
+
+    def test_ignored_column_does_not_move_the_loss(self) -> None:
+        sim = torch.randn(2, 4, generator=torch.Generator().manual_seed(2))
+        rows, cols = torch.tensor([1, 2]), torch.tensor([1, 2, 0, 0])
+        ignore = torch.tensor([[False, True, False, False], [True, False, False, False]])
+        a, _ = class_infonce_loss(sim, rows, cols, ignore=ignore)
+        moved = sim.clone()
+        moved[0, 1], moved[1, 0] = 50.0, -50.0
+        b, _ = class_infonce_loss(moved, rows, cols, ignore=ignore)
+        torch.testing.assert_close(a, b)
+
+    def test_ignoring_a_positive_raises(self) -> None:
+        with pytest.raises(ValueError, match="also ignored"):
+            class_infonce_loss(torch.zeros(1, 2), torch.tensor([1]), torch.tensor([1, 0]),
+                               ignore=torch.tensor([[True, False]]))
+
+    def test_dup_masks_the_other_rows_columns(self) -> None:
+        b = _batch([1, 2, 0, 1])
+        b["class_feats"] = torch.randn(3, DIM)
+        dup = torch.zeros(3, 3, dtype=torch.bool)
+        dup[1, 2] = dup[2, 1] = True
+        loss = ClassContrastLoss(cosine_temp=constants.LNEG_CAPTION_TEMP)
+        out = loss(b["logits"], b["lengths"], b["v_feats"], b["class_feats"], b["cls_idx"],
+                   b["pseudo_frame_label"], dup=dup)
+        assert float(out["masked_share"]) == 1.0  # every other-row abnormal column is masked
+        assert torch.isfinite(out["loss"])
+        out["loss"].backward()
+        plain = _call(loss, b)
+        assert float(plain["masked_share"]) == 0.0

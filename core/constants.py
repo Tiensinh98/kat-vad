@@ -274,8 +274,12 @@ CAP_CONTRAST_MODE_BASELINE = "baseline"
 CAP_CONTRAST_MODE_CLASS = "class"
 # KIM_RUN.md §28.3: the class form with one fixed, meaningless unit target per source video
 CAP_CONTRAST_MODE_UNIQ = "uniq"
+CAP_CONTRAST_MODE_CAPTION = "caption"  # §30: one row per source video's §29.3 caption
 CAP_CONTRAST_MODE_CHOICES = (CAP_CONTRAST_MODE_BASELINE, CAP_CONTRAST_MODE_CLASS,
-                             CAP_CONTRAST_MODE_UNIQ)
+                             CAP_CONTRAST_MODE_UNIQ, CAP_CONTRAST_MODE_CAPTION)
+LNEG_CAPTION_TEMP = 0.02  # §30 C2: LaGoVAD's tau (supp. C.2), user 2026-11-17
+LNEG_CAPTION_DUP_COS = 0.95  # §30.1: cross-source caption cosine at or above this is masked
+LNEG_CAPTION_MASK_WARN_SHARE = 0.20  # §30.1: report to the user before training above this
 LNEG_UNIQ_TARGET_SEED = 2024  # §28.3: targets are data, fixed apart from train.seed
 LNEG_CLASS_TEMP = 0.07  # cosine temperature of the class form; CLIP's initial value, not tuned
 PSEUDO_LABEL_IGNORE = -100  # additive mask pushing non-annotated frames out of top-k
@@ -1204,6 +1208,16 @@ KIM_LNEG_UNIQ_SETS = ("nexar", "dota", "dada", "dad")
 KIM_LNEG_UNIQ_B_MIN_BELOW = 3  # B: K5Lnegu - K5 "below" on at least this many of the sets
 KIM_LNEG_UNIQ_B_MAX_ABOVE = 1  # B: and K5Lnegu - K5Lneg "above" on at most this many
 KIM_LNEG_UNIQ_A, KIM_LNEG_UNIQ_B, KIM_LNEG_UNIQ_MIXED = "A", "B", "MIXED"
+# §30: per-video caption L_neg x DVS, 2 x 2 on K5 (K5d = KIM_DVS_ARM, read only)
+KIM_LNEG_CAP_OUTPUT_DIRNAME = "kim_lneg_cap"  # OUTPUT_ROOT/<this>/<row>/{K5/s<seed>, eval}, REPORTS
+KIM_LNEG_CAP_ROW = "K5c"  # K5 + loss.cap_contrast_mode=caption
+KIM_LNEG_CAP_DVS_ROW = "K5dc"  # K5d + loss.cap_contrast_mode=caption
+KIM_LNEG_CAP_REPORT_STEM = "k5_lneg_cap_report"
+KIM_LNEG_CAP_SETS = ("nexar", "dota", "dada", "dad")  # C6 / C7 deciding sets; TAD printed
+KIM_LNEG_CAP_MIN_SETS = 2  # C6: interaction above (or below) on at least this many sets
+KIM_LNEG_CAP_COMPLEMENTARY = "COMPLEMENTARY"
+KIM_LNEG_CAP_ANTAGONISTIC = "ANTAGONISTIC"
+KIM_LNEG_CAP_NO_CLAIM = "NO CLAIM"
 NORMAL_VIDEO_PEAK = 0.5  # a normal video whose peak score passes this counts as a false alarm
 # OUTPUT_ROOT/kim_msad: eval/<row>/<run>/ + REPORTS/ (KIM_RUN.md §18, zero-shot MSAD)
 MSAD_ZS_OUTPUT_DIRNAME = "kim_msad"

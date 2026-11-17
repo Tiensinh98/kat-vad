@@ -107,6 +107,8 @@ class LossConfig:
     # captions_from_definitions); "class" = ClassContrastLoss on the step's class texts,
     # same-class videos positive, no caption branch. Exclusive with captions_from_definitions.
     cap_contrast_mode: str = constants.CAP_CONTRAST_MODE_BASELINE
+    # §30: the §29.3 captions manifest (captions.json) read when cap_contrast_mode=caption
+    caption_manifest: str = ""
     # A11 mitigations (default off = spec-as-written)
     align_subsample: int = 0  # >0: subsample this many positions per video
     align_exclude_window: int = 0  # >0: exclude ±w temporal neighbors as negatives

@@ -204,6 +204,24 @@ def _make_trainer(tmp_path: Path, **cfg_updates: object) -> Trainer:
     )
 
 
+def _caption_manifest(tmp_path: Path, same: bool = False) -> Path:
+    """A §29.3-shaped manifest bound to nexar_train, one caption per fixture train item."""
+    import json
+
+    from core.data.v2_splits import lines_sha1, load_split
+
+    fixture = build_fixture(tmp_path / "fx")
+    ids = json.loads((fixture.data_dir / constants.LABELS_TRAIN_FILENAME).read_text())
+    captions = {v: ("Collision: a car hits the ego vehicle." if same else
+                    f"Collision: car {k} hits the ego vehicle from lane {k}.")
+                for k, v in enumerate(sorted(ids))}
+    path = tmp_path / "captions.json"
+    path.write_text(json.dumps({
+        "captions": captions,
+        "train_ids_sha1": lines_sha1(sorted(load_split(constants.V2_SPLIT_NEXAR_TRAIN)))}))
+    return path
+
+
 class TestLossGating:
     def _batch(self, trainer: Trainer) -> dict[str, object]:
         from core.data.collate import collate_variable_length
@@ -265,8 +283,10 @@ class TestLossGating:
         """No extra verbalizer draw: the RNG state after a step equals the baseline path's."""
         states = []
         for mode in constants.CAP_CONTRAST_MODE_CHOICES:
+            extra = ({"loss__caption_manifest": str(_caption_manifest(tmp_path / mode))}
+                     if mode == constants.CAP_CONTRAST_MODE_CAPTION else {})
             trainer = _make_trainer(tmp_path / mode, kip__enabled=False,
-                                    loss__cap_contrast_mode=mode)
+                                    loss__cap_contrast_mode=mode, **extra)
             trainer.compute_losses(self._batch(trainer))
             states.append(trainer.verbalizer._rng.getstate())
         assert all(state == states[0] for state in states)
@@ -285,6 +305,37 @@ class TestLossGating:
             losses["total"].backward()
             got[mode] = float(losses["cap_contrastive"])
         assert got[constants.CAP_CONTRAST_MODE_CLASS] != got[constants.CAP_CONTRAST_MODE_UNIQ]
+
+    def test_caption_lneg_uses_per_source_captions(self, tmp_path: Path) -> None:
+        """§30: same term keys as uniq plus the masked share; distinct captions mask nothing."""
+        trainer = _make_trainer(tmp_path, kip__enabled=False, dvs__theta=1.0, dvs__theta_ego=1.0,
+                                loss__cap_contrast_mode=constants.CAP_CONTRAST_MODE_CAPTION,
+                                loss__caption_manifest=str(_caption_manifest(tmp_path)))
+        assert trainer.class_contrast is not None
+        assert trainer.class_contrast.cosine_temp == constants.LNEG_CAPTION_TEMP
+        batch = self._batch(trainer)
+        assert int(batch["label"].sum()) > 0
+        losses = trainer.compute_losses(batch)
+        for key in ("cap_contrastive", "cap_contrastive_floor", "cap_mined", "cap_masked_share"):
+            assert key in losses and torch.isfinite(losses[key]), key
+        losses["total"].backward()
+
+    def test_caption_lneg_merges_identical_captions(self, tmp_path: Path) -> None:
+        """§30.1: one shared caption = one row, so nothing is left to mask."""
+        trainer = _make_trainer(tmp_path, kip__enabled=False, dvs__theta=1.0, dvs__theta_ego=1.0,
+                                loss__cap_contrast_mode=constants.CAP_CONTRAST_MODE_CAPTION,
+                                loss__caption_manifest=str(_caption_manifest(tmp_path, True)))
+        losses = trainer.compute_losses(self._batch(trainer))
+        assert float(losses["cap_masked_share"]) == 0.0
+
+    def test_caption_lneg_needs_a_manifest(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="caption_manifest"):
+            _make_trainer(tmp_path, loss__cap_contrast_mode=constants.CAP_CONTRAST_MODE_CAPTION)
+
+    def test_manifest_without_caption_mode_raises(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="read only by"):
+            _make_trainer(tmp_path, loss__cap_contrast_mode=constants.CAP_CONTRAST_MODE_UNIQ,
+                          loss__caption_manifest=str(_caption_manifest(tmp_path)))
 
     def test_uniq_lneg_refuses_the_caption_path(self, tmp_path: Path) -> None:
         with pytest.raises(ValueError, match="captions_from_definitions"):
