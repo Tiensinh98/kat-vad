@@ -1,4 +1,4 @@
-"""One caption per Nexar accident event with Qwen2.5-VL-7B (``core/docs/final/KIM_RUN.md`` §29).
+"""One caption per Nexar event with Qwen2.5-VL (``core/docs/final/KIM_RUN.md`` §29, §29.3).
 
 A data artifact for option C; nothing here trains. For each positive ``nexar_train`` video the
 window ``[t_event - NEXAR_CAPTION_PRE_EVENT_S, t_event + NEXAR_POST_EVENT_S]`` (§29.2 CP2'; not
@@ -11,15 +11,18 @@ Subcommands::
 
     python -m core.tools.nexar_caption run --raw-root data/Nexar/raw \\
         --census outputs/v2/REPORTS/nexar_n0/census.json --revision <sha> \\
-        --out-dir outputs/nexar_captions [--limit 3]
+        --out-dir outputs/nexar_captions_v2 [--subset dev | --limit 3] [--quant nf4]
     python -m core.tools.nexar_caption qc --raw-root data/Nexar/raw \\
         --census outputs/v2/REPORTS/nexar_n0/census.json --out-dir outputs/nexar_captions
     python -m core.tools.nexar_caption qc-score --out-dir outputs/nexar_captions
 
-``qc`` draws ``NEXAR_CAPTION_QC_SAMPLE`` videos (seed ``NEXAR_CAPTION_QC_SEED``), writes one
-contact sheet per video and ``qc/qc_ratings.csv`` with an empty ``score`` column for the user;
-``qc-score`` applies §29.1 CP6' (LaGoVAD Tab. B 1-5 scale, pass iff the mean is at least
-``NEXAR_CAPTION_QC_MIN_MEAN``). The prompt is LaGoVAD's constrained annotation prompt (CP4').
+``run --subset dev`` captions only the ``NEXAR_CAPTION_DEV_SAMPLE`` dev videos into
+``dev/<prompt sha1[:8]>/`` with contact sheets: the only place the prompt may be tuned (§29.3).
+``qc`` draws ``NEXAR_CAPTION_QC_SAMPLE`` videos (seed ``NEXAR_CAPTION_QC_SEED``) from the
+positives outside the dev set and outside every earlier QC draw, writes one contact sheet per
+video and ``qc/qc_ratings.csv`` with an empty ``score`` column (and optional ``type_ok`` /
+``roles_ok``, y or n) for the user; ``qc-score`` applies CP6' (LaGoVAD Tab. B 1-5 scale, pass iff
+the mean is at least ``NEXAR_CAPTION_QC_MIN_MEAN``) and prints the two shares.
 """
 
 from __future__ import annotations
@@ -40,7 +43,7 @@ import av
 import numpy as np
 import torch
 from PIL import Image
-from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
+from transformers import AutoProcessor, BitsAndBytesConfig, Qwen2_5_VLForConditionalGeneration
 
 from core import constants
 from core.data.v2_splits import lines_sha1, load_split
@@ -56,6 +59,11 @@ QC_RATINGS_FILENAME = "qc_ratings.csv"
 QC_SUMMARY_FILENAME = "qc_summary.json"
 QC_SHEET_FILENAME = "qc_sheet.md"
 QC_SCORE_COLUMN = "score"
+QC_FLAG_COLUMNS = ("type_ok", "roles_ok")  # §29.3: optional y / n, printed, never decide
+QC_FLAG_VALUES = {"y": True, "n": False}
+DEV_DIRNAME = "dev"
+SUBSET_ALL, SUBSET_DEV = "all", "dev"
+PROMPT_TAG_CHARS = 8
 # LaGoVAD supp. Tab. B, verbatim: the scale the user rates on (CP6')
 QC_CRITERIA = {
     5: "The text fully matches the video content, providing an accurate, complete, and natural "
@@ -69,8 +77,8 @@ QC_CRITERIA = {
     1: "The text does not match the video content at all and fails to reflect the actual video.",
 }
 REFUSED_REVISIONS = ("", "main", "master")
-IDENTITY_KEYS = ("model", "revision", "prompt_sha1", "frames", "size", "max_new_tokens",
-                 "pre_event_s", "post_event_s")
+IDENTITY_KEYS = ("model", "revision", "quant", "prompt_sha1", "frames", "size",
+                 "max_new_tokens", "pre_event_s", "post_event_s")
 WORD = re.compile(r"[a-z]+")
 
 Captioner = Callable[[np.ndarray, float], str]
@@ -145,19 +153,31 @@ def clean_caption(text: str) -> str:
     return lines[0]
 
 
+def event_type(caption: str) -> str:
+    """§29.3: the type the caption opens with (``Accident: ...``); anything else is unknown."""
+    head = caption.split(":", 1)[0].strip().lower() if ":" in caption else ""
+    known = head in constants.NEXAR_CAPTION_EVENT_TYPES
+    return head if known else constants.NEXAR_CAPTION_EVENT_UNKNOWN
+
+
 def forbidden_terms(caption: str) -> list[str]:
     """CP6: the scene words a caption still names."""
     words = set(WORD.findall(caption.lower()))
     return sorted(words & set(constants.NEXAR_CAPTION_FORBIDDEN))
 
 
-def identity(model: str, revision: str, prompt: str) -> dict[str, Any]:
+def identity(model: str, revision: str, prompt: str,
+             quant: str = constants.NEXAR_CAPTION_QUANT) -> dict[str, Any]:
     """What makes two captions comparable; a record that differs is refused (CP5)."""
     if revision.strip().lower() in REFUSED_REVISIONS:
         raise ValueError(f"pin a model revision (a commit sha), not {revision!r} (C4)")
+    if quant not in constants.NEXAR_CAPTION_QUANT_CHOICES:
+        raise ValueError(f"quant must be one of {constants.NEXAR_CAPTION_QUANT_CHOICES}, "
+                         f"got {quant!r}")
     return {
         "model": model,
         "revision": revision,
+        "quant": quant,
         "prompt_sha1": hashlib.sha1(prompt.encode("utf-8"), usedforsecurity=False).hexdigest(),
         "frames": constants.NEXAR_CAPTION_FRAMES,
         "size": list(constants.NEXAR_CAPTION_SIZE),
@@ -180,16 +200,21 @@ def load_record(path: Path, ident: dict[str, Any]) -> dict[str, Any] | None:
 
 # --------------------------------------------------------------------------- model
 class QwenCaptioner:
-    """Qwen2.5-VL-7B-Instruct, bf16, greedy; ``(frames, fps) -> caption text``."""
+    """Qwen2.5-VL-Instruct, bf16 or 4-bit NF4 (bf16 compute), greedy; ``(frames, fps) -> text``."""
 
-    def __init__(self, model: str, revision: str, prompt: str, device: torch.device) -> None:
+    def __init__(self, model: str, revision: str, prompt: str, device: torch.device,
+                 quant: str = constants.NEXAR_CAPTION_QUANT) -> None:
         self.device = device
         self.prompt = prompt
         self.processor = AutoProcessor.from_pretrained(model, revision=revision)
+        quant_config = (BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type="nf4",
+                                           bnb_4bit_compute_dtype=torch.bfloat16,
+                                           bnb_4bit_use_double_quant=True)
+                        if quant == constants.NEXAR_CAPTION_QUANT_NF4 else None)
         self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             model, revision=revision, torch_dtype=torch.bfloat16, attn_implementation="sdpa",
-            use_safetensors=True,
-        ).to(device).eval()
+            use_safetensors=True, quantization_config=quant_config, device_map={"": str(device)},
+        ).eval()
         messages = [{"role": "user", "content": [{"type": "video"},
                                                  {"type": "text", "text": prompt}]}]
         self.text = self.processor.apply_chat_template(messages, tokenize=False,
@@ -230,7 +255,7 @@ def caption_videos(raw_root: Path, census: dict[str, Any], out_dir: Path,
             caption = clean_caption(captioner(frames, len(indices) / (end - start)))
             record = {**ident, "video_id": vid, "caption": caption, "frame_indices": indices,
                       "span_s": [start, end], "words": len(caption.split()),
-                      "forbidden": forbidden_terms(caption)}
+                      "event_type": event_type(caption), "forbidden": forbidden_terms(caption)}
             write_json_atomic(path, record)
             made += 1
             LOGGER.info("%d/%d %s (%.1f s/video): %s", n, len(todo), vid,
@@ -265,14 +290,36 @@ def summarize(records: dict[str, dict[str, Any]]) -> dict[str, Any]:
         "words_min": min(words), "words_median": float(np.median(words)), "words_max": max(words),
         "over_max_words": sum(w > constants.NEXAR_CAPTION_MAX_WORDS for w in words),
         "distinct": len({r["caption"] for r in records.values()}),
+        "event_types": {t: sum(event_type(r["caption"]) == t for r in records.values())
+                        for t in (*constants.NEXAR_CAPTION_EVENT_TYPES,
+                                  constants.NEXAR_CAPTION_EVENT_UNKNOWN)},
     }
 
 
 # --------------------------------------------------------------------------- QC
+def _draw(ids: list[str], seed: int, n: int) -> list[str]:
+    rng = random.Random(seed)  # nosec B311 - a fixed, documented draw
+    return sorted(rng.sample(sorted(ids), n))
+
+
+def dev_sample(ids: list[str]) -> list[str]:
+    """§29.3 CP4'': the videos the prompt may be tuned on; never rated in QC."""
+    return _draw(ids, constants.NEXAR_CAPTION_DEV_SEED, constants.NEXAR_CAPTION_DEV_SAMPLE)
+
+
 def qc_sample(ids: list[str]) -> list[str]:
-    """CP6: the seeded draw the user rates."""
-    rng = random.Random(constants.NEXAR_CAPTION_QC_SEED)  # nosec B311 - a fixed QC draw
-    return sorted(rng.sample(sorted(ids), constants.NEXAR_CAPTION_QC_SAMPLE))
+    """CP6'': the seeded draw the user rates, outside the dev set and every earlier QC draw."""
+    seen = set(dev_sample(ids))
+    for seed in constants.NEXAR_CAPTION_QC_SEEN_SEEDS:
+        seen |= set(_draw(ids, seed, constants.NEXAR_CAPTION_QC_SAMPLE))
+    return _draw([v for v in ids if v not in seen], constants.NEXAR_CAPTION_QC_SEED,
+                 constants.NEXAR_CAPTION_QC_SAMPLE)
+
+
+def prompt_tag(prompt: str) -> str:
+    """The dev folder of one prompt version: its sha1 prefix."""
+    digest = hashlib.sha1(prompt.encode("utf-8"), usedforsecurity=False).hexdigest()
+    return digest[:PROMPT_TAG_CHARS]
 
 
 def contact_sheet(frames: np.ndarray, columns: int = 4) -> Image.Image:
@@ -285,31 +332,44 @@ def contact_sheet(frames: np.ndarray, columns: int = 4) -> Image.Image:
     return sheet
 
 
-def write_qc(raw_root: Path, census: dict[str, Any], out_dir: Path) -> dict[str, Any]:
-    """Contact sheets + ratings template for the user; refuses an incomplete caption set."""
-    manifest = json.loads((out_dir / MANIFEST_FILENAME).read_text(encoding="utf-8"))
-    rows, sample = census["videos"], qc_sample(list(manifest["captions"]))
-    qc_dir = out_dir / QC_DIRNAME
-    qc_dir.mkdir(parents=True, exist_ok=True)
-    lines = ["# Nexar caption QC (§29.1 CP6')", "",
+def write_sheet(raw_root: Path, census: dict[str, Any], captions_dir: Path, sheet_dir: Path,
+                sample: list[str], title: str) -> None:
+    """Contact sheets + ratings csv + a markdown sheet of ``sample`` for the user."""
+    rows = census["videos"]
+    sheet_dir.mkdir(parents=True, exist_ok=True)
+    lines = [f"# {title}", "",
              f"Give each caption an integer `{QC_SCORE_COLUMN}` from "
              f"{constants.NEXAR_CAPTION_QC_SCORE_MIN} to {constants.NEXAR_CAPTION_QC_SCORE_MAX} in "
              f"`{QC_RATINGS_FILENAME}` (LaGoVAD Tab. B). Pass iff the mean over the "
-             f"{len(sample)} rows is >= {constants.NEXAR_CAPTION_QC_MIN_MEAN}.", "",
+             f"{len(sample)} rows is >= {constants.NEXAR_CAPTION_QC_MIN_MEAN}. Optional: "
+             f"{' / '.join(f'`{c}`' for c in QC_FLAG_COLUMNS)} = y or n (event type right? roles "
+             "right?), printed only.", "",
              "| score | criteria |", "|---|---|",
              *(f"| {s} | {QC_CRITERIA[s]} |" for s in sorted(QC_CRITERIA, reverse=True)), "",
-             "| # | video | span (s) | caption |", "|---|---|---|---|"]
-    with (qc_dir / QC_RATINGS_FILENAME).open("w", encoding="utf-8", newline="") as fh:
+             "| # | video | span (s) | type | caption |", "|---|---|---|---|---|"]
+    with (sheet_dir / QC_RATINGS_FILENAME).open("w", encoding="utf-8", newline="") as fh:
         writer = csv.writer(fh)
-        writer.writerow(["rank", "video_id", "caption", QC_SCORE_COLUMN])
+        writer.writerow(["rank", "video_id", "event_type", "caption", QC_SCORE_COLUMN,
+                         *QC_FLAG_COLUMNS])
         for rank, vid in enumerate(sample, 1):
-            record = json.loads((out_dir / CAPTIONS_DIRNAME / f"{vid}.json").read_text())
+            record = json.loads((captions_dir / f"{vid}.json").read_text(encoding="utf-8"))
             frames = decode_frames(raw_root / rows[vid]["path"], record["frame_indices"])
-            contact_sheet(frames).save(qc_dir / f"{rank:02d}_{vid}.png")
-            writer.writerow([rank, vid, record["caption"], ""])
+            contact_sheet(frames).save(sheet_dir / f"{rank:02d}_{vid}.png")
+            kind = event_type(record["caption"])
+            blanks = [""] * len(QC_FLAG_COLUMNS)
+            writer.writerow([rank, vid, kind, record["caption"], "", *blanks])
             start, end = record["span_s"]
-            lines.append(f"| {rank} | {vid} | {start:.2f}-{end:.2f} | {record['caption']} |")
-    write_text_atomic(qc_dir / QC_SHEET_FILENAME, "\n".join(lines) + "\n")
+            lines.append(f"| {rank} | {vid} | {start:.2f}-{end:.2f} | {kind} | "
+                         f"{record['caption']} |")
+    write_text_atomic(sheet_dir / QC_SHEET_FILENAME, "\n".join(lines) + "\n")
+
+
+def write_qc(raw_root: Path, census: dict[str, Any], out_dir: Path) -> dict[str, Any]:
+    """Contact sheets + ratings template for the user; refuses an incomplete caption set."""
+    manifest = json.loads((out_dir / MANIFEST_FILENAME).read_text(encoding="utf-8"))
+    sample = qc_sample(list(manifest["captions"]))
+    write_sheet(raw_root, census, out_dir / CAPTIONS_DIRNAME, out_dir / QC_DIRNAME, sample,
+                "Nexar caption QC (§29.3 CP6'')")
     return {"sample": sample, "summary": manifest["summary"]}
 
 
@@ -325,11 +385,19 @@ def score_qc(out_dir: Path) -> dict[str, Any]:
                          f"{constants.NEXAR_CAPTION_QC_SCORE_MAX}: {sorted(bad)[:5]}")
     scores = {v: int(m) for v, m in marks.items()}
     mean = float(np.mean(list(scores.values())))
+    with (out_dir / QC_DIRNAME / QC_RATINGS_FILENAME).open(encoding="utf-8", newline="") as fh:
+        flags = list(csv.DictReader(fh))
+    shares: dict[str, float | None] = {}
+    for column in QC_FLAG_COLUMNS:
+        marked = [QC_FLAG_VALUES[r[column].strip().lower()] for r in flags
+                  if r.get(column, "").strip().lower() in QC_FLAG_VALUES]
+        shares[f"{column}_share"] = float(np.mean(marked)) if marked else None
     result = {"rated": len(scores), "mean": mean, "pass_bar": constants.NEXAR_CAPTION_QC_MIN_MEAN,
               "verdict": "pass" if mean >= constants.NEXAR_CAPTION_QC_MIN_MEAN else "fail",
               "histogram": {s: sum(x == s for x in scores.values()) for s in sorted(QC_CRITERIA)},
               "below_bar": sorted(v for v, s in scores.items()
-                                  if s < constants.NEXAR_CAPTION_QC_MIN_MEAN)}
+                                  if s < constants.NEXAR_CAPTION_QC_MIN_MEAN),
+              **shares}
     write_json_atomic(out_dir / QC_DIRNAME / QC_SUMMARY_FILENAME, result)
     return result
 
@@ -347,6 +415,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     run.add_argument("--revision", required=True, help="model commit sha (never main; C4)")
     run.add_argument("--model", default=constants.NEXAR_CAPTION_MODEL)
     run.add_argument("--limit", type=int, default=None, help="first N videos only (a smoke run)")
+    run.add_argument("--subset", choices=(SUBSET_ALL, SUBSET_DEV), default=SUBSET_ALL,
+                     help="dev = the prompt-tuning videos only, into dev/<prompt sha1[:8]>/")
+    run.add_argument("--quant", choices=constants.NEXAR_CAPTION_QUANT_CHOICES,
+                     default=constants.NEXAR_CAPTION_QUANT)
     run.add_argument("--device", default="auto")
     score = sub.add_parser("qc-score")
     score.add_argument("--out-dir", type=Path, required=True)
@@ -363,10 +435,20 @@ def main(argv: list[str] | None = None) -> None:
     if args.command == "qc":
         LOGGER.info("QC sheets written: %s", write_qc(args.raw_root, census, args.out_dir))
         return
-    ident = identity(args.model, args.revision, constants.NEXAR_CAPTION_PROMPT)
-    captioner = QwenCaptioner(args.model, args.revision, constants.NEXAR_CAPTION_PROMPT,
-                              resolve_device(args.device))
+    prompt = constants.NEXAR_CAPTION_PROMPT
+    ident = identity(args.model, args.revision, prompt, args.quant)
+    captioner = QwenCaptioner(args.model, args.revision, prompt, resolve_device(args.device),
+                              args.quant)
     ids = train_positives(census)
+    if args.subset == SUBSET_DEV:
+        dev_dir = args.out_dir / DEV_DIRNAME / prompt_tag(prompt)
+        write_text_atomic(dev_dir / "prompt.txt", prompt + "\n")
+        dev = dev_sample(ids)
+        caption_videos(args.raw_root, census, dev_dir, ident, captioner, dev)
+        write_sheet(args.raw_root, census, dev_dir / CAPTIONS_DIRNAME, dev_dir, dev,
+                    f"Nexar caption dev set, prompt {prompt_tag(prompt)} (§29.3 CP4'')")
+        LOGGER.info("dev sheet: %s", dev_dir / QC_SHEET_FILENAME)
+        return
     records = caption_videos(args.raw_root, census, args.out_dir, ident, captioner,
                              ids[: args.limit] if args.limit else None)
     if args.limit is None:

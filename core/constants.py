@@ -506,8 +506,13 @@ NEXAR_FPS_ROUND = 1  # decimals when tabulating frame rates
 # D-N1: abnormal = [t_alert, t_event + this]; = median (accident -> abnormal end) of DADA's
 # 1,945 annotated rows at 30 fps (1.40 s), read from the annotation, never from a Nexar score.
 NEXAR_POST_EVENT_S = 1.4
-# Event captions for option C (core/docs/final/KIM_RUN.md §29; core.tools.nexar_caption)
-NEXAR_CAPTION_MODEL = "Qwen/Qwen2.5-VL-7B-Instruct"
+# Event captions for option C (core/docs/final/KIM_RUN.md §29; core.tools.nexar_caption).
+# §29.3 CP3'': Qwen2.5-VL-32B in 4-bit NF4 (bitsandbytes) fits a 40 GB A100 (~19 GB weights)
+NEXAR_CAPTION_MODEL = "Qwen/Qwen2.5-VL-32B-Instruct"
+NEXAR_CAPTION_QUANT_NF4 = "nf4"
+NEXAR_CAPTION_QUANT_NONE = "none"
+NEXAR_CAPTION_QUANT_CHOICES = (NEXAR_CAPTION_QUANT_NF4, NEXAR_CAPTION_QUANT_NONE)
+NEXAR_CAPTION_QUANT = NEXAR_CAPTION_QUANT_NF4
 # CP2' (§29.2): frames evenly spaced over [t_event - PRE, t_event + NEXAR_POST_EVENT_S] (3.4 s);
 # Qwen merges 2 frames per time step, so 16 frames = 8 steps ~0.21 s apart, ~9 before contact
 NEXAR_CAPTION_FRAMES = 16
@@ -525,16 +530,28 @@ NEXAR_CAPTION_QC_SAMPLE = 30  # CP6: videos the user rates
 NEXAR_CAPTION_QC_SCORE_MIN = 1
 NEXAR_CAPTION_QC_SCORE_MAX = 5
 NEXAR_CAPTION_QC_MIN_MEAN = 4.0
-NEXAR_CAPTION_QC_SEED = 2024
-NEXAR_CAPTION_OUTPUT_DIRNAME = "nexar_captions"  # OUTPUT_ROOT/<this>/captions/{id}.json + manifest
-# CP4' (§29.1): LaGoVAD's constrained annotation prompt, verbatim (paper supp. Sec. D), with the
-# PreVAD level-1 label of traffic accidents as {VIDEO LABEL}
-NEXAR_CAPTION_LABEL = "Vehicle Accident"
+# §29.3 CP6'': a fresh QC draw; the §29.1 draw (seed 2024) was read, so it is excluded, and so
+# is the dev set the prompt is tuned on
+NEXAR_CAPTION_QC_SEED = 2026
+NEXAR_CAPTION_QC_SEEN_SEEDS = (2024,)
+NEXAR_CAPTION_DEV_SAMPLE = 10  # §29.3 CP4'': the only videos the prompt may be tuned on
+NEXAR_CAPTION_DEV_SEED = 2027
+NEXAR_CAPTION_OUTPUT_DIRNAME = "nexar_captions_v2"  # §29.3; §29.1's records stay in nexar_captions
+# §29.3 CP4'': dashcam prompt. Nexar positives are collisions or near-collisions (no column tells
+# which), so the caption opens with one event type; the rest is the description L_neg reads
+NEXAR_CAPTION_EVENT_TYPES = ("accident", "near-collision", "dangerous maneuver")
+NEXAR_CAPTION_EVENT_UNKNOWN = "unknown"
 NEXAR_CAPTION_PROMPT = (
-    "You are a helpful video describing assistant. You are good at English communication. "
-    f"Please describe the '{NEXAR_CAPTION_LABEL}' event in the given video in detail in one "
-    "sentence. The description should focus on the incident. Just describe without any other "
-    "output."
+    "This video was recorded by a dashcam mounted behind the windshield of the ego vehicle, "
+    "facing forward. It contains a safety-critical traffic event, which is one of: an accident "
+    "(a collision in which vehicles or road users make contact, including the ego vehicle being "
+    "hit), a near-collision (contact is avoided at the last moment), or a dangerous maneuver "
+    "(a risky action that creates danger without a near-collision). Start your answer with "
+    "exactly one of 'Accident:', 'Near-collision:' or 'Dangerous maneuver:', then describe the "
+    "event in one sentence of at most 40 words: which road users are involved (the ego vehicle, "
+    "cars, trucks, buses, motorcycles, cyclists, pedestrians), what each one does, and from which "
+    "direction. Call the camera car 'the ego vehicle'. Describe only what is visible; do not "
+    "guess. Output only the answer."
 )
 # CP6: printed share of captions that name a scene attribute (the NG5 shortcut; printed only,
 # the prompt no longer forbids them since §29.1)

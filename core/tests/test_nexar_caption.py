@@ -1,4 +1,4 @@
-"""``core.tools.nexar_caption`` (``KIM_RUN.md`` §29) with a fake captioner: no model download."""
+"""``core.tools.nexar_caption`` (``KIM_RUN.md`` §29, §29.3) with a fake captioner: no download."""
 
 from __future__ import annotations
 
@@ -64,7 +64,7 @@ class FakeCaptioner:
     def __call__(self, frames: np.ndarray, fps: float) -> str:
         self.calls += 1
         assert frames.shape == (constants.NEXAR_CAPTION_FRAMES, 252, 448, 3)
-        return f'"The camera car brakes behind a truck ({fps:.2f} fps)."\nextra line'
+        return f'"Near-collision: the ego vehicle brakes behind a truck ({fps:.2f} fps)."\nextra'
 
 
 IDENT = nc.identity(constants.NEXAR_CAPTION_MODEL, "abc123", constants.NEXAR_CAPTION_PROMPT)
@@ -143,8 +143,9 @@ class TestRun:
         records = nc.caption_videos(root / "raw", census, root / "out", IDENT, fake)
         assert sorted(records) == positives and fake.calls == 3
         rec = json.loads((root / "out" / "captions" / f"{positives[0]}.json").read_text())
-        assert rec["caption"].startswith("The camera car") and rec["revision"] == "abc123"
-        assert rec["forbidden"] == []
+        assert rec["caption"].startswith("Near-collision: the ego") and rec["revision"] == "abc123"
+        assert rec["forbidden"] == [] and rec["event_type"] == "near-collision"
+        assert rec["quant"] == constants.NEXAR_CAPTION_QUANT
         assert len(rec["frame_indices"]) == constants.NEXAR_CAPTION_FRAMES
         nc.caption_videos(root / "raw", census, root / "out", IDENT, fake)
         assert fake.calls == 3  # resume: nothing recomputed
@@ -162,6 +163,7 @@ class TestRun:
         records = nc.caption_videos(root / "raw", census, root / "out", IDENT, FakeCaptioner())
         manifest = nc.write_manifest(root / "out", census, IDENT, records)
         assert manifest["videos"] == 3 and manifest["summary"]["distinct"] == 1
+        assert manifest["summary"]["event_types"]["near-collision"] == 3
         assert manifest["train_ids_sha1"] == json.loads(
             (root / "out" / nc.MANIFEST_FILENAME).read_text())["train_ids_sha1"]
         with pytest.raises(ValueError, match="captions for"):
@@ -176,10 +178,28 @@ class TestRun:
 
 
 class TestQc:
-    def test_sheets_and_score(self, setup: tuple[Path, dict[str, Any], list[str]],
-                              monkeypatch: pytest.MonkeyPatch) -> None:
-        root, census, _ = setup
+    @pytest.fixture
+    def many(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+             ) -> tuple[Path, dict[str, Any], list[str]]:
         monkeypatch.setattr(constants, "NEXAR_CAPTION_QC_SAMPLE", 2)
+        monkeypatch.setattr(constants, "NEXAR_CAPTION_DEV_SAMPLE", 2)
+        positives = sorted(load_split(constants.V2_SPLIT_NEXAR_TRAIN))[:8]
+        census = _census(positives)
+        for v in positives:
+            _mp4(tmp_path / "raw" / census["videos"][v]["path"])
+        return tmp_path, census, positives
+
+    def test_qc_draw_avoids_dev_and_earlier_draws(
+            self, many: tuple[Path, dict[str, Any], list[str]]) -> None:
+        _, _, positives = many
+        qc, dev = nc.qc_sample(positives), nc.dev_sample(positives)
+        old = nc._draw(positives, constants.NEXAR_CAPTION_QC_SEEN_SEEDS[0],
+                       constants.NEXAR_CAPTION_QC_SAMPLE)
+        assert len(qc) == 2 and not set(qc) & set(dev) and not set(qc) & set(old)
+        assert qc == nc.qc_sample(list(reversed(positives)))  # order-free
+
+    def test_sheets_and_score(self, many: tuple[Path, dict[str, Any], list[str]]) -> None:
+        root, census, _ = many
         records = nc.caption_videos(root / "raw", census, root / "out", IDENT, FakeCaptioner())
         nc.write_manifest(root / "out", census, IDENT, records)
         qc = nc.write_qc(root / "raw", census, root / "out")
@@ -190,9 +210,10 @@ class TestQc:
         with pytest.raises(ValueError, match="not scored"):
             nc.score_qc(root / "out")
 
-        def rate(a: str, b: str) -> dict[str, Any]:
+        def rate(a: str, b: str, type_ok: tuple[str, str] = ("", "")) -> dict[str, Any]:
             rows = list(csv.DictReader(ratings.open()))
             rows[0][nc.QC_SCORE_COLUMN], rows[1][nc.QC_SCORE_COLUMN] = a, b
+            rows[0]["type_ok"], rows[1]["type_ok"] = type_ok
             with ratings.open("w", newline="") as fh:
                 writer = csv.DictWriter(fh, fieldnames=list(rows[0]))
                 writer.writeheader()
@@ -203,17 +224,39 @@ class TestQc:
             rate("6", "4")  # off the 1-5 scale
         fail = rate("4", "3")  # mean 3.5 < 4.0
         assert (fail["mean"], fail["verdict"], len(fail["below_bar"])) == (3.5, "fail", 1)
-        ok = rate("5", "3")  # mean exactly 4.0 passes
+        assert fail["type_ok_share"] is None and fail["roles_ok_share"] is None
+        ok = rate("5", "3", ("y", "n"))  # mean exactly 4.0 passes
         assert (ok["mean"], ok["verdict"], ok["histogram"][3]) == (4.0, "pass", 1)
+        assert ok["type_ok_share"] == 0.5
 
 
-def test_prompt_is_lagovads_constrained_prompt() -> None:
-    """CP4': LaGoVAD supp. Sec. D's annotation prompt with the Vehicle Accident label."""
-    assert constants.NEXAR_CAPTION_PROMPT == (
-        "You are a helpful video describing assistant. You are good at English communication. "
-        "Please describe the 'Vehicle Accident' event in the given video in detail in one "
-        "sentence. The description should focus on the incident. Just describe without any "
-        "other output.")
+def test_prompt_names_the_ego_vehicle_and_the_event_types() -> None:
+    """§29.3 CP4'': dashcam framing, the three opening types, the 40-word cap."""
+    prompt = constants.NEXAR_CAPTION_PROMPT
+    assert "dashcam" in prompt and "'the ego vehicle'" in prompt and "40 words" in prompt
+    for kind in ("Accident:", "Near-collision:", "Dangerous maneuver:"):
+        assert f"'{kind}'" in prompt
+
+
+class TestEventType:
+    @pytest.mark.parametrize(("caption", "kind"), [
+        ("Accident: the ego vehicle is hit from the left.", "accident"),
+        ("NEAR-COLLISION: a car cuts in.", "near-collision"),
+        ("Dangerous maneuver: a bus swerves.", "dangerous maneuver"),
+        ("The ego vehicle hits a car.", constants.NEXAR_CAPTION_EVENT_UNKNOWN),
+        ("Collision: a car hits a pole.", constants.NEXAR_CAPTION_EVENT_UNKNOWN),
+    ])
+    def test_opening_type(self, caption: str, kind: str) -> None:
+        assert nc.event_type(caption) == kind
+
+    def test_unknown_quant_is_refused(self) -> None:
+        with pytest.raises(ValueError, match="quant must be"):
+            nc.identity(constants.NEXAR_CAPTION_MODEL, "abc123", "p", "int3")
+
+    def test_quant_is_part_of_the_identity(self) -> None:
+        other = nc.identity(constants.NEXAR_CAPTION_MODEL, "abc123",
+                            constants.NEXAR_CAPTION_PROMPT, constants.NEXAR_CAPTION_QUANT_NONE)
+        assert other["quant"] != IDENT["quant"] and "quant" in nc.IDENTITY_KEYS
 
 
 def test_run_requires_a_revision() -> None:

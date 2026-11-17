@@ -1721,3 +1721,44 @@ The fix is chosen from these counts, not from caption wording; the prompt (CP4')
 2.0 s is a round number, not tuned. The caption window is **not** the training label span: D-N1 (`[t_alert, t_event + 1.4 s]`) is untouched and no training input changes. Cost ≈ 2× (estimate ~1.5–2 h on L4, not measured). The three §29.1 smoke records are deleted by the notebook before the new smoke (step 6).
 
 Code: `core/constants.py` (`NEXAR_CAPTION_FRAMES` = 16, `NEXAR_CAPTION_PRE_EVENT_S`), `core/tools/nexar_caption.py` (`event_frame_indices`, `identity`), tests `core/tests/test_nexar_caption.py` (18), runbook `colab/final/nexar_captions.ipynb` (cells 0, 9, 10, 13).
+
+### 29.3 Amendment: stronger captioner, dashcam prompt, fresh QC (dated note 2026-11-17, before any §29.3 caption is generated or read; user)
+
+**Why.** §29.1's Qwen2.5-VL-7B captions failed QC (mean 3.43 < 4.0, §28.2 status). The failures were mostly ego-perspective (cut-ins and rear approaches misread, roles inverted) and denials ("no accident", 9 %), the second partly forced by the prompt's single label `Vehicle Accident`: Nexar positives are collisions **or near-collisions**, and the metadata has no column telling which (`core/data/nexar.py` reads only `time_of_alert` / `time_of_event`). The user asked for a stronger model, a prompt written for dashcam video, and an explicit event type, with "accident" as one of the types (Nexar has real accidents too). The captions feed §30 only.
+
+| Key | Was (§29.1 / §29.2) | Now (§29.3) |
+|---|---|---|
+| CP3'' model | Qwen2.5-VL-7B-Instruct, bf16, L4 | **Qwen2.5-VL-32B-Instruct, 4-bit NF4** (bitsandbytes, double quant, bf16 compute), A100 40 GB (Colab Pro). NF4 rather than the AWQ release: bitsandbytes installs cleanly on Colab and needs no extra kernels. `quant` joins the record identity (CP5) |
+| CP4'' prompt | LaGoVAD's constrained prompt, label `Vehicle Accident`, verbatim | **Dashcam prompt** (`NEXAR_CAPTION_PROMPT`): the camera is on the ego vehicle; the answer **opens with exactly one of `Accident:`, `Near-collision:`, `Dangerous maneuver:`** (definitions in the prompt), then one sentence ≤ 40 words naming the road users, what each does and from which direction; "the ego vehicle" for the camera car; describe only what is visible. The type is parsed (`event_type`; anything else = `unknown`) and printed; the whole text is the caption |
+| CP4'' tuning | none (prompt fixed) | **Only on a 10-video dev set** (seed 2027, `--subset dev`, one folder per prompt sha1). Claude may change the prompt after reading dev captions; the prompt is frozen before step 7, and the 451 run uses one prompt (identity check) |
+| CP6'' QC draw | 30 videos, seed 2024 | **30 videos, seed 2026, drawn from the positives outside the dev set and outside the seed-2024 draw** (those 30 were read). Pass iff the Tab. B mean ≥ 4.0, unchanged. **Printed, never deciding:** `type_ok`, `roles_ok` (y / n per row, optional) and the type histogram |
+| CP5 output | `outputs/nexar_captions/` | **`outputs/nexar_captions_v2/`**; §29.1's records are kept, never mixed |
+
+Unchanged: CP1 (451 `nexar_train` positives), CP2' window (§29.2), greedy decoding, 96 new tokens, Tab. B scale.
+
+**Deviations to state every time a caption is quoted:** not LaGoVAD's prompt (dashcam framing + event type), Qwen2.5-VL-32B NF4 not Qwen2-VL-72B, 16 event-window frames of untrimmed dashcam video, one rater on 30.
+
+**If QC fails:** no prompt change on the QC videos, §30 is not run, and the next step is the user's (Claude-written captions or close option C).
+
+Code: `core/constants.py` (`NEXAR_CAPTION_MODEL`, `NEXAR_CAPTION_QUANT*`, `NEXAR_CAPTION_PROMPT`, `NEXAR_CAPTION_EVENT_TYPES`, `NEXAR_CAPTION_{DEV,QC}_*`, `NEXAR_CAPTION_OUTPUT_DIRNAME`), `core/tools/nexar_caption.py` (`event_type`, `dev_sample`, `qc_sample`, `prompt_tag`, `write_sheet`, `QwenCaptioner(quant)`, `run --subset dev --quant`), tests `core/tests/test_nexar_caption.py`, runbook `colab/final/nexar_captions.ipynb` (A100; step 6 = dev set, STOP).
+
+## 30. K5c / K5dc: per-video caption `L_neg` with and without DVS (dated note 2026-11-17, before any number; user)
+
+**Question.** LaGoVAD Tab. 5 / Tab. G reports that removing `L_neg` or `L_dvs` lowers zero-shot detection. Do the two help K5, and do they **complement** each other (does `L_neg` help more with DVS on)? Read from LaGoVAD Tab. G (Det. Avg., one run, no interval): `L_neg` adds +2.46 with DVS and +2.20 without; DVS adds +2.91 with `L_neg` and +2.65 without; interaction ≈ **+0.26**, i.e. LaGoVAD shows the two as roughly additive. **Gated on §29.3 QC = pass.** Not a reopening of §28 / §28.3: K5 stays the main model unless the user decides otherwise.
+
+| # | Choice | Value |
+|---|---|---|
+| C1 | Arms (2 × 2, s2024) | **K5** (DVS off, no `L_neg`; existing reads) · **K5d** (DVS on as W0, `kim.seam_mask=true`; §12's checkpoint, **inference only**) · **K5c** = K5 + `loss.cap_contrast_mode=caption` · **K5dc** = K5d + `loss.cap_contrast_mode=caption`. Config diff K5c − K5 = K5dc − K5d = the caption keys only (asserted) |
+| C2 | Loss (`caption` mode) | `ClassContrastLoss` as §28.3 with **rows = the CLIP text feature of each source video's §29.3 caption** (full text, type prefix included) in place of `uniq`'s random target: windows of one source share it and are its positives; accident windows of other sources, normal windows and mined parts are negatives; video → text on with ≥ 2 sources. In a DVS-synthesized abnormal bag the caption is the **anchor's**; a synthesized normal bag has none (LaGoVAD's construction). **Similarity = cosine / 0.02** (LaGoVAD's τ, supp. C.2; user, 2026-11-17), weight 1.0. **Captions enter `L_neg` only**: the definition `z` stays the class texts (user, 2026-11-17), so LaGoVAD's random "descriptions as definition" draw is not used |
+| C3 | Caption input | `nexar_captions_v2/captions.json` only, with `qc/qc_summary.json` verdict = pass, its `train_ids_sha1` = the current `nexar_train`, and one identity; anything else raises |
+| C4 | Reads | As §28 NL4 for K5c and K5dc; **K5d is read on `nexar_val` (with `--save-scores`) before §30 trains**, so every cell has the same four sets. `nexar_test` is not touched |
+| C5 | Sentences | Per set, paired per item, 95 % bootstrap, "above / below / not separated", PRELIMINARY (n = 1): **K5c − K5** (`L_neg` alone), **K5d − K5** (DVS alone), **K5dc − K5** (both), **K5dc − K5d** (`L_neg` with DVS), and the **interaction I = (K5dc − K5d) − (K5c − K5)** over the items common to all four |
+| C6 | Verdict on S = Nexar val crops, DoTA-CAP-dev, DADA, DAD (TAD printed) | **COMPLEMENTARY** iff I is "above" on ≥ 2 of S and "below" on none. **ANTAGONISTIC** iff I is "below" on ≥ 2 of S. Otherwise **NO CLAIM** (additive or not separated) |
+| C7 | What may follow | Whatever C6 reads, K5 stays unless **K5dc − K5 is "above" on ≥ 1 of S and "below" on none**: then K5dc is a **candidate** and the user decides (s2025 first). No τ, weight or prompt change after a number (lesson 14) |
+| C8 | Printed, never deciding | §28 NL6 (false alarms on `nexar_val` negatives, detection at matched FA 0.20 / 0.283, scene split), P2 `sep` / `row_cos` vs K5, `kim_anchor_seam_share` vs `kim_seam_share` for the DVS arms, step-1 / last-epoch `cap_contrastive − floor` beside `mil`, the caption type histogram, and LaGoVAD Tab. G's matching cells beside each contrast (direction only) |
+
+**Predictions (written now):** I "not separated" on every set of S → NO CLAIM. K5c − K5 "below" on ≥ 1 set (K5Lneg and K5Lnegu both cost; real captions sit between them). K5dc − K5 not "above" anywhere.
+
+**Limits.** n = 1, and I's interval is about twice a single contrast's. Training corpus Nexar windows, not PreVAD. Captions are not used as definitions (deviation C2). τ = 0.02 here vs 0.07 in §28 / §28.3, so K5c − K5Lnegu differs in two keys and is not read. K5d's start check failed in §12.1 (step-1 `mil` 0.6906 vs W0 0.6944); K5dc − K5d shares K5d's host and draws, so its own start check is K5dc's step-1 `mil` against K5d's, printed.
+
+**Build (after §29.3 passes, with the user's approval of the `train.py` blast radius):** `cap_contrast_mode=caption` (`core/constants.py`, `core/config.py`, `core/train.py`, `core/losses/contrastive.py`), the caption loader with the C3 checks, the anchor caption for synthesized bags (`core/data/synthesis.py` must expose the anchor's source; if it cannot, the build stops and says so), a 2 × 2 report tool with the interaction bootstrap, a runbook. Outputs `Thesis-Final/outputs/kim_lneg_cap/`.
