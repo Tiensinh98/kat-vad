@@ -1,0 +1,54 @@
+{
+  "base": {
+    "checkpoint": "/content/drive/MyDrive/Thesis-Final/outputs/kim/K5/s2024/checkpoint_last.pt",
+    "name": "K5",
+    "step": 1749
+  },
+  "metrics": {
+    "eff_rank": {
+      "base": 135.31439768704095,
+      "delta": 13.585560774452132,
+      "delta_ci95": [
+        12.31259236391799,
+        14.972444507173684
+      ],
+      "delta_median": 12.716026213801797,
+      "new": 148.89995846149307,
+      "share_new_below": 0.0
+    },
+    "row_cos": {
+      "base": 0.7007406972936844,
+      "delta": -0.06880829676571204,
+      "delta_ci95": [
+        -0.07861853763730599,
+        -0.058430112392095855
+      ],
+      "delta_median": -0.07414800953924477,
+      "new": 0.6319324005279723,
+      "share_new_below": 0.8839285714285714
+    },
+    "sep": {
+      "base": 2.6290277711444037,
+      "delta": -1.7257779737387764,
+      "delta_ci95": [
+        -2.0369434032925717,
+        -1.4463740126729723
+      ],
+      "delta_median": -1.2568014866283272,
+      "new": 0.9032497974056272,
+      "share_new_below": 0.9464285714285714
+    }
+  },
+  "new": {
+    "checkpoint": "/content/drive/MyDrive/Thesis-Final/outputs/kim_lneg_uniq/K5/s2024/checkpoint_last.pt",
+    "name": "K5Lnegu",
+    "step": 1749
+  },
+  "positives": 112,
+  "rule": "core/docs/final/KIM_RUN.md \u00a728.2",
+  "seed": 2024,
+  "skipped": {},
+  "split": "nexar_val",
+  "verdict": "NOT SUPPORTED",
+  "videos": 112
+}
