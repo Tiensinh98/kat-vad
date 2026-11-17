@@ -1807,3 +1807,44 @@ Tests: `test_class_contrast.py` (caption rows, merge, near-duplicates, masked In
 - *Token budget.* CLIP text gets 77 − 32 soft prompts = 45 tokens (BOS + EOS included) and the tokenizer truncates silently. §29.1's 7B captions: median 29, 3 / 451 over; v6 allows a type prefix + 40 words (≈ 47–50 tokens), so the 451 v6 captions can lose their tail. Runbook step 5 now prints the over-budget share and the cut tails; the 451 set was not measured locally (it lives on Drive only).
 - *Manifest identity.* The runbook preflight now asserts model = `NEXAR_CAPTION_MODEL`, quant nf4, frames = 32 and `prompt_sha1` = the constants prompt (v6 `4d213779`); before, it only printed them.
 - Tests run locally this time (`.venv` has torch): `test_class_contrast.py`, `test_train_units.py`, `test_k5_lneg_cap_report.py`, 78 passed.
+
+### 30.3 Read-out, s2024 (2026-11-17; raw `outputs/v_final/kim_lneg_cap/` synced) — the verdict does NOT test C2
+
+**Report verdict (as written): C6 COMPLEMENTARY, C7 K5dc candidate = False.** NG4 reproduces (K5 `nexar_val` 0.8981 = §13). Macro / micro (Nexar = val crops; DoTA-CAP-dev, DADA min-max; TAD, DAD raw):
+
+| set | K5 | K5d | K5c | K5dc |
+|---|---|---|---|---|
+| Nexar val | 0.8981 / 0.9000 | 0.8896 / 0.9117 | 0.8116 / 0.8149 | 0.8607 / 0.8861 |
+| DoTA-CAP-dev | 0.8195 / 0.7449 | 0.8124 / 0.7054 | 0.7684 / 0.7427 | 0.7840 / 0.7434 |
+| DADA | 0.7740 / 0.7635 | 0.7713 / 0.7383 | 0.6852 / 0.6908 | 0.7225 / 0.7236 |
+| TAD (printed) | 0.7002 / 0.6781 | 0.7055 / 0.6679 | 0.6729 / 0.6152 | 0.6818 / 0.5966 |
+| DAD | 0.7916 / 0.7050 | 0.7329 / 0.6646 | 0.7408 / 0.7169 | 0.7557 / 0.7108 |
+
+K5c − K5 is "below" on all four deciding sets (−0.051 … −0.089); K5dc − K5 too (−0.036 … −0.052). I is "above" on all four only because K5c costs more than K5dc: **DVS reduces caption `L_neg`'s cost, neither adds**. This is not LaGoVAD Tab. G's pattern (both terms positive, I ≈ +0.26).
+
+**Defect found in the read-out (post-hoc, decides nothing, but voids C2):** a windowed corpus's `meta.json` gives every window its **source's** `class_name` (`core/data/dada.py` window meta, `"class_name": record.class_name`), and `DVSFeatureDataset._class_name` prefers it over the label fallback. In `Nexar_window` every window comes from a positive video, so all 5,622 normal windows carry `CarAccident` → `cls_idx ≠ 0`. Evidence in the logs: `cap_same_source_neg` = 0 on all 1,749 steps of both arms (≈ 2 / batch expected), and `cap_mined` reaches 56 / 64 (mean 34–46 > the ~32 abnormal items per batch). Consequences:
+1. §30's C2 was not run: in-video normal windows were **positives of their own video's caption**, not the same-scene negatives §30.1 describes; only mined parts were negatives. The same holds for §28 K5Lneg (class form: every item one class) and §28.3 K5Lnegu (per source), so those closures rest on the same mis-specified loss.
+2. `L_MIL-align` (`multi_class_mil_loss`) has had a constant target (`CarAccident`) on every T2 and `Nexar_window` item, K5 included. It is identical across the arms compared here, so contrasts are unaffected, but the term has carried no Normal/abnormal signal on these corpora (pending (ac) saw the constant `class_name` and did not connect it to the loss).
+3. `masked_share` falls 0.39 (step 1) → 0.03 (last epoch): the CLIP text path's soft prompts are trained, so §30.1's near-duplicate mask moves with them.
+
+**Licensed:** "With the current label path, caption `L_neg` costs K5 on Nexar val, DoTA-CAP-dev, DADA and DAD at s2024, and DVS reduces that cost. PRELIMINARY (n = 1)." **Not licensed:** "`L_neg` and DVS are complementary", or any claim about §30's C2 design. Figures: `outputs/v_final/kim/REPORTS/figures/train_nexar/<set>/k5_lneg_cap_2x2_s2024/` (`core.tools.zs_curves`, 4 arms, grid + onset + every video; median per-video AUC K5 / K5d / K5c / K5dc: DADA 0.865 / 0.866 / 0.737 / 0.786). Fix: §31 (label-0 items always `Normal`; K5 retrained as K5f).
+
+## 31. K5f: K5 retrained with label-0 items labeled Normal (dated note 2026-11-17, before any number; user)
+
+**Why.** §30.3 found that `DVSFeatureDataset._class_name` returned the window's `meta.json` `class_name`, which a windowed corpus copies from the **source** video. In `Nexar_window` every window comes from a positive video, so all 5,622 normal windows had `cls_label = CarAccident`. K5's `L_MIL-align` (`multi_class_mil_loss`, `mul_weight` 1.0) therefore had a constant target: it ends at 0.0015 in K5's log. The detection path (`mil`, `dvs_sup*`, `kim_mil`) reads `label` and is not affected. The user asked for K5 retrained on the fixed code to get the correct reference.
+
+**Fix (code, not config).** `_class_name` returns `Normal` for every label-0 item, whatever the meta says; label-1 items keep their meta class (`CarAccident`). Test `test_dvs_dataset.py::test_normal_item_is_normal_whatever_meta_says` fails on the old code and passes on the new one. This changes every future run on T2, `Nexar_window` and the other windowed corpora; MSAD / TAD / the DADA archive (unwindowed, normal videos already `Normal`) are unchanged.
+
+| item | K5f |
+|---|---|
+| F1 Row | **K5f** = K5's exact command (`kim.enabled`, `kim.prototypes`, `kim.edge_mask`, DVS off, `Nexar_window`, A2 V2-S bake, s2024, 33 epochs, 1,749 steps). **Config diff to K5 = 0** (asserted); only the code differs. Output `kim_fixed/K5f/` |
+| F2 Start check | step-1 `mil` equal to K5's within `KIM_START_TOL` (same init, data and forward); step-1 `mul_mil` differs (the target changed). Printed |
+| F3 Fix check | K5f's last-epoch `mul_mil` above `KIM_FIXED_MUL_MIL_FLOOR` = 0.01 (K5: 0.0015). Printed; below it flags the run to Claude |
+| F4 Reads | DoTA-CAP-dev (protocol B), DADA whole, TAD, DAD, `nexar_val` crops + whole, with K5's protocols and bakes; macro and micro on all four zero-shot sets (`zs_arm_table`, control K5) |
+| F5 Status | **No adoption rule: by the user's instruction K5f replaces K5 as the corrected reference whatever the sign.** K5f − K5 is printed for the record (what the mislabel cost or bought), n = 1, "not separated" if the interval spans 0 |
+
+**Not decided here:** re-running the §28 / §30 `L_neg` arms on the fixed code (they now have true normal columns), K5d, K5neg / K5nc2, W0 and the T2 line. Each needs its own dated note; until then every number measured before §31 carries "measured with the source-class labels (§30.3)".
+
+**Expectation, written before the number:** macro "not separated" on most sets (the detection path is unchanged and `mul_mil` saturated early in K5); a sign on Nexar val or DADA would not surprise. A wrong expectation changes nothing.
+
+Runbook `colab/final/k5_fixed.ipynb`. Outputs `Thesis-Final/outputs/kim_fixed/`.

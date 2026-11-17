@@ -115,8 +115,14 @@ class DVSFeatureDataset(Dataset[dict[str, Any]]):
         return 2 * len(self.anomaly_ids)  # A9: anomaly half + normal half
 
     def _class_name(self, video_id: str, is_abnormal: bool) -> str:
-        fallback = ABNORMAL_CLASS if is_abnormal else NORMAL_CLASS
-        return self._classes.get(video_id, fallback)
+        """The item's class: ``Normal`` for a label-0 item whatever ``meta.json`` says.
+
+        A windowed corpus's meta gives every window its SOURCE's class, so a normal window cut
+        from an accident video reads ``CarAccident`` there (KIM_RUN.md §30.3, §31; lesson (dn)).
+        """
+        if not is_abnormal:
+            return NORMAL_CLASS
+        return self._classes.get(video_id, ABNORMAL_CLASS)
 
     def _load_features(self, video_id: str) -> Tensor:
         rows = self.slicer.load(self.clip_dir, video_id)

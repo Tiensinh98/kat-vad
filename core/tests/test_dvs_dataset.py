@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import random
+import shutil
 
 import numpy as np
 import pytest
@@ -13,6 +15,7 @@ from core.config import DVSConfig
 from core.data.collate import collate_variable_length
 from core.data.dataset import DVSFeatureDataset, FeatureEvalDataset
 from core.data.knn_cache import load_knn_cache
+from core.data.msad import NORMAL_CLASS
 from core.data.synthesis import choose_filler_ids, compose_sequence, truncate_sample
 from core.tests.fixtures import build_fixture
 
@@ -127,6 +130,23 @@ class TestDVSFeatureDataset:
             if item["label"].item() == 1:
                 # un-synthesized abnormal: window unknown -> zero pseudo label
                 assert not item["pseudo_frame_label"].any()
+
+    def test_normal_item_is_normal_whatever_meta_says(self, fixture, tmp_path) -> None:
+        """§31: a windowed corpus's meta gives a normal window its source's class; ignore it."""
+        data_dir = tmp_path / "data"
+        shutil.copytree(fixture.data_dir, data_dir)
+        meta_path = data_dir / constants.META_FILENAME
+        meta = json.loads(meta_path.read_text())
+        labels = json.loads((data_dir / constants.LABELS_TRAIN_FILENAME).read_text())
+        for vid, lab in labels.items():
+            if lab == 0:
+                meta.setdefault(vid, {})["class_name"] = "Traffic_accident"
+        meta_path.write_text(json.dumps(meta))
+        dataset = _dataset(fixture, data_dir=data_dir, dvs=DVSConfig(theta=0.0))
+        for index in range(len(dataset)):
+            item = dataset[index]
+            want = "Traffic_accident" if item["label"].item() == 1 else NORMAL_CLASS
+            assert item["cls_label"] == want, (index, item["video_id"], item["cls_label"])
 
     def test_normal_half_label_zero(self, fixture) -> None:
         dataset = _dataset(fixture)

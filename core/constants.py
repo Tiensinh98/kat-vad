@@ -1218,6 +1218,11 @@ KIM_LNEG_CAP_MIN_SETS = 2  # C6: interaction above (or below) on at least this m
 KIM_LNEG_CAP_COMPLEMENTARY = "COMPLEMENTARY"
 KIM_LNEG_CAP_ANTAGONISTIC = "ANTAGONISTIC"
 KIM_LNEG_CAP_NO_CLAIM = "NO CLAIM"
+# §31: K5 retrained with label-0 items always Normal (lesson (dn)); same config as K5
+KIM_FIXED_ARM = "K5f"
+KIM_FIXED_OUTPUT_DIRNAME = "kim_fixed"  # OUTPUT_ROOT/<this>/K5f/{K5/s<seed>, eval}, REPORTS
+KIM_FIXED_REPORT_NAME = "k5f_s2024"  # zs_arm_table report = zs_arm_table_<this>.{md,json}
+KIM_FIXED_MUL_MIL_FLOOR = 0.01  # §31 F3: K5 ended at 0.0015 (constant target); K5f must stay above
 NORMAL_VIDEO_PEAK = 0.5  # a normal video whose peak score passes this counts as a false alarm
 # OUTPUT_ROOT/kim_msad: eval/<row>/<run>/ + REPORTS/ (KIM_RUN.md §18, zero-shot MSAD)
 MSAD_ZS_OUTPUT_DIRNAME = "kim_msad"

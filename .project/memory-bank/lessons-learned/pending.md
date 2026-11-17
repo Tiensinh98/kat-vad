@@ -2515,3 +2515,12 @@ Promote if a second harness needs the same split.
 **Rule:** Measure caption token lengths against the soft-prompt budget before any run that encodes free text.
 **Files:** core/models/clip_text.py:76-78 (max_text_tokens), core/models/kat_vad.py:encode_text, colab/final/k5_lneg_cap.ipynb step 5
 **Gates:** recurring? first time; HIGH-impact? no (quality loss, not an exception) -> pending.
+
+## (dn) [CRITICAL] Data - a windowed corpus gives every window its SOURCE's class, so in-video normal windows are labeled abnormal (2026-11-17)
+**Triggers:** class_name, cls_label, cls_idx, windows.json, meta.json, T2, Nexar_window, L_neg, ClassContrastLoss, multi_class_mil_loss, mul_mil, _class_name
+**Problem:** `core/data/dada.py`'s window meta writes `"class_name": record.class_name` (the source video's class) for every window, and `DVSFeatureDataset._class_name` returns it before the label-based fallback, so a label-0 window inside an accident video gets `CarAccident`. `L_MIL-align` then has a constant target, and every `cls_idx != 0` path (class / uniq / caption `L_neg`, N3 mining) treats normal windows as abnormal. Nothing raised; found because `cap_same_source_neg` stayed 0 for 1,749 steps and `cap_mined` exceeded the abnormal count.
+**Bad:** `cls_label = meta[window_id]["class_name"]` regardless of the window's label.
+**Good:** a label-0 item is `Normal` whatever its source's class (or write window-level `class_name` at build time), and a test asserts `cls_idx == 0` for every label-0 item of a windowed corpus.
+**Rule:** Derive an item's class from the item's own label, never from its source's metadata.
+**Files:** core/data/dada.py (window meta), core/data/dataset.py:117-119 (`_class_name`), core/train.py (cls_idx uses), core/docs/final/KIM_RUN.md §30.3
+**Gates:** recurring? (ac) saw the constant class_name on 2026-09-27; HIGH-impact? yes (silent mislabel in every T2 / Nexar_window arm's `mul_mil` and every `L_neg` arm) -> pending until the fix is chosen.
