@@ -1762,3 +1762,15 @@ Code: `core/constants.py` (`NEXAR_CAPTION_MODEL`, `NEXAR_CAPTION_QUANT*`, `NEXAR
 **Limits.** n = 1, and I's interval is about twice a single contrast's. Training corpus Nexar windows, not PreVAD. Captions are not used as definitions (deviation C2). τ = 0.02 here vs 0.07 in §28 / §28.3, so K5c − K5Lnegu differs in two keys and is not read. K5d's start check failed in §12.1 (step-1 `mil` 0.6906 vs W0 0.6944); K5dc − K5d shares K5d's host and draws, so its own start check is K5dc's step-1 `mil` against K5d's, printed.
 
 **Build (after §29.3 passes, with the user's approval of the `train.py` blast radius):** `cap_contrast_mode=caption` (`core/constants.py`, `core/config.py`, `core/train.py`, `core/losses/contrastive.py`), the caption loader with the C3 checks, the anchor caption for synthesized bags (`core/data/synthesis.py` must expose the anchor's source; if it cannot, the build stops and says so), a 2 × 2 report tool with the interaction bootstrap, a runbook. Outputs `Thesis-Final/outputs/kim_lneg_cap/`.
+
+### 30.1 Amendment: captions shared across source videos (dated note 2026-11-17, before any §30 number and before the 451 captions exist; user)
+
+Windows of one source already share one row and are its positives (`uniq_rows` mapping, §28.3; `class_infonce_loss` spreads the target over them), and a source's normal windows stay negatives (LaGoVAD's same-scene hard negative). Two **different** sources can still get the same or nearly the same caption (the §29.3 dev set already shows three near-identical pedestrian captions), which would make one event a negative of another. Fixed now:
+
+| Case | Rule |
+|---|---|
+| Identical caption text after normalization (lower case, punctuation and repeated spaces removed) | **merged into one row**; every source with it is a positive |
+| Different sources, CLIP text cosine of the captions **≥ 0.95** | **masked**: neither positive nor negative (logit −∞ in the loss) |
+| Otherwise | negative, as §30 C2 |
+
+0.95 is a round number chosen by the user before any number, not tuned. Printed before training (after QC passes): the cross-source caption-cosine histogram, the merged-row count, and per batch in `metrics.jsonl` the masked share. If more than 20 % of cross-source pairs are masked, Claude reports it to the user before training; the threshold is not changed. Build: an optional ignore mask on `class_infonce_loss` (default `None`, so §28 / §28.3 are unchanged).
