@@ -295,6 +295,12 @@ class TestEventType:
         assert nc.contact_of("crash") == constants.NEXAR_CAPTION_EVENT_UNKNOWN
         assert not nc.contact_consistent(constants.NEXAR_CAPTION_EVENT_UNKNOWN, "accident")
 
+    def test_dev_folder_names_model_and_frames(self) -> None:
+        a = nc.dev_dirname("Qwen/Qwen2.5-VL-32B-Instruct", "p")
+        b = nc.dev_dirname("Qwen/Qwen2.5-VL-72B-Instruct", "p")
+        assert a != b and a.startswith(nc.prompt_tag("p"))
+        assert a.endswith(f"_Qwen2.5-VL-32B-Instruct_{constants.NEXAR_CAPTION_FRAMES}f")
+
     def test_unknown_quant_is_refused(self) -> None:
         with pytest.raises(ValueError, match="quant must be"):
             nc.identity(constants.NEXAR_CAPTION_MODEL, "abc123", "p", "int3")

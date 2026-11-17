@@ -371,6 +371,11 @@ def qc_sample(ids: list[str]) -> list[str]:
                  constants.NEXAR_CAPTION_QC_SAMPLE)
 
 
+def dev_dirname(model: str, prompt: str) -> str:
+    """One dev folder per prompt, model and frame count, so two models never share records."""
+    return f"{prompt_tag(prompt)}_{model.split('/')[-1]}_{constants.NEXAR_CAPTION_FRAMES}f"
+
+
 def prompt_tag(prompt: str) -> str:
     """The dev folder of one prompt version: its sha1 prefix."""
     digest = hashlib.sha1(prompt.encode("utf-8"), usedforsecurity=False).hexdigest()
@@ -496,7 +501,7 @@ def main(argv: list[str] | None = None) -> None:
                               args.quant)
     ids = train_positives(census)
     if args.subset == SUBSET_DEV:
-        dev_dir = args.out_dir / DEV_DIRNAME / prompt_tag(prompt)
+        dev_dir = args.out_dir / DEV_DIRNAME / dev_dirname(args.model, prompt)
         write_text_atomic(dev_dir / "prompt.txt", prompt + "\n")
         dev = dev_sample(ids)
         if sorted(constants.NEXAR_CAPTION_DEV_TRUTH) != dev:
