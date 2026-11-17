@@ -176,8 +176,16 @@ def closest_clause(answer: str) -> str:
     return CLOSEST.sub("", head).strip().rstrip(".").strip() if CLOSEST.match(head) else ""
 
 
+def contact_of(kind: str) -> str:
+    """§29.3 v6: the contact call a type carries (``yes`` / ``no``), ``unknown`` otherwise."""
+    for contact, kinds in constants.NEXAR_CAPTION_CONTACT_TYPES.items():
+        if kind in kinds:
+            return contact
+    return constants.NEXAR_CAPTION_EVENT_UNKNOWN
+
+
 def contact_consistent(contact: str, kind: str) -> bool:
-    """Contact yes pairs with accident / collision, no with near-collision / dangerous maneuver."""
+    """A contact call agrees with the type (yes: accident / collision, no: no-collision)."""
     return kind in constants.NEXAR_CAPTION_CONTACT_TYPES.get(contact, ())
 
 
@@ -289,8 +297,10 @@ def caption_videos(raw_root: Path, census: dict[str, Any], out_dir: Path,
             indices, (start, end) = event_frame_indices(rows[vid])
             frames = decode_frames(raw_root / rows[vid]["path"], indices)
             answer = clean_caption(captioner(frames, len(indices) / (end - start)))
-            contact, caption = split_contact(answer)
+            stated, caption = split_contact(answer)
             kind = event_type(caption)
+            known = stated != constants.NEXAR_CAPTION_EVENT_UNKNOWN
+            contact = stated if known else contact_of(kind)
             record = {**ident, "video_id": vid, "caption": caption, "answer": answer,
                       "closest": closest_clause(answer), "contact": contact, "event_type": kind,
                       "contact_consistent": contact_consistent(contact, kind),

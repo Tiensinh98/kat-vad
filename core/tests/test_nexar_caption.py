@@ -65,7 +65,7 @@ class FakeCaptioner:
         self.calls += 1
         width, height = constants.NEXAR_CAPTION_SIZE
         assert frames.shape == (constants.NEXAR_CAPTION_FRAMES, height, width, 3)
-        return (f'"Contact: no. Near-collision: the ego vehicle brakes behind a truck '
+        return (f'"No-collision: the ego vehicle brakes behind a truck '
                 f'({fps:.2f} fps)."\nextra')
 
 
@@ -148,10 +148,9 @@ class TestRun:
         records = nc.caption_videos(root / "raw", census, root / "out", IDENT, fake)
         assert sorted(records) == positives and fake.calls == 3
         rec = json.loads((root / "out" / "captions" / f"{positives[0]}.json").read_text())
-        assert rec["caption"].startswith("Near-collision: the ego") and rec["revision"] == "abc123"
-        assert rec["forbidden"] == [] and rec["event_type"] == "near-collision"
-        assert rec["contact"] == "no" and rec["contact_consistent"]
-        assert rec["answer"].startswith("Contact: no. Near-collision")
+        assert rec["caption"].startswith("No-collision: the ego") and rec["revision"] == "abc123"
+        assert rec["forbidden"] == [] and rec["event_type"] == "no-collision"
+        assert rec["contact"] == "no" and rec["contact_consistent"]  # derived from the type
         assert rec["quant"] == constants.NEXAR_CAPTION_QUANT
         assert len(rec["frame_indices"]) == constants.NEXAR_CAPTION_FRAMES
         nc.caption_videos(root / "raw", census, root / "out", IDENT, fake)
@@ -170,7 +169,7 @@ class TestRun:
         records = nc.caption_videos(root / "raw", census, root / "out", IDENT, FakeCaptioner())
         manifest = nc.write_manifest(root / "out", census, IDENT, records)
         assert manifest["videos"] == 3 and manifest["summary"]["distinct"] == 1
-        assert manifest["summary"]["event_types"]["near-collision"] == 3
+        assert manifest["summary"]["event_types"]["no-collision"] == 3
         assert manifest["summary"]["contact"]["no"] == 3
         assert manifest["summary"]["contact_inconsistent"] == 0
         assert manifest["train_ids_sha1"] == json.loads(
@@ -240,20 +239,19 @@ class TestQc:
 
 
 def test_prompt_names_the_ego_vehicle_and_the_event_types() -> None:
-    """§29.3 CP4'': dashcam framing, the four opening types, the 40-word cap."""
+    """§29.3 CP4'': dashcam framing, the three opening types (v6), the 70 % rule, 40 words."""
     prompt = constants.NEXAR_CAPTION_PROMPT
     assert "dashcam" in prompt and "'the ego vehicle'" in prompt and "40 words" in prompt
-    assert "'Contact: yes. Accident:" in prompt and "'Contact: no. Near-collision:" in prompt
-    assert "left and right edges of the frame" in prompt
-    for kind in ("Accident:", "Collision:", "Near-collision:", "Dangerous maneuver:"):
+    assert "at least 70% sure" in prompt and "Near-collision" not in prompt
+    for kind in ("'Accident:'", "'Collision:'", "'No-collision:'"):
         assert kind in prompt
 
 
 class TestEventType:
     @pytest.mark.parametrize(("caption", "kind"), [
         ("Accident: the ego vehicle is hit from the left.", "accident"),
-        ("NEAR-COLLISION: a car cuts in.", "near-collision"),
-        ("Dangerous maneuver: a bus swerves.", "dangerous maneuver"),
+        ("NO-COLLISION: a car cuts in.", "no-collision"),
+        ("Near-collision: a bus swerves.", constants.NEXAR_CAPTION_EVENT_UNKNOWN),
         ("The ego vehicle hits a car.", constants.NEXAR_CAPTION_EVENT_UNKNOWN),
         ("Collision: a car scrapes a pole.", "collision"),
         ("Crash: a car hits a pole.", constants.NEXAR_CAPTION_EVENT_UNKNOWN),
@@ -274,8 +272,8 @@ class TestEventType:
 
     def test_dev_type_ok_uses_the_frozen_reference(self) -> None:
         assert nc.dev_type_ok("00362", "Accident: the ego vehicle rear-ends a truck.") == "y"
-        assert nc.dev_type_ok("00362", "Near-collision: the ego vehicle brakes.") == "n"
-        assert nc.dev_type_ok("00013", "Near-collision: a van merges.") == "y"  # two accepted
+        assert nc.dev_type_ok("00362", "No-collision: the ego vehicle brakes.") == "n"
+        assert nc.dev_type_ok("00013", "No-collision: a van merges.") == "y"  # two accepted
         assert nc.dev_type_ok("99999", "Accident: x.") == ""  # not a dev video
         assert len(constants.NEXAR_CAPTION_DEV_TRUTH) == constants.NEXAR_CAPTION_DEV_SAMPLE
         kinds = {k for ks in constants.NEXAR_CAPTION_DEV_TRUTH.values() for k in ks}
@@ -290,7 +288,9 @@ class TestEventType:
 
     def test_contact_consistency(self) -> None:
         assert nc.contact_consistent("yes", "collision")
-        assert not nc.contact_consistent("yes", "near-collision")
+        assert not nc.contact_consistent("yes", "no-collision")
+        assert nc.contact_of("accident") == "yes" and nc.contact_of("no-collision") == "no"
+        assert nc.contact_of("crash") == constants.NEXAR_CAPTION_EVENT_UNKNOWN
         assert not nc.contact_consistent(constants.NEXAR_CAPTION_EVENT_UNKNOWN, "accident")
 
     def test_unknown_quant_is_refused(self) -> None:

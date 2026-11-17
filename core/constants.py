@@ -524,7 +524,7 @@ NEXAR_CAPTION_SIZE = (700, 392)
 QWEN_VL_PATCH = 14  # Qwen2-VL video processor: patch_size; merge_size 2, temporal_patch_size 2
 QWEN_VL_TEMPORAL_PATCH = 2
 # CP4' (§29.1): one "detailed" sentence; PreVAD's mean is 22.9 words, 96 tokens leaves headroom
-NEXAR_CAPTION_MAX_NEW_TOKENS = 128  # §29.3 v3/v4: + the "Contact: yes." clause
+NEXAR_CAPTION_MAX_NEW_TOKENS = 128  # §29.3: room for a type + 40 words
 NEXAR_CAPTION_MAX_WORDS = 40  # printed count of captions longer than this (no longer a prompt cap)
 NEXAR_CAPTION_QC_SAMPLE = 30  # CP6: videos the user rates
 # CP6' (§29.1): LaGoVAD Tab. B 1-5 consistency scale; pass iff the mean over the sample >= this
@@ -540,49 +540,47 @@ NEXAR_CAPTION_DEV_SEED = 2027
 NEXAR_CAPTION_OUTPUT_DIRNAME = "nexar_captions_v2"  # §29.3; §29.1's records stay in nexar_captions
 # §29.3 CP4'': dashcam prompt. Nexar positives are collisions or near-collisions (no column tells
 # which), so the caption opens with one event type; the rest is the description L_neg reads
-NEXAR_CAPTION_EVENT_TYPES = ("accident", "collision", "near-collision", "dangerous maneuver")
+NEXAR_CAPTION_EVENT_TYPES = ("accident", "collision", "no-collision")
 NEXAR_CAPTION_EVENT_UNKNOWN = "unknown"
-# the four types and their definitions are the user's (2026-11-17, §29.3 amendment, dev only).
-# v3 (dev round 3): the answer opens with "Contact: yes|no." (dropped from the caption L_neg
-# reads), with visible contact cues; only road users that take part are named
-NEXAR_CAPTION_CONTACT_TYPES = {"yes": ("accident", "collision"),
-                               "no": ("near-collision", "dangerous maneuver")}
-# v4 (dev round 4, prompt fc5b2c90): frozen for the 451 run by the user's decision after
-# round 5 (2026-11-17), not by the freeze rule (round 4 type_ok 7 / 10 < 8)
+# v6 (dev round 6, user, 2026-11-17): three types. Accident = a severe, clear crash; Collision =
+# contact, or contact more likely than not; No-collision only when at least 70 % sure of no
+# contact (near-collisions and swerves). The type carries the contact call; a "Contact:" clause
+# is no longer asked for (a reply that still has one is parsed and dropped)
+NEXAR_CAPTION_CONTACT_TYPES = {"yes": ("accident", "collision"), "no": ("no-collision",)}
+NEXAR_CAPTION_NO_COLLISION_MIN_CONFIDENCE = 70  # %, written into the prompt (user)
 NEXAR_CAPTION_PROMPT = (
     "This video was recorded by a dashcam mounted behind the windshield of the ego vehicle, "
-    "facing forward. It contains a safety-critical traffic event. First decide whether any "
-    "physical contact happens between road users, including the ego vehicle. Signs of contact: "
-    "another road user fills the view and stops moving relative to the camera, the camera jolts "
-    "or shakes, a door or mirror is hit, vehicles stop while touching, or debris appears. Then "
-    "choose exactly one type. Accident: contact, a severe and clearly visible crash. Collision: "
-    "contact, but light or not clearly visible, such as a bump or scrape. Near-collision: no "
-    "contact; a road user brakes hard or stops at the last moment and almost hits another. "
-    "Dangerous maneuver: no contact; an abnormal swerve or steering action, possibly to avoid a "
-    "crash. Answer on one line in the form 'Contact: yes. Accident: <description>' or "
-    "'Contact: no. Near-collision: <description>', where the description is one sentence of at "
-    "most 40 words saying which road users take part (the ego vehicle, cars, trucks, buses, "
-    "motorcycles, cyclists, pedestrians), what each one does, and from which direction. Name "
-    "only road users that take part in the event; ignore those that only stand nearby. Mention a "
-    "pedestrian only if one moves into a vehicle's path. Contact can also happen at the side of "
-    "the ego vehicle: a door opening into it, a vehicle beside it scraping it, or a mirror being "
-    "hit, so check the left and right edges of the frame, not only the road ahead. Call the "
-    "camera car 'the ego vehicle'. Describe only what is visible; do not guess. Output only the "
-    "answer."
+    "facing forward. It contains a safety-critical traffic event. Decide whether any physical "
+    "contact happens between road users, including the ego vehicle, at its front or at its "
+    "side. Signs of contact: another road user fills the view and stops moving relative to the "
+    "camera, the camera jolts or shakes, a door or mirror is hit, a vehicle beside the ego "
+    "vehicle scrapes it, vehicles stop while touching, or debris appears. Then choose exactly "
+    "one type. Accident: a severe, clearly visible crash with a hard impact. Collision: contact "
+    "happens, or contact is more likely than not, but it is not a severe crash. No-collision: "
+    "you are at least "
+    f"{NEXAR_CAPTION_NO_COLLISION_MIN_CONFIDENCE}% sure that no contact happens, for example "
+    "after hard braking, a last-moment stop or a swerve. If you are not at least "
+    f"{NEXAR_CAPTION_NO_COLLISION_MIN_CONFIDENCE}% sure that there was no contact, answer "
+    "Collision or Accident. Start your answer with exactly one of 'Accident:', 'Collision:' or "
+    "'No-collision:', then describe the event in one sentence of at most 40 words: which road "
+    "users take part (the ego vehicle, cars, trucks, buses, motorcycles, cyclists, pedestrians), "
+    "what each one does, and from which direction. Name only road users that take part in the "
+    "event; mention a pedestrian only if one moves into a vehicle's path. Call the camera car "
+    "'the ego vehicle'. Describe only what is visible; do not guess. Output only the answer."
 )
-# §29.3 dev round 4: the user's frozen reference types for the 10 dev videos (2026-11-17, before
-# round 4 ran); a caption's type is right iff it is in the set. type_ok is computed from this
+# §29.3 dev: the user's frozen reference (before round 4), mapped to the three v6 types
+# (near-collision and dangerous maneuver -> no-collision); a type is right iff it is in the set
 NEXAR_CAPTION_DEV_TRUTH = {
-    "00013": ("collision", "near-collision"),
-    "00100": ("near-collision",),
+    "00013": ("collision", "no-collision"),
+    "00100": ("no-collision",),
     "00125": ("collision",),
     "00362": ("accident",),
-    "00474": ("near-collision",),
+    "00474": ("no-collision",),
     "00546": ("accident",),
-    "00715": ("near-collision",),
+    "00715": ("no-collision",),
     "00765": ("collision",),
-    "00921": ("near-collision",),
-    "00938": ("dangerous maneuver", "near-collision"),
+    "00921": ("no-collision",),
+    "00938": ("no-collision",),
 }
 NEXAR_CAPTION_DEV_FREEZE_MEAN = 4.0  # freeze iff dev mean >= this and type_ok >= the count below
 NEXAR_CAPTION_DEV_FREEZE_TYPE_OK = 8
