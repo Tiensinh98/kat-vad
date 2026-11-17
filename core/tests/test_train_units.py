@@ -172,7 +172,7 @@ class TestSlidingWindow:
         assert torch.isfinite(score).all()
 
 
-def _make_trainer(tmp_path: Path, **cfg_updates: object) -> Trainer:
+def _make_trainer(tmp_path: Path, caption_encoder: bool = True, **cfg_updates: object) -> Trainer:
     from core.data.dataset import DVSFeatureDataset
 
     fixture = build_fixture(tmp_path / "fx")
@@ -201,6 +201,8 @@ def _make_trainer(tmp_path: Path, **cfg_updates: object) -> Trainer:
         text_encode_fn=encode,
         output_dir=tmp_path / "out",
         device=CPU,
+        caption_encode_fn=(make_text_encoder(model, "stub", CPU, dim=cfg.model.hidden_dim,
+                                             use_soft_prompt=False) if caption_encoder else None),
     )
 
 
@@ -284,7 +286,7 @@ class TestLossGating:
         states = []
         for mode in constants.CAP_CONTRAST_MODE_CHOICES:
             extra = ({"loss__caption_manifest": str(_caption_manifest(tmp_path / mode))}
-                     if mode == constants.CAP_CONTRAST_MODE_CAPTION else {})
+                     if mode in constants.CAP_CONTRAST_MODE_CAPTIONS else {})
             trainer = _make_trainer(tmp_path / mode, kip__enabled=False,
                                     loss__cap_contrast_mode=mode, **extra)
             trainer.compute_losses(self._batch(trainer))
@@ -328,6 +330,71 @@ class TestLossGating:
                                 loss__caption_manifest=str(_caption_manifest(tmp_path, True)))
         losses = trainer.compute_losses(self._batch(trainer))
         assert float(losses["cap_masked_share"]) == 0.0
+
+    def test_caption_lagovad_feeds_the_caption_branch(self, tmp_path: Path) -> None:
+        """§32.1: [Normal caption, per-source captions] go through the caption encoder (no soft
+        prompts), normal items target row 0 in L_MIL-align, and L_neg reuses those features."""
+        from core.data.definitions import NORMAL_QUERY_CAPTION
+
+        trainer = _make_trainer(
+            tmp_path, kip__enabled=False, dvs__theta=1.0, dvs__theta_ego=1.0,
+            loss__cap_contrast_mode=constants.CAP_CONTRAST_MODE_CAPTION_LAGOVAD,
+            loss__caption_manifest=str(_caption_manifest(tmp_path)))
+        seen: dict[str, list[list[str]]] = {"caption": [], "class": []}
+        cap_fn, cls_fn = trainer.caption_encode_fn, trainer.text_encode_fn
+        assert cap_fn is not None
+
+        def cap_spy(texts: list[str]) -> torch.Tensor:
+            seen["caption"].append(list(texts))
+            return cap_fn(texts)
+
+        def cls_spy(texts: list[str]) -> torch.Tensor:
+            seen["class"].append(list(texts))
+            return cls_fn(texts)
+
+        trainer.caption_encode_fn, trainer.text_encode_fn = cap_spy, cls_spy
+        batch = self._batch(trainer)
+        n_abnormal = int(batch["label"].sum())
+        assert n_abnormal > 0
+        losses = trainer.compute_losses(batch)
+        assert len(seen["caption"]) == 1 and seen["caption"][0][0] == NORMAL_QUERY_CAPTION
+        assert len(seen["caption"][0]) == 1 + n_abnormal  # one distinct caption per source here
+        # the soft-prompt encoder sees the class texts only, never a caption
+        assert all(len(t) == len(trainer.class_names) for t in seen["class"])
+        assert not any(t in seen["class"][0] for t in seen["caption"][0][1:])
+        for key in ("cap_contrastive", "cap_contrastive_floor", "cap_mined", "cap_masked_share",
+                    "cap_same_source_neg", "mul_mil", "mil"):
+            assert key in losses and torch.isfinite(losses[key]), key
+        losses["total"].backward()
+
+    def test_caption_lagovad_changes_mil_and_mul_mil(self, tmp_path: Path) -> None:
+        """§32.1: the caption branch adds its own MIL and L_MIL-align terms (`caption` has none)."""
+        got = {}
+        for mode in constants.CAP_CONTRAST_MODE_CAPTIONS:
+            trainer = _make_trainer(tmp_path / mode, kip__enabled=False, dvs__theta=1.0,
+                                    dvs__theta_ego=1.0, loss__cap_contrast_mode=mode,
+                                    loss__caption_manifest=str(_caption_manifest(tmp_path / mode)))
+            losses = trainer.compute_losses(self._batch(trainer))
+            got[mode] = (float(losses["mil"]), float(losses["mul_mil"]))
+        a = got[constants.CAP_CONTRAST_MODE_CAPTION]
+        b = got[constants.CAP_CONTRAST_MODE_CAPTION_LAGOVAD]
+        assert b[0] != a[0] and b[1] != a[1]
+
+    def test_baseline_losses_ignore_the_caption_encoder(self, tmp_path: Path) -> None:
+        """§32.1: K5f's path (no captions) is identical with or without the caption encoder."""
+        got = []
+        for with_enc in (False, True):
+            trainer = _make_trainer(tmp_path / str(with_enc), caption_encoder=with_enc,
+                                    kip__enabled=False, dvs__theta=1.0, dvs__theta_ego=1.0)
+            losses = trainer.compute_losses(self._batch(trainer))
+            got.append({k: float(v) for k, v in losses.items()})
+        assert got[0] == got[1]
+
+    def test_caption_lagovad_needs_a_caption_encoder(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="caption_encode_fn"):
+            _make_trainer(tmp_path, caption_encoder=False,
+                          loss__cap_contrast_mode=constants.CAP_CONTRAST_MODE_CAPTION_LAGOVAD,
+                          loss__caption_manifest=str(_caption_manifest(tmp_path)))
 
     def test_caption_lneg_needs_a_manifest(self, tmp_path: Path) -> None:
         with pytest.raises(ValueError, match="caption_manifest"):

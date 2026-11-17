@@ -275,8 +275,13 @@ CAP_CONTRAST_MODE_CLASS = "class"
 # KIM_RUN.md §28.3: the class form with one fixed, meaningless unit target per source video
 CAP_CONTRAST_MODE_UNIQ = "uniq"
 CAP_CONTRAST_MODE_CAPTION = "caption"  # §30: one row per source video's §29.3 caption
+# §32.1: LaGoVAD's caption path: [Normal caption, per-source captions] feed the caption branch
+# (cap_bin MIL + DVS sup + L_MIL-align, normal -> row 0) AND L_neg; captions w/o soft prompts
+CAP_CONTRAST_MODE_CAPTION_LAGOVAD = "caption_lagovad"
+CAP_CONTRAST_MODE_CAPTIONS = (CAP_CONTRAST_MODE_CAPTION, CAP_CONTRAST_MODE_CAPTION_LAGOVAD)
 CAP_CONTRAST_MODE_CHOICES = (CAP_CONTRAST_MODE_BASELINE, CAP_CONTRAST_MODE_CLASS,
-                             CAP_CONTRAST_MODE_UNIQ, CAP_CONTRAST_MODE_CAPTION)
+                             CAP_CONTRAST_MODE_UNIQ, CAP_CONTRAST_MODE_CAPTION,
+                             CAP_CONTRAST_MODE_CAPTION_LAGOVAD)
 LNEG_CAPTION_TEMP = 0.02  # §30 C2: LaGoVAD's tau (supp. C.2), user 2026-11-17
 LNEG_CAPTION_DUP_COS = 0.95  # §30.1: cross-source caption cosine at or above this is masked
 LNEG_CAPTION_MASK_WARN_SHARE = 0.20  # §30.1: report to the user before training above this
@@ -1227,7 +1232,8 @@ KIM_FIXED_MUL_MIL_FLOOR = 0.01  # §31 F3: K5 ended at 0.0015 (constant target);
 # because it names the eval sub-folders (eval/<set>/K5); never use it as the control of a new arm.
 KIM_REFERENCE_ARM = KIM_FIXED_ARM
 # §32: the §30 2 x 2 re-run on the fixed label path, against K5f
-KIM_LNEG_CAP_FIXED_OUTPUT_DIRNAME = "kim_lneg_cap_fixed"  # OUTPUT_ROOT/<this>/<row>/{K5/s<seed>, eval}
+# OUTPUT_ROOT/<this>/<row>/{K5/s<seed>, eval}, REPORTS
+KIM_LNEG_CAP_FIXED_OUTPUT_DIRNAME = "kim_lneg_cap_fixed"
 KIM_FIXED_DVS_ROW = "K5df"  # K5d's config on the fixed code
 KIM_FIXED_CAP_ROW = "K5cf"  # K5c's config on the fixed code
 KIM_FIXED_CAP_DVS_ROW = "K5dcf"  # K5dc's config on the fixed code

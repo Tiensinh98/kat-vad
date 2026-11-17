@@ -1884,3 +1884,21 @@ Printed: Nexar val negatives with peak > 0.5: K5 0.717 → K5f **0.549**; AP 0.4
 **Expectation, written before the number:** K5cf costs less than K5c did against K5 (the in-video normals are now negatives, as designed), but is still below K5f on most sets; I "above" on some sets; C7 not a candidate. A wrong expectation changes nothing.
 
 Runbook `colab/final/k5_lneg_cap_fixed.ipynb`; report `core.tools.k5_lneg_cap_report --fixed` → `REPORTS/k5f_lneg_cap_report.md`. Outputs `Thesis-Final/outputs/kim_lneg_cap_fixed/`.
+
+### 32.1 Amendment: the caption rows use LaGoVAD's full caption path (dated note 2026-11-17, before any §32 number; user, option A + (i))
+
+**Why.** Reading `LaGoVAD-PreVAD/src/models/LaGoVAD/lagovad.py` again (user's question: "a normal window should be pulled toward the shared Normal caption"): LaGoVAD's caption set is `[Normal caption, *abnormal captions]` (l. 576–577). It feeds a **caption branch** — `cap_bin_logits` gets the MIL and DVS-supervised terms (l. 593–627) and `cap_sim_mat` gets `L_MIL-align` with normal videos → **row 0, the Normal caption** (l. 647–660) — and `L_neg` on `query_caption_feats[1:]` (l. 666–675), where normal videos are negatives only. Captions are encoded with `use_soft_prompt=False`, 77 tokens (l. 535–538). §30 (C2, "captions enter `L_neg` only") had no Normal caption anywhere, no caption branch, and soft-prompted captions (45 tokens, gradient into the prompts shared with the class texts). Claude did not say at §30 that dropping the branch drops the pull toward Normal.
+
+| item | §32.1 |
+|---|---|
+| A1 Mode | new `loss.cap_contrast_mode=caption_lagovad` (`CAP_CONTRAST_MODE_CAPTION_LAGOVAD`); `caption` (§30) is kept unchanged for the record |
+| A2 Caption set | `[NORMAL_QUERY_CAPTION (LaGoVAD's literal "Normal behavior, views or surveillance content …"), *per-source captions]`; windows of one source and identical captions share a row (§30.1, deviation: LaGoVAD gives each abnormal video its own index). No abnormal item in a batch → no caption branch that step (LaGoVAD: `query_captions = None`) |
+| A3 Caption branch | the model fuses `v` with the caption features → `cap_bin_logits` (MIL + DVS sup added to `mil` / `dvs_sup*`, existing code path) and `cap_sim_mat` (`L_MIL-align`, label-0 items → row 0, abnormal → its source's row), weights as in the baseline |
+| A4 `L_neg` | `ClassContrastLoss` on the caption branch's own features (row 0 never a positive row), cosine / 0.02, §30.1 merge + near-duplicate mask, as §30 |
+| A5 Encoding | captions through `caption_encode_fn` = CLIP text **without** soft prompts, 77 tokens; class texts keep the soft prompts |
+| A6 2 × 2 | interpretation (i) (user): the caption factor = "LaGoVAD caption path" (branch + `L_neg` together), so K5f and K5df stay the controls; nothing else is retrained. K5cf / K5dcf = K5f / K5df + `caption_lagovad` + the manifest. §32 R2–R5 unchanged |
+| A7 Later | the user plans a second arm with a dashcam Normal caption in place of LaGoVAD's sentence; not specified here |
+
+**Code.** `core/train.py`: `caption_lagovad` branch, `caption_encode_fn` (built with `use_soft_prompt=False`), baseline `CapContrastLoss` restricted to `cap_contrast_mode=baseline`. Tests (`test_train_units.py`): the caption encoder receives `[Normal, captions]` and the soft-prompt encoder only the class texts; `mil` and `mul_mil` differ from `caption` mode; refused without a caption encoder; **K5f's path (no captions) gives identical losses with or without the caption encoder**; the RNG-stream test covers the new mode.
+
+**Expectation, revised before the number:** K5cf closer to K5f than §32's prediction (the Normal pull and the unprompted captions remove two of the three suspected costs); still "below" on at least one set; C7 not a candidate. A wrong expectation changes nothing.

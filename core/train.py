@@ -226,6 +226,7 @@ class Trainer:
         output_dir: Path,
         device: torch.device | None = None,
         log_every: int = 10,
+        caption_encode_fn: TextEncodeFn | None = None,
     ) -> None:
         self.cfg = cfg
         self.device = device if device is not None else resolve_device(cfg.train.device)
@@ -233,6 +234,8 @@ class Trainer:
         self.dataset = dataset
         self.class_names = class_names
         self.text_encode_fn = text_encode_fn
+        # §32.1: LaGoVAD encodes captions without soft prompts (77 tokens)
+        self.caption_encode_fn = caption_encode_fn
         self.output_dir = output_dir
         self.log_every = log_every
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -251,7 +254,7 @@ class Trainer:
             )
         self.class_contrast: ClassContrastLoss | None = None
         self.captions: dict[str, str] | None = None
-        per_source = (constants.CAP_CONTRAST_MODE_UNIQ, constants.CAP_CONTRAST_MODE_CAPTION)
+        per_source = (constants.CAP_CONTRAST_MODE_UNIQ, *constants.CAP_CONTRAST_MODE_CAPTIONS)
         if cfg.loss.cap_contrast_mode in (constants.CAP_CONTRAST_MODE_CLASS, *per_source):
             if cfg.loss.captions_from_definitions:
                 raise ValueError(
@@ -263,15 +266,19 @@ class Trainer:
                                  "dataset with a window slicer to map items to source videos "
                                  "(KIM_RUN.md §28.3, §30)")
             cosine_temp = constants.LNEG_CLASS_TEMP
-            if cfg.loss.cap_contrast_mode == constants.CAP_CONTRAST_MODE_CAPTION:
+            if cfg.loss.cap_contrast_mode in constants.CAP_CONTRAST_MODE_CAPTIONS:
                 if not cfg.loss.caption_manifest:
-                    raise ValueError("loss.cap_contrast_mode=caption needs "
+                    raise ValueError(f"loss.cap_contrast_mode={cfg.loss.cap_contrast_mode} needs "
                                      "loss.caption_manifest (KIM_RUN.md §30 C3)")
                 self.captions = load_caption_manifest(Path(cfg.loss.caption_manifest))
                 cosine_temp = constants.LNEG_CAPTION_TEMP
             elif cfg.loss.caption_manifest:
-                raise ValueError("loss.caption_manifest is read only by "
-                                 "loss.cap_contrast_mode=caption")
+                raise ValueError("loss.caption_manifest is read only by loss.cap_contrast_mode "
+                                 f"in {constants.CAP_CONTRAST_MODE_CAPTIONS}")
+            if (cfg.loss.cap_contrast_mode == constants.CAP_CONTRAST_MODE_CAPTION_LAGOVAD
+                    and caption_encode_fn is None):
+                raise ValueError("loss.cap_contrast_mode=caption_lagovad needs caption_encode_fn "
+                                 "(captions without soft prompts, KIM_RUN.md §32.1)")
             self.class_contrast = ClassContrastLoss(
                 cfg.loss.contrastive_neg_mining, cfg.loss.contrastive_temp, cosine_temp
             )
@@ -379,6 +386,18 @@ class Trainer:
                         ano_cnt += 1
                 cap_labels = torch.tensor(cap_ids, dtype=torch.long, device=self.device)
         caption_feats = self.text_encode_fn(captions) if captions else None
+        cap_rows: Tensor | None = None
+        cap_sources: list[str] = []
+        if loss_cfg.cap_contrast_mode == constants.CAP_CONTRAST_MODE_CAPTION_LAGOVAD:
+            # §32.1 (LaGoVAD training_step): [Normal caption, captions] feed the caption branch;
+            # a normal item's target is row 0, an abnormal one its source's row (windows of one
+            # source and identical captions share a row, §30.1); none when no item is abnormal
+            cap_sources = [self.dataset.slicer.source_of(v) for v in batch["video_id"]]
+            texts, cap_rows = caption_rows(cls_idx, cap_sources, self.captions or {})
+            if texts:
+                assert self.caption_encode_fn is not None  # nosec B101 - refused in __init__
+                caption_feats = self.caption_encode_fn([NORMAL_QUERY_CAPTION, *texts])
+                cap_labels = cap_rows
 
         seam = batch["seam_mask"].to(self.device) if self.cfg.kim.seam_mask else None
         outputs = self.model(v_feat, lengths, class_feats, caption_feats, kim_seam=seam)
@@ -490,6 +509,7 @@ class Trainer:
         # L_neg (caption contrastive with hard-negative mining)
         if (
             caption_feats is not None
+            and loss_cfg.cap_contrast_mode == constants.CAP_CONTRAST_MODE_BASELINE
             and loss_cfg.cap_contrastive_weight > 0.0
             and int((cls_idx != 0).sum()) > 0
         ):
@@ -524,6 +544,13 @@ class Trainer:
                                         text_feats], dim=0)
                 dup = near_duplicates(rows_feats)
                 same_src = same_source_negatives(cls_idx, sources)
+            elif loss_cfg.cap_contrast_mode == constants.CAP_CONTRAST_MODE_CAPTION_LAGOVAD:
+                # §32.1: the caption branch's own features (row 0 = the Normal caption, never a
+                # positive row); LaGoVAD's L_neg drops it too (query_caption_feats[1:])
+                assert caption_feats is not None and cap_rows is not None  # nosec B101
+                rows_feats, rows_idx = caption_feats, cap_rows
+                dup = near_duplicates(rows_feats)
+                same_src = same_source_negatives(cls_idx, cap_sources)
             cc = self.class_contrast(
                 outputs["cls_bin_logits"], lengths, outputs["vis_feats"], rows_feats,
                 rows_idx, pseudo, dup=dup,
@@ -1063,6 +1090,9 @@ def build_trainer(
     text_encode_fn = make_text_encoder(
         model, text_encoder, device, dim=cfg.model.hidden_dim
     )
+    caption_encode_fn = make_text_encoder(
+        model, text_encoder, device, dim=cfg.model.hidden_dim, use_soft_prompt=False
+    )
     return Trainer(
         cfg=cfg,
         model=model,
@@ -1072,6 +1102,7 @@ def build_trainer(
         output_dir=output_dir,
         device=device,
         log_every=log_every,
+        caption_encode_fn=caption_encode_fn,
     )
 
 
