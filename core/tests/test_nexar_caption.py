@@ -231,10 +231,10 @@ class TestQc:
 
 
 def test_prompt_names_the_ego_vehicle_and_the_event_types() -> None:
-    """§29.3 CP4'': dashcam framing, the three opening types, the 40-word cap."""
+    """§29.3 CP4'': dashcam framing, the four opening types, the 40-word cap."""
     prompt = constants.NEXAR_CAPTION_PROMPT
     assert "dashcam" in prompt and "'the ego vehicle'" in prompt and "40 words" in prompt
-    for kind in ("Accident:", "Near-collision:", "Dangerous maneuver:"):
+    for kind in ("Accident:", "Collision:", "Near-collision:", "Dangerous maneuver:"):
         assert f"'{kind}'" in prompt
 
 
@@ -244,7 +244,8 @@ class TestEventType:
         ("NEAR-COLLISION: a car cuts in.", "near-collision"),
         ("Dangerous maneuver: a bus swerves.", "dangerous maneuver"),
         ("The ego vehicle hits a car.", constants.NEXAR_CAPTION_EVENT_UNKNOWN),
-        ("Collision: a car hits a pole.", constants.NEXAR_CAPTION_EVENT_UNKNOWN),
+        ("Collision: a car scrapes a pole.", "collision"),
+        ("Crash: a car hits a pole.", constants.NEXAR_CAPTION_EVENT_UNKNOWN),
     ])
     def test_opening_type(self, caption: str, kind: str) -> None:
         assert nc.event_type(caption) == kind

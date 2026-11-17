@@ -539,19 +539,22 @@ NEXAR_CAPTION_DEV_SEED = 2027
 NEXAR_CAPTION_OUTPUT_DIRNAME = "nexar_captions_v2"  # §29.3; §29.1's records stay in nexar_captions
 # §29.3 CP4'': dashcam prompt. Nexar positives are collisions or near-collisions (no column tells
 # which), so the caption opens with one event type; the rest is the description L_neg reads
-NEXAR_CAPTION_EVENT_TYPES = ("accident", "near-collision", "dangerous maneuver")
+NEXAR_CAPTION_EVENT_TYPES = ("accident", "collision", "near-collision", "dangerous maneuver")
 NEXAR_CAPTION_EVENT_UNKNOWN = "unknown"
+# the four types and their definitions are the user's (2026-11-17, §29.3 amendment, dev only)
 NEXAR_CAPTION_PROMPT = (
     "This video was recorded by a dashcam mounted behind the windshield of the ego vehicle, "
-    "facing forward. It contains a safety-critical traffic event, which is one of: an accident "
-    "(a collision in which vehicles or road users make contact, including the ego vehicle being "
-    "hit), a near-collision (contact is avoided at the last moment), or a dangerous maneuver "
-    "(a risky action that creates danger without a near-collision). Start your answer with "
-    "exactly one of 'Accident:', 'Near-collision:' or 'Dangerous maneuver:', then describe the "
-    "event in one sentence of at most 40 words: which road users are involved (the ego vehicle, "
-    "cars, trucks, buses, motorcycles, cyclists, pedestrians), what each one does, and from which "
-    "direction. Call the camera car 'the ego vehicle'. Describe only what is visible; do not "
-    "guess. Output only the answer."
+    "facing forward. It contains a safety-critical traffic event of exactly one of four types. "
+    "Accident: a severe, clearly visible crash, a hard impact between vehicles or road users. "
+    "Collision: contact happens, but it is light or not clearly visible, such as a minor bump or "
+    "scrape. Near-collision: no contact; a road user brakes hard or stops at the last moment and "
+    "almost hits another. Dangerous maneuver: no contact; an abnormal swerve or steering action, "
+    "possibly to avoid a crash. First decide whether any contact happens, then how severe it is. "
+    "Start your answer with exactly one of 'Accident:', 'Collision:', 'Near-collision:' or "
+    "'Dangerous maneuver:', then describe the event in one sentence of at most 40 words: which "
+    "road users are involved (the ego vehicle, cars, trucks, buses, motorcycles, cyclists, "
+    "pedestrians), what each one does, and from which direction. Call the camera car 'the ego "
+    "vehicle'. Describe only what is visible; do not guess. Output only the answer."
 )
 # CP6: printed share of captions that name a scene attribute (the NG5 shortcut; printed only,
 # the prompt no longer forbids them since §29.1)
