@@ -54,7 +54,9 @@ def verdict(vs_k5: dict[str, str], vs_lneg: dict[str, str]) -> dict[str, Any]:
         call = constants.KIM_LNEG_UNIQ_B
     else:
         call = constants.KIM_LNEG_UNIQ_MIXED
-    return {"verdict": call, "below_k5": below, "above_lneg": recovered, "sets": list(sets)}
+    # "decision_sets", not "sets": run() spreads this dict beside the per-set contrasts.
+    return {"verdict": call, "below_k5": below, "above_lneg": recovered,
+            "decision_sets": list(sets)}
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
@@ -102,14 +104,14 @@ def render(r: dict[str, Any]) -> str:
         f"Rule: `{r['rule']}`. PRELIMINARY, n = 1. NG4: K5's nexar_val re-read "
         f"{r['repro']['reread']:.4f} vs §13 {r['repro']['reference']:.4f}.", "",
         f"**U2 verdict: {r['verdict']}** -- A iff K5Lnegu - K5 is below on none of "
-        f"{r['sets']}; B iff below on >= {constants.KIM_LNEG_UNIQ_B_MIN_BELOW} and "
+        f"{r['decision_sets']}; B iff below on >= {constants.KIM_LNEG_UNIQ_B_MIN_BELOW} and "
         f"K5Lnegu - K5Lneg above on <= {constants.KIM_LNEG_UNIQ_B_MAX_ABOVE}; else MIXED. "
         f"Below K5 on {r['below_k5']}; above K5Lneg on {r['above_lneg']}.", "",
         "| set (macro; Nexar = val crops) | K5Lnegu - K5 | K5Lnegu - K5Lneg | "
         "K5Lneg - K5 (= §28.1) |", "|---|---|---|---|",
     ]
     for s in ALL_SETS:
-        tag = "" if s in r["sets"] else " (printed)"
+        tag = "" if s in r["decision_sets"] else " (printed)"
         lines.append(f"| {s}{tag} | {_cell(r['sets']['uniq_vs_k5'][s])} | "
                      f"{_cell(r['sets']['uniq_vs_lneg'][s])} | "
                      f"{_cell(r['sets']['lneg_vs_k5'][s])} |")
