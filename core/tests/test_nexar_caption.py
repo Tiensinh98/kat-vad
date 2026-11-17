@@ -243,8 +243,8 @@ def test_prompt_names_the_ego_vehicle_and_the_event_types() -> None:
     """§29.3 CP4'': dashcam framing, the four opening types, the 40-word cap."""
     prompt = constants.NEXAR_CAPTION_PROMPT
     assert "dashcam" in prompt and "'the ego vehicle'" in prompt and "40 words" in prompt
-    assert "'Contact: yes. Accident:" in prompt and "'Contact: no. Near-collision:" in prompt
-    assert "left and right edges of the frame" in prompt
+    assert "Contact: yes. Collision: <description>" in prompt and "'Closest: " in prompt
+    assert "only if a clear gap remains" in prompt
     for kind in ("Accident:", "Collision:", "Near-collision:", "Dangerous maneuver:"):
         assert kind in prompt
 
@@ -266,6 +266,8 @@ class TestEventType:
         ("contact: NO; Near-collision: a car cuts in.", "no", "Near-collision: a car cuts in."),
         ("Accident: no contact clause.", constants.NEXAR_CAPTION_EVENT_UNKNOWN,
          "Accident: no contact clause."),
+        ("Closest: the van touches the door. Contact: yes. Collision: a van scrapes the door.",
+         "yes", "Collision: a van scrapes the door."),
     ])
     def test_split_contact(self, answer: str, contact: str, caption: str) -> None:
         assert nc.split_contact(answer) == (contact, caption)
@@ -278,6 +280,13 @@ class TestEventType:
         assert len(constants.NEXAR_CAPTION_DEV_TRUTH) == constants.NEXAR_CAPTION_DEV_SAMPLE
         kinds = {k for ks in constants.NEXAR_CAPTION_DEV_TRUTH.values() for k in ks}
         assert kinds <= set(constants.NEXAR_CAPTION_EVENT_TYPES)
+
+    def test_closest_clause(self) -> None:
+        answer = "Closest: the van touches the door. Contact: yes. Collision: a van scrapes it."
+        assert nc.closest_clause(answer) == "the van touches the door"
+        assert nc.closest_clause("Contact: no. Near-collision: x.") == ""
+        assert nc.clean_caption("Closest: a gap remains. Contact: no.\nNear-collision: x.") == (
+            "Closest: a gap remains. Contact: no. Near-collision: x.")
 
     def test_contact_consistency(self) -> None:
         assert nc.contact_consistent("yes", "collision")

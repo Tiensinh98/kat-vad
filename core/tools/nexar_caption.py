@@ -80,7 +80,8 @@ REFUSED_REVISIONS = ("", "main", "master")
 IDENTITY_KEYS = ("model", "revision", "quant", "prompt_sha1", "frames", "size",
                  "max_new_tokens", "pre_event_s", "post_event_s")
 WORD = re.compile(r"[a-z]+")
-CONTACT = re.compile(r"^\s*contact\s*:\s*(yes|no)\b\s*[.;,:-]?\s*", re.IGNORECASE)
+CONTACT = re.compile(r"\bcontact\s*:\s*(yes|no)\b\s*[.;,:-]?\s*", re.IGNORECASE)
+CLOSEST = re.compile(r"^\s*closest\s*:\s*", re.IGNORECASE)
 
 Captioner = Callable[[np.ndarray, float], str]
 
@@ -154,17 +155,25 @@ def clean_caption(text: str) -> str:
     lines = [line for line in lines if line]
     if not lines:
         raise ValueError("the model returned an empty caption")
-    if len(lines) > 1 and CONTACT.sub("", lines[0]) == "":
+    if len(lines) > 1 and CONTACT.search(lines[0]) and CONTACT.split(lines[0])[-1] == "":
         return f"{lines[0]} {lines[1]}"
     return lines[0]
 
 
 def split_contact(answer: str) -> tuple[str, str]:
-    """§29.3 v3: ``(contact, caption)``; the caption is what follows ``Contact: yes|no.``."""
-    match = CONTACT.match(answer)
+    """§29.3: ``(contact, caption)``; the caption is what follows ``Contact: yes|no.``, and an
+    optional leading ``Closest: ...`` clause (v5) is dropped with it."""
+    match = CONTACT.search(answer)
     if match is None:
         return constants.NEXAR_CAPTION_EVENT_UNKNOWN, answer.strip()
     return match.group(1).lower(), answer[match.end():].strip()
+
+
+def closest_clause(answer: str) -> str:
+    """§29.3 v5: the ``Closest: ...`` text before the contact clause, ``""`` if absent."""
+    match = CONTACT.search(answer)
+    head = answer[: match.start()] if match else ""
+    return CLOSEST.sub("", head).strip().rstrip(".").strip() if CLOSEST.match(head) else ""
 
 
 def contact_consistent(contact: str, kind: str) -> bool:
@@ -283,7 +292,7 @@ def caption_videos(raw_root: Path, census: dict[str, Any], out_dir: Path,
             contact, caption = split_contact(answer)
             kind = event_type(caption)
             record = {**ident, "video_id": vid, "caption": caption, "answer": answer,
-                      "contact": contact, "event_type": kind,
+                      "closest": closest_clause(answer), "contact": contact, "event_type": kind,
                       "contact_consistent": contact_consistent(contact, kind),
                       "frame_indices": indices, "span_s": [start, end],
                       "words": len(caption.split()), "forbidden": forbidden_terms(caption)}

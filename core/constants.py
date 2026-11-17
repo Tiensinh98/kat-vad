@@ -524,7 +524,7 @@ NEXAR_CAPTION_SIZE = (700, 392)
 QWEN_VL_PATCH = 14  # Qwen2-VL video processor: patch_size; merge_size 2, temporal_patch_size 2
 QWEN_VL_TEMPORAL_PATCH = 2
 # CP4' (§29.1): one "detailed" sentence; PreVAD's mean is 22.9 words, 96 tokens leaves headroom
-NEXAR_CAPTION_MAX_NEW_TOKENS = 128  # §29.3 v3: + the "Contact: yes." clause
+NEXAR_CAPTION_MAX_NEW_TOKENS = 160  # §29.3 v5: + "Closest: ..." and "Contact: yes." clauses
 NEXAR_CAPTION_MAX_WORDS = 40  # printed count of captions longer than this (no longer a prompt cap)
 NEXAR_CAPTION_QC_SAMPLE = 30  # CP6: videos the user rates
 # CP6' (§29.1): LaGoVAD Tab. B 1-5 consistency scale; pass iff the mean over the sample >= this
@@ -547,26 +547,30 @@ NEXAR_CAPTION_EVENT_UNKNOWN = "unknown"
 # reads), with visible contact cues; only road users that take part are named
 NEXAR_CAPTION_CONTACT_TYPES = {"yes": ("accident", "collision"),
                                "no": ("near-collision", "dangerous maneuver")}
+# v5 (dev round 5, user override of the round cap): state the closest moment first; contact
+# unless a clear gap is visible; collision defined by light / side contact. The "Closest:" and
+# "Contact:" clauses are dropped from the caption L_neg reads
 NEXAR_CAPTION_PROMPT = (
     "This video was recorded by a dashcam mounted behind the windshield of the ego vehicle, "
-    "facing forward. It contains a safety-critical traffic event. First decide whether any "
-    "physical contact happens between road users, including the ego vehicle. Signs of contact: "
-    "another road user fills the view and stops moving relative to the camera, the camera jolts "
-    "or shakes, a door or mirror is hit, vehicles stop while touching, or debris appears. Then "
-    "choose exactly one type. Accident: contact, a severe and clearly visible crash. Collision: "
-    "contact, but light or not clearly visible, such as a bump or scrape. Near-collision: no "
-    "contact; a road user brakes hard or stops at the last moment and almost hits another. "
-    "Dangerous maneuver: no contact; an abnormal swerve or steering action, possibly to avoid a "
-    "crash. Answer on one line in the form 'Contact: yes. Accident: <description>' or "
-    "'Contact: no. Near-collision: <description>', where the description is one sentence of at "
-    "most 40 words saying which road users take part (the ego vehicle, cars, trucks, buses, "
-    "motorcycles, cyclists, pedestrians), what each one does, and from which direction. Name "
-    "only road users that take part in the event; ignore those that only stand nearby. Mention a "
-    "pedestrian only if one moves into a vehicle's path. Contact can also happen at the side of "
-    "the ego vehicle: a door opening into it, a vehicle beside it scraping it, or a mirror being "
-    "hit, so check the left and right edges of the frame, not only the road ahead. Call the "
-    "camera car 'the ego vehicle'. Describe only what is visible; do not guess. Output only the "
-    "answer."
+    "facing forward. It contains a safety-critical traffic event. Step 1: find the moment when "
+    "the road users involved come closest to each other, including the ego vehicle, and state "
+    "it in one short clause. Step 2: decide contact. Answer 'Contact: yes' if they touch, or if "
+    "you cannot see a clear gap between them at that moment; answer 'Contact: no' only if a "
+    "clear gap remains. Contact may be at the front or at the side of the ego vehicle; signs "
+    "are another road user filling the view and stopping relative to the camera, a camera jolt, "
+    "a door or mirror being hit, a vehicle beside the ego vehicle scraping it, vehicles stopping "
+    "while touching, or debris. Step 3: choose exactly one type. Accident: contact, a severe and "
+    "clearly visible crash, such as a hard impact or a vehicle being pushed. Collision: contact "
+    "that is light or partly hidden, such as a bump, a scrape, a side swipe, or a door or mirror "
+    "being hit; the camera may barely shake. Near-collision: no contact; a clear gap remains "
+    "after hard braking or a last-moment stop. Dangerous maneuver: no contact and no last-moment "
+    "stop; an abnormal swerve or steering action. Answer on one line in the form 'Closest: "
+    "<clause>. Contact: yes. Collision: <description>', where the description is one sentence "
+    "of at most 40 words saying which road users take part (the ego vehicle, cars, trucks, "
+    "buses, motorcycles, cyclists, pedestrians), what each one does, and from which direction. "
+    "Name only road users that take part in the event; mention a pedestrian only if one moves "
+    "into a vehicle's path. Call the camera car 'the ego vehicle'. Describe only what is "
+    "visible; do not guess. Output only the answer."
 )
 # §29.3 dev round 4: the user's frozen reference types for the 10 dev videos (2026-11-17, before
 # round 4 ran); a caption's type is right iff it is in the set. type_ok is computed from this
