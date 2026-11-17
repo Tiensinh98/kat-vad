@@ -243,8 +243,8 @@ def test_prompt_names_the_ego_vehicle_and_the_event_types() -> None:
     """§29.3 CP4'': dashcam framing, the four opening types, the 40-word cap."""
     prompt = constants.NEXAR_CAPTION_PROMPT
     assert "dashcam" in prompt and "'the ego vehicle'" in prompt and "40 words" in prompt
-    assert "Contact: yes. Collision: <description>" in prompt and "'Closest: " in prompt
-    assert "only if a clear gap remains" in prompt
+    assert "'Contact: yes. Accident:" in prompt and "'Contact: no. Near-collision:" in prompt
+    assert "left and right edges of the frame" in prompt
     for kind in ("Accident:", "Collision:", "Near-collision:", "Dangerous maneuver:"):
         assert kind in prompt
 
