@@ -1641,6 +1641,34 @@ Checks: both checkpoints step 1,749 (J10); 112 / 112 `nexar_val` positives score
 
 Code: `core/losses/contrastive.py` (`unique_target`, `uniq_rows`), `core/train.py` (the `uniq` branch: items mapped to source videos by `dataset.slicer.source_of`), `core/constants.py` (`CAP_CONTRAST_MODE_UNIQ`, `LNEG_UNIQ_TARGET_SEED`, `KIM_LNEG_UNIQ_*`), `core/tools/k5_lneg_uniq_report.py`. Tests `test_class_contrast.py`, `test_train_units.py`, `test_k5_lneg_uniq_report.py`. Runbook `colab/final/k5_lneg_uniq.ipynb`. Outputs `Thesis-Final/outputs/kim_lneg_uniq/`.
 
+#### 28.3.1 Read-out (2026-11-17, s2024; raw `outputs/v_final/kim_lneg_uniq/REPORTS/k5_lneg_uniq_report.{md,json}`; PRELIMINARY, n = 1)
+
+Run checks: checkpoint step 1,749 (`verified.json`, J10) = the last `global_step` of `metrics.jsonl` = K5's step. Config diff to K5Lneg = `loss.cap_contrast_mode: class → uniq` only, so the diff to K5 is this key (U1). Every logged step carries `cap_contrastive`; mined columns 6 (step 1) → 28 (last step). NG4: K5's re-read on `nexar_val` crops 0.8981 = §13, gap 0. The first report run crashed on a key collision in the tool (`verdict()`'s `sets` overwrote the per-set contrasts; fixed in `0ab5a5a`, no number changed: the report is pure aggregation).
+
+| set | K5 | K5Lneg | K5Lnegu | K5Lnegu − K5 [95 %] | K5Lnegu − K5Lneg [95 %] |
+| --- | --- | --- | --- | --- | --- |
+| Nexar val crops (endpoint, in-domain) | 0.8981 | 0.7779 | 0.8285 | −0.0696 [−0.0826, −0.0574] **below** | +0.0506 [+0.0342, +0.0673] **above** |
+| DoTA-CAP-dev macro (protocol B) | 0.8195 | 0.7730 | 0.7944 | −0.0252 [−0.0360, −0.0142] **below** | +0.0213 [+0.0134, +0.0296] **above** |
+| DADA-2000 macro (370, whole) | 0.7740 | 0.6943 | 0.7214 | −0.0526 [−0.0642, −0.0407] **below** | +0.0271 [+0.0157, +0.0387] **above** |
+| TAD macro (printed) | 0.7002 | 0.6666 | 0.6694 | −0.0308 [−0.0612, −0.0007] below | +0.0028 [−0.0245, +0.0300] not separated |
+| DAD macro | 0.7916 | 0.7296 | 0.7529 | −0.0387 [−0.0702, −0.0075] **below** | +0.0233 [+0.0009, +0.0455] **above** |
+
+K5Lneg − K5, re-derived, equals §28.1 on every set.
+
+**U2: MIXED.** K5Lnegu − K5 is "below" on all four sets of S, so not A. K5Lnegu − K5Lneg is "above" on all four, so not B (B allows ≤ 1). **U4 → no claim; option C stays closed; K5 stays the main model.** No s2025, no other target seed, τ or weight (lesson 14).
+
+**Prediction** "B or MIXED, not A": held (MIXED).
+
+Printed, never decides (U3):
+- P2 (`feature_diversity`, K5Lnegu vs K5, 112/112 `nexar_val` positives): `sep` 2.629 → 0.903, Δ −1.726 [−2.037, −1.446] (94.6 % of videos lower; K5Lneg's Δ was −0.547); `row_cos` 0.701 → 0.632, Δ −0.069 [−0.079, −0.058]; `eff_rank` +13.6 [+12.3, +15.0]. FD6 **NOT SUPPORTED** (Δ `row_cos` < 0): unique targets spread the rows of a video (lower cosine, higher rank) while the accident-vs-normal separation inside it falls three times as far as K5Lneg's.
+- Nexar val whole macro / micro / AP / clip AUC: K5 0.9245 / 0.9000 / 0.4472 / 0.7735; K5Lnegu 0.8655 / 0.8500 / 0.3402 / 0.7813.
+- Micro / AP, K5Lnegu: DoTA-CAP-dev 0.7629 / 0.5792 (K5 0.7449 / 0.5790); DADA 0.7286 / 0.5063 (0.7635 / 0.5640); TAD 0.5864 / 0.2250 (0.6781 / 0.2568); DAD 0.7331 / 0.1416 (0.7050 / 0.1156).
+- Loss, K5Lnegu: step 1 `mil` 0.6925, `cap_contrastive` 4.3627 − floor 0.7513 = +3.611; last epoch mean `mil` 0.209, `kim_mil` 0.194 (K5 0.164 / 0.161), `cap_contrastive` − floor = +0.660 (K5Lneg +0.025). The uniq term stays far above its floor: unlike K5Lneg's, it is never fitted.
+
+**Reading (post-hoc, printed, decides nothing).** Replacing the shared class target with one target per video recovers 34–46 % of K5Lneg's cost on every deciding set (Nexar 42 %, DoTA 46 %, DADA 34 %, DAD 38 %) and still costs against K5 on every set. Both ingredients carry cost at this n: the shared target (what uniq removes) and the pooled objective (what uniq keeps). Unlike K5Lneg, the term is not near its floor and MIL is fitted less tightly than K5's, so the remaining cost is a pull that competes with MIL, not an easier objective. The P2 pattern (rows more diverse, accident direction weaker) fits that, but co-occurrence is not causation.
+
+**Licensed:** "With one fixed random target per source video in place of the class text (`loss.cap_contrast_mode=uniq`), the caption contrastive term still costs K5 on Nexar-val crops (−0.070), DoTA-CAP-dev (−0.025), DADA (−0.053) and DAD (−0.039), and costs less than the class-positive form on all four (+0.021 … +0.051). PRELIMINARY (n = 1). U2 = MIXED: no claim on which ingredient costs; K5 stays." **Not licensed:** "per-video captions would help" or "would not help" (random targets are not text), "the shared target explains the cost", "the objective explains the cost", any mechanism sentence.
+
 ## 29. Nexar event captions with Qwen2.5-VL-7B (dated note 2026-11-16, before any caption is read; user)
 
 **Status 2026-11-16: not used — §28.1 read "below", so under this note the captions have no use; the tool stays, not run.** **A data artifact, not an arm.** The user asked to build option C's input now (one caption per accident event, Qwen2.5-VL-7B on a Colab L4), before §28 is read out. Nothing here trains, and nothing here authorizes training with the captions: that needs §28 NL7 to read "candidate" **and** a new dated note with its own loss rule. If §28 reads "below" or "no claim", the captions stay unused.
