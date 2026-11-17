@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from core import constants
@@ -65,3 +67,32 @@ def test_interaction_uses_common_items_only() -> None:
 def test_parser_requires_the_roots() -> None:
     with pytest.raises(SystemExit):
         cr.build_arg_parser().parse_args(["--kim-root", "a", "--out-dir", "o"])
+
+
+def _metrics(path, mul_mil_last: float) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    rows = [{"epoch": 0, "mul_mil": 0.69}, {"epoch": 1, "mul_mil": mul_mil_last},
+            {"epoch": 1, "mul_mil": mul_mil_last}]
+    (path / "metrics.jsonl").write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+
+
+def test_fixed_names_replace_k5_with_k5f() -> None:
+    got = cr.names(True)
+    assert got[cr.K5] == constants.KIM_REFERENCE_ARM == constants.KIM_FIXED_ARM
+    assert cr.contrast_title("both", got) == (f"{constants.KIM_FIXED_CAP_DVS_ROW} - "
+                                              f"{constants.KIM_FIXED_ARM}")
+    assert cr.names(False)[cr.K5] == constants.KIM_MAIN_ARM
+
+
+def test_fixed_runs_pass_above_the_floor(tmp_path) -> None:
+    _metrics(tmp_path / "a", 0.09)
+    _metrics(tmp_path / "b", 0.20)
+    got = cr.check_fixed_runs({"K5f": tmp_path / "a", "K5cf": tmp_path / "b"})
+    assert got == pytest.approx({"K5f": 0.09, "K5cf": 0.20})
+
+
+def test_fixed_runs_refuse_a_pre_fix_run(tmp_path) -> None:
+    _metrics(tmp_path / "a", 0.09)
+    _metrics(tmp_path / "old", 0.0015)  # K5's constant-target mul_mil
+    with pytest.raises(ValueError, match="before the §31 label fix"):
+        cr.check_fixed_runs({"K5f": tmp_path / "a", "K5": tmp_path / "old"})

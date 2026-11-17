@@ -1223,6 +1223,15 @@ KIM_FIXED_ARM = "K5f"
 KIM_FIXED_OUTPUT_DIRNAME = "kim_fixed"  # OUTPUT_ROOT/<this>/K5f/{K5/s<seed>, eval}, REPORTS
 KIM_FIXED_REPORT_NAME = "k5f_s2024"  # zs_arm_table report = zs_arm_table_<this>.{md,json}
 KIM_FIXED_MUL_MIL_FLOOR = 0.01  # §31 F3: K5 ended at 0.0015 (constant target); K5f must stay above
+# §31.1 (user): K5f REPLACES K5 as the reference of every new arm. KIM_MAIN_ARM stays "K5" only
+# because it names the eval sub-folders (eval/<set>/K5); never use it as the control of a new arm.
+KIM_REFERENCE_ARM = KIM_FIXED_ARM
+# §32: the §30 2 x 2 re-run on the fixed label path, against K5f
+KIM_LNEG_CAP_FIXED_OUTPUT_DIRNAME = "kim_lneg_cap_fixed"  # OUTPUT_ROOT/<this>/<row>/{K5/s<seed>, eval}
+KIM_FIXED_DVS_ROW = "K5df"  # K5d's config on the fixed code
+KIM_FIXED_CAP_ROW = "K5cf"  # K5c's config on the fixed code
+KIM_FIXED_CAP_DVS_ROW = "K5dcf"  # K5dc's config on the fixed code
+KIM_LNEG_CAP_FIXED_REPORT_STEM = "k5f_lneg_cap_report"
 NORMAL_VIDEO_PEAK = 0.5  # a normal video whose peak score passes this counts as a false alarm
 # OUTPUT_ROOT/kim_msad: eval/<row>/<run>/ + REPORTS/ (KIM_RUN.md §18, zero-shot MSAD)
 MSAD_ZS_OUTPUT_DIRNAME = "kim_msad"

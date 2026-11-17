@@ -1868,3 +1868,19 @@ Printed: Nexar val negatives with peak > 0.5: K5 0.717 → K5f **0.549**; AP 0.4
 **Licensed:** "K5 retrained with label-0 items labeled Normal (K5f) differs from K5 by at most 0.016 macro on any of the five sets at s2024; not separated on DoTA-CAP-dev, DADA and TAD, below on Nexar val (−0.004), above on DAD (+0.015). PRELIMINARY (n = 1)." **Not licensed:** "the fix improves / hurts K5", "L_MIL-align does nothing".
 
 **Status (F5, user's instruction):** **K5f replaces K5 as the corrected reference.** Numbers measured before §31 stay quotable with "measured with the source-class labels (§30.3)"; their contrasts were against controls carrying the same defect. Where the defect mattered is `L_neg` (§28, §28.3, §30: the labels decide its positives and negatives) — those closures are not supported until re-run on the fixed code against K5f. Not decided: which arms to re-run.
+
+## 32. §30's 2 × 2 re-run on the fixed label path, against K5f (dated note 2026-11-17, before any number; user)
+
+**Why.** §30 ran with every normal window labeled `CarAccident` (§30.3), so C2's same-scene negatives never existed; the user asked for K5c and K5dc again on the §31 code, compared with K5f. **From §31.1 on, K5f replaces K5 completely: no new arm is compared with K5** (user).
+
+| item | §32 |
+|---|---|
+| R1 Rows | **K5f** (control, §31 run and reads, read only) · **K5df** = K5d's command (§12: DVS θ 0.7 / 0.85, seam mask, KNN cache) on the fixed code · **K5cf** = K5c's command (§30 C2) on the fixed code · **K5dcf** = K5dc's command on the fixed code. Config diffs: K5df − K5d = 0; K5cf − K5 and K5dcf − K5d = the two caption keys only (asserted). Same captions manifest as §30 (prompt v6 `4d213779`, QC waived). s2024, 1,749 steps each |
+| R2 Fix guard | every row's last-epoch `mul_mil` > `KIM_FIXED_MUL_MIL_FLOOR` (runbook asserts; `k5_lneg_cap_report --fixed` raises otherwise, so a pre-§31 run can never be a row or the control); caption rows: `cap_same_source_neg` > 0 on average (it was 0 on every §30 step) |
+| R3 Contrasts | §30 C5 with the renamed rows: K5cf − K5f, K5df − K5f, K5dcf − K5f, K5dcf − K5df, and I = (K5dcf − K5df) − (K5cf − K5f), paired per item, cluster bootstrap |
+| R4 Verdict | §30 C6 unchanged (COMPLEMENTARY / ANTAGONISTIC / NO CLAIM on Nexar, DoTA-CAP-dev, DADA, DAD; TAD printed). C7: K5dcf a candidate iff K5dcf − K5f is above on ≥ 1 set and below on none; K5f stays unless the user decides |
+| R5 Wording | if C6 says COMPLEMENTARY while K5cf and K5dcf are both below K5f (§30.3's pattern), the read-out says "DVS reduces caption `L_neg`'s cost", not "complementary" |
+
+**Expectation, written before the number:** K5cf costs less than K5c did against K5 (the in-video normals are now negatives, as designed), but is still below K5f on most sets; I "above" on some sets; C7 not a candidate. A wrong expectation changes nothing.
+
+Runbook `colab/final/k5_lneg_cap_fixed.ipynb`; report `core.tools.k5_lneg_cap_report --fixed` → `REPORTS/k5f_lneg_cap_report.md`. Outputs `Thesis-Final/outputs/kim_lneg_cap_fixed/`.
