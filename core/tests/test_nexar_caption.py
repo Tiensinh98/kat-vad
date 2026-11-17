@@ -63,8 +63,10 @@ class FakeCaptioner:
 
     def __call__(self, frames: np.ndarray, fps: float) -> str:
         self.calls += 1
-        assert frames.shape == (constants.NEXAR_CAPTION_FRAMES, 252, 448, 3)
-        return f'"Near-collision: the ego vehicle brakes behind a truck ({fps:.2f} fps)."\nextra'
+        width, height = constants.NEXAR_CAPTION_SIZE
+        assert frames.shape == (constants.NEXAR_CAPTION_FRAMES, height, width, 3)
+        return (f'"Contact: no. Near-collision: the ego vehicle brakes behind a truck '
+                f'({fps:.2f} fps)."\nextra')
 
 
 IDENT = nc.identity(constants.NEXAR_CAPTION_MODEL, "abc123", constants.NEXAR_CAPTION_PROMPT)
@@ -101,7 +103,8 @@ class TestFrames:
     def test_decode_returns_the_requested_frames_resized(self, tmp_path: Path) -> None:
         _mp4(tmp_path / "v.mp4")
         frames = nc.decode_frames(tmp_path / "v.mp4", [10, 40, 90])
-        assert frames.shape == (3, 252, 448, 3) and frames.dtype == np.uint8
+        width, height = constants.NEXAR_CAPTION_SIZE
+        assert frames.shape == (3, height, width, 3) and frames.dtype == np.uint8
         np.testing.assert_allclose(frames.reshape(3, -1).mean(1), [10, 40, 90], atol=4)
 
     def test_decode_past_the_end_raises(self, tmp_path: Path) -> None:
@@ -109,19 +112,21 @@ class TestFrames:
         with pytest.raises(ValueError, match="not decoded"):
             nc.decode_frames(tmp_path / "v.mp4", [10, FRAMES + 5])
 
-    def test_qwen_video_grid_is_1152_tokens(self) -> None:
-        """CP2' against the real processor class: 448 x 252 is kept, grid (8, 18, 32)."""
-        assert nc.expected_grid() == (8, 18, 32)
-        frames = np.zeros((constants.NEXAR_CAPTION_FRAMES, 252, 448, 3), dtype=np.uint8)
+    def test_qwen_video_grid_is_2800_tokens(self) -> None:
+        """§29.3 against the real processor class: 700 x 392 is kept, grid (8, 28, 50)."""
+        assert nc.expected_grid() == (8, 28, 50)
+        frames = np.zeros((constants.NEXAR_CAPTION_FRAMES, 392, 700, 3), dtype=np.uint8)
         out = Qwen2VLVideoProcessor()(videos=[frames], min_pixels=3136, max_pixels=12845056,
                                        return_tensors="pt")
         assert tuple(out["video_grid_thw"][0].tolist()) == nc.expected_grid()
-        assert out["pixel_values_videos"].shape[0] // 4 == 1152  # merge 2 x 2
+        assert out["pixel_values_videos"].shape[0] // 4 == 2800  # merge 2 x 2
 
 
 class TestText:
     def test_clean_caption(self) -> None:
         assert nc.clean_caption('\n  "The car swerves."  \nmore') == "The car swerves."
+        assert nc.clean_caption("Contact: yes.\nAccident: a car hits.") == (
+            "Contact: yes. Accident: a car hits.")
         with pytest.raises(ValueError, match="empty"):
             nc.clean_caption("  \n ")
 
@@ -145,6 +150,8 @@ class TestRun:
         rec = json.loads((root / "out" / "captions" / f"{positives[0]}.json").read_text())
         assert rec["caption"].startswith("Near-collision: the ego") and rec["revision"] == "abc123"
         assert rec["forbidden"] == [] and rec["event_type"] == "near-collision"
+        assert rec["contact"] == "no" and rec["contact_consistent"]
+        assert rec["answer"].startswith("Contact: no. Near-collision")
         assert rec["quant"] == constants.NEXAR_CAPTION_QUANT
         assert len(rec["frame_indices"]) == constants.NEXAR_CAPTION_FRAMES
         nc.caption_videos(root / "raw", census, root / "out", IDENT, fake)
@@ -164,6 +171,8 @@ class TestRun:
         manifest = nc.write_manifest(root / "out", census, IDENT, records)
         assert manifest["videos"] == 3 and manifest["summary"]["distinct"] == 1
         assert manifest["summary"]["event_types"]["near-collision"] == 3
+        assert manifest["summary"]["contact"]["no"] == 3
+        assert manifest["summary"]["contact_inconsistent"] == 0
         assert manifest["train_ids_sha1"] == json.loads(
             (root / "out" / nc.MANIFEST_FILENAME).read_text())["train_ids_sha1"]
         with pytest.raises(ValueError, match="captions for"):
@@ -234,8 +243,9 @@ def test_prompt_names_the_ego_vehicle_and_the_event_types() -> None:
     """§29.3 CP4'': dashcam framing, the four opening types, the 40-word cap."""
     prompt = constants.NEXAR_CAPTION_PROMPT
     assert "dashcam" in prompt and "'the ego vehicle'" in prompt and "40 words" in prompt
+    assert "'Contact: yes. Accident:" in prompt and "'Contact: no. Near-collision:" in prompt
     for kind in ("Accident:", "Collision:", "Near-collision:", "Dangerous maneuver:"):
-        assert f"'{kind}'" in prompt
+        assert kind in prompt
 
 
 class TestEventType:
@@ -249,6 +259,20 @@ class TestEventType:
     ])
     def test_opening_type(self, caption: str, kind: str) -> None:
         assert nc.event_type(caption) == kind
+
+    @pytest.mark.parametrize(("answer", "contact", "caption"), [
+        ("Contact: yes. Accident: a truck is hit.", "yes", "Accident: a truck is hit."),
+        ("contact: NO; Near-collision: a car cuts in.", "no", "Near-collision: a car cuts in."),
+        ("Accident: no contact clause.", constants.NEXAR_CAPTION_EVENT_UNKNOWN,
+         "Accident: no contact clause."),
+    ])
+    def test_split_contact(self, answer: str, contact: str, caption: str) -> None:
+        assert nc.split_contact(answer) == (contact, caption)
+
+    def test_contact_consistency(self) -> None:
+        assert nc.contact_consistent("yes", "collision")
+        assert not nc.contact_consistent("yes", "near-collision")
+        assert not nc.contact_consistent(constants.NEXAR_CAPTION_EVENT_UNKNOWN, "accident")
 
     def test_unknown_quant_is_refused(self) -> None:
         with pytest.raises(ValueError, match="quant must be"):

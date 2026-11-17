@@ -80,6 +80,7 @@ REFUSED_REVISIONS = ("", "main", "master")
 IDENTITY_KEYS = ("model", "revision", "quant", "prompt_sha1", "frames", "size",
                  "max_new_tokens", "pre_event_s", "post_event_s")
 WORD = re.compile(r"[a-z]+")
+CONTACT = re.compile(r"^\s*contact\s*:\s*(yes|no)\b\s*[.;,:-]?\s*", re.IGNORECASE)
 
 Captioner = Callable[[np.ndarray, float], str]
 
@@ -138,19 +139,37 @@ def decode_frames(path: Path, indices: list[int],
 
 def expected_grid(n: int = constants.NEXAR_CAPTION_FRAMES,
                   size: tuple[int, int] = constants.NEXAR_CAPTION_SIZE) -> tuple[int, int, int]:
-    """The processor's ``video_grid_thw`` for ``n`` frames of ``size`` (CP2': (8, 18, 32))."""
+    """The processor's ``video_grid_thw`` for ``n`` frames of ``size`` (§29.3: (8, 28, 50))."""
     width, height = size
     return (n // constants.QWEN_VL_TEMPORAL_PATCH, height // constants.QWEN_VL_PATCH,
             width // constants.QWEN_VL_PATCH)
 
 
 def clean_caption(text: str) -> str:
-    """First non-empty line, quotes and surrounding whitespace removed; empty raises."""
+    """First non-empty line, quotes and surrounding whitespace removed; empty raises.
+
+    A bare ``Contact: yes.`` first line (§29.3 v3) is joined with the line after it.
+    """
     lines = [line.strip().strip('"').strip("'").strip() for line in text.splitlines()]
     lines = [line for line in lines if line]
     if not lines:
         raise ValueError("the model returned an empty caption")
+    if len(lines) > 1 and CONTACT.sub("", lines[0]) == "":
+        return f"{lines[0]} {lines[1]}"
     return lines[0]
+
+
+def split_contact(answer: str) -> tuple[str, str]:
+    """§29.3 v3: ``(contact, caption)``; the caption is what follows ``Contact: yes|no.``."""
+    match = CONTACT.match(answer)
+    if match is None:
+        return constants.NEXAR_CAPTION_EVENT_UNKNOWN, answer.strip()
+    return match.group(1).lower(), answer[match.end():].strip()
+
+
+def contact_consistent(contact: str, kind: str) -> bool:
+    """Contact yes pairs with accident / collision, no with near-collision / dangerous maneuver."""
+    return kind in constants.NEXAR_CAPTION_CONTACT_TYPES.get(contact, ())
 
 
 def event_type(caption: str) -> str:
@@ -252,10 +271,14 @@ def caption_videos(raw_root: Path, census: dict[str, Any], out_dir: Path,
         if record is None:
             indices, (start, end) = event_frame_indices(rows[vid])
             frames = decode_frames(raw_root / rows[vid]["path"], indices)
-            caption = clean_caption(captioner(frames, len(indices) / (end - start)))
-            record = {**ident, "video_id": vid, "caption": caption, "frame_indices": indices,
-                      "span_s": [start, end], "words": len(caption.split()),
-                      "event_type": event_type(caption), "forbidden": forbidden_terms(caption)}
+            answer = clean_caption(captioner(frames, len(indices) / (end - start)))
+            contact, caption = split_contact(answer)
+            kind = event_type(caption)
+            record = {**ident, "video_id": vid, "caption": caption, "answer": answer,
+                      "contact": contact, "event_type": kind,
+                      "contact_consistent": contact_consistent(contact, kind),
+                      "frame_indices": indices, "span_s": [start, end],
+                      "words": len(caption.split()), "forbidden": forbidden_terms(caption)}
             write_json_atomic(path, record)
             made += 1
             LOGGER.info("%d/%d %s (%.1f s/video): %s", n, len(todo), vid,
@@ -293,6 +316,11 @@ def summarize(records: dict[str, dict[str, Any]]) -> dict[str, Any]:
         "event_types": {t: sum(event_type(r["caption"]) == t for r in records.values())
                         for t in (*constants.NEXAR_CAPTION_EVENT_TYPES,
                                   constants.NEXAR_CAPTION_EVENT_UNKNOWN)},
+        "contact": {c: sum(r.get("contact") == c for r in records.values())
+                    for c in (*constants.NEXAR_CAPTION_CONTACT_TYPES,
+                              constants.NEXAR_CAPTION_EVENT_UNKNOWN)},
+        "contact_inconsistent": sum(not r.get("contact_consistent", True)
+                                    for r in records.values()),
     }
 
 
@@ -346,7 +374,7 @@ def write_sheet(raw_root: Path, census: dict[str, Any], captions_dir: Path, shee
              "right?), printed only.", "",
              "| score | criteria |", "|---|---|",
              *(f"| {s} | {QC_CRITERIA[s]} |" for s in sorted(QC_CRITERIA, reverse=True)), "",
-             "| # | video | span (s) | type | caption |", "|---|---|---|---|---|"]
+             "| # | video | span (s) | contact | type | caption |", "|---|---|---|---|---|---|"]
     with (sheet_dir / QC_RATINGS_FILENAME).open("w", encoding="utf-8", newline="") as fh:
         writer = csv.writer(fh)
         writer.writerow(["rank", "video_id", "event_type", "caption", QC_SCORE_COLUMN,
@@ -359,8 +387,8 @@ def write_sheet(raw_root: Path, census: dict[str, Any], captions_dir: Path, shee
             blanks = [""] * len(QC_FLAG_COLUMNS)
             writer.writerow([rank, vid, kind, record["caption"], "", *blanks])
             start, end = record["span_s"]
-            lines.append(f"| {rank} | {vid} | {start:.2f}-{end:.2f} | {kind} | "
-                         f"{record['caption']} |")
+            lines.append(f"| {rank} | {vid} | {start:.2f}-{end:.2f} | "
+                         f"{record.get('contact', '')} | {kind} | {record['caption']} |")
     write_text_atomic(sheet_dir / QC_SHEET_FILENAME, "\n".join(lines) + "\n")
 
 

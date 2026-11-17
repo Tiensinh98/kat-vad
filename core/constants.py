@@ -518,12 +518,13 @@ NEXAR_CAPTION_QUANT = NEXAR_CAPTION_QUANT_NF4
 NEXAR_CAPTION_FRAMES = 16
 NEXAR_CAPTION_PRE_EVENT_S = 2.0  # a round number, not tuned; earliest nexar_train t_event = 3.03 s
 # CP2: every frame is resized to this (W, H) before the processor; both are multiples of 28, so
-# smart_resize keeps it and the grid is (FRAMES / 2, H / 14, W / 14) = (8, 18, 32): 1,152 tokens
-NEXAR_CAPTION_SIZE = (448, 252)
+# smart_resize keeps it and the grid is (FRAMES / 2, H / 14, W / 14). §29.3 dev round 3 (user):
+# 448 x 252 -> 700 x 392 (672 x 378 is not a multiple of 28): grid (8, 28, 50) = 2,800 tokens
+NEXAR_CAPTION_SIZE = (700, 392)
 QWEN_VL_PATCH = 14  # Qwen2-VL video processor: patch_size; merge_size 2, temporal_patch_size 2
 QWEN_VL_TEMPORAL_PATCH = 2
 # CP4' (§29.1): one "detailed" sentence; PreVAD's mean is 22.9 words, 96 tokens leaves headroom
-NEXAR_CAPTION_MAX_NEW_TOKENS = 96
+NEXAR_CAPTION_MAX_NEW_TOKENS = 128  # §29.3 v3: + the "Contact: yes." clause
 NEXAR_CAPTION_MAX_WORDS = 40  # printed count of captions longer than this (no longer a prompt cap)
 NEXAR_CAPTION_QC_SAMPLE = 30  # CP6: videos the user rates
 # CP6' (§29.1): LaGoVAD Tab. B 1-5 consistency scale; pass iff the mean over the sample >= this
@@ -541,20 +542,28 @@ NEXAR_CAPTION_OUTPUT_DIRNAME = "nexar_captions_v2"  # §29.3; §29.1's records s
 # which), so the caption opens with one event type; the rest is the description L_neg reads
 NEXAR_CAPTION_EVENT_TYPES = ("accident", "collision", "near-collision", "dangerous maneuver")
 NEXAR_CAPTION_EVENT_UNKNOWN = "unknown"
-# the four types and their definitions are the user's (2026-11-17, §29.3 amendment, dev only)
+# the four types and their definitions are the user's (2026-11-17, §29.3 amendment, dev only).
+# v3 (dev round 3): the answer opens with "Contact: yes|no." (dropped from the caption L_neg
+# reads), with visible contact cues; only road users that take part are named
+NEXAR_CAPTION_CONTACT_TYPES = {"yes": ("accident", "collision"),
+                               "no": ("near-collision", "dangerous maneuver")}
 NEXAR_CAPTION_PROMPT = (
     "This video was recorded by a dashcam mounted behind the windshield of the ego vehicle, "
-    "facing forward. It contains a safety-critical traffic event of exactly one of four types. "
-    "Accident: a severe, clearly visible crash, a hard impact between vehicles or road users. "
-    "Collision: contact happens, but it is light or not clearly visible, such as a minor bump or "
-    "scrape. Near-collision: no contact; a road user brakes hard or stops at the last moment and "
-    "almost hits another. Dangerous maneuver: no contact; an abnormal swerve or steering action, "
-    "possibly to avoid a crash. First decide whether any contact happens, then how severe it is. "
-    "Start your answer with exactly one of 'Accident:', 'Collision:', 'Near-collision:' or "
-    "'Dangerous maneuver:', then describe the event in one sentence of at most 40 words: which "
-    "road users are involved (the ego vehicle, cars, trucks, buses, motorcycles, cyclists, "
-    "pedestrians), what each one does, and from which direction. Call the camera car 'the ego "
-    "vehicle'. Describe only what is visible; do not guess. Output only the answer."
+    "facing forward. It contains a safety-critical traffic event. First decide whether any "
+    "physical contact happens between road users, including the ego vehicle. Signs of contact: "
+    "another road user fills the view and stops moving relative to the camera, the camera jolts "
+    "or shakes, a door or mirror is hit, vehicles stop while touching, or debris appears. Then "
+    "choose exactly one type. Accident: contact, a severe and clearly visible crash. Collision: "
+    "contact, but light or not clearly visible, such as a bump or scrape. Near-collision: no "
+    "contact; a road user brakes hard or stops at the last moment and almost hits another. "
+    "Dangerous maneuver: no contact; an abnormal swerve or steering action, possibly to avoid a "
+    "crash. Answer on one line in the form 'Contact: yes. Accident: <description>' or "
+    "'Contact: no. Near-collision: <description>', where the description is one sentence of at "
+    "most 40 words saying which road users take part (the ego vehicle, cars, trucks, buses, "
+    "motorcycles, cyclists, pedestrians), what each one does, and from which direction. Name "
+    "only road users that take part in the event; ignore those that only stand nearby. Call the "
+    "camera car 'the ego vehicle'. Describe only what is visible; do not guess. Output only the "
+    "answer."
 )
 # CP6: printed share of captions that name a scene attribute (the NG5 shortcut; printed only,
 # the prompt no longer forbids them since §29.1)
