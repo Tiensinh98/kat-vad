@@ -36,6 +36,8 @@
 all six core files + CLAUDE.md reviewed; counts re-measured: **109 Python files (73 source + 36 test), 17,520 source LOC,
 754 tests, 35 docs**.)
 
+> **2026-11-17 (captions round 7), Qwen2.5-VL-72B-Instruct NF4 on an 80 GB GPU (user), 32 frames (16 → 32, grid (16, 28, 50)), prompt v6 unchanged; notebook drops the 32B cache, pins revision per model (`KIM_RUN.md` §29.3).** Dev run first.
+
 > **2026-11-17 (captions round 6), PROMPT v6: THREE TYPES accident / collision / no-collision (user); no-collision only if ≥ 70 % sure of no contact; dev truth mapped (near / dangerous → no-collision); supersedes the v4 freeze; dev run first (`KIM_RUN.md` §29.3).** Under the mapping rounds 4/5 stay 7/10, 6/10.
 
 > **2026-11-17 (captions dev rounds 2–5), PROMPT v4 `fc5b2c90` FROZEN BY THE USER (not by the rule), 451 RUN NEXT (`KIM_RUN.md` §29.3, §30.1).** Dev (10 videos, seed 2027; user rated): round 2 `6a24b2d9` mean 3.8, type 6/10, roles 7/10 (contact under-called on 5/10); round 3 `e40d6bb5` (contact-first prompt, frames 448×252 → **700×392**, grid (8, 28, 50)) mean 4.4, type 6/10, roles 9/10; reference then frozen (`NEXAR_CAPTION_DEV_TRUTH`, four types accident / collision / near-collision / dangerous maneuver, user definitions); round 4 `fc5b2c90` (side-contact cues) type 7/10; round 5 `38feb0cc` (user override of the 2-round cap; closest-moment + contact-unless-gap) type 6/10, contact yes 0/10 → worse. Light / side contact (00125, 00546, 00765) is never caught by Qwen2.5-VL-32B NF4. User: run 451 with v4 anyway; QC on 30 fresh videos (seed 2026) still decides (mean ≥ 4.0). §30.1: identical captions merged, cross-source CLIP cosine ≥ 0.95 masked (user). Tests updated, not run locally (no torch). Next: user runs notebook steps 7–9.

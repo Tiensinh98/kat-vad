@@ -140,7 +140,7 @@ def decode_frames(path: Path, indices: list[int],
 
 def expected_grid(n: int = constants.NEXAR_CAPTION_FRAMES,
                   size: tuple[int, int] = constants.NEXAR_CAPTION_SIZE) -> tuple[int, int, int]:
-    """The processor's ``video_grid_thw`` for ``n`` frames of ``size`` (§29.3: (8, 28, 50))."""
+    """The processor's ``video_grid_thw`` for ``n`` frames of ``size`` (§29.3: (16, 28, 50))."""
     width, height = size
     return (n // constants.QWEN_VL_TEMPORAL_PATCH, height // constants.QWEN_VL_PATCH,
             width // constants.QWEN_VL_PATCH)

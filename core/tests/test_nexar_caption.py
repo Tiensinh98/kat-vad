@@ -94,7 +94,9 @@ class TestFrames:
     def test_most_frames_precede_contact(self) -> None:
         indices, _ = nc.event_frame_indices(_row("x"))
         before = sum(i < EVENT * FPS for i in indices)
-        assert before == 9  # 2.0 s of the 3.4 s window, 16 bins
+        n, pre = constants.NEXAR_CAPTION_FRAMES, constants.NEXAR_CAPTION_PRE_EVENT_S
+        span = pre + constants.NEXAR_POST_EVENT_S
+        assert before == sum((k + 0.5) / n * span < pre for k in range(n))  # 19 of 32
 
     def test_too_few_frames_raises(self) -> None:
         with pytest.raises(ValueError, match="holds <"):
@@ -112,14 +114,14 @@ class TestFrames:
         with pytest.raises(ValueError, match="not decoded"):
             nc.decode_frames(tmp_path / "v.mp4", [10, FRAMES + 5])
 
-    def test_qwen_video_grid_is_2800_tokens(self) -> None:
-        """§29.3 against the real processor class: 700 x 392 is kept, grid (8, 28, 50)."""
-        assert nc.expected_grid() == (8, 28, 50)
+    def test_qwen_video_grid_is_5600_tokens(self) -> None:
+        """§29.3 against the real processor class: 700 x 392 is kept, grid (16, 28, 50)."""
+        assert nc.expected_grid() == (16, 28, 50)
         frames = np.zeros((constants.NEXAR_CAPTION_FRAMES, 392, 700, 3), dtype=np.uint8)
         out = Qwen2VLVideoProcessor()(videos=[frames], min_pixels=3136, max_pixels=12845056,
                                        return_tensors="pt")
         assert tuple(out["video_grid_thw"][0].tolist()) == nc.expected_grid()
-        assert out["pixel_values_videos"].shape[0] // 4 == 2800  # merge 2 x 2
+        assert out["pixel_values_videos"].shape[0] // 4 == 5600  # merge 2 x 2
 
 
 class TestText:

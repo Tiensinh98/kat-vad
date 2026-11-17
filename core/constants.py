@@ -507,15 +507,16 @@ NEXAR_FPS_ROUND = 1  # decimals when tabulating frame rates
 # 1,945 annotated rows at 30 fps (1.40 s), read from the annotation, never from a Nexar score.
 NEXAR_POST_EVENT_S = 1.4
 # Event captions for option C (core/docs/final/KIM_RUN.md §29; core.tools.nexar_caption).
-# §29.3 CP3'': Qwen2.5-VL-32B in 4-bit NF4 (bitsandbytes) fits a 40 GB A100 (~19 GB weights)
-NEXAR_CAPTION_MODEL = "Qwen/Qwen2.5-VL-32B-Instruct"
+# §29.3 CP3'': 4-bit NF4 (bitsandbytes). Rounds 2-6: Qwen2.5-VL-32B on a 40 GB A100; round 7
+# (user, an 80 GB GPU): Qwen2.5-VL-72B (~40 GB in NF4; same class and patch size as 32B)
+NEXAR_CAPTION_MODEL = "Qwen/Qwen2.5-VL-72B-Instruct"
 NEXAR_CAPTION_QUANT_NF4 = "nf4"
 NEXAR_CAPTION_QUANT_NONE = "none"
 NEXAR_CAPTION_QUANT_CHOICES = (NEXAR_CAPTION_QUANT_NF4, NEXAR_CAPTION_QUANT_NONE)
 NEXAR_CAPTION_QUANT = NEXAR_CAPTION_QUANT_NF4
 # CP2' (§29.2): frames evenly spaced over [t_event - PRE, t_event + NEXAR_POST_EVENT_S] (3.4 s);
 # Qwen merges 2 frames per time step, so 16 frames = 8 steps ~0.21 s apart, ~9 before contact
-NEXAR_CAPTION_FRAMES = 16
+NEXAR_CAPTION_FRAMES = 32  # §29.3 round 7: 16 -> 32 (~9.4 fps over the 3.4 s window)
 NEXAR_CAPTION_PRE_EVENT_S = 2.0  # a round number, not tuned; earliest nexar_train t_event = 3.03 s
 # CP2: every frame is resized to this (W, H) before the processor; both are multiples of 28, so
 # smart_resize keeps it and the grid is (FRAMES / 2, H / 14, W / 14). §29.3 dev round 3 (user):
