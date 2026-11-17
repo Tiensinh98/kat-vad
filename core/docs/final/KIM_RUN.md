@@ -1848,3 +1848,23 @@ K5c − K5 is "below" on all four deciding sets (−0.051 … −0.089); K5dc �
 **Expectation, written before the number:** macro "not separated" on most sets (the detection path is unchanged and `mul_mil` saturated early in K5); a sign on Nexar val or DADA would not surprise. A wrong expectation changes nothing.
 
 Runbook `colab/final/k5_fixed.ipynb`. Outputs `Thesis-Final/outputs/kim_fixed/`.
+
+### 31.1 Read-out, s2024 (2026-11-17; raw `outputs/v_final/kim_fixed/` synced)
+
+**Checks.** J10 1,749 = K5. Config diff to K5 = 0 (only keys added after K5 trained, at their defaults). **F2 same start:** step-1 `mil` 0.687794 = K5's exactly; step-1 `mul_mil` 0.6932 vs 0.6668 (target changed). **F3 PASS:** last-epoch `mul_mil` **0.0963** (K5: 0.0015). K5's term was solved by epoch 1 (0.0014); K5f's falls slowly (epoch 0 0.695, 3 0.468, 8 0.348, 16 0.191, 32 0.096), so the multi-class target now carries a Normal / accident signal. NG4: K5's `nexar_val` re-read 0.8981 = §13.
+
+| set | K5 macro / micro | K5f macro / micro | Δ macro K5f − K5 | Δ micro |
+|---|---|---|---|---|
+| Nexar val (crops) | 0.8981 / 0.9000 | 0.8942 / 0.8961 | −0.0039 [−0.0077, −0.0004] below | — |
+| DoTA-CAP-dev | 0.8195 / 0.7449 | 0.8188 / 0.7353 | −0.0007 [−0.0034, +0.0019] not separated | −0.0096 [−0.0132, −0.0061] below |
+| DADA | 0.7740 / 0.7635 | 0.7744 / 0.7551 | +0.0004 [−0.0026, +0.0035] not separated | −0.0084 [−0.0119, −0.0046] below |
+| TAD (printed) | 0.7002 / 0.6781 | 0.6981 / 0.6711 | −0.0021 [−0.0123, +0.0078] not separated | −0.0070 [−0.0280, +0.0156] not separated |
+| DAD | 0.7916 / 0.7050 | 0.8070 / 0.7072 | **+0.0154 [+0.0070, +0.0240] above** | +0.0021 [−0.0045, +0.0090] not separated |
+
+Printed: Nexar val negatives with peak > 0.5: K5 0.717 → K5f **0.549**; AP 0.447 → 0.441.
+
+**Reading.** The expectation ("not separated on most sets") held on macro: 3 of 5 not separated, Nexar val −0.004 (below, smallest interval in the table), DAD +0.015 (above). Micro falls ≈ 0.01 on the two min-max sets. Every Δ is ≤ 0.016 in size: **the mislabel cost or bought K5's detection little**; the user's prediction "very different" is not borne out at n = 1. The false-alarm share falls 0.17 at the 0.5 cut, but a fixed cut moves with the score scale (§17.1), so it is not a ranking claim.
+
+**Licensed:** "K5 retrained with label-0 items labeled Normal (K5f) differs from K5 by at most 0.016 macro on any of the five sets at s2024; not separated on DoTA-CAP-dev, DADA and TAD, below on Nexar val (−0.004), above on DAD (+0.015). PRELIMINARY (n = 1)." **Not licensed:** "the fix improves / hurts K5", "L_MIL-align does nothing".
+
+**Status (F5, user's instruction):** **K5f replaces K5 as the corrected reference.** Numbers measured before §31 stay quotable with "measured with the source-class labels (§30.3)"; their contrasts were against controls carrying the same defect. Where the defect mattered is `L_neg` (§28, §28.3, §30: the labels decide its positives and negatives) — those closures are not supported until re-run on the fixed code against K5f. Not decided: which arms to re-run.
