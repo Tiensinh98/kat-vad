@@ -1902,3 +1902,39 @@ Runbook `colab/final/k5_lneg_cap_fixed.ipynb`; report `core.tools.k5_lneg_cap_re
 **Code.** `core/train.py`: `caption_lagovad` branch, `caption_encode_fn` (built with `use_soft_prompt=False`), baseline `CapContrastLoss` restricted to `cap_contrast_mode=baseline`. Tests (`test_train_units.py`): the caption encoder receives `[Normal, captions]` and the soft-prompt encoder only the class texts; `mil` and `mul_mil` differ from `caption` mode; refused without a caption encoder; **K5f's path (no captions) gives identical losses with or without the caption encoder**; the RNG-stream test covers the new mode.
 
 **Expectation, revised before the number:** K5cf closer to K5f than §32's prediction (the Normal pull and the unprompted captions remove two of the three suspected costs); still "below" on at least one set; C7 not a candidate. A wrong expectation changes nothing.
+
+### 32.2 Read-out, s2024 (2026-11-18; raw `outputs/v_final/kim_lneg_cap_fixed/` synced) — R5 fires: no row beats K5f
+
+**Report verdict (as written by `k5_lneg_cap_report --fixed`): C6 COMPLEMENTARY (I above on Nexar val, DADA, DAD; below on none), C7 K5dcf candidate = False.** By R5 the read-out does not say "complementary" (below).
+
+**Checks.** J10: every row at step 1,749. Config diffs: K5cf − K5f = K5dcf − K5df = `loss.cap_contrast_mode` (`baseline` → `caption_lagovad`) + `loss.caption_manifest` only; K5df − K5d = three keys added after K5d trained, at their defaults (`cap_contrast_mode=baseline`, `caption_manifest=""`, `model.motion_norm=none`); K5df − K5f = `dvs.theta` 0.7, `dvs.theta_ego` 0.85, `kim.seam_mask` (§12). Start: K5df step-1 `mil` 0.690560 = K5d's exactly. K5cf / K5dcf step-1 `mil` 1.3855 / 1.3815 ≈ 2 × K5f's because §32.1 A3 adds the caption branch's MIL into `mil` — not comparable to K5f's, as designed. **R2 PASS:** last-epoch `mul_mil` K5f 0.0963, K5df 0.170, K5cf 0.256, K5dcf 0.557 (all > 0.01; the caption rows include the caption branch's `L_MIL-align`); `cap_same_source_neg` mean 2.13 (K5cf) / 2.08 (K5dcf) per batch (§30: 0 on every step; §30.2 estimated ≈ 2). `cap_masked_share` 0.004 (step 1) → 0.005 (last epoch), no drift: captions no longer pass the trained soft prompts (§30.3 item 3 was 0.39 → 0.03). Last-epoch `cap_contrastive − floor`: K5cf 0.404, K5dcf 0.640.
+
+Macro (Nexar = val crops; DoTA-CAP-dev, DADA min-max; TAD, DAD raw):
+
+| set | K5f | K5df | K5cf | K5dcf |
+|---|---|---|---|---|
+| Nexar val | 0.8942 | 0.8871 | 0.8612 | 0.8785 |
+| DoTA-CAP-dev | 0.8188 | 0.8164 | 0.8083 | 0.8131 |
+| DADA | 0.7744 | 0.7728 | 0.7470 | 0.7564 |
+| TAD (printed) | 0.6981 | 0.7033 | 0.6947 | 0.7103 |
+| DAD | 0.8070 | 0.7562 | 0.8051 | 0.7800 |
+
+Contrasts, paired per item, 95 % cluster bootstrap:
+
+| set | K5cf − K5f | K5df − K5f | K5dcf − K5f | K5dcf − K5df | I |
+|---|---|---|---|---|---|
+| Nexar val | −0.0330 [−0.0412, −0.0248] below | −0.0071 [−0.0164, +0.0023] ns | −0.0158 [−0.0261, −0.0048] below | −0.0087 [−0.0175, +0.0002] ns | +0.0244 [+0.0152, +0.0337] above |
+| DoTA-CAP-dev | −0.0105 [−0.0195, −0.0011] below | −0.0024 [−0.0100, +0.0058] ns | −0.0057 [−0.0149, +0.0041] ns | −0.0033 [−0.0097, +0.0030] ns | +0.0072 [−0.0010, +0.0154] ns |
+| DADA | −0.0274 [−0.0377, −0.0170] below | −0.0016 [−0.0114, +0.0081] ns | −0.0181 [−0.0295, −0.0067] below | −0.0164 [−0.0258, −0.0069] below | +0.0110 [+0.0012, +0.0207] above |
+| TAD (printed) | −0.0034 [−0.0276, +0.0215] ns | +0.0052 [−0.0224, +0.0337] ns | +0.0122 [−0.0157, +0.0409] ns | +0.0070 [−0.0138, +0.0278] ns | +0.0104 [−0.0118, +0.0331] ns |
+| DAD | −0.0019 [−0.0275, +0.0228] ns | −0.0508 [−0.0751, −0.0273] below | −0.0270 [−0.0536, −0.0016] below | +0.0238 [−0.0023, +0.0492] ns | +0.0256 [+0.0054, +0.0462] above |
+
+Printed: Nexar val negatives with peak > 0.5: K5f 0.549, K5df 0.673, K5cf 0.611, K5dcf 0.619 (fixed cut, scale-dependent, §17.1).
+
+**Reading (R5).** No cell of K5cf / K5df / K5dcf − K5f is "above" on any set. I is "above" on three sets only because each factor costs less with the other present: on Nexar val and DADA, DVS reduces the caption path's cost (K5cf −0.033 / −0.027 → K5dcf −0.016 / −0.018); on DAD, the caption path reduces DVS's cost (K5df −0.051 → K5dcf −0.027). Neither factor adds over K5f. This is not LaGoVAD Tab. G's pattern (both terms positive, I ≈ +0.26). DVS alone (K5df − K5f) is not separated on three sets and below on DAD, consistent with §12's closure.
+
+**Expectation (§32.1, revised before the number): held.** K5cf is closer to its control than K5c was to K5 (§30.3 K5c − K5: −0.087 / −0.051 / −0.089 / −0.051 on Nexar val / DoTA-CAP-dev / DADA / DAD; K5cf − K5f: −0.033 / −0.011 / −0.027 / −0.002); still below on three sets; C7 not a candidate. That cross-section comparison is post-hoc and confounds two changes (the §31 label fix and the §32.1 caption path), so the shrink is attributed to neither.
+
+**Licensed:** "On the fixed label path, the LaGoVAD caption path (caption branch + `L_neg`) costs K5f on Nexar val, DoTA-CAP-dev and DADA at s2024; DVS costs K5f on DAD; with both on, the model is below K5f on Nexar val, DADA and DAD. Each factor reduces the other's cost; neither adds. PRELIMINARY (n = 1); captions not QC-rated (dev `type_ok` 7 / 10)." **Not licensed:** "`L_neg` and DVS are complementary", "captions help K5", or any claim beyond s2024.
+
+**Status.** K5f stays the reference (C7 False). Not decided: closing the caption `L_neg` line, the A7 dashcam-Normal-caption arm, or a second seed; each needs the user and a dated note.
