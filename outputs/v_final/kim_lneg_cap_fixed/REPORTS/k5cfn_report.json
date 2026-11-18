@@ -1,0 +1,514 @@
+{
+  "above_reference": [],
+  "below_reference": [
+    "nexar",
+    "dota",
+    "dada"
+  ],
+  "candidate": false,
+  "decision_sets": [
+    "nexar",
+    "dota",
+    "dada",
+    "dad"
+  ],
+  "false_alarms": {
+    "K5cf": 0.6106194690265486,
+    "K5cfn": 0.5575221238938053,
+    "K5f": 0.5486725663716814
+  },
+  "fixed_mul_mil": {
+    "K5cf": 0.2554571503457033,
+    "K5cfn": 0.22755810843323762,
+    "K5f": 0.09626638523812564
+  },
+  "line": "CLOSED",
+  "normal_caption_above": [],
+  "normal_caption_below": [
+    "dota"
+  ],
+  "normal_caption_text": "Normal driving recorded by a dashcam that does not involve any collision or unusual event.",
+  "rule": "core/docs/final/KIM_RUN.md \u00a733",
+  "same_batch_steps": 1749,
+  "seed": 2024,
+  "sentences": {
+    "normal_caption": {
+      "dad": "not separated",
+      "dada": "not separated",
+      "dota": "below",
+      "nexar": "not separated",
+      "tad": "not separated"
+    },
+    "vs_reference": {
+      "dad": "not separated",
+      "dada": "below",
+      "dota": "below",
+      "nexar": "below",
+      "tad": "not separated"
+    }
+  },
+  "sets": {
+    "normal_caption": {
+      "dad": {
+        "base_rate": 0.04721030042918455,
+        "delta": {
+          "clips": 165,
+          "clusters": 165,
+          "high": 0.005361305361305368,
+          "low": -0.022144522144522134,
+          "mean": -0.00792540792540792
+        },
+        "protocol": "466 test videos, macro over the 165 positives; stride 7 at 25 fps, `toa = 90`; raw scores",
+        "rows": {
+          "K5": {
+            "ap": 0.12775363500058118,
+            "base_rate": 0.04721030042918455,
+            "macro": {
+              "clips": 165,
+              "clusters": 165,
+              "high": 0.8412587412587413,
+              "low": 0.7666608391608392,
+              "mean": 0.8051282051282053
+            },
+            "micro": 0.7291668941668942
+          },
+          "K5cfn": {
+            "ap": 0.1433334803553962,
+            "base_rate": 0.04721030042918455,
+            "macro": {
+              "clips": 165,
+              "clusters": 165,
+              "high": 0.834965034965035,
+              "low": 0.7561771561771561,
+              "mean": 0.7972027972027973
+            },
+            "micro": 0.732565975065975
+          }
+        },
+        "sentence": "not separated"
+      },
+      "dada": {
+        "base_rate": 0.28850217526413924,
+        "delta": {
+          "clips": 370,
+          "clusters": 370,
+          "high": 0.0008250906870905982,
+          "low": -0.006388138024383849,
+          "mean": -0.002709294567356612
+        },
+        "protocol": "370 two-class T2-test sources; stride 8, whole video; per-video min-max (no normal video; since 2026-11-12, `KIM_RUN.md` \u00a721.1)",
+        "rows": {
+          "K5": {
+            "ap": 0.5285462355473931,
+            "base_rate": 0.28850217526413924,
+            "macro": {
+              "clips": 370,
+              "clusters": 370,
+              "high": 0.7699232625004256,
+              "low": 0.7236732390987106,
+              "mean": 0.7470346624530645
+            },
+            "micro": 0.7430497503124482
+          },
+          "K5cfn": {
+            "ap": 0.5293748205305557,
+            "base_rate": 0.28850217526413924,
+            "macro": {
+              "clips": 370,
+              "clusters": 370,
+              "high": 0.7676166634675318,
+              "low": 0.7205905035169967,
+              "mean": 0.7443253678857079
+            },
+            "micro": 0.7402367007431615
+          }
+        },
+        "sentence": "not separated"
+      },
+      "dota": {
+        "base_rate": 0.3271185548006531,
+        "delta": {
+          "clips": 569,
+          "clusters": 91,
+          "high": -0.0031828621998255115,
+          "low": -0.008537343318526961,
+          "mean": -0.005839084343033479
+        },
+        "protocol": "569 two-class clips; protocol B (`s1[::3]`, native frames); per-clip min-max",
+        "rows": {
+          "K5": {
+            "ap": 0.5821181750260913,
+            "base_rate": 0.3271185548006531,
+            "macro": {
+              "clips": 569,
+              "clusters": 91,
+              "high": 0.8228482002567808,
+              "low": 0.793426928593803,
+              "mean": 0.8082753417610548
+            },
+            "micro": 0.7600896770410781
+          },
+          "K5cfn": {
+            "ap": 0.5808392776283803,
+            "base_rate": 0.3271185548006531,
+            "macro": {
+              "clips": 569,
+              "clusters": 91,
+              "high": 0.8177858779505819,
+              "low": 0.7868913954806376,
+              "mean": 0.8024362574180214
+            },
+            "micro": 0.7566036663506502
+          }
+        },
+        "sentence": "below"
+      },
+      "nexar": {
+        "base_rate": 0.03942206375806307,
+        "delta": {
+          "clips": 110,
+          "clusters": 110,
+          "high": 0.0008310200781477629,
+          "low": -0.006146501767239251,
+          "mean": -0.002656784375734823
+        },
+        "middle_ruler_whole": {
+          "clips": 112,
+          "clusters": 112,
+          "high": 0.9837907700032339,
+          "low": 0.9608286967655435,
+          "mean": 0.9735204951160077
+        },
+        "rows": {
+          "K5": {
+            "ap": 0.37824423811194335,
+            "clip_auc": 0.7808944374209862,
+            "clip_classifier_flag": false,
+            "edge_drop": -0.017107063626321528,
+            "macro_crops": {
+              "clips": 110,
+              "clusters": 110,
+              "high": 0.885436089012403,
+              "low": 0.8355135075459219,
+              "mean": 0.8612011500429709
+            },
+            "macro_whole": {
+              "clips": 112,
+              "clusters": 112,
+              "high": 0.9171852695748393,
+              "low": 0.8715722087827206,
+              "mean": 0.8958487925960228
+            },
+            "micro": 0.8694086816328338,
+            "placements": {
+              "0.1": 0.8884612872823574,
+              "0.3": 0.8540309616229133,
+              "0.5": 0.8480181862480601,
+              "0.7": 0.857399956724944,
+              "0.9": 0.8651252498743817
+            }
+          },
+          "K5cfn": {
+            "ap": 0.3611336839693696,
+            "clip_auc": 0.7663558786346397,
+            "clip_classifier_flag": false,
+            "edge_drop": -0.015566243392377888,
+            "macro_crops": {
+              "clips": 110,
+              "clusters": 110,
+              "high": 0.8830210892310467,
+              "low": 0.8325450045774481,
+              "mean": 0.8585443656672361
+            },
+            "macro_whole": {
+              "clips": 112,
+              "clusters": 112,
+              "high": 0.9143131992961208,
+              "low": 0.868684958465829,
+              "mean": 0.8928135337758997
+            },
+            "micro": 0.8629989473408654,
+            "placements": {
+              "0.1": 0.8876508336751404,
+              "0.3": 0.8530242470027483,
+              "0.5": 0.8441702726347502,
+              "0.7": 0.8548297882489544,
+              "0.9": 0.8597365160271281
+            }
+          }
+        },
+        "sentence": "not separated",
+        "videos": 225
+      },
+      "tad": {
+        "base_rate": 0.0724309642372114,
+        "delta": {
+          "clips": 60,
+          "clusters": 60,
+          "high": 0.017564146235833383,
+          "low": -0.008127362395060277,
+          "mean": 0.003338538230426369
+        },
+        "protocol": "100 test videos, macro over the 60 two-class; stride 8; raw scores",
+        "rows": {
+          "K5": {
+            "ap": 0.22947612438525788,
+            "base_rate": 0.0724309642372114,
+            "macro": {
+              "clips": 60,
+              "clusters": 60,
+              "high": 0.76473800723694,
+              "low": 0.6222860284296894,
+              "mean": 0.6947019255500773
+            },
+            "micro": 0.6532367008296731
+          },
+          "K5cfn": {
+            "ap": 0.24361435833738748,
+            "base_rate": 0.0724309642372114,
+            "macro": {
+              "clips": 60,
+              "clusters": 60,
+              "high": 0.7676017974812392,
+              "low": 0.6267001467168635,
+              "mean": 0.6980404637805034
+            },
+            "micro": 0.6539375305026843
+          }
+        },
+        "sentence": "not separated"
+      }
+    },
+    "vs_reference": {
+      "dad": {
+        "base_rate": 0.04721030042918455,
+        "delta": {
+          "clips": 165,
+          "clusters": 165,
+          "high": 0.015617715617715616,
+          "low": -0.03682983682983683,
+          "mean": -0.009790209790209786
+        },
+        "protocol": "466 test videos, macro over the 165 positives; stride 7 at 25 fps, `toa = 90`; raw scores",
+        "rows": {
+          "K5": {
+            "ap": 0.11488028705706722,
+            "base_rate": 0.04721030042918455,
+            "macro": {
+              "clips": 165,
+              "clusters": 165,
+              "high": 0.842890442890443,
+              "low": 0.7685314685314685,
+              "mean": 0.806993006993007
+            },
+            "micro": 0.7071794521794522
+          },
+          "K5cfn": {
+            "ap": 0.1433334803553962,
+            "base_rate": 0.04721030042918455,
+            "macro": {
+              "clips": 165,
+              "clusters": 165,
+              "high": 0.834965034965035,
+              "low": 0.7561771561771561,
+              "mean": 0.7972027972027973
+            },
+            "micro": 0.732565975065975
+          }
+        },
+        "sentence": "not separated"
+      },
+      "dada": {
+        "base_rate": 0.28850217526413924,
+        "delta": {
+          "clips": 370,
+          "clusters": 370,
+          "high": -0.020370897139458808,
+          "low": -0.040002780113791964,
+          "mean": -0.03011422023636489
+        },
+        "protocol": "370 two-class T2-test sources; stride 8, whole video; per-video min-max (no normal video; since 2026-11-12, `KIM_RUN.md` \u00a721.1)",
+        "rows": {
+          "K5": {
+            "ap": 0.5523734030401823,
+            "base_rate": 0.28850217526413924,
+            "macro": {
+              "clips": 370,
+              "clusters": 370,
+              "high": 0.7985987776834752,
+              "low": 0.7498504394855516,
+              "mean": 0.7744395881220727
+            },
+            "micro": 0.7550781293515803
+          },
+          "K5cfn": {
+            "ap": 0.5293748205305557,
+            "base_rate": 0.28850217526413924,
+            "macro": {
+              "clips": 370,
+              "clusters": 370,
+              "high": 0.7676166634675318,
+              "low": 0.7205905035169967,
+              "mean": 0.7443253678857079
+            },
+            "micro": 0.7402367007431615
+          }
+        },
+        "sentence": "below"
+      },
+      "dota": {
+        "base_rate": 0.3271185548006531,
+        "delta": {
+          "clips": 569,
+          "clusters": 91,
+          "high": -0.006889736449612517,
+          "low": -0.025471451761556876,
+          "mean": -0.016363793405120317
+        },
+        "protocol": "569 two-class clips; protocol B (`s1[::3]`, native frames); per-clip min-max",
+        "rows": {
+          "K5": {
+            "ap": 0.5693027363094068,
+            "base_rate": 0.3271185548006531,
+            "macro": {
+              "clips": 569,
+              "clusters": 91,
+              "high": 0.8326869554325746,
+              "low": 0.8043475678824966,
+              "mean": 0.8188000508231417
+            },
+            "micro": 0.7352591168683862
+          },
+          "K5cfn": {
+            "ap": 0.5808392776283803,
+            "base_rate": 0.3271185548006531,
+            "macro": {
+              "clips": 569,
+              "clusters": 91,
+              "high": 0.8177858779505819,
+              "low": 0.7868913954806376,
+              "mean": 0.8024362574180214
+            },
+            "micro": 0.7566036663506502
+          }
+        },
+        "sentence": "below"
+      },
+      "nexar": {
+        "base_rate": 0.03942206375806307,
+        "delta": {
+          "clips": 110,
+          "clusters": 110,
+          "high": -0.027481876306000932,
+          "low": -0.04417452424938803,
+          "mean": -0.03568991533893965
+        },
+        "middle_ruler_whole": {
+          "clips": 112,
+          "clusters": 112,
+          "high": 0.9837907700032339,
+          "low": 0.9608286967655435,
+          "mean": 0.9735204951160077
+        },
+        "rows": {
+          "K5": {
+            "ap": 0.4411275156999491,
+            "clip_auc": 0.7658817951959547,
+            "clip_classifier_flag": false,
+            "edge_drop": -0.023762376662260776,
+            "macro_crops": {
+              "clips": 110,
+              "clusters": 110,
+              "high": 0.9163621938316272,
+              "low": 0.8702856614131257,
+              "mean": 0.8942342810061756
+            },
+            "macro_whole": {
+              "clips": 112,
+              "clusters": 112,
+              "high": 0.9402472777055232,
+              "low": 0.8990918137849621,
+              "mean": 0.9209739472957926
+            },
+            "micro": 0.8961046238864231,
+            "placements": {
+              "0.1": 0.9209988562060478,
+              "0.3": 0.8833321978475656,
+              "0.5": 0.8780569965698964,
+              "0.7": 0.8932922315293218,
+              "0.9": 0.9018193732321572
+            }
+          },
+          "K5cfn": {
+            "ap": 0.3611336839693696,
+            "clip_auc": 0.7663558786346397,
+            "clip_classifier_flag": false,
+            "edge_drop": -0.015566243392377888,
+            "macro_crops": {
+              "clips": 110,
+              "clusters": 110,
+              "high": 0.8830210892310467,
+              "low": 0.8325450045774481,
+              "mean": 0.8585443656672361
+            },
+            "macro_whole": {
+              "clips": 112,
+              "clusters": 112,
+              "high": 0.9143131992961208,
+              "low": 0.868684958465829,
+              "mean": 0.8928135337758997
+            },
+            "micro": 0.8629989473408654,
+            "placements": {
+              "0.1": 0.8876508336751404,
+              "0.3": 0.8530242470027483,
+              "0.5": 0.8441702726347502,
+              "0.7": 0.8548297882489544,
+              "0.9": 0.8597365160271281
+            }
+          }
+        },
+        "sentence": "below",
+        "videos": 225
+      },
+      "tad": {
+        "base_rate": 0.0724309642372114,
+        "delta": {
+          "clips": 60,
+          "clusters": 60,
+          "high": 0.02489971471880244,
+          "low": -0.02410421976818909,
+          "mean": -6.946913006456122e-05
+        },
+        "protocol": "100 test videos, macro over the 60 two-class; stride 8; raw scores",
+        "rows": {
+          "K5": {
+            "ap": 0.26124008893490874,
+            "base_rate": 0.0724309642372114,
+            "macro": {
+              "clips": 60,
+              "clusters": 60,
+              "high": 0.7675433206643081,
+              "low": 0.6250082357163901,
+              "mean": 0.6981099329105682
+            },
+            "micro": 0.6711349438750609
+          },
+          "K5cfn": {
+            "ap": 0.24361435833738748,
+            "base_rate": 0.0724309642372114,
+            "macro": {
+              "clips": 60,
+              "clusters": 60,
+              "high": 0.7676017974812392,
+              "low": 0.6267001467168635,
+              "mean": 0.6980404637805034
+            },
+            "micro": 0.6539375305026843
+          }
+        },
+        "sentence": "not separated"
+      }
+    }
+  }
+}
