@@ -1959,3 +1959,25 @@ Printed: Nexar val negatives with peak > 0.5: K5f 0.549, K5df 0.673, K5cf 0.611,
 **Limits.** n = 1; one wording (Claude's §15 sentence, approved by the user); captions still not QC-rated (§30.2); K5cf and K5f were read before this note, so the controls are not blind.
 
 **Code.** `loss.normal_caption` ∈ `NORMAL_CAPTION_CHOICES` (`lagovad` default, `dashcam`); `dashcam` outside `cap_contrast_mode=caption_lagovad` raises. Report `python -m core.tools.k5_a7_report` → `REPORTS/k5cfn_report.{md,json}`; runbook `colab/final/k5_a7_dashcam_normal.ipynb`.
+
+### 33.1 Read-out, s2024 (2026-11-18; raw `outputs/v_final/kim_lneg_cap_fixed/K5cfn/` + `REPORTS/k5cfn_report.{md,json}` synced) — not a candidate: the caption `L_neg` line is CLOSED
+
+**Report verdict (R4, as written by `k5_a7_report`): K5cfn candidate = False** (K5cfn − K5f above on none, below on Nexar val, DoTA-CAP-dev, DADA) → **the caption `L_neg` line is closed** (§33). K5f stays the reference.
+
+**Checks (R5).** J10: 1,749 steps. Config diff K5cfn − K5cf = `loss.normal_caption` (`dashcam`) + the staged `caption_manifest` VM path (same Drive manifest). Last-epoch `mul_mil` K5f 0.0963, K5cf 0.2555, K5cfn 0.2276 (> 0.01). **`cap_same_source_neg` equal to K5cf's at all 1,749 steps** (same batches). Wiring, from the logs: step 1 `kim_mil` and `cap_contrastive` are identical to K5cf's (same init; `L_neg` drops row 0 by design, §32.1 A4), while `mul_mil` (4.2775 → 4.3211), `mil` and `dvs_sup` differ (row 0 reaches the caption branch's `L_MIL-align` / MIL only, as specified); the two runs stay equal on `kim_mil` until step 7 (AMP's GradScaler skips the first updates). `cap_masked_share` 0.0048 in both.
+
+| set | K5f | K5cf | K5cfn | K5cfn − K5cf (primary) | K5cfn − K5f |
+|---|---|---|---|---|---|
+| Nexar val | 0.8942 | 0.8612 | 0.8585 | −0.0027 [−0.0061, +0.0008] ns | −0.0357 [−0.0442, −0.0275] below |
+| DoTA-CAP-dev | 0.8188 | 0.8083 | 0.8024 | −0.0058 [−0.0085, −0.0032] below | −0.0164 [−0.0255, −0.0069] below |
+| DADA | 0.7744 | 0.7470 | 0.7443 | −0.0027 [−0.0064, +0.0008] ns | −0.0301 [−0.0400, −0.0204] below |
+| TAD (printed) | 0.6981 | 0.6947 | 0.6980 | +0.0033 [−0.0081, +0.0176] ns | −0.0001 [−0.0241, +0.0249] ns |
+| DAD | 0.8070 | 0.8051 | 0.7972 | −0.0079 [−0.0221, +0.0054] ns | −0.0098 [−0.0368, +0.0156] ns |
+
+Printed, decides nothing: Nexar val negatives with peak > 0.5: K5f 0.549, K5cf 0.611, K5cfn 0.558 (fixed cut, scale-dependent, §17.1). Last-epoch `mul_mil` is lower with the dashcam sentence (0.2276 vs 0.2555): post-hoc, the dashcam row is an easier `L_MIL-align` target for normal windows; it does not reach detection.
+
+**Expectation (§33, before the number): held.** K5cfn − K5cf is not separated on 3 of the 4 sets of S (below on DoTA-CAP-dev); K5cfn is not a candidate.
+
+**Licensed:** "At s2024, replacing LaGoVAD's surveillance Normal caption with a dashcam sentence does not recover the LaGoVAD caption path's cost against K5f (still below on Nexar val, DoTA-CAP-dev, DADA); against K5cf it is not separated on Nexar val, DADA and DAD and costs −0.006 on DoTA-CAP-dev. PRELIMINARY (n = 1), one wording, captions not QC-rated." **Not licensed:** "the Normal wording never matters" (one wording, one seed), "dashcam text hurts", or any claim about the class definitions (§15 is that question).
+
+**Status: caption `L_neg` line CLOSED (§28–§33).** No further caption / `L_neg` / caption-branch arm; reopening takes a new dated note. K5f stays the reference and the main model.
