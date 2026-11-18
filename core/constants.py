@@ -1308,6 +1308,14 @@ NORMAL_PROBE_MARGIN = 0.01  # §15: |delta| below this on both sets reads "wordi
 NORMAL_PROBE_TEXT_MINOR_W = 0.9  # §15 step 1: pre-fusion w at or above this = text branch minor
 NORMAL_PROBE_REPRO_TOL = 1e-4  # §15 gate: in-process original-text macro vs the recorded K5 read
 NORMAL_PROBE_REPORT_DIRNAME = "normal_text_probe"  # OUTPUT_ROOT/kim/REPORTS/normal_text_probe
+# KIM_RUN.md §33 (§32.1 A7): row 0 of the caption_lagovad caption set. "lagovad" = LaGoVAD's
+# literal NORMAL_QUERY_CAPTION (default, K5cf); "dashcam" = §15's long dashcam sentence (K5cfn)
+NORMAL_CAPTION_LAGOVAD = "lagovad"
+NORMAL_CAPTION_DASHCAM = "dashcam"
+NORMAL_CAPTION_CHOICES = (NORMAL_CAPTION_LAGOVAD, NORMAL_CAPTION_DASHCAM)
+NORMAL_CAPTION_DASHCAM_TEXT = NORMAL_PROBE_DASHCAM_DEFS[-1]
+KIM_FIXED_CAP_DASHCAM_ROW = "K5cfn"  # K5cf + loss.normal_caption=dashcam
+KIM_A7_REPORT_STEM = "k5cfn_report"  # REPORTS/<this>.{md,json}
 NORMAL_PROBE_ADP_ALPHA_KEY = "bin_head.adp_alpha"  # BinaryHead's learned blend parameter
 
 # --- pos/neg feature gap probe (core/docs/final/POSNEG_GAP.md, rule dated 2026-11-11) ---

@@ -396,6 +396,48 @@ class TestLossGating:
                           loss__cap_contrast_mode=constants.CAP_CONTRAST_MODE_CAPTION_LAGOVAD,
                           loss__caption_manifest=str(_caption_manifest(tmp_path)))
 
+    def _row0_and_losses(self, tmp_path: Path,
+                         normal_caption: str) -> tuple[str, dict[str, float]]:
+        trainer = _make_trainer(
+            tmp_path, kip__enabled=False, dvs__theta=1.0, dvs__theta_ego=1.0,
+            loss__cap_contrast_mode=constants.CAP_CONTRAST_MODE_CAPTION_LAGOVAD,
+            loss__caption_manifest=str(_caption_manifest(tmp_path)),
+            loss__normal_caption=normal_caption)
+        seen: list[list[str]] = []
+        cap_fn = trainer.caption_encode_fn
+        assert cap_fn is not None
+
+        def cap_spy(texts: list[str]) -> torch.Tensor:
+            seen.append(list(texts))
+            return cap_fn(texts)
+
+        trainer.caption_encode_fn = cap_spy
+        losses = trainer.compute_losses(self._batch(trainer))
+        assert len(seen) == 1
+        return seen[0][0], {k: float(v) for k, v in losses.items()}
+
+    def test_dashcam_normal_caption_replaces_row_0_only(self, tmp_path: Path) -> None:
+        """§33: only row 0 changes; batch-composition terms stay, the caption branch moves."""
+        from core.data.definitions import NORMAL_QUERY_CAPTION
+
+        row_l, lag = self._row0_and_losses(tmp_path / "l", constants.NORMAL_CAPTION_LAGOVAD)
+        row_d, dash = self._row0_and_losses(tmp_path / "d", constants.NORMAL_CAPTION_DASHCAM)
+        assert row_l == NORMAL_QUERY_CAPTION
+        assert row_d == constants.NORMAL_CAPTION_DASHCAM_TEXT
+        assert "surveillance" not in row_d
+        assert lag["cap_same_source_neg"] == dash["cap_same_source_neg"]  # §33 R5 guard
+        assert lag["mul_mil"] != dash["mul_mil"]
+
+    def test_dashcam_normal_caption_needs_caption_lagovad(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="read only by"):
+            _make_trainer(tmp_path, loss__cap_contrast_mode=constants.CAP_CONTRAST_MODE_CAPTION,
+                          loss__caption_manifest=str(_caption_manifest(tmp_path)),
+                          loss__normal_caption=constants.NORMAL_CAPTION_DASHCAM)
+
+    def test_invalid_normal_caption_raises(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="normal_caption must be one of"):
+            _make_trainer(tmp_path, loss__normal_caption="surveillance")
+
     def test_caption_lneg_needs_a_manifest(self, tmp_path: Path) -> None:
         with pytest.raises(ValueError, match="caption_manifest"):
             _make_trainer(tmp_path, loss__cap_contrast_mode=constants.CAP_CONTRAST_MODE_CAPTION)

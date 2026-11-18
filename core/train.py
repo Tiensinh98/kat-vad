@@ -282,6 +282,17 @@ class Trainer:
             self.class_contrast = ClassContrastLoss(
                 cfg.loss.contrastive_neg_mining, cfg.loss.contrastive_temp, cosine_temp
             )
+        if cfg.loss.normal_caption not in constants.NORMAL_CAPTION_CHOICES:
+            raise ValueError(f"loss.normal_caption must be one of "
+                             f"{constants.NORMAL_CAPTION_CHOICES}, got {cfg.loss.normal_caption!r}")
+        if (cfg.loss.normal_caption != constants.NORMAL_CAPTION_LAGOVAD
+                and cfg.loss.cap_contrast_mode != constants.CAP_CONTRAST_MODE_CAPTION_LAGOVAD):
+            raise ValueError(f"loss.normal_caption={cfg.loss.normal_caption} is read only by "
+                             "loss.cap_contrast_mode=caption_lagovad (KIM_RUN.md §33)")
+        # §33: row 0 of the caption_lagovad caption set
+        self.normal_caption = (constants.NORMAL_CAPTION_DASHCAM_TEXT
+                               if cfg.loss.normal_caption == constants.NORMAL_CAPTION_DASHCAM
+                               else NORMAL_QUERY_CAPTION)
 
         self.stage = cfg.train.stage
         if self.stage not in (STAGE_KIP_WARMUP, STAGE_FULL):
@@ -396,7 +407,7 @@ class Trainer:
             texts, cap_rows = caption_rows(cls_idx, cap_sources, self.captions or {})
             if texts:
                 assert self.caption_encode_fn is not None  # nosec B101 - refused in __init__
-                caption_feats = self.caption_encode_fn([NORMAL_QUERY_CAPTION, *texts])
+                caption_feats = self.caption_encode_fn([self.normal_caption, *texts])
                 cap_labels = cap_rows
 
         seam = batch["seam_mask"].to(self.device) if self.cfg.kim.seam_mask else None

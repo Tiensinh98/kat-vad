@@ -1938,3 +1938,24 @@ Printed: Nexar val negatives with peak > 0.5: K5f 0.549, K5df 0.673, K5cf 0.611,
 **Licensed:** "On the fixed label path, the LaGoVAD caption path (caption branch + `L_neg`) costs K5f on Nexar val, DoTA-CAP-dev and DADA at s2024; DVS costs K5f on DAD; with both on, the model is below K5f on Nexar val, DADA and DAD. Each factor reduces the other's cost; neither adds. PRELIMINARY (n = 1); captions not QC-rated (dev `type_ok` 7 / 10)." **Not licensed:** "`L_neg` and DVS are complementary", "captions help K5", or any claim beyond s2024.
 
 **Status.** K5f stays the reference (C7 False). Not decided: closing the caption `L_neg` line, the A7 dashcam-Normal-caption arm, or a second seed; each needs the user and a dated note.
+
+
+## 33. K5cfn: the dashcam Normal caption (§32.1 A7), last arm of the caption `L_neg` line (dated note 2026-11-18, before any number; user)
+
+**Line closure (user, 2026-11-18).** The caption `L_neg` line (§28–§32) **closes**: no further caption, `L_neg` or caption-branch variant is specified or run. The single exception is this arm (§32.1 A7). After §33's read-out the line is closed whatever the number, unless R4 names K5cfn a candidate; even then K5f stays the reference unless the user decides. No second seed for §32 or §33 (user). Reopening takes a new dated note.
+
+**Why.** In `caption_lagovad` mode, row 0 of the caption set is LaGoVAD's literal `NORMAL_QUERY_CAPTION` ("Normal behavior, views or surveillance content captured by camera …", `core/data/definitions.py:23`). It is the target of every label-0 item in the caption branch's `L_MIL-align` and a row of `cap_bin`. Nexar, DoTA, DADA and DAD are dashcam footage. §15.1 measured that swapping the *class definition* at inference does nothing (text branch `1 − w` ≈ 0.08), but that is not this question: here the sentence is a training target.
+
+| item | §33 |
+|---|---|
+| R1 Rows | **K5f** (control, read only, `kim_fixed/K5f`) · **K5cf** (§32, read only) · **K5cfn** = K5cf's command + `loss.normal_caption=dashcam`. s2024, 1,749 steps. Outputs `Thesis-Final/outputs/kim_lneg_cap_fixed/K5cfn/` |
+| R2 Sentence | `"Normal driving recorded by a dashcam that does not involve any collision or unusual event."` = `NORMAL_PROBE_DASHCAM_DEFS[3]` (§15, the long sentence, same shape as LaGoVAD's); not a new wording. Encoded like every caption (`caption_encode_fn`, no soft prompts, 77 tokens). Class texts unchanged |
+| R3 Contrasts | **primary K5cfn − K5cf** (one sentence differs: does the "surveillance" target cost?) and **K5cfn − K5f**; paired per item, 95 % cluster bootstrap (DoTA: source video), Nexar val crops, DoTA-CAP-dev / DADA min-max, DAD raw, TAD printed. Decision sets S = `KIM_LNEG_CAP_SETS` (Nexar val, DoTA-CAP-dev, DADA, DAD) |
+| R4 Verdict | **candidate** iff K5cfn − K5f is above on ≥ 1 set of S and below on none (§30 C7's form). Otherwise the line is closed with no candidate. K5cfn − K5cf is reported as "the Normal sentence matters on {sets}" (above / below per set) and decides nothing on its own |
+| R5 Guards | J10 (ckpt step = metrics' last step = 1,749); config diff K5cfn − K5cf = `loss.normal_caption` only (asserted in the runbook); last-epoch `mul_mil` > `KIM_FIXED_MUL_MIL_FLOOR` (every row); **`cap_same_source_neg` equal to K5cf's at every step** (same seed, same batches, the sentence does not touch batch composition: the report raises otherwise) |
+
+**Expectation, written before the number:** K5cfn − K5cf not separated on ≥ 3 of the 4 sets of S; K5cfn not a candidate (§32.2: the whole caption path costs, one row-0 sentence cannot carry that). A wrong expectation changes nothing.
+
+**Limits.** n = 1; one wording (Claude's §15 sentence, approved by the user); captions still not QC-rated (§30.2); K5cf and K5f were read before this note, so the controls are not blind.
+
+**Code.** `loss.normal_caption` ∈ `NORMAL_CAPTION_CHOICES` (`lagovad` default, `dashcam`); `dashcam` outside `cap_contrast_mode=caption_lagovad` raises. Report `python -m core.tools.k5_a7_report` → `REPORTS/k5cfn_report.{md,json}`; runbook `colab/final/k5_a7_dashcam_normal.ipynb`.

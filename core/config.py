@@ -109,6 +109,8 @@ class LossConfig:
     cap_contrast_mode: str = constants.CAP_CONTRAST_MODE_BASELINE
     # §30: the §29.3 captions manifest (captions.json) read when cap_contrast_mode=caption
     caption_manifest: str = ""
+    # §33 (§32.1 A7): row 0 of the caption_lagovad caption set, one of NORMAL_CAPTION_CHOICES
+    normal_caption: str = constants.NORMAL_CAPTION_LAGOVAD
     # A11 mitigations (default off = spec-as-written)
     align_subsample: int = 0  # >0: subsample this many positions per video
     align_exclude_window: int = 0  # >0: exclude ±w temporal neighbors as negatives

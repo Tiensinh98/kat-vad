@@ -2524,3 +2524,12 @@ Promote if a second harness needs the same split.
 **Rule:** Derive an item's class from the item's own label, never from its source's metadata.
 **Files:** core/data/dada.py (window meta), core/data/dataset.py:117-119 (`_class_name`), core/train.py (cls_idx uses), core/docs/final/KIM_RUN.md §30.3
 **Gates:** recurring? (ac) saw the constant class_name on 2026-09-27; HIGH-impact? yes (silent mislabel in every T2 / Nexar_window arm's `mul_mil` and every `L_neg` arm) -> pending until the fix is chosen.
+
+## (do) [MEDIUM] Experiments - a one-knob arm on the same seed has a free identity check: assert a batch-only log key is equal at every step (2026-11-18)
+**Triggers:** paired arm, same seed, one-key diff, cap_same_source_neg, metrics.jsonl, normal_caption, K5cfn, config diff
+**Problem:** a single-knob arm (K5cfn = K5cf + row-0 sentence) is only paired with its control if both saw the same batches; a config diff cannot show a data-order change (staged paths, loader RNG, DVS draws). `cap_same_source_neg` depends on batch composition alone, so it must match per step; K5dcf vs K5cf differs at 1,333 / 1,749 steps (DVS changes batches), which is what the check is for.
+**Bad:** trust "same seed + config diff = one key" as proof the arms are paired.
+**Good:** `core.tools.k5_a7_report.check_same_batches(control_run, new_run)` raises unless the key is equal at every `global_step`; the runbook calls it right after training, before any GPU read.
+**Rule:** Assert a batch-only logged quantity is equal step by step before reading a same-seed one-knob contrast.
+**Files:** core/tools/k5_a7_report.py (check_same_batches), colab/final/k5_a7_dashcam_normal.ipynb step 6, core/docs/final/KIM_RUN.md §33 R5
+**Gates:** recurring? first time; HIGH-impact? no (would catch a silently unpaired contrast, none seen yet) -> pending.
