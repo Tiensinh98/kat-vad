@@ -2533,3 +2533,12 @@ Promote if a second harness needs the same split.
 **Rule:** Assert a batch-only logged quantity is equal step by step before reading a same-seed one-knob contrast.
 **Files:** core/tools/k5_a7_report.py (check_same_batches), colab/final/k5_a7_dashcam_normal.ipynb step 6, core/docs/final/KIM_RUN.md §33 R5
 **Gates:** recurring? first time; HIGH-impact? no (would catch a silently unpaired contrast, none seen yet) -> pending.
+
+## (dp) [MEDIUM] Experiments - check that a flag can act on the host before building an arm on it (2026-11-19)
+**Triggers:** dvs_anchor_mode, ignore, DVS off, theta 1.0, inert flag, no-op arm, is_egocentric
+**Problem:** the request "K5f with `dvs_anchor_mode=ignore`" names an arm whose loss is identical to K5f's: K5f has DVS off, so nothing is spliced, no frame is pseudo-positive, and the mask is empty. A Colab run would have measured nothing.
+**Bad:** build and train the arm the request names, then read a "NO DIFFERENCE" as a finding.
+**Good:** trace the flag to the tensors it touches (`dataset.py:183` -> `synthesis.py:80-84` -> `supervised_loss` mask) and move the arm to the host where they exist (K5df); add a guard that raises if the flag changed nothing (step-1 `dvs_sup` equal).
+**Rule:** Verify a loss flag changes the loss on the chosen host before pre-registering the arm; guard the run with a step-1 inequality.
+**Files:** `core/data/dataset.py:183`, `core/data/synthesis.py:80`, `core/losses/dvs.py:43`, `core/tools/k5_dvs_ignore_report.py:start_check`.
+**Gate status.** One occurrence (design time, caught before any run); candidate. Related: (do) identity checks, (bj) inherited defaults.

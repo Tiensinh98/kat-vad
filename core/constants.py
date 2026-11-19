@@ -1316,6 +1316,16 @@ NORMAL_CAPTION_CHOICES = (NORMAL_CAPTION_LAGOVAD, NORMAL_CAPTION_DASHCAM)
 NORMAL_CAPTION_DASHCAM_TEXT = NORMAL_PROBE_DASHCAM_DEFS[-1]
 KIM_FIXED_CAP_DASHCAM_ROW = "K5cfn"  # K5cf + loss.normal_caption=dashcam
 KIM_A7_REPORT_STEM = "k5cfn_report"  # REPORTS/<this>.{md,json}
+# KIM_RUN.md §34: K5df with loss.dvs_anchor_mode=ignore (K5dfi), and the same with
+# data.is_egocentric=true (K5dfie). OUTPUT_ROOT/<this>/<row>/{K5/s<seed>, eval}, REPORTS
+KIM_DVS_IGNORE_OUTPUT_DIRNAME = "kim_dvs_ignore"
+KIM_DVS_IGNORE_ROW = "K5dfi"  # K5df + loss.dvs_anchor_mode=ignore
+KIM_DVS_IGNORE_EGO_ROW = "K5dfie"  # K5dfi + data.is_egocentric=true (theta_ego, delta_m_ego)
+KIM_DVS_IGNORE_REPORT_STEM = "k5dfi_report"  # REPORTS/<this>.{md,json}
+KIM_DVS_IGNORE_GAIN = "GAIN"
+KIM_DVS_IGNORE_COST = "COST"
+KIM_DVS_IGNORE_NO_DIFFERENCE = "NO DIFFERENCE"
+KIM_DVS_IGNORE_GAIN_SETS = ("dota", "dada")  # §34 R4: a GAIN must show on one of these
 NORMAL_PROBE_ADP_ALPHA_KEY = "bin_head.adp_alpha"  # BinaryHead's learned blend parameter
 
 # --- pos/neg feature gap probe (core/docs/final/POSNEG_GAP.md, rule dated 2026-11-11) ---
