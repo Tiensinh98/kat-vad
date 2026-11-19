@@ -2005,3 +2005,74 @@ Printed, decides nothing: Nexar val negatives with peak > 0.5: K5f 0.549, K5cf 0
 **Limits.** n = 1; no s2025 unless R4 says GAIN and the user asks. The share of an anchor that is truly anomalous on `Nexar_window` is **not measured** (the plan's P0 print was dropped: windows carry only source/start/end, and the ignored share is not logged); lesson (bh): `ignore` lowers raw positive scores, so any raw "pre-anomaly mean" falls for free — min-max per clip first. K5df's reads exist from §32 and are not blind.
 
 **Code.** No model or loss change: the flag and `data.is_egocentric` exist. New: `constants.KIM_DVS_IGNORE_*`, `core/tools/k5_dvs_ignore_report.py` (`python -m core.tools.k5_dvs_ignore_report` → `REPORTS/k5dfi_report.{md,json}`), test `core/tests/test_k5_dvs_ignore_report.py` (21 pass; the report was not rendered on real reads: per-clip scores of the new rows do not exist yet), runbook `colab/final/k5_dvs_ignore.ipynb`. Not committed.
+
+### 34.1 Read-out, s2024 (2026-11-19; raw `outputs/v_final/kim_dvs_ignore/` + `REPORTS/k5dfi_report.{md,json}` synced) — R4 primary: COST (Nexar val only); ego: NO DIFFERENCE; neither row a candidate
+
+**Guards (checked on the synced files).** J10 1,749 both rows (`verified.json`, last `metrics.jsonl` row). Config diff to K5df: K5dfi = `loss.dvs_anchor_mode` (+ `loss.normal_caption: lagovad`, a key added after K5df trained, at its default); K5dfie = + `data.is_egocentric`. Last-epoch `mul_mil`: K5f 0.0963, K5df 0.1700, K5dfi 0.1519, K5dfie 0.1228 (> 0.01). **Start check:** K5dfi step-1 `mil` 0.6906 and `dvs_sup_mil` 0.7803 equal K5df's (same draws, matched start); step-1 `dvs_sup` 0.7044 → 0.7039 (barely over `KIM_START_TOL`: at init every logit ≈ 0 so BCE ≈ ln 2 whatever the target; the weak step-1 guard is not the evidence that the mask is live). **Mask live, from the logs:** epoch-mean `dvs_sup` K5df 0.447 → 0.186 (epochs 0 → 32), K5dfi 0.292 → 0.042, K5dfie 0.260 → 0.034; `dvs_sup_mil` last epoch 0.156 / 0.123 / 0.094.
+
+| macro, s2024 | K5f | K5df | K5dfi | K5dfie |
+|---|---|---|---|---|
+| Nexar val (crops) | 0.8942 | 0.8871 | 0.8698 | 0.8723 |
+| DoTA-CAP-dev | 0.8188 | 0.8164 | 0.8259 | 0.8263 |
+| DADA | 0.7744 | 0.7728 | 0.7677 | 0.7724 |
+| TAD (printed) | 0.6981 | 0.7033 | 0.7198 | 0.7214 |
+| DAD | 0.8070 | 0.7562 | 0.7494 | 0.7508 |
+
+| contrast (paired, 95 % cluster bootstrap) | Nexar val | DoTA-CAP-dev | DADA | DAD | TAD (printed) |
+|---|---|---|---|---|---|
+| **K5dfi − K5df (primary)** | **−0.0174 [−0.0267, −0.0088] below** | +0.0095 [+0.0033, +0.0159] above | −0.0051 [−0.0132, +0.0033] ns | −0.0068 [−0.0284, +0.0145] ns | +0.0165 [−0.0064, +0.0399] ns |
+| K5dfie − K5dfi (secondary) | +0.0025 ns | +0.0004 ns | +0.0047 ns | +0.0014 ns | +0.0016 ns |
+| K5dfi − K5f | −0.0245 below | +0.0071 ns | −0.0067 ns | −0.0576 below | +0.0217 ns |
+| K5dfie − K5f | −0.0220 below | +0.0075 above | −0.0020 ns | −0.0562 below | +0.0233 above |
+| K5df − K5f | −0.0071 ns | −0.0024 ns | −0.0016 ns | −0.0508 below | +0.0052 ns |
+
+**R4 verdicts.** Primary **COST**: Nexar val is ≤ −0.01 with the interval below 0 (the rule lets one set decide). DoTA-CAP-dev +0.0095 is **0.0005 under the +0.01 margin** (§12.1's miss again: not restated as a pass), and it could not have made a GAIN anyway with a COST on Nexar. Secondary (ego) **NO DIFFERENCE** on all five sets. **R5:** K5dfi not a candidate (below K5f on Nexar val and DAD); K5dfie not a candidate (above on DoTA-CAP-dev, below on Nexar val and DAD). K5f stays.
+
+**Printed, post-hoc, never decides.**
+- **DAD's cost is DVS's, not `ignore`'s:** K5df − K5f −0.0508 already; K5dfi − K5df −0.0068 ns.
+- **Raw-pooled micro (point values from `results.json`, no interval):** TAD K5f 0.6711, K5df 0.6538, K5dfi **0.6119**, K5dfie 0.6546; K5dfi − K5f −0.0592 [−0.0943, −0.0224] below (`zs_arm_table`, K5dfie ns). DAD micro K5df 0.6613, K5dfi 0.7091. TAD micro measures clip classification (oracle 0.9226): "the floor drop of §bh shows on a raw-pooled micro" is a hypothesis, not a measured mechanism.
+- **Micro vs K5f, `zs_arm_table` (control K5f; per-clip scores of K5df are not local, so no micro vs K5df):** DoTA-CAP-dev K5dfi +0.0261 [+0.0188, +0.0335] above, K5dfie +0.0227 above; DADA +0.0040 / +0.0047 ns; DAD +0.0019 / +0.0010 ns.
+- Nexar val whole macro K5df 0.9305 → K5dfi 0.9043; clip AUC 0.7522 → 0.7709; false alarms at cut 0.5 on negatives K5f 0.549, K5df 0.673, K5dfi 0.681, K5dfie 0.584 (fixed-cut shares move with the score scale, §17.1: not a ranking claim).
+
+**Gap to state.** The notebook's report step ran `k5_dvs_ignore_report` only (macro); §34 R2 promised macro and micro on all four sets. Micro of K5dfi − K5df is not computed because K5df's per-clip scores are not in the local sync; K5f's are, hence the micro vs K5f above.
+
+**Expectation check (written before the number).** "NO DIFFERENCE on most sets, a sign on DoTA-CAP-dev or DADA would not surprise, neither row a candidate, K5f stays": held for 4 of 5 sets, DoTA-CAP-dev showed the sign, and both rows are not candidates. Not predicted: a **COST on Nexar val** (the training domain), −0.0174.
+
+**Licensed (n = 1, PRELIMINARY).** "On the K5df host at s2024 with a matched start, `dvs_anchor_mode=ignore` costs Nexar val −0.0174 [−0.0267, −0.0088], moves DoTA-CAP-dev +0.0095 (below the +0.01 margin), and shows no difference on DADA, DAD and TAD. `is_egocentric=true` on top (θ_ego 0.85, ≤ 2 clips per splice) shows no difference on any set. Neither row separates above K5f where it counts." **Not licensed:** "`ignore` hurts the model" (one seed, one set decides), "the anchor label is not a lever" (the cost on Nexar val is also what losing the dense positive pressure would produce: `dvs_sup` falls 0.186 → 0.042 and only one frame per anchor, k = max(1, n_pos // 4), is pushed up by `dvs_sup_mil`), "ego helps / hurts" (R7), any mechanism for the TAD micro drop.
+
+**Status.** §34 closed at n = 1: K5dfi and K5dfie are not candidates, K5f stays the reference and the main model. No s2025 (R4 did not say GAIN). **Not decided (user):** a K5dfi + `loss.sup_mil_topk_pct=2` arm (more anchor frames pushed up through the existing MIL term, no code change; it also widens the top-k on normal rows, so it moves two things) or an `ignore_top` loss; neither is specified or run. Reopening takes a new dated note.
+
+### 34.2 Micro and AP, now with K5df's per-clip scores (2026-11-19; `zs_arm_table`, controls K5df and K5f; printed, R4 decides on macro only, so §34.1's verdicts do not change)
+
+Raw: `outputs/v_final/kim_dvs_ignore/REPORTS/zs_arm_table_dvs_ignore_vs_k5df.{md,json}` and `..._vs_k5f.{md,json}` (run locally after K5df's `clip_scores.npz` were synced; closes §34.1's "Gap").
+
+| micro, s2024 | DoTA-CAP-dev | DADA | TAD | DAD |
+|---|---|---|---|---|
+| K5f | 0.7353 | 0.7551 | 0.6711 | 0.7072 |
+| K5df | 0.7038 | 0.7349 | 0.6538 | 0.6613 |
+| K5dfi | 0.7613 | 0.7591 | 0.6119 | 0.7091 |
+| K5dfie | 0.7580 | 0.7598 | 0.6546 | 0.7081 |
+
+| Δ micro, paired, 95 % cluster bootstrap | DoTA-CAP-dev | DADA | TAD | DAD |
+|---|---|---|---|---|
+| K5dfi − K5df | +0.0576 [+0.0494, +0.0655] above | +0.0241 [+0.0164, +0.0317] above | −0.0419 [−0.0781, −0.0050] below | +0.0478 [+0.0355, +0.0591] above |
+| K5dfie − K5df | +0.0542 [+0.0445, +0.0636] above | +0.0248 [+0.0160, +0.0332] above | +0.0008 [−0.0324, +0.0327] ns | +0.0468 [+0.0358, +0.0576] above |
+| K5df − K5f | −0.0315 below | −0.0201 below | −0.0173 ns | −0.0459 below |
+| K5dfi − K5f | +0.0261 above | +0.0040 ns | −0.0592 below | +0.0019 ns |
+
+**Reading (n = 1, printed).** Under DVS the pooled micro falls against K5f on three sets (K5df − K5f); `ignore` raises it again on the same three (K5dfi − K5df +0.058 / +0.024 / +0.048, intervals clear of 0) while macro stays flat (§34.1). §34 R7's wording applies: "`ignore` reduces DVS's micro cost on DoTA-CAP-dev, DADA and DAD", not "improves the model". The one set where it goes the other way is TAD (−0.042, K5dfie ns). **§34.1's hypothesis that a lower positive floor shows on raw-pooled micro is not supported as a rule:** DAD (raw) micro rises +0.048 under `ignore`; only TAD micro falls (TAD micro measures clip classification, oracle 0.9226). K5dfie's micro matches K5dfi's within 0.007 on every set. The primary verdict stays COST (Nexar val −0.0174, macro, R4); micro was not in R4.
+
+**What the micro gain is (decomposition, 2026-11-19, post-hoc, printed; ad-hoc computation on the synced `clip_scores.npz`, not a tracked tool).** Pooled micro AUC = Mann-Whitney over all (positive frame, negative frame) pairs of the per-clip min-max curves. Split the pairs into same-clip pairs and cross-clip pairs: **cross-clip pairs are 99.8 % of the pairs on DoTA-CAP-dev and 99.7 % on DADA**, so micro is, to rounding, a cross-clip AUC, and macro (same-clip ranking) is what micro does not measure. Min-max removes each clip's offset and scale, so what is left to compare across clips is the **shape** of the normalized curve (broad plateau vs narrow peak): a broad clip's negative frames stay high after min-max and outrank a narrow clip's positive frames.
+
+| set | arm | micro | AUC, same-clip pairs | AUC, cross-clip pairs | negative frames > 0.5 after min-max | mean normalized score, positive / negative frames |
+|---|---|---|---|---|---|---|
+| DoTA-CAP-dev | K5f | 0.7353 | 0.8018 | 0.7352 | 0.325 | 0.650 / 0.351 |
+| DoTA-CAP-dev | K5df | 0.7038 | 0.8022 | 0.7036 | 0.497 | 0.740 / 0.507 |
+| DoTA-CAP-dev | K5dfi | 0.7613 | 0.8125 | 0.7613 | 0.236 | 0.601 / 0.269 |
+| DoTA-CAP-dev | K5dfie | 0.7580 | 0.8091 | 0.7579 | 0.241 | 0.593 / 0.270 |
+| DADA | K5f | 0.7551 | 0.7581 | 0.7551 | 0.226 | 0.580 / 0.261 |
+| DADA | K5df | 0.7349 | 0.7574 | 0.7349 | 0.336 | 0.664 / 0.377 |
+| DADA | K5dfi | 0.7591 | 0.7510 | 0.7591 | 0.161 | 0.514 / 0.202 |
+| DADA | K5dfie | 0.7598 | 0.7522 | 0.7598 | 0.174 | 0.526 / 0.211 |
+
+**Reading (n = 1).** Under `span` (K5df) the normalized curves are broad (49.7 % of DoTA-CAP-dev negative frames above 0.5), which is what the onset-aligned curves show (`figures/train_nexar/{dota,dada}/dvs_ignore_s2024/onset_aligned.png`: K5df high before the onset and slow to fall after the GT ends); `ignore` narrows them (23.6 %) and the cross-clip AUC rises with it. **The same-clip AUC does not follow:** DoTA-CAP-dev +0.010, DADA **−0.006** (K5df → K5dfi). So the micro gain is a curve-width effect and says nothing about better localization within a clip, which is what macro (flat, §34.1) measures. Corrects the wording of this section's earlier discussion: the micro difference is **not** a raw-scale difference between clips (min-max removes it); it is shape. Licensed: "`ignore` narrows the normalized score curves of K5df; pooled micro on DoTA-CAP-dev and DADA rises with that narrowing while same-clip ranking is unchanged". Not licensed: "`ignore` localizes better", "K5dfi beats K5f on DoTA-CAP-dev / DADA" (macro vs K5f not separated: +0.0071, −0.0067), and any selection of K5dfi on the micro of these two sets (R5 is stated on four sets, §34).

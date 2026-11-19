@@ -1,4 +1,4 @@
-# Plan — K5dfi / K5dfie: K5df with `loss.dvs_anchor_mode=ignore`, and with `is_egocentric=true` (2026-11-19, CONFIRMED, BUILT, NOT RUN)
+# Plan — K5dfi / K5dfie: K5df with `loss.dvs_anchor_mode=ignore`, and with `is_egocentric=true` (2026-11-19, CONFIRMED, BUILT, RUN: READ OUT, see KIM_RUN.md §34.1)
 
 Branch `v_final_las_vad`. Rule text goes to `core/docs/final/KIM_RUN.md` §34 only after the user confirms the choices in §6.
 Reopening a closed line needs a dated note from the user; the request of 2026-11-19 ("lập kế hoạch arm K5f với dvs ignore") is that note once confirmed.
@@ -89,3 +89,7 @@ Runbook output dir: `Thesis-Final/outputs/kim_dvs_ignore/`.
 - **G5 changed:** no masked-share log exists (adding one would edit `train.py`); the live-mask guard is K5dfi's step-1 `dvs_sup` != K5df's (report raises). P0 (anchor share) dropped: `windows.json` has no frame labels.
 - **Built:** constants `KIM_DVS_IGNORE_*`; `core/tools/k5_dvs_ignore_report.py`; `core/tests/test_k5_dvs_ignore_report.py` (21 pass); `colab/final/k5_dvs_ignore.ipynb`; `KIM_RUN.md` §34. No existing symbol edited, so no `trace_call_path` was triggered (constants added only).
 - **Not yet:** run (user, Colab); the report has not been rendered on real reads.
+
+## 9. Read-out 2026-11-19
+
+Primary COST (Nexar val −0.0174), ego NO DIFFERENCE, no candidate, K5f stays. Full table and the licensed / not-licensed wording: `KIM_RUN.md` §34.1.
