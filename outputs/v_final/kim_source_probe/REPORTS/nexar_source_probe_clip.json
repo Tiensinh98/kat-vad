@@ -1,0 +1,83 @@
+{
+  "S1_A_vs_B": 0.6724452391956526,
+  "S2_A_vs_B_matched": 0.6411505964745874,
+  "S2_windows": {
+    "A": 5589,
+    "B": 1331
+  },
+  "S3_metadata_only": 0.6396001855315874,
+  "S4_P_vs_A": 0.6223349907398807,
+  "S4_P_vs_B": 0.7209923441066336,
+  "clip_dir": "/content/source_probe/clip_s1",
+  "feature_dim": 512,
+  "folds": 5,
+  "row_stride": 8,
+  "rule": "KIM_RUN.md \u00a738 S0: S1 >= threshold -> shortcut, K5fno not built",
+  "seed": 2024,
+  "shortcut": false,
+  "strata": {
+    "A": {
+      "Highway|Clear": 772,
+      "Highway|Cloudy": 354,
+      "Highway|Rain": 71,
+      "Highway|Snow": 3,
+      "Nature|Clear": 3,
+      "Other|Clear": 84,
+      "Other|Cloudy": 36,
+      "Other|Rain": 27,
+      "Rural|Cloudy": 12,
+      "Sub-urban|Clear": 287,
+      "Sub-urban|Cloudy": 209,
+      "Sub-urban|Rain": 13,
+      "Urban|Clear": 2171,
+      "Urban|Cloudy": 1150,
+      "Urban|Rain": 430
+    },
+    "B": {
+      "Highway|Clear": 934,
+      "Highway|Cloudy": 649,
+      "Highway|Rain": 17,
+      "Industrial|Clear": 14,
+      "Industrial|Cloudy": 38,
+      "Other|Clear": 26,
+      "Other|Cloudy": 24,
+      "Other|unknown": 18,
+      "Rural|Clear": 54,
+      "Rural|Cloudy": 24,
+      "Sub-urban|Clear": 1142,
+      "Sub-urban|Cloudy": 753,
+      "Sub-urban|Rain": 16,
+      "Urban|Clear": 2133,
+      "Urban|Cloudy": 852,
+      "Urban|Rain": 185
+    },
+    "P": {
+      "Highway|Clear": 249,
+      "Highway|Cloudy": 128,
+      "Highway|Rain": 29,
+      "Highway|Snow": 4,
+      "Nature|Clear": 4,
+      "Other|Clear": 26,
+      "Other|Cloudy": 12,
+      "Other|Rain": 8,
+      "Rural|Cloudy": 4,
+      "Sub-urban|Clear": 90,
+      "Sub-urban|Cloudy": 63,
+      "Sub-urban|Rain": 4,
+      "Urban|Clear": 619,
+      "Urban|Cloudy": 330,
+      "Urban|Rain": 119
+    }
+  },
+  "threshold": 0.9,
+  "videos": {
+    "A": 451,
+    "B": 449,
+    "P": 451
+  },
+  "windows": {
+    "A": 5622,
+    "B": 6879,
+    "P": 1689
+  }
+}

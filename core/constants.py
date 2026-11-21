@@ -1462,3 +1462,15 @@ ZS_CURVES_DOMAIN_IN = "in-domain"  # ... or it is the training corpus's own spli
 ZS_CURVES_DOMAINS = (ZS_CURVES_DOMAIN_ZERO_SHOT, ZS_CURVES_DOMAIN_IN)
 ZS_CURVES_IN_DOMAIN_PAIRS = {("nexar", ZS_CURVES_NEXAR_SET)}  # (--train, set) read in-domain
 ZS_CURVES_COLORS = ("tab:blue", "tab:orange", "tab:green", "tab:purple")  # one per --read model
+
+# ---------------------------------------------------------------------------
+# KIM_RUN.md §38 S0: Nexar source-shortcut probe (before any K5fno build)
+# ---------------------------------------------------------------------------
+# A logistic probe on mean-pooled CLIP windows, grouped by source video: in-video normal windows
+# of positive videos (A) vs windows of negative videos (B). AUC >= this = a source shortcut
+# (C38's claim gate), and K5fno (normals only from negative videos) is not built.
+NEXAR_SOURCE_PROBE_SHORTCUT_AUC = 0.90
+NEXAR_SOURCE_PROBE_FOLDS = EDA_PROBE_FOLDS
+NEXAR_SOURCE_PROBE_STRATA_KEYS = ("scene", "weather")  # windowed meta keys (nexar_build)
+NEXAR_SOURCE_PROBE_STEM = "nexar_source_probe"  # REPORTS/<stem>.{json,md}
+KIM_SOURCE_PROBE_OUTPUT_DIRNAME = "kim_source_probe"  # OUTPUT_ROOT/<this>/REPORTS (§38 S0)

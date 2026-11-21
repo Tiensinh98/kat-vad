@@ -2247,3 +2247,22 @@ Raw outputs synced to `outputs/v_final/kim_t2_fixed/` (`OPENED.json` 09:24Z, `do
 **Against the expectations.** K5fT2 within ±0.01 of K5T2: met (−0.0027). K5dfiT2 − K5fT2 macro "not separated": **wrong, below by 0.012**; micro above: met. K5fT2 − K5f "not separated or slightly below": met, below by 0.014.
 
 **Licensed:** "Trained on T2 with the same recipe, K5f scores below its Nexar-trained self on whole DoTA-CAP (macro −0.014 [−0.025, −0.002], micro −0.019), K5dfi's recipe likewise (K5dfiT2 − K5dfi macro −0.027 [−0.037, −0.017]); both T2 rows stay far above the public LaGoVAD checkpoint (macro +0.16). On T2, adding DVS + `ignore` (K5dfiT2) lowers DoTA-CAP macro by 0.012 [0.007, 0.017] and raises micro by 0.006. The §31 label fix moves the T2 row by −0.003 macro. PRELIMINARY (n = 1), one set." **Not licensed:** "Nexar is a better training set" or "T2 is worse" (one seed, one set; §13.1: the training corpus is not a lever we select on); "DVS hurts on T2" as a recipe claim (one seed; on Nexar the same keys were not separated on DoTA-CAP, §35.1); any DADA sentence (in-domain for T2 rows, §13 T6). K5f stays the reference and the main model (R5).
+
+## 38. K5fno: normals only from Nexar's negative videos — S0 source-shortcut probe first (dated note 2026-11-21, before any number; user)
+
+**Why.** TAD micro falls whenever Nexar's negative videos enter training (K5 0.678 → K5nc2 0.643 → K5neg 0.588 → K5-whole 0.466), but every one of those arms kept K5's in-video normals or changed the positive side too (§16, §17, §27), so "TAD micro is low because K5's normals are cut from accident videos" has never been tested alone. The user proposed **K5fno** = K5f with the positive windows unchanged and the normal pool drawn **only** from the 449 negative `nexar_train` videos, its size matched to K5f's (≈ 5,622; the sampler already pairs one positive with one normal per item, so the class ratio per step does not change). **Not built.** It is built only if S0 passes.
+
+**Risk S0 tests.** In K5f a normal window shares its video's scene, weather and camera with the positive one. In K5fno it does not, and `nexar_train` is scene-skewed by class (Sub-urban 41 positive / 122 negative, Rain 42 / 14, §17). If the two normal pools separate on the model's input, K5fno's label is readable from the video, not the event (C38: every imported normal pool so far had shortcut AUC 1.000).
+
+| # | Choice |
+|---|---|
+| S0-1 Data | the built `Nexar_window_neg` (§17) train split: **A** = 5,622 normal windows inside positive videos, **B** = 6,879 negative-video windows, **P** = 1,689 positive windows (`meta.json` `source_is_abnormal`, `positive_frames`) |
+| S0-2 Reads | (i) plain CLIP `Nexar_s1_ncc[::8]` (the corpus rows); (ii) the A2 V2-S bake `A2_S/Nexar_s8` = K5f's training input. Window = mean of its 20 rows |
+| S0-3 Probe | `core.tools.nexar_source_probe`: the EDA logistic probe (`transfer_scores`: standardized, class-balanced), 5-fold GroupKFold by source video, seed 2024 |
+| S0-4 Gate | **S1 = AUC(A vs B). S1 ≥ 0.90 on either read → shortcut, K5fno is not built** (C38's claim gate). Below on both → K5fno may be built with B drawn stratified to the positives' scene × weather shares |
+| S0-5 Printed | S2 = S1 with B matched to A's scene × weather shares; S3 = scene × weather one-hot alone (no pixels); S4 = P vs A (K5f's contrast) and P vs B (K5fno's). Never gating |
+| S0-6 Wording | S1 < 0.90 says "no source shortcut at this gate on a linear probe", never "the pools are the same": a non-linear model can still find one |
+
+**Expectation, written before the number:** S1 between 0.70 and 0.90 on plain CLIP (same camera type and city mix, different scenes); S3 ≈ 0.60–0.65; S4 P vs B above P vs A. A wrong expectation changes nothing.
+
+Notebook `colab/final/nexar_source_probe.ipynb` (CPU only); outputs `Thesis-Final/outputs/kim_source_probe/REPORTS/nexar_source_probe_{clip,a2}.md`.
