@@ -1,0 +1,40 @@
+{
+  "arm": {
+    "crn": "none",
+    "motion": "none"
+  },
+  "checkpoints": {
+    "released": "/content/drive/MyDrive/Thesis/ckpts/best.ckpt"
+  },
+  "clips": 560,
+  "excluded_featureless": [],
+  "global_steps": {
+    "released": -1
+  },
+  "input_dir": "/content/k5_cap_eval/stage/dota_s1_eval",
+  "macro": {
+    "clips": 560,
+    "clusters": 85,
+    "high": 0.6727442282216296,
+    "low": 0.6292429665520648,
+    "mean": 0.6513163164718266
+  },
+  "per_run_macro": {
+    "released": 0.6513163164718266
+  },
+  "position_ruler": {
+    "clips": 560,
+    "clusters": 85,
+    "high": 0.5832424721770314,
+    "low": 0.540939942965377,
+    "mean": 0.5616562843225555
+  },
+  "protocol": "B: s1[::3], whole clip, native frames (addendum \u00a78.1 J1-J5)",
+  "released_baseline": true,
+  "runs": [
+    "released"
+  ],
+  "split": "dota_cap_eval",
+  "split_clips": 560,
+  "two_class": 560
+}

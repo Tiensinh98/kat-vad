@@ -1,0 +1,30 @@
+{
+  "protocol": "B: s1[::3], whole clip, native frames (addendum \u00a78.1 J1-J5)",
+  "split": "dota_cap_dev + dota_cap_eval",
+  "clips": 1129,
+  "two_class": 1129,
+  "arm": {
+    "crn": "none",
+    "motion": "none"
+  },
+  "runs": [
+    "released"
+  ],
+  "released_baseline": true,
+  "global_steps": {
+    "released": -1
+  },
+  "checkpoints": {
+    "dev": {
+      "released": "/content/drive/MyDrive/Thesis/ckpts/best.ckpt"
+    },
+    "eval": {
+      "released": "/content/drive/MyDrive/Thesis/ckpts/best.ckpt"
+    }
+  },
+  "per_run_macro": {
+    "released": 0.6465193972152496
+  },
+  "position_ruler": null,
+  "note": "concatenation of the dev read and the eval read; no re-scoring"
+}
