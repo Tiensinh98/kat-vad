@@ -2165,6 +2165,42 @@ Base rate 0.2885.
 
 Built: `constants.KIM_LAGOVAD_NEXAR_*`, `DOTA_CAP_*`; `core/tools/dota_cap_pool.py` + `core/tests/test_dota_cap_pool.py` (13 tests; one re-pools K5f's §35 reads and reproduces the committed file); notebook `colab/final/l0dfi_lagovad_nexar.ipynb`.
 
+### 36.1 Read-out (2026-11-21, n = 1, s2024; printed, decides nothing)
+
+Raw: `outputs/v_final/kim_lagovad_nexar/` (`REPORTS/zs_arm_table_l0dfi_s2024.{md,json}`, `OPENED.json` 2026-11-21T08:36Z, user). **Guards checked locally:** J10 = `verified.json` step 1,749 (= last `metrics.jsonl` step); config diff to `outputs/v_final/kim_dvs_ignore/K5dfi/K5/s2024/config.yaml` = exactly {`model.motion_dim` 384 → 0, `v2.motion` → none, `kim.enabled`, `kim.prototypes`, `kim.edge_mask`, `kim.seam_mask` → false} (R4); last-epoch `mul_mil` 0.30–0.35 (> 0.01, §31 fix live). **Not re-checked here:** the `check-inputs` CLIP-frame equality and the step-1 print (taken from the notebook).
+
+**DoTA-CAP (dev + eval, 1,129 clips, protocol B), micro / AP after per-clip min-max, control K5dfi; base rate 0.3260**
+
+| row | macro [95 %] | micro | AP |
+|---|---|---|---|
+| K5dfi (control) | 0.8240 [0.8136, 0.8342] | 0.7603 | 0.5899 |
+| **L0dfi** | **0.6770 [0.6610, 0.6921]** | **0.6423** | **0.4738** |
+| K5f | 0.8226 [0.8116, 0.8329] | 0.7362 | 0.5652 |
+| LaGoVAD (public ckpt) | 0.6465 [0.6295, 0.6631] | 0.6198 | 0.3903 |
+| v2 Nexar A0 (5-seed, span, pre-§31) | 0.7187 [0.7025, 0.7344] | 0.6678 | 0.5008 |
+
+**DADA-2000 (370 whole sources, s8), micro / AP after per-video min-max; base rate 0.2885**
+
+| row | macro [95 %] | micro | AP |
+|---|---|---|---|
+| K5dfi (control) | 0.7677 [0.7439, 0.7905] | 0.7591 | 0.5548 |
+| **L0dfi** | **0.5752 [0.5544, 0.5962]** | **0.5748** | **0.3623** |
+| K5f | 0.7744 [0.7499, 0.7986] | 0.7551 | 0.5524 |
+| LaGoVAD (public ckpt) | 0.6202 [0.5925, 0.6480] | 0.6128 | 0.3532 |
+| v2 Nexar A0 (5-seed, span, pre-§31) | 0.6167 [0.5907, 0.6433] | 0.6070 | 0.3794 |
+| *position only: middle ruler (no pixels)* | *0.7342 [0.7076, 0.7594]* | | |
+
+| contrast (paired) | Δ macro | | Δ micro | |
+|---|---|---|---|---|
+| DoTA-CAP: L0dfi − K5dfi | −0.1470 [−0.1611, −0.1334] | below | −0.1180 [−0.1307, −0.1063] | below |
+| DADA: L0dfi − K5dfi | −0.1925 [−0.2151, −0.1694] | below | −0.1842 [−0.2031, −0.1639] | below |
+
+**Reading.** (1) At the same corpus and recipe, the motion model (K5dfi: VideoMAE motion + KIM) is above the plain-CLIP trunk by +0.147 macro on DoTA-CAP and +0.193 on DADA (AP +0.116 / +0.193) — §36 R5's "model's effect" contrast. Per R6 it moves motion and KIM together; never "KIM gives +x". (2) **L0dfi is not close to A0** (expectation missed): 0.042 below A0 on both sets (0.677 vs 0.719; 0.575 vs 0.617) — outside the ±0.03 the note predicted. A0 differs in DVS (`span`, θ defaults) and in pre-§31 labels, so no cause is licensed; no paired L0dfi − A0 contrast was run (intervals above are unpaired). (3) **L0dfi vs the released LaGoVAD:** point estimates 0.677 vs 0.647 on DoTA-CAP (L0dfi higher) and 0.575 vs 0.620 on DADA (L0dfi lower); both intervals overlap on DADA and nearly touch on DoTA, and no paired contrast was printed — "not separated" is the only licensed wording. (4) On DADA L0dfi sits **below the position-only ruler** (0.734): it ranks frames worse than position alone; K5dfi / K5f sit ~0.03–0.04 above it. (5) R5: decides nothing; K5f stays the reference and the main model.
+
+**Expectation check.** Written before the number: L0dfi within ~0.03 of A0 (**missed**, −0.042 on both); K5dfi − L0dfi ≈ +0.10 DoTA-CAP / +0.15 DADA, both above (**direction held, sizes larger**: +0.147 / +0.193); L0dfi on DADA at or below the middle ruler (**held**, 0.575 vs 0.734). A wrong expectation changes nothing.
+
+**Licensed:** "trained on Nexar with K5dfi's recipe, the plain-CLIP trunk L0dfi scores 0.677 macro on DoTA-CAP and 0.575 on DADA-2000 (n = 1); K5dfi is above it by +0.147 / +0.193". **Not licensed:** "KIM gives +0.15", "new data fixes LaGoVAD" or "LaGoVAD retrained is worse/better than released" (no paired contrast), any DADA number without the ruler, any seed claim.
+
 ## 37. K5fT2 and K5dfiT2: K5f and K5dfi retrained on T2, read on whole DoTA-CAP (dated note 2026-11-21, before any number; user)
 
 **Why.** The only T2-trained KIM row is K5T2 (§13), trained before the §31 label fix (last-epoch `mul_mil` 0.0026) and read on DoTA-CAP-dev only. The user asked for K5f and K5dfi trained on T2 and read zero-shot on DoTA-CAP. DADA-2000 is **not** read: T2 is cut from the DADA-2000 original release, so DADA is in-domain (held-out sources) for these rows, not zero-shot (§13 T6).
