@@ -1,0 +1,113 @@
+{
+  "control": "K5f",
+  "draws": 2000,
+  "label": "PRELIMINARY (n = 1 seed); printed, decides nothing",
+  "seed": 2024,
+  "sets": {
+    "dada": {
+      "cells": {
+        "K5dfi": {
+          "ap": 0.5548065782181216,
+          "base_rate": 0.28850217526413924,
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.7904958504702784,
+            "low": 0.7439156660418802,
+            "mean": 0.7676965107468467
+          },
+          "micro": 0.7590971828933467
+        },
+        "K5dfie": {
+          "ap": 0.5607159502453872,
+          "base_rate": 0.28850217526413924,
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.7959701481010111,
+            "low": 0.7487259555650663,
+            "mean": 0.7724413821192134
+          },
+          "micro": 0.7597631204892227
+        },
+        "K5f": {
+          "ap": 0.5523734030401823,
+          "base_rate": 0.28850217526413924,
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.7985987776834752,
+            "low": 0.7498504394855516,
+            "mean": 0.7744395881220727
+          },
+          "micro": 0.7550781293515803
+        },
+        "LaGoVAD": {
+          "ap": 0.3531800230626634,
+          "base_rate": 0.28850217526413924,
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.6480376385008992,
+            "low": 0.5924833004630622,
+            "mean": 0.6202179109302967
+          },
+          "micro": 0.6128131669913838
+        }
+      },
+      "clip_oracle_micro": null,
+      "deltas": {
+        "K5dfi": {
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.002381357566806623,
+            "low": -0.01563691363236854,
+            "mean": -0.0067430773752259815
+          },
+          "macro_sentence": "not separated",
+          "micro": {
+            "high": 0.012789439008339194,
+            "low": -0.00441683373112017,
+            "mean": 0.00401905354176646
+          },
+          "micro_sentence": "not separated"
+        },
+        "K5dfie": {
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.004578117927374337,
+            "low": -0.008617630582001549,
+            "mean": -0.001998206002859494
+          },
+          "macro_sentence": "not separated",
+          "micro": {
+            "high": 0.010966889782152342,
+            "low": -0.0011388703933041362,
+            "mean": 0.004684991137642425
+          },
+          "micro_sentence": "not separated"
+        },
+        "LaGoVAD": {
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": -0.12204299090720395,
+            "low": -0.18647481735714383,
+            "mean": -0.15422167719177607
+          },
+          "macro_sentence": "below",
+          "micro": {
+            "high": -0.11266999872033653,
+            "low": -0.17335375783648782,
+            "mean": -0.14226496236019648
+          },
+          "micro_sentence": "below"
+        }
+      },
+      "items": 370,
+      "pooling": "370 whole sources, s8; micro / AP after per-video min-max"
+    }
+  }
+}

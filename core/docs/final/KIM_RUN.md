@@ -2093,3 +2093,57 @@ Raw: `outputs/v_final/kim_dvs_ignore/REPORTS/zs_arm_table_dvs_ignore_vs_k5df.{md
 | R6 Wording | "above / below / not separated" with the interval; never "K5dfi beats K5f on DoTA" from a micro gain (§34.2: micro follows curve width, same-clip ranking is what macro measures). The LaGoVAD row is named "LaGoVAD (public ckpt, protocol B)" and never sits beside its printed 62.60 (lesson 8b, D14) |
 
 **Expectation, written before the number:** K5dfi and K5dfie close to K5f on macro (dev: +0.0071 ns / +0.0075 above), micro above K5f by ~0.02-0.03 as on dev; whole-set macro within ~0.02 of each row's dev macro (v2's eval was within ±0.02 of dev). LaGoVAD well below K5f on whole DoTA-CAP, as on dev (dev: LaGoVAD − K5f macro −0.177 [−0.206, −0.149], micro −0.125, computed locally 2026-11-21 from the two dev reads with `zs_arm_table` before any eval number). A wrong expectation changes nothing.
+
+### 35.1 Read-out (2026-11-21, n = 1, s2024; printed, decides nothing)
+
+Raw: `outputs/v_final/kim_cap_eval/` (synced; `REPORTS/zs_arm_table_cap_all_s2024.{md,json}`, `OPENED.json` 2026-11-21T06:36Z). **Guards pass:** every eval read is `dota_cap_eval`, 560 clips, all two-class, protocol `s1[::3]`; KIM rows at step 1,749 with `crn` none / `motion` V2-S, LaGoVAD `released_baseline` on `Thesis/ckpts/best.ckpt`. Checked locally: in each row's `dota_cap_all` file the 569 dev curves are bit-identical to the row's own dev read and the 560 eval curves to its eval read (569 + 560 = 1,129, disjoint); `zs_arm_table` re-run locally on the four `dota_cap_all` dirs reproduces the report to the fourth decimal.
+
+**DoTA-CAP (1,129/1397), protocol B, micro / AP after per-clip min-max, control K5f**
+
+| row | macro [95 %] | micro | AP |
+|---|---|---|---|
+| K5f | 0.8226 [0.8116, 0.8329] | 0.7362 | 0.5652 |
+| K5dfi | 0.8240 [0.8136, 0.8342] | 0.7603 | 0.5899 |
+| K5dfie | 0.8270 [0.8165, 0.8371] | 0.7587 | 0.5931 |
+| LaGoVAD (public ckpt, protocol B) | 0.6465 [0.6295, 0.6631] | 0.6198 | 0.3903 |
+
+Base rate 0.3260.
+
+| contrast | Δ macro | | Δ micro | |
+|---|---|---|---|---|
+| K5dfi − K5f | +0.0014 [−0.0042, +0.0069] | not separated | +0.0242 [+0.0192, +0.0293] | above |
+| K5dfie − K5f | +0.0044 [+0.0007, +0.0084] | above | +0.0225 [+0.0181, +0.0268] | above |
+| LaGoVAD − K5f | −0.1761 [−0.1943, −0.1579] | below | −0.1164 [−0.1352, −0.0983] | below |
+
+**Reading.** (1) **K5f is above the released LaGoVAD checkpoint on whole DoTA-CAP** by +0.176 macro [+0.158, +0.194], +0.116 micro and +0.175 AP, on the same 1,129 clips and the same CLIP frames (check-inputs). This is the comparison the thesis's DoTA row can carry (as "DoTA-CAP, protocol B, n = 1"), not beside LaGoVAD's printed 62.60. (2) K5dfi / K5dfie sit where they sat on dev: macro not separated / just above (+0.0044, below §34's 0.01 margin), micro above by ~0.02, i.e. §34.2's curve-width effect; nothing reopens §34, and per R5 K5f stays the reference and the main model. (3) Whole-set macro of each KIM row is within 0.004 of its dev macro (K5f 0.8188 → 0.8226, K5dfi 0.8259 → 0.8240, K5dfie 0.8263 → 0.8270); LaGoVAD 0.6418 → 0.6465.
+
+**Expectation check.** Written before the number: KIM rows close to K5f on macro, micro above by ~0.02-0.03, whole within ~0.02 of dev, LaGoVAD well below K5f. All held.
+
+**Licensed:** "on DoTA-CAP (dev + eval, 1,129 clips), K5f is above the released LaGoVAD checkpoint by +0.176 macro (n = 1)". **Not licensed:** any eval-only number (R2), "K5dfie beats K5f" (+0.0044 is under the margin and §34 decided on four sets), "+17.6 points over LaGoVAD's paper number", or a seed claim (n = 1; the LaGoVAD row has no seed).
+
+### 35.2 DADA-2000 with the LaGoVAD row (2026-11-21, user; post-hoc table, no new read, decides nothing)
+
+The user asked for the same four rows on DADA-2000 after §35.1. **No model was run:** every row's DADA read already existed (K5f §31, K5dfi / K5dfie §34, released LaGoVAD `zs_lagovad/eval/dada/LaGoVAD`, `ZS_TAD_DADA.md` §7); all four are the same protocol (370 T2-test source videos, whole video, every s8 row, labels = annotation span). `zs_arm_table` run locally → `outputs/v_final/kim_cap_eval/REPORTS/zs_arm_table_dada_lagovad_s2024.{md,json}`.
+
+**DADA-2000 (370 whole sources, s8), micro / AP after per-video min-max, control K5f, n = 1**
+
+| row | macro [95 %] | micro | AP |
+|---|---|---|---|
+| K5f | 0.7744 [0.7499, 0.7986] | 0.7551 | 0.5524 |
+| K5dfi | 0.7677 [0.7439, 0.7905] | 0.7591 | 0.5548 |
+| K5dfie | 0.7724 [0.7487, 0.7960] | 0.7598 | 0.5607 |
+| LaGoVAD (public ckpt) | 0.6202 [0.5925, 0.6480] | 0.6128 | 0.3532 |
+| *position only: middle ruler (no pixels)* | *0.7342 [0.7076, 0.7594]* | | |
+| *position only: monotone ruler `t/L`* | *0.5514 [0.5247, 0.5782]* | | |
+
+Base rate 0.2885.
+
+| contrast | Δ macro | | Δ micro | |
+|---|---|---|---|---|
+| K5dfi − K5f | −0.0067 [−0.0156, +0.0024] | not separated | +0.0040 [−0.0044, +0.0128] | not separated |
+| K5dfie − K5f | −0.0020 [−0.0086, +0.0046] | not separated | +0.0047 [−0.0011, +0.0110] | not separated |
+| LaGoVAD − K5f | −0.1542 [−0.1865, −0.1220] | below | −0.1423 [−0.1734, −0.1127] | below |
+
+**Reading.** (1) K5f is above the released LaGoVAD checkpoint on DADA-2000 by +0.154 macro, +0.142 micro, +0.199 AP. (2) **Print the ruler beside it:** a no-pixel middle-of-video ruler scores 0.7342 on the same 370 sources; LaGoVAD's 0.6202 is *below* it and K5f's 0.7744 is above it by only ~0.04. So the contrast licenses "K5f ranks accident frames better than LaGoVAD here", not "K5f localizes accidents well on DADA" — most of K5f's macro is reachable by position alone. (3) K5dfi / K5dfie not separated from K5f on either metric (as §34.1); K5f stays.
+
+**Licensed:** "on DADA-2000 (370 whole sources), K5f is above the released LaGoVAD checkpoint by +0.154 macro (n = 1); a position-only ruler scores 0.734". **Not licensed:** any DADA number beside a published frame-level number, or K5f's DADA macro quoted without the ruler.
