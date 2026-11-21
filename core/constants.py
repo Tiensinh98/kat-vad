@@ -1326,6 +1326,13 @@ KIM_DVS_IGNORE_GAIN = "GAIN"
 KIM_DVS_IGNORE_COST = "COST"
 KIM_DVS_IGNORE_NO_DIFFERENCE = "NO DIFFERENCE"
 KIM_DVS_IGNORE_GAIN_SETS = ("dota", "dada")  # §34 R4: a GAIN must show on one of these
+# KIM_RUN.md §36: the LaGoVAD trunk (CLIP only: KIM off, motion off) on K5dfi's recipe and corpus.
+# OUTPUT_ROOT/<this>/<row>/{K5/s<seed>, eval/<set>}, REPORTS/
+KIM_LAGOVAD_NEXAR_OUTPUT_DIRNAME = "kim_lagovad_nexar"
+KIM_LAGOVAD_NEXAR_ROW = "L0dfi"  # K5dfi with kim.enabled=false, v2.motion=none, model.motion_dim=0
+DOTA_CAP_ALL_DIRNAME = "dota_cap_all"  # eval/<this>: a row's dev + eval reads, concatenated
+DOTA_CAP_DEV_CLIPS = 569  # the frozen DOTA_CAP_MANIFEST counts (dota_cap_dev / dota_cap_eval)
+DOTA_CAP_EVAL_CLIPS = 560
 NORMAL_PROBE_ADP_ALPHA_KEY = "bin_head.adp_alpha"  # BinaryHead's learned blend parameter
 
 # --- pos/neg feature gap probe (core/docs/final/POSNEG_GAP.md, rule dated 2026-11-11) ---

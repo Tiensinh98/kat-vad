@@ -2147,3 +2147,20 @@ Base rate 0.2885.
 **Reading.** (1) K5f is above the released LaGoVAD checkpoint on DADA-2000 by +0.154 macro, +0.142 micro, +0.199 AP. (2) **Print the ruler beside it:** a no-pixel middle-of-video ruler scores 0.7342 on the same 370 sources; LaGoVAD's 0.6202 is *below* it and K5f's 0.7744 is above it by only ~0.04. So the contrast licenses "K5f ranks accident frames better than LaGoVAD here", not "K5f localizes accidents well on DADA" — most of K5f's macro is reachable by position alone. (3) K5dfi / K5dfie not separated from K5f on either metric (as §34.1); K5f stays.
 
 **Licensed:** "on DADA-2000 (370 whole sources), K5f is above the released LaGoVAD checkpoint by +0.154 macro (n = 1); a position-only ruler scores 0.734". **Not licensed:** any DADA number beside a published frame-level number, or K5f's DADA macro quoted without the ruler.
+
+## 36. L0dfi: the LaGoVAD trunk on K5dfi's recipe and corpus (dated note 2026-11-21, before any number; user)
+
+**Why.** §35.1 / §35.2 compare K5f with the *released* LaGoVAD checkpoint, which was trained on other data. The user asked for LaGoVAD trained on our Nexar corpus with **K5dfi's recipe** (the user's choice over K5f's, 2026-11-21), read zero-shot on DoTA-CAP and DADA-2000, so that new vs old model is compared at the same data and recipe. v2's Nexar A0 (5 seeds) is close but not the same recipe (DVS `span`, pre-§31 window labels: last-epoch `mul_mil` ≈ 0.001); it is printed beside, not used as the control.
+
+| # | Choice |
+|---|---|
+| R1 Row | **L0dfi** = K5dfi's training command (§34: Nexar_window, DVS θ 0.7 / θ_ego 0.85, `loss.dvs_anchor_mode=ignore`, §31 labels, 33 epochs = 1,749 steps, s2024) with **`kim.enabled=false`, `v2.motion=none`, `model.motion_dim=0`**; `kim.prototypes` / `kim.edge_mask` / `kim.seam_mask` return to their defaults (false) because the config refuses them without KIM (`seam_mask` only masks KIM's pairs). Input = the plain CLIP cache `Nexar_s8_ncc` (no manifest = A0 input) |
+| R2 Sets | **whole DoTA-CAP** (dev 569 + eval 560 = 1,129; protocol B on plain `DoTA_s1_ncc[::3]`; dev and eval read, then pooled by `core.tools.dota_cap_pool`; `dota_cap_eval` read with `--final` under this note) and **DADA-2000** (370 whole T2-test sources, s8, plain `DADA2000_orig` CLIP). Nexar val, TAD, DAD are not read (the user asked for the two sets) |
+| R3 Metrics | as §35: macro [95 % CI], micro and AP after per-clip / per-video min-max, `zs_arm_table` paired Δ. Rows: **K5dfi (control)**, L0dfi, K5f, v2 Nexar A0 (5-seed average, printed), LaGoVAD (public ckpt, protocol B). DADA beside its middle ruler 0.7342 |
+| R4 Guards | J10 (1,749); config diff to K5dfi = exactly {`kim.enabled`, `kim.prototypes`, `kim.edge_mask`, `kim.seam_mask`, `v2.motion`, `model.motion_dim`}; last-epoch `mul_mil` > 0.01 (§31 fix); `zs_lagovad_readout check-inputs`: `Nexar_s8_ncc` == the A2 Nexar bake's CLIP columns on all 900 train videos, `DADA2000_orig` == the A2 DADA bake's on 370, `DoTA_s1_ncc[::3]` == the A2 DoTA-CAP bakes' on 569 + 560 (every row sees the same CLIP frames); step-1 numbers vs K5dfi printed only (no matched start: the model and its parameter draws differ) |
+| R5 Decision | **none.** The contrast **K5dfi − L0dfi** is printed as "the model's effect (VideoMAE motion + KIM) at fixed data and recipe"; K5f stays the reference and the main model whatever the number. n = 1 |
+| R6 Wording | "above / below / not separated" with the interval. Never "KIM gives +x" from this contrast: it moves motion and KIM together (A2 − A0 on Nexar already shows V2-S alone at +0.08…+0.15). Never put L0dfi beside LaGoVAD's 62.60 |
+
+**Expectation, written before the number:** L0dfi close to v2 Nexar A0 (DoTA-CAP 0.719, DADA 0.617), within ~0.03; K5dfi − L0dfi ≈ +0.10 on DoTA-CAP and ≈ +0.15 on DADA, both above; L0dfi on DADA near or below the middle ruler (0.734). A wrong expectation changes nothing.
+
+Built: `constants.KIM_LAGOVAD_NEXAR_*`, `DOTA_CAP_*`; `core/tools/dota_cap_pool.py` + `core/tests/test_dota_cap_pool.py` (13 tests; one re-pools K5f's §35 reads and reproduces the committed file); notebook `colab/final/l0dfi_lagovad_nexar.ipynb`.
