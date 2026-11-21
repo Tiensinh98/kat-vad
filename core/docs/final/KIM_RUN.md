@@ -2217,3 +2217,33 @@ Raw: `outputs/v_final/kim_lagovad_nexar/` (`REPORTS/zs_arm_table_l0dfi_s2024.{md
 **Expectation, written before the number:** K5fT2 within ±0.01 of K5T2 (the fix moved K5 → K5f by −0.0007 on DoTA-CAP-dev); K5dfiT2 − K5fT2 macro not separated, micro above (as on Nexar); K5fT2 − K5f not separated or slightly below (§13.1: K5T2 − K5 −0.011 ns on dev). A wrong expectation changes nothing.
 
 Notebook `colab/final/k5_t2_fixed.ipynb`; outputs `Thesis-Final/outputs/kim_t2_fixed/`.
+
+### 37.1 Read-out (2026-11-21, s2024, n = 1; printed, decides nothing)
+
+Raw outputs synced to `outputs/v_final/kim_t2_fixed/` (`OPENED.json` 09:24Z, `dota_cap_eval` opened with `--final` under this note for K5fT2, K5dfiT2 and K5T2). Report `REPORTS/zs_arm_table_t2_fixed_s2024.md`.
+
+**Guards (R4), checked locally on the synced files.** J10: both rows `verified.json` step 1,740 = last `metrics.jsonl` step. Config diff K5dfiT2 − K5fT2 = exactly `dvs.theta` 1.0 → 0.7, `dvs.theta_ego` 1.0 → 0.85, `kim.seam_mask` false → true, `loss.dvs_anchor_mode` span → ignore. K5fT2 − K5T2: no value differs; the diff holds only four keys added to the config after K5T2 was trained, each at its default (`motion_norm: none`, `cap_contrast_mode: baseline`, `caption_manifest: ''`, `normal_caption: lagovad`). §31 fix live: last-epoch mean `mul_mil` K5fT2 **0.0483**, K5dfiT2 **0.1060** (K5T2 0.0019). Step 1: `mil` K5fT2 = K5T2 = 0.7389.
+
+**Whole DoTA-CAP (dev 569 + eval 560 = 1,129, protocol B), control K5fT2:**
+
+| row | trained on | macro [95 %] | micro | AP |
+| --- | --- | --- | --- | --- |
+| **K5fT2** (control) | T2 | 0.8091 [0.7973, 0.8208] | 0.7173 | 0.5399 |
+| K5dfiT2 | T2 | 0.7969 [0.7850, 0.8087] | 0.7236 | 0.5400 |
+| K5T2 (pre-§31 labels) | T2 | 0.8118 [0.7996, 0.8237] | 0.7206 | 0.5402 |
+| K5f | Nexar | 0.8226 [0.8116, 0.8329] | 0.7362 | 0.5652 |
+| K5dfi | Nexar | 0.8240 [0.8136, 0.8342] | 0.7603 | 0.5899 |
+| LaGoVAD (public ckpt) | PreVAD | 0.6465 [0.6295, 0.6631] | 0.6198 | 0.3903 |
+
+| contrast (R5) | Δ macro | | Δ micro | |
+| --- | --- | --- | --- | --- |
+| K5dfiT2 − K5fT2 (DVS + ignore on T2) | −0.0121 [−0.0174, −0.0068] | below | +0.0064 [+0.0005, +0.0122] | above |
+| K5T2 − K5fT2 (pre-fix − fix, on T2) | +0.0027 [+0.0006, +0.0050] | above | +0.0033 [+0.0004, +0.0063] | above |
+| K5f − K5fT2 (Nexar − T2, K5f recipe) | +0.0136 [+0.0020, +0.0249] | above | +0.0189 [+0.0073, +0.0314] | above |
+| K5dfi − K5fT2 | +0.0150 [+0.0051, +0.0247] | above | +0.0431 [+0.0317, +0.0550] | above |
+| LaGoVAD − K5fT2 | −0.1625 [−0.1796, −0.1456] | below | −0.0975 [−0.1147, −0.0799] | below |
+| K5dfiT2 − K5dfi (T2 − Nexar, K5dfi recipe; local `zs_arm_table`, control K5dfi, same seed / draws) | −0.0271 [−0.0368, −0.0173] | below | −0.0367 [−0.0486, −0.0257] | below |
+
+**Against the expectations.** K5fT2 within ±0.01 of K5T2: met (−0.0027). K5dfiT2 − K5fT2 macro "not separated": **wrong, below by 0.012**; micro above: met. K5fT2 − K5f "not separated or slightly below": met, below by 0.014.
+
+**Licensed:** "Trained on T2 with the same recipe, K5f scores below its Nexar-trained self on whole DoTA-CAP (macro −0.014 [−0.025, −0.002], micro −0.019), K5dfi's recipe likewise (K5dfiT2 − K5dfi macro −0.027 [−0.037, −0.017]); both T2 rows stay far above the public LaGoVAD checkpoint (macro +0.16). On T2, adding DVS + `ignore` (K5dfiT2) lowers DoTA-CAP macro by 0.012 [0.007, 0.017] and raises micro by 0.006. The §31 label fix moves the T2 row by −0.003 macro. PRELIMINARY (n = 1), one set." **Not licensed:** "Nexar is a better training set" or "T2 is worse" (one seed, one set; §13.1: the training corpus is not a lever we select on); "DVS hurts on T2" as a recipe claim (one seed; on Nexar the same keys were not separated on DoTA-CAP, §35.1); any DADA sentence (in-domain for T2 rows, §13 T6). K5f stays the reference and the main model (R5).
