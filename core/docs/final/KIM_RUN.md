@@ -2164,3 +2164,20 @@ Base rate 0.2885.
 **Expectation, written before the number:** L0dfi close to v2 Nexar A0 (DoTA-CAP 0.719, DADA 0.617), within ~0.03; K5dfi − L0dfi ≈ +0.10 on DoTA-CAP and ≈ +0.15 on DADA, both above; L0dfi on DADA near or below the middle ruler (0.734). A wrong expectation changes nothing.
 
 Built: `constants.KIM_LAGOVAD_NEXAR_*`, `DOTA_CAP_*`; `core/tools/dota_cap_pool.py` + `core/tests/test_dota_cap_pool.py` (13 tests; one re-pools K5f's §35 reads and reproduces the committed file); notebook `colab/final/l0dfi_lagovad_nexar.ipynb`.
+
+## 37. K5fT2 and K5dfiT2: K5f and K5dfi retrained on T2, read on whole DoTA-CAP (dated note 2026-11-21, before any number; user)
+
+**Why.** The only T2-trained KIM row is K5T2 (§13), trained before the §31 label fix (last-epoch `mul_mil` 0.0026) and read on DoTA-CAP-dev only. The user asked for K5f and K5dfi trained on T2 and read zero-shot on DoTA-CAP. DADA-2000 is **not** read: T2 is cut from the DADA-2000 original release, so DADA is in-domain (held-out sources) for these rows, not zero-shot (§13 T6).
+
+| # | Choice |
+|---|---|
+| R1 Rows | **K5fT2** = K5T2's training command (§13: `DADA2000_orig_v2`, A2 bake with T2 statistics, T2 KNN, 20 epochs = 1,740 steps, s2024) run on the §31 code; its config equals K5T2's (K5T2 vs K5f differs only in `data.dataset`, `train.num_epochs`, checked locally 2026-11-21). **K5dfiT2** = K5fT2 + K5dfi's four keys `dvs.theta=0.7`, `dvs.theta_ego=0.85`, `kim.seam_mask=true`, `loss.dvs_anchor_mode=ignore` |
+| R2 Sets | **whole DoTA-CAP only** (dev 569 + eval 560, protocol B, the T2-statistics bakes `A2_S/DoTA_CAP_s3_from_s1` (dev, E3's) and `A2_S/DoTA_CAP_eval_s3_from_s1` (eval, v2 Final's; rebuilt on CPU with `build_v2_inputs apply` if missing); eval read with `--final` under this note; pooled by `dota_cap_pool`). K5T2's existing checkpoint also gets its eval read so its row pools |
+| R3 Metrics | as §35. Rows: **K5fT2 (control)**, K5dfiT2, K5T2 (pre-§31, printed), K5f and K5dfi (Nexar-trained, §35 reads), LaGoVAD (public ckpt, protocol B). Same clips and frame labels (`zs_arm_table` refuses otherwise); inputs differ only in the normalization statistics (T2 vs Nexar) |
+| R4 Guards | J10 (1,740); config diff to K5T2 = {} (K5fT2) / exactly the four keys above (K5dfiT2); last-epoch `mul_mil` > 0.01 (§31 fix live; K5T2 0.0026); bakes' manifests `crn` none, `motion` V2-S, `train_ids_sha1` = the T2 bake's; step-1 numbers vs K5T2 printed (K5fT2 should start like K5T2 except the classification target) |
+| R5 Decision | **none.** n = 1, printed. K5f (Nexar) stays the reference and the main model; a T2 row above it changes nothing (§13.1: training corpus is not a lever we select on). Contrasts printed: K5dfiT2 − K5fT2 (DVS + ignore on T2), K5fT2 − K5T2 (§31 fix on T2), K5fT2 − K5f and K5dfiT2 − K5dfi (training corpus, same recipe) |
+| R6 Wording | "above / below / not separated" with the interval; micro differences read as §34.2 (curve width). Never "T2 is a better training set" from one seed and one set |
+
+**Expectation, written before the number:** K5fT2 within ±0.01 of K5T2 (the fix moved K5 → K5f by −0.0007 on DoTA-CAP-dev); K5dfiT2 − K5fT2 macro not separated, micro above (as on Nexar); K5fT2 − K5f not separated or slightly below (§13.1: K5T2 − K5 −0.011 ns on dev). A wrong expectation changes nothing.
+
+Notebook `colab/final/k5_t2_fixed.ipynb`; outputs `Thesis-Final/outputs/kim_t2_fixed/`.

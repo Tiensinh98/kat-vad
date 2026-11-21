@@ -1333,6 +1333,10 @@ KIM_LAGOVAD_NEXAR_ROW = "L0dfi"  # K5dfi with kim.enabled=false, v2.motion=none,
 DOTA_CAP_ALL_DIRNAME = "dota_cap_all"  # eval/<this>: a row's dev + eval reads, concatenated
 DOTA_CAP_DEV_CLIPS = 569  # the frozen DOTA_CAP_MANIFEST counts (dota_cap_dev / dota_cap_eval)
 DOTA_CAP_EVAL_CLIPS = 560
+# KIM_RUN.md §37: K5f and K5dfi retrained on T2 (K5T2's command, §31 code), read on whole DoTA-CAP.
+KIM_T2_FIXED_OUTPUT_DIRNAME = "kim_t2_fixed"  # OUTPUT_ROOT/<this>/<row>/{K5/s<seed>, eval}, REPORTS
+KIM_T2_FIXED_ROW = "K5fT2"  # K5T2's config on the §31 code (window labels fixed)
+KIM_T2_FIXED_DVS_IGNORE_ROW = "K5dfiT2"  # K5fT2 + K5dfi's DVS keys (theta, theta_ego, seam, ignore)
 NORMAL_PROBE_ADP_ALPHA_KEY = "bin_head.adp_alpha"  # BinaryHead's learned blend parameter
 
 # --- pos/neg feature gap probe (core/docs/final/POSNEG_GAP.md, rule dated 2026-11-11) ---
