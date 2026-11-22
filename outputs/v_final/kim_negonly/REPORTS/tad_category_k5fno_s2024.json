@@ -1,0 +1,118 @@
+{
+  "K5f": {
+    "01_Accident": {
+      "clip_auc": 0.5902173913043478,
+      "macro": 0.8229673016344701,
+      "micro": 0.6711341013476538,
+      "two_class": 23,
+      "videos": 23
+    },
+    "02_IllegalTurn": {
+      "clip_auc": 0.675,
+      "macro": 0.8543597495978449,
+      "micro": 0.8170695930625721,
+      "two_class": 3,
+      "videos": 3
+    },
+    "03_IllegalOccupation": {
+      "clip_auc": 0.6833333333333333,
+      "macro": 0.642479674796748,
+      "micro": 0.8180952993174988,
+      "two_class": 3,
+      "videos": 3
+    },
+    "04_Retrograde": {
+      "clip_auc": 0.7916666666666666,
+      "macro": 0.7882932967905187,
+      "micro": 0.6986339396595806,
+      "two_class": 3,
+      "videos": 3
+    },
+    "05_else": {
+      "clip_auc": 0.6214285714285714,
+      "macro": 0.6626010489417028,
+      "micro": 0.6324344215125779,
+      "two_class": 14,
+      "videos": 14
+    },
+    "06_PedestrianOnRoad": {
+      "clip_auc": 0.615,
+      "macro": 0.443699362376054,
+      "micro": 0.6256160585560608,
+      "two_class": 10,
+      "videos": 10
+    },
+    "07_RoadSpills": {
+      "clip_auc": 0.65625,
+      "macro": 0.597385391135391,
+      "micro": 0.7464710599053781,
+      "two_class": 4,
+      "videos": 4
+    },
+    "all abnormal": {
+      "clip_auc": 0.6250000000000001,
+      "macro": 0.6981099329105682,
+      "micro": 0.6711349438750609,
+      "two_class": 60,
+      "videos": 60
+    }
+  },
+  "K5fno": {
+    "01_Accident": {
+      "clip_auc": 0.4934782608695652,
+      "macro": 0.7881476476921463,
+      "micro": 0.5658790076437809,
+      "two_class": 23,
+      "videos": 23
+    },
+    "02_IllegalTurn": {
+      "clip_auc": 0.44999999999999996,
+      "macro": 0.8408541194255479,
+      "micro": 0.48982159194876485,
+      "two_class": 3,
+      "videos": 3
+    },
+    "03_IllegalOccupation": {
+      "clip_auc": 0.575,
+      "macro": 0.5667643073489558,
+      "micro": 0.7209944794693016,
+      "two_class": 3,
+      "videos": 3
+    },
+    "04_Retrograde": {
+      "clip_auc": 0.36666666666666664,
+      "macro": 0.6885580965173522,
+      "micro": 0.2631938052450873,
+      "two_class": 3,
+      "videos": 3
+    },
+    "05_else": {
+      "clip_auc": 0.3357142857142857,
+      "macro": 0.7315875905156035,
+      "micro": 0.4135326930918114,
+      "two_class": 14,
+      "videos": 14
+    },
+    "06_PedestrianOnRoad": {
+      "clip_auc": 0.35,
+      "macro": 0.49293550445874557,
+      "micro": 0.3905753022069425,
+      "two_class": 10,
+      "videos": 10
+    },
+    "07_RoadSpills": {
+      "clip_auc": 0.50625,
+      "macro": 0.5302944552944553,
+      "micro": 0.5628595860959639,
+      "two_class": 4,
+      "videos": 4
+    },
+    "all abnormal": {
+      "clip_auc": 0.4291666666666667,
+      "macro": 0.6951447433296444,
+      "micro": 0.5007768423621279,
+      "two_class": 60,
+      "videos": 60
+    }
+  }
+}

@@ -2304,3 +2304,29 @@ S0-4's stratified draw would leave 980 normal windows (§38.1), so pool size wou
 **Expectation, written before the number:** macro below K5f on Nexar val crops and DADA (hard same-scene negatives gone; K5neg already paid −0.038 / −0.021 for mixing them in); TAD micro not separated or below (every arm that added negative-video normals lowered it). A wrong expectation changes nothing.
 
 Runbook `colab/final/k5fno_negonly.ipynb`; outputs `Thesis-Final/outputs/kim_negonly/`.
+
+### 38.3 K5fno read-out (2026-11-22, user's Colab run; raw `outputs/v_final/kim_negonly/` + `REPORTS/{k5fno_report,zs_arm_table_k5fno_s2024,tad_category_k5fno_s2024}.md` synced; s2024, n = 1, printed, decides nothing) — N5: **below**
+
+**Build (N2).** `c` = 14 → 5,781 normal windows from 449 negative videos (in-video normals dropped: 5,622; K5f's pool size within +2.8 %); 1,689 abnormal windows, val 1,788 windows (434 two-class) unchanged; step plan 33 epochs × 53 = 1,749, = K5f's.
+
+**Guards (N3).** J10: `verified.json` step 1,749 = last `metrics.jsonl` row. Config diff to K5f = `loss.normal_caption: lagovad` only, a key added after K5f trained, at its default and read only by `caption_lagovad` (same case as K5dfi, §34.1) → effective diff {}. Last-epoch mean `mul_mil` **0.0112** (> 0.01, but K5f 0.0963: only just over the floor). Step-1 `mil` 0.7153 vs K5f 0.6878 (normal items differ, need not match).
+
+**Training became easy.** Last-epoch means K5fno vs K5f: `mil` **0.025 vs 0.184**, `kim_mil` 0.023 vs 0.146, total 0.074 vs 0.546 (≈ 7× lower). With no same-video normal, the positive and the negative bag differ by more than the event (S4: P vs B is 0.06–0.10 easier than P vs A on the model's input), and the objective is satisfied by that difference. This is the reading the S4 caveat (N7) asked to keep in view; it is a reading of the logs, not a second test.
+
+**Results (macro / micro, Δ = K5fno − K5f, paired).**
+
+| set | K5f | K5fno | Δ macro | Δ micro |
+|---|---|---|---|---|
+| Nexar val (crops macro; whole macro / micro / AP / clip AUC) | 0.8942 (0.9210 / 0.8961 / 0.4411 / 0.7659) | 0.8000 (0.8348 / 0.7853 / 0.1771 / 0.7698) | **−0.0942 [−0.1234, −0.0663] below** | — |
+| DoTA-CAP-dev | 0.8188 / 0.7353 | 0.7476 / 0.6398 | **−0.0712 [−0.0876, −0.0546] below** | −0.0954 [−0.1121, −0.0792] below |
+| DADA-2000 | 0.7744 / 0.7551 | 0.7013 / 0.6561 | **−0.0731 [−0.0928, −0.0534] below** | −0.0990 [−0.1176, −0.0795] below |
+| TAD | 0.6981 / 0.6711 | 0.6951 / 0.5008 | −0.0030 [−0.0555, +0.0510] not separated | **−0.1704 [−0.3013, −0.0430] below (N5)** |
+| DAD | 0.8070 / 0.7072 | 0.7906 / 0.6556 | −0.0164 [−0.0617, +0.0301] not separated | −0.0515 [−0.0853, −0.0172] below |
+
+Nexar val FA share (negatives, peak > 0.5) 0.549 → 0.478; clip AUC flat (0.766 → 0.770) while every within-video number falls: K5fno still tells accident videos from negative videos, it localizes worse inside them.
+
+**N5 (primary): TAD micro K5fno − K5f = −0.1704 [−0.3013, −0.0430] → "below": the in-video normals' source is not the cause of K5's TAD micro cost on this host.** Removing them makes TAD micro worse, not better. TAD macro does not move (−0.003), so the micro loss is clip-level: TAD clip AUC (peak of abnormal vs Normal videos) **0.625 → 0.429**, below chance; AP 0.261 → 0.085. By category (N4, n per category 3–23): clip AUC falls in all seven categories (`01_Accident` 0.590 → 0.494); macro rises on `05_else` (+0.069, 14 videos) and `06_PedestrianOnRoad` (+0.049, 10) and falls on the other five — printed, not read.
+
+**Expectation check.** Macro below K5f on Nexar val crops and DADA: **held** (−0.094 / −0.073, larger than K5neg's −0.038 / −0.021). TAD micro not separated or below: **held** (below). DoTA-CAP-dev below (−0.071) was not written down.
+
+**N6.** No decision: **K5f stays the reference.** Licensed sentence: "On the Nexar-trained KIM host, replacing in-video normals with negative-video normals (pool size matched, n = 1) lowered macro on Nexar val, DoTA-CAP-dev and DADA and lowered TAD micro; it did not raise TAD micro." Not licensed (N7): "negative-video normals fix / break TAD", or any single cause without the S4 caveat (the K5fno pair is easier on the model's input for a reason that is not the event). The read is one more measurement that same-video normals are where this host's frame-level signal comes from (cf. K5neg §17.1, K5nc2 §27.1).
