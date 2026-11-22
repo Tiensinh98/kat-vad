@@ -515,6 +515,12 @@ NEXAR_FPS_ROUND = 1  # decimals when tabulating frame rates
 # D-N1: abnormal = [t_alert, t_event + this]; = median (accident -> abnormal end) of DADA's
 # 1,945 annotated rows at 30 fps (1.40 s), read from the annotation, never from a Nexar score.
 NEXAR_POST_EVENT_S = 1.4
+# Nexar training-corpus EDA (core/tools/nexar_eda.py, KIM_RUN.md §40): dataset properties only.
+NEXAR_EDA_OUTPUT_DIRNAME = "nexar_eda"
+NEXAR_EDA_REPORT_STEM = "nexar_eda_report"
+NEXAR_EDA_NEAR_ROWS = 2  # a normal window this many rows (~0.5 s at s8) or fewer from the span
+NEXAR_EDA_ROW_THRESHOLDS = (1, 3, 5, 10)  # share of positive windows with <= k abnormal rows
+NEXAR_EDA_HUMP_CENTER = 0.5  # accidents sit mid-video: position ruler = -|center - 0.5| (a hump)
 # Event captions for option C (core/docs/final/KIM_RUN.md §29; core.tools.nexar_caption).
 # §29.3 CP3'': 4-bit NF4 (bitsandbytes). Rounds 2-6: Qwen2.5-VL-32B on a 40 GB A100; round 7
 # (user, an 80 GB GPU): Qwen2.5-VL-72B (~40 GB in NF4; same class and patch size as 32B)
