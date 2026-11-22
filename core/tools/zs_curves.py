@@ -32,6 +32,7 @@ from __future__ import annotations
 import argparse
 import logging
 import math
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -82,6 +83,29 @@ def check_lengths(loaded: Loaded, set_name: str) -> None:
 def video_aucs(scores: Curves, labels: Curves) -> dict[str, float]:
     """Frame AUC of each two-class video."""
     return {v: frame_auc(scores[v], labels[v]) for v in sorted(labels) if is_two_class(labels[v])}
+
+
+def video_aucs_global(scores: Curves, labels: Curves) -> dict[str, float]:
+    """Each two-class video's abnormal rows ranked against EVERY normal row of the set (raw).
+
+    The within-video AUC only sees the order inside one video, so a video whose abnormal rows
+    score 0.05 against normal rows at 0.02 reads 1.0. Here the normal rows are the whole set's,
+    so a video the model scores low in absolute terms ranks low: the video's share of the
+    set's micro AUC. Ties count half, as ``roc_auc_score`` does.
+    """
+    normals = np.sort(np.concatenate([np.asarray(scores[v], dtype=np.float64)[labels[v] <= 0]
+                                      for v in sorted(labels)]))
+    if not len(normals):
+        raise ValueError("no normal row in the set: the global AUC is undefined")
+    out: dict[str, float] = {}
+    for v in sorted(labels):
+        if not is_two_class(labels[v]):
+            continue
+        pos = np.asarray(scores[v], dtype=np.float64)[labels[v] > 0]
+        below = np.searchsorted(normals, pos, side="left")
+        tied = np.searchsorted(normals, pos, side="right") - below
+        out[v] = float((below + 0.5 * tied).sum() / (len(pos) * len(normals)))
+    return out
 
 
 def pick_videos(aucs: dict[str, float], labels: Curves, n: int) -> list[str]:
@@ -201,7 +225,9 @@ def draw_video(ax: Axes, video: str, loaded: Loaded, set_name: str,
 
 def render_grid(path: Path, set_name: str, loaded: Loaded, picks: list[str],
                 aucs: dict[str, dict[str, float]], rank_by: str, seed_label: str,
-                domain: str = constants.ZS_CURVES_DOMAIN_ZERO_SHOT) -> None:
+                domain: str = constants.ZS_CURVES_DOMAIN_ZERO_SHOT,
+                set_names: Mapping[str, str] = SET_NAME,
+                auc_name: str = "per-video AUC") -> None:
     cols = min(constants.ZS_CURVES_GRID_COLS, len(picks))
     rows = math.ceil(len(picks) / cols)
     fig, axes = plt.subplots(rows, cols, figsize=(5.0 * cols, 3.0 * rows), squeeze=False)
@@ -211,8 +237,8 @@ def render_grid(path: Path, set_name: str, loaded: Loaded, picks: list[str],
         ax.set_visible(False)
     faint = ("faint = raw" if set_name in MINMAX_SETS else "dashed = min-max, shape only")
     n_videos = len(next(iter(loaded.values()))[1])
-    fig.suptitle(f"{SET_NAME[set_name]} {domain}, {n_videos} videos: picks spread worst -> best "
-                 f"{rank_by} per-video AUC; {faint} ({seed_label})", fontsize=10)
+    fig.suptitle(f"{set_names[set_name]} {domain}, {n_videos} videos: picks spread worst -> best "
+                 f"{rank_by} {auc_name}; {faint} ({seed_label})", fontsize=10)
     fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.95))
     fig.savefig(path, dpi=constants.ZS_CURVES_DPI)
     plt.close(fig)
@@ -220,22 +246,25 @@ def render_grid(path: Path, set_name: str, loaded: Loaded, picks: list[str],
 
 def render_videos(out_dir: Path, set_name: str, loaded: Loaded, order: list[str],
                   aucs: dict[str, dict[str, float]], rank_by: str, seed_label: str,
-                  domain: str = constants.ZS_CURVES_DOMAIN_ZERO_SHOT) -> int:
+                  domain: str = constants.ZS_CURVES_DOMAIN_ZERO_SHOT,
+                  set_names: Mapping[str, str] = SET_NAME,
+                  auc_name: str = "per-video AUC") -> int:
     """One PNG per video, ``<rank>_<video>.png`` so the folder sorts worst -> best."""
     out_dir.mkdir(parents=True, exist_ok=True)
     width = len(str(len(order)))
     for rank, video in enumerate(order, start=1):
         fig, ax = plt.subplots(figsize=constants.ZS_CURVES_VIDEO_FIGSIZE)
         draw_video(ax, video, loaded, set_name, aucs)
-        fig.suptitle(f"{SET_NAME[set_name]} {domain}, {rank}/{len(order)} by {rank_by} "
-                     f"per-video AUC ({seed_label})", fontsize=9)
+        fig.suptitle(f"{set_names[set_name]} {domain}, {rank}/{len(order)} by {rank_by} "
+                     f"{auc_name} ({seed_label})", fontsize=9)
         fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.93))
         fig.savefig(out_dir / f"{rank:0{width}d}_{video}.png", dpi=constants.ZS_CURVES_DPI)
         plt.close(fig)
     return len(order)
 
 
-def render_onset(path: Path, onset: dict[str, dict[str, dict[str, Any]]], seed_label: str) -> None:
+def render_onset(path: Path, onset: dict[str, dict[str, dict[str, Any]]], seed_label: str,
+                 set_names: Mapping[str, str] = SET_NAME) -> None:
     sets = list(onset)
     width = max(constants.ZS_CURVES_ONSET_PANEL_W * len(sets), constants.ZS_CURVES_ONSET_MIN_W)
     fig, axes = plt.subplots(1, len(sets), figsize=(width, constants.ZS_CURVES_ONSET_H),
@@ -261,7 +290,7 @@ def render_onset(path: Path, onset: dict[str, dict[str, dict[str, Any]]], seed_l
         share_ax.set_ylim(0.0, 1.02)
         share_ax.tick_params(labelsize=7)
         pooling = "min-max" if set_name in MINMAX_SETS else "raw"
-        ax.set_title(f"{SET_NAME[set_name]} ({pooling}, n = {videos})", fontsize=10)
+        ax.set_title(f"{set_names[set_name]} ({pooling}, n = {videos})", fontsize=10)
         ax.set_xlabel("seconds from GT onset", fontsize=9)
         ax.grid(alpha=0.25)
         ax.legend(handles=handles, loc="upper left", fontsize=7)
@@ -296,11 +325,17 @@ def load_reads(reads: list[tuple[str, str, Path]]) -> dict[str, Loaded]:
 
 
 def build(data: dict[str, Loaded], rank_by: str, n: int,
-          clips: list[str] | None, every_video: bool = False) -> dict[str, Any]:
+          clips: list[str] | None, every_video: bool = False,
+          pick_auc: str = constants.ZS_CURVES_PICK_WITHIN) -> dict[str, Any]:
     """Picks, per-video AUCs and onset curves of every set (pure: nothing is drawn here).
 
     ``every_video`` picks every video in rank order (``rank_all``) instead of ``n`` of them.
+    ``pick_auc`` is the AUC that ranks the picks and prints in the legends: ``within`` (a
+    video's own rows) or ``global`` (its abnormal rows against every normal row of the set).
     """
+    if pick_auc not in constants.ZS_CURVES_PICK_AUCS:
+        raise ValueError(f"pick_auc must be one of {constants.ZS_CURVES_PICK_AUCS}, got {pick_auc}")
+    auc_fn = video_aucs_global if pick_auc == constants.ZS_CURVES_PICK_GLOBAL else video_aucs
     if every_video and clips:
         raise ValueError("every_video and clips are exclusive")
     out: dict[str, Any] = {}
@@ -308,7 +343,7 @@ def build(data: dict[str, Loaded], rank_by: str, n: int,
         if rank_by not in loaded:
             raise ValueError(f"{set_name}: the rank model {rank_by} has no read")
         labels = loaded[rank_by][1]
-        aucs = {m: video_aucs(s, lab) for m, (s, lab) in loaded.items()}
+        aucs = {m: auc_fn(s, lab) for m, (s, lab) in loaded.items()}
         if every_video:
             picks = rank_all(aucs[rank_by], labels)
         elif clips:
@@ -324,6 +359,7 @@ def build(data: dict[str, Loaded], rank_by: str, n: int,
             "videos": len(labels), "two_class": len(aucs[rank_by]), "picks": picks,
             "step_s": constants.ZS_CURVES_STEP_SECONDS[set_name],
             "pooling": "min-max" if set_name in MINMAX_SETS else "raw",
+            "pick_auc": pick_auc,
             "median_video_auc": {m: float(np.median(list(a.values()))) if a else None
                                  for m, a in aucs.items()},
             "pick_aucs": {m: {v: aucs[m].get(v) for v in picks} for m in loaded},
@@ -353,6 +389,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--domain", default=constants.ZS_CURVES_DOMAIN_ZERO_SHOT,
                         choices=constants.ZS_CURVES_DOMAINS,
                         help="figure titles: is the set unseen in training, or its own split")
+    parser.add_argument("--pick-auc", default=constants.ZS_CURVES_PICK_WITHIN,
+                        choices=constants.ZS_CURVES_PICK_AUCS,
+                        help="AUC that ranks the picks and prints in the legends: 'within' = a "
+                             "video's own rows (rank only, blind to the score level); 'global' = "
+                             "its abnormal rows against every normal row of the set (raw)")
+    parser.add_argument("--set-title", nargs=2, action="append", default=[],
+                        metavar=("SET", "TITLE"),
+                        help="name of a set in the figure titles instead of the default "
+                             "(e.g. dota 'DoTA'); the data and pooling do not change")
     parser.add_argument("--name", required=True, help="json = zs_curves_<name>.json")
     parser.add_argument("--out-dir", type=Path, required=True)
     return parser
@@ -360,7 +405,14 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
     data = load_reads([(s, m, Path(p)) for s, m, p in args.read])
-    table = build(data, args.rank_by, args.n, args.clips, every_video=args.all)
+    unknown = [s for s, _ in args.set_title if s not in SET_NAME]
+    if unknown:
+        raise ValueError(f"--set-title for unknown set(s) {unknown}; sets: {sorted(SET_NAME)}")
+    set_names = {**SET_NAME, **dict(args.set_title)}
+    table = build(data, args.rank_by, args.n, args.clips, every_video=args.all,
+                  pick_auc=args.pick_auc)
+    auc_name = ("global raw AUC (vs all normal rows)"
+                if args.pick_auc == constants.ZS_CURVES_PICK_GLOBAL else "per-video AUC")
     args.out_dir.mkdir(parents=True, exist_ok=True)
     for set_name, t in table.items():
         if not t["picks"]:
@@ -371,16 +423,17 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         if args.all:
             video_dir = args.out_dir / constants.ZS_CURVES_VIDEO_SUBDIR / set_name
             n = render_videos(video_dir, set_name, data[set_name], t["picks"], aucs,
-                              args.rank_by, args.seed_label, args.domain)
+                              args.rank_by, args.seed_label, args.domain, set_names, auc_name)
             LOGGER.info("%s: %d per-video figures -> %s", set_name, n, video_dir)
             continue
         render_grid(args.out_dir / f"grid_{set_name}.png", set_name, data[set_name],
-                    t["picks"], aucs, args.rank_by, args.seed_label, args.domain)
+                    t["picks"], aucs, args.rank_by, args.seed_label, args.domain, set_names,
+                    auc_name)
     render_onset(args.out_dir / "onset_aligned.png",
-                 {s: t["onset"] for s, t in table.items()}, args.seed_label)
+                 {s: t["onset"] for s, t in table.items()}, args.seed_label, set_names)
     write_json_atomic(args.out_dir / f"{constants.ZS_CURVES_STEM}_{args.name}.json",
                       {"rank_by": args.rank_by, "label": LABEL, "seed_label": args.seed_label,
-                       "domain": args.domain,
+                       "domain": args.domain, "pick_auc": args.pick_auc,
                        "sets": table})
     return table
 

@@ -274,3 +274,51 @@ def test_plot_script_titles_nexar_in_domain_and_can_draw_main_only() -> None:
     args = script.build_arg_parser().parse_args(["--set", "tad"])
     assert script.domain("nexar", "tad") == constants.ZS_CURVES_DOMAIN_ZERO_SHOT
     assert len(script.sources("tad", args)) == 2
+
+
+def test_set_title_renames_a_set_in_the_figures_only(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    k5, labels = _curves(6)
+    lago, _ = _curves(7)
+    seen: dict[str, str] = {}
+    real = zc.render_onset
+
+    def spy(path: Path, onset: dict, seed_label: str, set_names: dict) -> None:  # type: ignore[type-arg]
+        seen.update(set_names)
+        real(path, onset, seed_label, set_names)
+
+    monkeypatch.setattr(zc, "render_onset", spy)
+    argv = ["--rank-by", "K5", "--n", "3", "--name", "t", "--out-dir", str(tmp_path / "out"),
+            "--read", "dota", "K5", str(_write_npz(tmp_path / "k5.npz", k5, labels)),
+            "--read", "dota", "LaGoVAD", str(_write_npz(tmp_path / "lg.npz", lago, labels))]
+    table = zc.run(zc.build_arg_parser().parse_args([*argv, "--set-title", "dota", "DoTA"]))
+    assert seen["dota"] == "DoTA" and seen["tad"] == zc.SET_NAME["tad"]
+    assert table["dota"]["pooling"] == "min-max"  # the data and pooling do not change
+    with pytest.raises(ValueError, match="unknown set"):
+        zc.run(zc.build_arg_parser().parse_args([*argv, "--set-title", "nope", "x"]))
+
+
+def test_global_auc_sees_the_score_level_the_within_auc_cannot() -> None:
+    gt = np.array([0, 0, 1, 1])
+    labels = {"low": gt, "high": gt, "norm": np.zeros(4, dtype=int)}
+    scores = {"low": np.array([0.01, 0.02, 0.05, 0.06]),   # perfect order, tiny level
+              "high": np.array([0.1, 0.2, 0.8, 0.9]),
+              "norm": np.array([0.3, 0.3, 0.3, 0.3])}
+    within = zc.video_aucs(scores, labels)
+    assert within == {"low": 1.0, "high": 1.0}             # blind to the level
+    glob = zc.video_aucs_global(scores, labels)
+    # normals = 0.01 0.02 (low) + 0.1 0.2 (high) + 4 x 0.3 (norm): 8 rows. "low"'s 0.05 / 0.06 beat
+    # only 0.01 and 0.02; "high"'s 0.8 / 0.9 beat all 8.
+    assert glob["low"] == pytest.approx(2 / 8)
+    assert glob["high"] == pytest.approx(1.0)
+
+
+def test_pick_auc_global_changes_the_ranking_and_is_recorded(tmp_path: Path) -> None:
+    scores, labels = _curves(11)
+    data = zc.load_reads([("dota", "K5", _write_npz(tmp_path / "a.npz", scores, labels))])
+    within = zc.build(data, "K5", 3, None)
+    glob = zc.build(data, "K5", 3, None, pick_auc="global")
+    assert within["dota"]["pick_auc"] == "within" and glob["dota"]["pick_auc"] == "global"
+    assert set(glob["dota"]["pick_aucs"]["K5"]) == set(glob["dota"]["picks"])
+    with pytest.raises(ValueError, match="pick_auc"):
+        zc.build(data, "K5", 3, None, pick_auc="nope")

@@ -1395,6 +1395,9 @@ FAILTAIL_DADA_EGO_TOKEN = "ego-car"  # §24 FT2: DADA ego flag = the clip's text
 
 # --- Zero-shot per-video score curves + onset-aligned mean (tools/zs_curves.py, 2026-11-15) ---
 ZS_CURVES_STEM = "zs_curves"  # <out-dir>/<stem>_<name>.json + grid_<set>.png + onset_aligned.png
+ZS_CURVES_PICK_WITHIN = "within"  # --pick-auc: a video's own rows (rank only)
+ZS_CURVES_PICK_GLOBAL = "global"  # --pick-auc: its abnormal rows vs every normal row of the set
+ZS_CURVES_PICK_AUCS = (ZS_CURVES_PICK_WITHIN, ZS_CURVES_PICK_GLOBAL)
 ZS_CURVES_N_PICK = 6  # videos per set grid, spread evenly over the rank model's per-video AUC
 ZS_CURVES_GRID_COLS = 3  # grid columns (rows = ceil(n / cols))
 ZS_CURVES_ONSET_WINDOW_S = 5.0  # onset-aligned mean over [-w, +w] seconds around the GT onset
