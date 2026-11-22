@@ -1,0 +1,30 @@
+{
+  "construction": {
+    "cut_frames_median": 219,
+    "dir": "/content/k5dfi_acc/corpus/ACCIDENT_window",
+    "excluded_clips": 0,
+    "train_abnormal": 1322,
+    "train_clips": 1824,
+    "train_clips_after_dedup": 1494,
+    "train_items": 3038,
+    "train_sources_with_windows": 1339,
+    "val_clips": 203,
+    "val_clips_after_dedup": 172,
+    "val_two_class_windows": 161,
+    "val_windows": 375
+  },
+  "excluded_ids_sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+  "metadata_sha1": "771cd7510995fe7295ed846159ec75f8afb1059a",
+  "plan": {
+    "epochs": 41,
+    "items_per_epoch": 2644,
+    "steps": 1722,
+    "steps_per_epoch": 42
+  },
+  "rule": "KIM_RUN.md \u00a739 A3: abnormal = [t_impact, t_impact + 2.0 s], later frames cut; 30 fps CFR; windows 20 rows at s8, hop 8, no cap",
+  "skipped_short_clips": 361,
+  "splits": {
+    "train": "8065867d60f4abee05550429ef615d570aa19759",
+    "val": "8673b841345fcdf185b4c6c9fa39b69c434f5acc"
+  }
+}

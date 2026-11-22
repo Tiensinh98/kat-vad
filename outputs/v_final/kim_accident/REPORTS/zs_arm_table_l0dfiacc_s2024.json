@@ -1,0 +1,155 @@
+{
+  "control": "L0dfi",
+  "draws": 2000,
+  "label": "PRELIMINARY (n = 1 seed); printed, decides nothing",
+  "seed": 2024,
+  "sets": {
+    "dada": {
+      "cells": {
+        "L0dfi": {
+          "ap": 0.3623427172123337,
+          "base_rate": 0.28850217526413924,
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.5961903165242987,
+            "low": 0.5543918362771884,
+            "mean": 0.5752414604853937
+          },
+          "micro": 0.5748472251954099
+        },
+        "L0dfiACC": {
+          "ap": 0.33871569357597253,
+          "base_rate": 0.28850217526413924,
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.5948218789530444,
+            "low": 0.5518471507784097,
+            "mean": 0.572836920219047
+          },
+          "micro": 0.5609751028271327
+        }
+      },
+      "clip_oracle_micro": null,
+      "deltas": {
+        "L0dfiACC": {
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.022697575441541752,
+            "low": -0.02739120838030107,
+            "mean": -0.0024045402663468453
+          },
+          "macro_sentence": "not separated",
+          "micro": {
+            "high": 0.010012817213446072,
+            "low": -0.03816384661242982,
+            "mean": -0.013872122368277173
+          },
+          "micro_sentence": "not separated"
+        }
+      },
+      "items": 370,
+      "pooling": "370 whole sources, s8; micro / AP after per-video min-max"
+    },
+    "dota": {
+      "cells": {
+        "L0dfi": {
+          "ap": 0.4720952645311368,
+          "base_rate": 0.3271185548006531,
+          "macro": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.6951385101574847,
+            "low": 0.656368283531505,
+            "mean": 0.675842554550685
+          },
+          "micro": 0.6393188647791874
+        },
+        "L0dfiACC": {
+          "ap": 0.44195967337538683,
+          "base_rate": 0.3271185548006531,
+          "macro": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.6817930866864803,
+            "low": 0.6429634245283479,
+            "mean": 0.6627843073510906
+          },
+          "micro": 0.6140377067491001
+        }
+      },
+      "clip_oracle_micro": null,
+      "deltas": {
+        "L0dfiACC": {
+          "macro": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.009277733509380055,
+            "low": -0.03574386579046419,
+            "mean": -0.013058247199594357
+          },
+          "macro_sentence": "not separated",
+          "micro": {
+            "high": -0.0043899433529710485,
+            "low": -0.046405975127552096,
+            "mean": -0.025281158030087347
+          },
+          "micro_sentence": "below"
+        }
+      },
+      "items": 569,
+      "pooling": "569 clips, protocol B; micro / AP after per-clip min-max"
+    },
+    "tad": {
+      "cells": {
+        "L0dfi": {
+          "ap": 0.19564740263975916,
+          "base_rate": 0.0724309642372114,
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.648808836299194,
+            "low": 0.5312107248492677,
+            "mean": 0.5902451398741976
+          },
+          "micro": 0.6732894094680333
+        },
+        "L0dfiACC": {
+          "ap": 0.26837371967155704,
+          "base_rate": 0.0724309642372114,
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.7463163787486222,
+            "low": 0.6294119900086013,
+            "mean": 0.6903734769079455
+          },
+          "micro": 0.7389306979014153
+        }
+      },
+      "clip_oracle_micro": 0.9226451927769644,
+      "deltas": {
+        "L0dfiACC": {
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.166714183374879,
+            "low": 0.029918544724253194,
+            "mean": 0.10012833703374795
+          },
+          "macro_sentence": "above",
+          "micro": {
+            "high": 0.16158798461861706,
+            "low": -0.030330295345197492,
+            "mean": 0.06564128843338202
+          },
+          "micro_sentence": "not separated"
+        }
+      },
+      "items": 100,
+      "pooling": "100 videos (macro over the 60 two-class), s8; raw"
+    }
+  }
+}
