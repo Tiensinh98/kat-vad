@@ -106,6 +106,15 @@ def test_motion_rows_are_causal_stride1_clips() -> None:
         assert decoded[end].max() <= end + 1e-4  # never a future frame
 
 
+def test_motion_rows_at_a_stride_are_the_stride1_rows_subsampled() -> None:
+    frames = 50
+    resized = torch.rand(frames, 3, 2, 2, generator=torch.Generator().manual_seed(SEED))
+    full = nexar_extract.motion_rows(resized, _FakeVideo(), torch.device("cpu"), batch_size=7)
+    s8 = nexar_extract.motion_rows(resized, _FakeVideo(), torch.device("cpu"), batch_size=7,
+                                   stride=constants.FRAME_STRIDE)
+    np.testing.assert_array_equal(s8, full[:: constants.FRAME_STRIDE])
+
+
 def test_extract_writes_both_caches_and_resumes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

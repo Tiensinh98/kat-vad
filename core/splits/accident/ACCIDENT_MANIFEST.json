@@ -1,0 +1,34 @@
+{
+  "metadata": {
+    "clips": 2027,
+    "name": "metadata-real.csv",
+    "sha1": "771cd7510995fe7295ed846159ec75f8afb1059a"
+  },
+  "rule": "grouped by YouTube source (id minus its _NN suffix), stratified by the source's first clip type, val = round(0.1 x sources per type), seed 2026",
+  "splits": {
+    "accident_train": {
+      "clips": 1824,
+      "per_type": {
+        "head-on": 106,
+        "rear-end": 296,
+        "sideswipe": 221,
+        "single": 607,
+        "t-bone": 594
+      },
+      "sha1": "8065867d60f4abee05550429ef615d570aa19759",
+      "sources": 1610
+    },
+    "accident_val": {
+      "clips": 203,
+      "per_type": {
+        "head-on": 11,
+        "rear-end": 32,
+        "sideswipe": 24,
+        "single": 73,
+        "t-bone": 63
+      },
+      "sha1": "8673b841345fcdf185b4c6c9fa39b69c434f5acc",
+      "sources": 179
+    }
+  }
+}

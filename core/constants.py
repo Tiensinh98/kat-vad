@@ -1481,3 +1481,55 @@ KIM_NEGONLY_ROW = "K5fno"  # K5f with normals only from negative videos (§38.2 
 KIM_NEGONLY_OUTPUT_DIRNAME = "kim_negonly"  # OUTPUT_ROOT/<this>/K5fno/s<seed>, eval/, REPORTS/
 KIM_NEGONLY_REPORT_NAME = "k5fno_s2024"  # REPORTS/zs_arm_table_<this>.md (control K5f)
 TAD_CATEGORY_STEM = "tad_category"  # REPORTS/<stem>_<name>.{md,json} (core.tools.tad_category_read)
+
+# ---------------------------------------------------------------------------
+# KIM_RUN.md §39: ACCIDENT (real CCTV accident clips, Kaggle picekl/accident) as the training
+# corpus of K5dfi's / L0dfi's recipes, read zero-shot on TAD (H-dom)
+# ---------------------------------------------------------------------------
+ACCIDENT_DATASET = "ACCIDENT"  # data.dataset; same traffic definition set as Nexar (definitions)
+ACCIDENT_KAGGLE_HANDLE = "picekl/accident"
+ACCIDENT_METADATA_FILENAME = "metadata-real.csv"
+ACCIDENT_VIDEOS_DIRNAME = "real_videos"  # <download>/real_videos/<id>.mp4 (synthetic not used)
+ACCIDENT_REAL_VIDEOS = 2027
+ACCIDENT_FPS = 30  # every clip resampled to 30 fps CFR by timestamp (A2): Nexar's VideoMAE geometry
+ACCIDENT_CFR_TIME_EPS = 1e-6  # s; a frame stamped at exactly k/fps is CFR frame k
+ACCIDENT_POST_IMPACT_S = 2.0  # A3: abnormal = [t_impact, t_impact + 2 s]; later frames are cut
+ACCIDENT_FAULT_LABEL = "accident_cctv"  # DadaRecord.fault_label (not ego: is_egocentric=false)
+ACCIDENT_SOURCE_SEPARATOR = "_"  # <upload>[_<segment>]_<NN>: the source drops both (accident_build)
+ACCIDENT_SPLITS_DIR = Path(__file__).resolve().parent / "splits" / "accident"
+ACCIDENT_SPLIT_TRAIN = "accident_train"
+ACCIDENT_SPLIT_VAL = "accident_val"
+ACCIDENT_SPLITS = (ACCIDENT_SPLIT_TRAIN, ACCIDENT_SPLIT_VAL)
+ACCIDENT_SPLIT_MANIFEST_FILENAME = "ACCIDENT_MANIFEST.json"
+ACCIDENT_VAL_FRACTION = 0.10  # S: grouped by source, stratified by type
+ACCIDENT_SPLIT_SEED = 2026
+ACCIDENT_CLIP_S1_DATASET = "ACCIDENT_s1_ncc"  # cache/clip/<this>/{id}.npy, CFR frames to the cut
+ACCIDENT_VIDEO_S8_DATASET = "ACCIDENT_s8"  # cache/video/<encoder>/<this>_squash/, = CLIP [::8]
+# Extract only what training reads: frames to t_impact + post (later ones are cut anyway), V2-S
+# only at the s8 rows, and no clip whose cut is shorter than one window (it gives no window).
+# The margin keeps clips whose metadata duration is within 2 rows (0.53 s) of one window.
+ACCIDENT_SKIP_MARGIN_ROWS = 2
+ACCIDENT_CLIP_S8_DATASET = "ACCIDENT_s8_ncc"  # plain CLIP s1[::8]: L0 rows' input + KNN key
+ACCIDENT_CONSTRUCTION_WINDOW = "window"  # data/ACCIDENT_window/
+ACCIDENT_BUILD_REPORT_FILENAME = "build_report.json"
+# D: dedup against the TAD test videos (max CLIP cosine over frames)
+ACCIDENT_DEDUP_ROW_STEP = 4  # every 4th s8 row (~1.07 s) on both sides
+ACCIDENT_DEDUP_CONTROL_PERCENTILE = 10.0  # tau = this percentile of same-source pair scores
+ACCIDENT_DEDUP_MAX_EXCLUDED_SHARE = 0.10  # more clips than this excluded -> STOP
+ACCIDENT_DEDUP_CROSS_SAMPLE = 300  # clips whose cross-source nearest neighbour is printed
+ACCIDENT_DEDUP_TOPK = 3  # TAD matches kept per clip
+ACCIDENT_DEDUP_NEAR_LISTED = 20  # pairs just below tau listed for the contact sheet
+ACCIDENT_DEDUP_SEED = 2026
+ACCIDENT_DEDUP_STEM = "accident_dedup"  # REPORTS/<stem>.{json,md}, <stem>_exclude_ids.txt
+ACCIDENT_DEDUP_OK = "OK"
+ACCIDENT_DEDUP_STOP = "STOP"
+KIM_ACCIDENT_OUTPUT_DIRNAME = "kim_accident"  # OUTPUT_ROOT/<this>/<row>/{K5/s<seed>, eval}, REPORTS
+KIM_ACCIDENT_ROW = "K5dfiACC"  # K5dfi's command on ACCIDENT_window (§39 A1)
+KIM_ACCIDENT_L0_ROW = "L0dfiACC"  # L0dfi's command on ACCIDENT_window (§39 A1)
+KIM_ACCIDENT_REPORT_STEM = "k5dfiacc_report"  # REPORTS/<this>.md: build + val + the two tables
+KIM_ACCIDENT_TABLE_NAME = "k5dfiacc_s2024"  # zs_arm_table control K5dfi (rows K5dfiACC, K5f)
+KIM_ACCIDENT_L0_TABLE_NAME = "l0dfiacc_s2024"  # zs_arm_table control L0dfi (row L0dfiACC)
+ACCIDENT_BAKE_DIRNAME = "ACCIDENT_s8_nexar"  # cache/v2/A2_S/<this>: Nexar's A2 statistics (§39 B)
+# TAD (Lv 2021, WSAL release) on Kaggle: TAD/frames/{abnormal,normal}/<id>.mp4/<k>.jpg
+# Only the §39 dedup contact sheet reads it (single frames); TAD scores read cache/clip/TAD_ncc.
+TAD_KAGGLE_HANDLE = "nikanvasei/traffic-anomaly-dataset-tad"

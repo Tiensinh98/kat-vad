@@ -43,6 +43,9 @@ DATASET_NAME_TO_ABBR = {
     # DAD (Dashcam Accident Dataset, zero-shot only, ZS_DAD.md): dashcam accidents, the same
     # traffic definition set as DADA / Nexar.
     "DAD": "dada",
+    # ACCIDENT (KIM_RUN.md §39): real CCTV accident clips, one abnormal class; trained under
+    # Nexar's traffic definition set so only the training data differs from K5dfi.
+    "ACCIDENT": "dada",
 }
 
 

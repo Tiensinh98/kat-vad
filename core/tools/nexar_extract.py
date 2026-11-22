@@ -128,10 +128,15 @@ def motion_clips(
 
 @torch.no_grad()
 def motion_rows(
-    resized: Tensor, encoder: nn.Module, device: torch.device, batch_size: int
+    resized: Tensor, encoder: nn.Module, device: torch.device, batch_size: int,
+    stride: int = 1,
 ) -> np.ndarray:
-    """``(F, d)`` VideoMAE features; each clip is ``(3, 16, 224, 224)`` squash-normalized."""
-    clips = motion_clips(len(resized))
+    """``(ceil(F / stride), d)`` VideoMAE features of frames ``0, stride, ...``.
+
+    Each clip is ``(3, 16, 224, 224)`` squash-normalized; ``stride=1`` (the default) is every
+    frame, and row ``k`` at ``stride`` equals row ``k * stride`` at 1 (causal clips are per frame).
+    """
+    clips = motion_clips(len(resized))[::stride]
     chunks: list[Tensor] = []
     for start in range(0, len(clips), batch_size):
         index = torch.tensor(clips[start : start + batch_size])  # (B, 16)
@@ -167,10 +172,10 @@ def clip_manifest() -> dict[str, Any]:
     }
 
 
-def check_clip_manifest(output_dir: Path) -> None:
-    """Write the CLIP manifest, or refuse to extend a cache built otherwise."""
+def check_clip_manifest(output_dir: Path, manifest: dict[str, Any] | None = None) -> None:
+    """Write the CLIP manifest (default: Nexar's), or refuse to extend a cache built otherwise."""
     path = output_dir / CLIP_MANIFEST_FILENAME
-    manifest = clip_manifest()
+    manifest = clip_manifest() if manifest is None else manifest
     if path.is_file():
         existing = json.loads(path.read_text(encoding="utf-8"))
         if existing != manifest:
