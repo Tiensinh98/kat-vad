@@ -23,6 +23,7 @@ from torch import Tensor, nn
 
 from core import constants
 from core.data.dada import sampled_frame_labels
+from core.data.dataset_files import TRAIN_IDS_FILENAME
 from core.data.v2_inputs import fit_stats, load_stats
 from core.tools import build_v2_inputs, nexar_build, nexar_eval, nexar_extract, nexar_trigger
 from core.tools.extract_clip_features import preprocess_frames
@@ -238,6 +239,50 @@ def test_build_window_negcap_caps_negative_videos_only(tmp_path: Path) -> None:
     assert cap["train_abnormal"] == neg["train_abnormal"]  # same positives -> same step plan
     for name in (constants.FRAME_LABELS_TEST_FILENAME, constants.DEFS_FILENAME):
         assert (tmp_path / "c" / name).read_text() == (tmp_path / "n" / name).read_text()
+
+
+def test_build_window_negonly_swaps_the_normal_source(tmp_path: Path) -> None:
+    """§38.2: window's positives unchanged, no in-video normal, negative videos capped to match."""
+    rows, train, val, frames = _rows()
+    base = nexar_build.build_window(tmp_path / "w", rows, train, val, frames)
+    only = nexar_build.build_window_negonly(tmp_path / "o", rows, train, val, frames)
+    l_win = json.loads((tmp_path / "w" / constants.LABELS_TRAIN_FILENAME).read_text())
+    l_only = json.loads((tmp_path / "o" / constants.LABELS_TRAIN_FILENAME).read_text())
+    w_only = json.loads((tmp_path / "o" / constants.WINDOWS_FILENAME).read_text())
+    meta = json.loads((tmp_path / "o" / constants.META_FILENAME).read_text())
+    positives = {w: lab for w, lab in l_win.items() if lab == 1}
+    assert {w: lab for w, lab in l_only.items() if lab == 1} == positives
+    normals = [w for w, lab in l_only.items() if lab == 0]
+    assert {w_only[w]["source"] for w in normals} == {"n1", "n2"}  # no in-video normal left
+    in_video = len(l_win) - len(positives)
+    per_source = (150 - constants.NEXAR_WINDOW_LENGTH) // constants.NEXAR_WINDOW_STRIDE + 1
+    cap = nexar_build.choose_negative_cap([per_source, per_source], in_video)
+    assert only["negative_cap"] == cap and len(normals) == 2 * min(cap, per_source)
+    assert only["train_in_video_normals_dropped"] == in_video
+    assert only["train_abnormal"] == base["train_abnormal"]  # same positives -> same step plan
+    test = json.loads((tmp_path / "o" / constants.FRAME_LABELS_TEST_FILENAME).read_text())
+    assert set(w_only) == set(l_only) | set(test) == set(meta)
+    for name in (constants.FRAME_LABELS_TEST_FILENAME, constants.DEFS_FILENAME):
+        assert (tmp_path / "o" / name).read_text() == (tmp_path / "w" / name).read_text()
+    train_ids = (tmp_path / "o" / TRAIN_IDS_FILENAME).read_text().split()
+    assert train_ids == ["n1", "n2", "p1", "p2"]
+
+
+def test_choose_negative_cap_hits_the_target_and_breaks_ties_low() -> None:
+    assert nexar_build.choose_negative_cap([3, 10, 20], 15) == 6  # 3 + 6 + 6
+    assert nexar_build.choose_negative_cap([2, 2], 3) == 1  # 2 and 4 are both 1 away
+    with pytest.raises(ValueError, match="positive target"):
+        nexar_build.choose_negative_cap([], 5)
+
+
+def test_window_negonly_is_opt_in() -> None:
+    args = nexar_build.build_arg_parser().parse_args(
+        ["corpus", "--census", "c", "--clip-s1-dir", "x", "--report", "r"])
+    assert constants.NEXAR_CONSTRUCTION_WINDOW_NEGONLY not in args.constructions
+    args = nexar_build.build_arg_parser().parse_args(
+        ["corpus", "--census", "c", "--clip-s1-dir", "x", "--report", "r",
+         "--constructions", constants.NEXAR_CONSTRUCTION_WINDOW_NEGONLY])
+    assert args.constructions == [constants.NEXAR_CONSTRUCTION_WINDOW_NEGONLY]
 
 
 def test_negative_cap_needs_negatives(tmp_path: Path) -> None:

@@ -2266,3 +2266,41 @@ Raw outputs synced to `outputs/v_final/kim_t2_fixed/` (`OPENED.json` 09:24Z, `do
 **Expectation, written before the number:** S1 between 0.70 and 0.90 on plain CLIP (same camera type and city mix, different scenes); S3 ≈ 0.60–0.65; S4 P vs B above P vs A. A wrong expectation changes nothing.
 
 Notebook `colab/final/nexar_source_probe.ipynb` (CPU only); outputs `Thesis-Final/outputs/kim_source_probe/REPORTS/nexar_source_probe_{clip,a2}.md`.
+
+### 38.1 S0 read-out (2026-11-21, user's Colab run; raw `outputs/v_final/kim_source_probe/REPORTS/` synced)
+
+Pools as planned: A 5,622 windows / 451 videos, B 6,879 / 449, P 1,689 / 451.
+
+| probe | plain CLIP `s1[::8]` (512 d) | A2 V2-S bake (896 d) | role |
+|---|---|---|---|
+| **S1 A vs B** | **0.6724** | **0.6935** | decides (gate 0.90) |
+| S2 A vs B, B matched to A's scene × weather (5,589 / 1,331) | 0.6412 | 0.6768 | printed |
+| S3 scene × weather one-hot alone | 0.6396 | 0.6396 | printed |
+| S4 P vs A (K5f's contrast) | 0.6223 | 0.7082 | printed |
+| S4 P vs B (K5fno's contrast) | 0.7210 | 0.7673 | printed |
+
+**S0-4: PASS on both reads** (S1 < 0.90). Licensed: "no source shortcut at this gate on a linear probe". Not licensed: "the two normal pools are the same" (S0-6).
+
+**Against the expectations.** S1 0.70–0.90 on plain CLIP: **wrong, below** (0.672). S3 ≈ 0.60–0.65: met (0.640). S4 P vs B above P vs A: met (+0.099 plain CLIP, +0.059 bake).
+
+**Printed, decides nothing.** Metadata alone (S3 0.640) explains most of S1 (0.672 / 0.694), and matching scene × weather moves S1 by only −0.03 (plain CLIP) / −0.02 (bake). S4: on the model's input a linear probe separates K5fno's positive-vs-normal pair 0.059 more easily than K5f's, a margin that is not the event; K5fno's in-domain numbers must be read with this in mind.
+
+**Pool size under S0-4's stratification (computed from the report's strata, before any build).** Matching B to the positives' scene × weather shares leaves **980** windows (limited by Highway|Rain: 17 B windows); to A's shares 1,338; scene only ≈ 2,490; K5f's normal pool is 5,622. The written rule would make K5fno's normal pool 5.7× smaller than K5f's, a second change beside the normals' source. **Sampling choice put to the user before any build (§38.2).**
+
+### 38.2 Amendment (2026-11-21, user, after S0 and before any K5fno number): pool by per-video cap, not by stratification; the K5fno rule
+
+S0-4's stratified draw would leave 980 normal windows (§38.1), so pool size would change beside the source. **The user chose a per-video cap instead:** every negative `nexar_train` video keeps at most `c` evenly spaced windows (`cap_windows`), `c` = the cap whose total is closest to the number of in-video normal windows it replaces (5,622 on the real corpus; ties → the smaller cap). `c` is computed by the build from window counts, never from a score. The scene × weather shift is kept and printed (S3 0.640, S2 moved S1 by ≤ 0.03); this is not advisor-reviewed.
+
+| # | Choice |
+|---|---|
+| N1 Row | **K5fno** = K5f's exact command (`kim.enabled`, `kim.prototypes`, `kim.edge_mask`, DVS off, A2 V2-S bake, s2024, 33 epochs, 1,749 steps) with `--data-dir Nexar_window_negonly`. **Config diff to K5f = 0** (the corpus is a CLI path). Output `kim_negonly/K5fno/` |
+| N2 Corpus | `nexar_build corpus --constructions window_negonly`: `window_neg`'s windows, minus **every** normal window of a positive video, negative videos capped at `c`. Positive windows and labels identical to `Nexar_window` (asserted); val, `defs.json` byte-identical; every kept normal window from a negative train video; step plan = K5f's |
+| N3 Guards | J10 (1,749); config diff to K5f = {}; last-epoch `mul_mil` > 0.01 (§31 fix live); step-1 `mil` printed beside K5f's (the normal items differ, so they need not match) |
+| N4 Reads | K5f's sets and protocols: `nexar_val` (crops endpoint, whole macro / micro / clip AUC), DoTA-CAP-dev (protocol B), DADA whole, TAD (s8, raw), DAD (s7, raw); `zs_arm_table` control **K5f**, macro and micro; TAD also by category (`01_Accident` 23 videos beside the rest), micro, clip AUC |
+| N5 Question | **Primary: TAD micro, K5fno − K5f, paired cluster bootstrap.** "above" = in-video normals were part of K5's TAD micro cost; "not separated" / "below" = the normals' source is not the cause on this host. Macro on every set printed with its sentence |
+| N6 Decision | **none for the model:** K5f stays the reference whatever the sign. n = 1, printed |
+| N7 Wording | never "negative-video normals fix TAD", never a cause from one contrast without the S4 caveat (K5fno's pair is 0.06 easier on the model's input for a reason that is not the event) |
+
+**Expectation, written before the number:** macro below K5f on Nexar val crops and DADA (hard same-scene negatives gone; K5neg already paid −0.038 / −0.021 for mixing them in); TAD micro not separated or below (every arm that added negative-video normals lowered it). A wrong expectation changes nothing.
+
+Runbook `colab/final/k5fno_negonly.ipynb`; outputs `Thesis-Final/outputs/kim_negonly/`.

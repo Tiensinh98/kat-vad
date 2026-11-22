@@ -23,6 +23,9 @@ Constructions (both train at ``s1[::8]``, both labelled by the rule above):
     val side is ``window``'s (positive videos only), so the two corpora share one eval set.
 ``window_negcap`` -> ``data/Nexar_window_negcap/`` (``KIM_RUN.md`` §27, opt-in)
     ``window_neg`` with at most ``NEXAR_NEG_WINDOW_CAP`` evenly spaced windows per negative video.
+``window_negonly`` -> ``data/Nexar_window_negonly/`` (``KIM_RUN.md`` §38.2, opt-in)
+    ``window``'s positive windows; **no** normal window of a positive video; the negative videos
+    capped at the per-video cap whose total is closest to the in-video normals it replaces.
 
 ``subsample`` writes ``cache/clip/Nexar_s8_ncc`` = ``Nexar_s1_ncc[::8]`` for A0 and the KNN key.
 
@@ -44,6 +47,7 @@ import argparse
 import json
 import logging
 import math
+from collections import defaultdict
 from collections.abc import Callable
 from functools import partial
 from pathlib import Path
@@ -59,8 +63,10 @@ from core.data.dataset_files import (
     write_dataset_files,
     write_test_ids,
     write_train_ids,
+    write_windows,
 )
 from core.data.v2_splits import lines_sha1, load_split
+from core.data.windows import cap_windows, load_windows
 from core.metrics import frame_auc
 from core.tools.feature_cache import save_array
 from core.tools.kill_switch_probe import write_json_atomic
@@ -205,6 +211,66 @@ def build_window(
     }
 
 
+def choose_negative_cap(counts: list[int], target: int) -> int:
+    """The per-video cap whose kept total ``sum(min(n, c))`` is closest to ``target``.
+
+    Ties go to the smaller cap (fewer windows per video, more videos' worth of spread).
+    """
+    if not counts or target <= 0:
+        raise ValueError(f"need window counts and a positive target, got {counts!r}, {target}")
+    return min(range(1, max(counts) + 1),
+               key=lambda c: (abs(sum(min(n, c) for n in counts) - target), c))
+
+
+def build_window_negonly(
+    out_dir: Path, rows: dict[str, dict[str, Any]], train: list[str], val: list[str],
+    frames: dict[str, int],
+) -> dict[str, Any]:
+    """``window_negonly`` (§38.2): normals only from negative videos, pool sized to ``window``'s.
+
+    Built as ``window_neg`` (all windows), then the train side is filtered in place: every
+    all-normal window of a positive video is dropped, and each negative video keeps at most ``c``
+    evenly spaced windows. Positive windows, val and ``defs.json`` are ``window_neg``'s, so they
+    equal ``window``'s.
+    """
+    stats = build_window(out_dir, rows, train, val, frames, include_negatives=True)
+    labels: dict[str, int] = json.loads(
+        (out_dir / constants.LABELS_TRAIN_FILENAME).read_text(encoding="utf-8"))
+    meta: dict[str, Any] = json.loads(
+        (out_dir / constants.META_FILENAME).read_text(encoding="utf-8"))
+    windows = load_windows(out_dir)
+    if windows is None:
+        raise ValueError(f"{out_dir} has no windows.json after build_window")
+    negative = {v for v in train if rows[v]["label"] == 0}
+    in_video = [w for w, lab in labels.items() if lab == 0 and windows[w].source not in negative]
+    by_source: dict[str, list[str]] = defaultdict(list)
+    for w in sorted(labels):
+        if windows[w].source in negative:
+            by_source[windows[w].source].append(w)
+    cap = choose_negative_cap([len(ids) for ids in by_source.values()], len(in_video))
+    kept_negative: set[str] = set()
+    for ids in by_source.values():
+        ordered = sorted(ids, key=lambda w: windows[w].start)
+        by_start = {windows[w].start: w for w in ordered}
+        capped = cap_windows([windows[w] for w in ordered], cap)
+        kept_negative.update(by_start[x.start] for x in capped)
+    drop = set(in_video) | {w for ids in by_source.values() for w in ids if w not in kept_negative}
+    labels = {w: lab for w, lab in labels.items() if w not in drop}
+    meta = {w: row for w, row in meta.items() if w not in drop}
+    payloads = ((constants.LABELS_TRAIN_FILENAME, labels), (constants.META_FILENAME, meta))
+    for name, payload in payloads:
+        (out_dir / name).write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    write_windows(out_dir, {w: x for w, x in windows.items() if w not in drop})
+    write_train_ids(out_dir, sorted({windows[w].source for w in labels}))
+    return {
+        **stats,
+        "train_items": len(labels),
+        "train_in_video_normals_dropped": len(in_video),
+        "negative_cap": cap,
+        "train_negative_video_windows": len(kept_negative),
+    }
+
+
 def epoch_plan(train_abnormal: int, batch_size: int = constants.BATCH_SIZE) -> dict[str, int]:
     """Epochs that spend ``NEXAR_STEP_BUDGET`` optimizer steps (DVS len = 2 x abnormal)."""
     steps_per_epoch = math.ceil(2 * train_abnormal / batch_size)
@@ -257,6 +323,7 @@ def run_corpus(args: argparse.Namespace) -> dict[str, Any]:
         constants.NEXAR_CONSTRUCTION_WINDOW_NEG: partial(build_window, include_negatives=True),
         constants.NEXAR_CONSTRUCTION_WINDOW_NEGCAP: partial(
             build_window, include_negatives=True, negative_cap=constants.NEXAR_NEG_WINDOW_CAP),
+        constants.NEXAR_CONSTRUCTION_WINDOW_NEGONLY: build_window_negonly,
     }
     for name in args.constructions:
         out_dir = args.out_root / f"{constants.NEXAR_DATASET}_{name}"

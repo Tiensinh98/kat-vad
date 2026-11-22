@@ -618,8 +618,11 @@ NEXAR_CONSTRUCTION_WINDOW_NEGCAP = "window_negcap"
 # §27 NC2: <= 2 x 449 negative windows vs 5,622 in-video normals = ~14 % of the normal pool
 # (window_neg: ~55 %), every negative video kept. Chosen from the share, never from a score
 NEXAR_NEG_WINDOW_CAP = 2
+# KIM_RUN.md §38.2: `window_neg` minus every in-video normal window, negative videos capped so the
+# normal pool matches the in-video normals it replaces. Opt-in, not a default build
+NEXAR_CONSTRUCTION_WINDOW_NEGONLY = "window_negonly"
 NEXAR_CORPUS_CHOICES = (*NEXAR_CONSTRUCTIONS, NEXAR_CONSTRUCTION_WINDOW_NEG,
-                        NEXAR_CONSTRUCTION_WINDOW_NEGCAP)
+                        NEXAR_CONSTRUCTION_WINDOW_NEGCAP, NEXAR_CONSTRUCTION_WINDOW_NEGONLY)
 NEXAR_WINDOW_LENGTH = DADA_ORIGIN_WINDOW_LENGTH  # 20 rows at s8, T2's geometry
 NEXAR_WINDOW_STRIDE = DADA_ORIGIN_WINDOW_STRIDE  # hop 8
 # No per-video cap: T2's cap of 4 evenly spaced windows would skip the ~11-row event of a
@@ -1474,3 +1477,7 @@ NEXAR_SOURCE_PROBE_FOLDS = EDA_PROBE_FOLDS
 NEXAR_SOURCE_PROBE_STRATA_KEYS = ("scene", "weather")  # windowed meta keys (nexar_build)
 NEXAR_SOURCE_PROBE_STEM = "nexar_source_probe"  # REPORTS/<stem>.{json,md}
 KIM_SOURCE_PROBE_OUTPUT_DIRNAME = "kim_source_probe"  # OUTPUT_ROOT/<this>/REPORTS (§38 S0)
+KIM_NEGONLY_ROW = "K5fno"  # K5f with normals only from negative videos (§38.2 N1)
+KIM_NEGONLY_OUTPUT_DIRNAME = "kim_negonly"  # OUTPUT_ROOT/<this>/K5fno/s<seed>, eval/, REPORTS/
+KIM_NEGONLY_REPORT_NAME = "k5fno_s2024"  # REPORTS/zs_arm_table_<this>.md (control K5f)
+TAD_CATEGORY_STEM = "tad_category"  # REPORTS/<stem>_<name>.{md,json} (core.tools.tad_category_read)
