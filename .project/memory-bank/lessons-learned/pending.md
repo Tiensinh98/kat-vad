@@ -2572,3 +2572,12 @@ Promote if a second harness needs the same split.
 **Files:** `core/tools/accident_build.py:source_of`, `core/tests/test_accident.py::test_source_of_strips_the_clip_suffix_and_segment`.
 **Gate status.** One occurrence, caught before any split was used; candidate.
 
+
+## (dt) [MEDIUM] Data - a dedup threshold calibrated on a same-source control must be compared with the cross-source noise floor before it is used (2026-11-23)
+**Triggers:** dedup, near-duplicate, threshold, percentile, control, same-camera, cross-source, CLIP cosine, STOP, ACCIDENT, TAD
+**Problem:** §39 D set τ = p10 of the best same-source pair (0.7911, 60 sources); the ACCIDENT-vs-ACCIDENT nearest neighbour across *different* uploads already has p10 0.854 / p50 0.906, so τ sat below the noise floor and flagged 52.2 % of the clips (expected < 2 %). All 88 pairs ≥ 0.87 read by eye were the same kind of scene, none the same camera.
+**Bad:** trust a percentile of a positive control as a "same camera" threshold, or read the first pairs of an alphabetical contact sheet.
+**Good:** print the control beside the cross-source distribution before flagging, require τ above the cross-source p50, keep the STOP rule (it fired), and read a **score-sorted** sheet from the top; set the cut-off at the score where same-camera pairs stop, not by percentile.
+**Rule:** Compare a dedup τ with the cross-source nearest-neighbour quantiles before applying it, and review pairs sorted by score.
+**Files:** `core/tools/accident_dedup.py:dedup`, `core/tools/accident_dedup.py:high_score_pairs`, `core/docs/final/KIM_RUN.md` §39 (read-out 1, D′).
+**Gate status.** One occurrence (the stop rule caught it before any training); candidate. Related: (dq) check which TAD an overlap list cites, (ds) grouping key over every id.
