@@ -1526,6 +1526,9 @@ ACCIDENT_DEDUP_CROSS_SAMPLE = 300  # clips whose cross-source nearest neighbour 
 ACCIDENT_DEDUP_TOPK = 3  # TAD matches kept per clip
 ACCIDENT_DEDUP_NEAR_LISTED = 20  # pairs just below tau listed for the contact sheet
 ACCIDENT_DEDUP_SEED = 2026
+ACCIDENT_DEDUP_SHEET_MIN_SCORE = 0.87  # high-score sheet: every clip with TAD top-1 >= this (§39)
+ACCIDENT_DEDUP_SHEET_ROWS_PER_PAGE = 8  # pairs per PNG, so each page stays readable
+ACCIDENT_DEDUP_SHEET_STEM = "accident_dedup_high"  # REPORTS/<stem>_pairs.json, <stem>_p<NN>.png
 ACCIDENT_DEDUP_STEM = "accident_dedup"  # REPORTS/<stem>.{json,md}, <stem>_exclude_ids.txt
 ACCIDENT_DEDUP_OK = "OK"
 ACCIDENT_DEDUP_STOP = "STOP"

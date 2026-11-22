@@ -330,3 +330,18 @@ def test_dedup_needs_a_same_source_control() -> None:
     with pytest.raises(ValueError, match="control is empty"):
         accident_dedup.dedup({"a_00": _random_unit(rng, 3), "b_00": _random_unit(rng, 3)},
                              {"t": _random_unit(rng, 3)}, cross_sample=2)
+
+
+def test_high_score_pairs_are_sorted_and_use_native_frames() -> None:
+    def match(score: float, tad: str, acc_row: int, tad_row: int) -> list[dict[str, object]]:
+        return [{"score": score, "tad_id": tad, "acc_row": acc_row, "tad_row": tad_row},
+                {"score": 0.1, "tad_id": "other", "acc_row": 0, "tad_row": 0}]
+
+    result = {"matches": {"b_00": match(0.88, "t1", 2, 3), "a_00": match(0.95, "t2", 1, 5),
+                          "c_00": match(0.869, "t3", 0, 0), "d_00": match(0.88, "t4", 4, 1)}}
+    pairs = accident_dedup.high_score_pairs(result, 0.87, row_step=4, stride=1)
+    # score desc, ties by id; c_00 is below 0.87
+    assert [p["acc_id"] for p in pairs] == ["a_00", "b_00", "d_00"]
+    assert pairs[0] == {"kind": "high", "acc_id": "a_00", "acc_frame": 4, "tad_id": "t2",
+                        "tad_frame": 20, "score": 0.95}
+    assert pairs[1]["acc_frame"] == 8 and pairs[1]["tad_frame"] == 12

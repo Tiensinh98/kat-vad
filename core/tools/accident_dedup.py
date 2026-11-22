@@ -169,16 +169,33 @@ def dedup(
     }
 
 
+def pair_record(result: dict[str, Any], clip_id: str, kind: str, row_step: int,
+                stride: int) -> dict[str, Any]:
+    """A clip's best TAD match as native frame indices (ACCIDENT: CFR frame; TAD: image)."""
+    m = result["matches"][clip_id][0]
+    return {"kind": kind, "acc_id": clip_id, "acc_frame": m["acc_row"] * row_step * stride,
+            "tad_id": m["tad_id"], "tad_frame": m["tad_row"] * row_step * stride,
+            "score": m["score"]}
+
+
 def sheet_pairs(result: dict[str, Any], row_step: int, stride: int) -> list[dict[str, Any]]:
     """Flagged and just-below pairs as native frame indices (ACCIDENT: CFR frame; TAD: image)."""
-    out = []
-    for kind, ids in (("flagged", result["flagged_clips"]), ("near", result["near_below_tau"])):
-        for v in ids:
-            m = result["matches"][v][0]
-            out.append({"kind": kind, "acc_id": v, "acc_frame": m["acc_row"] * row_step * stride,
-                        "tad_id": m["tad_id"], "tad_frame": m["tad_row"] * row_step * stride,
-                        "score": m["score"]})
-    return out
+    return [pair_record(result, v, kind, row_step, stride)
+            for kind, ids in (("flagged", result["flagged_clips"]),
+                              ("near", result["near_below_tau"]))
+            for v in ids]
+
+
+def high_score_pairs(result: dict[str, Any], min_score: float, row_step: int,
+                     stride: int) -> list[dict[str, Any]]:
+    """Every clip whose best TAD match scores >= ``min_score``, highest score first.
+
+    Independent of tau (a STOP run still has ``matches`` for every clip): the contact sheet of
+    the pairs most likely to be one camera, for choosing a threshold by eye (``KIM_RUN.md`` §39).
+    """
+    ids = [v for v, m in result["matches"].items() if m[0]["score"] >= min_score]
+    ids.sort(key=lambda v: (-result["matches"][v][0]["score"], v))
+    return [pair_record(result, v, "high", row_step, stride) for v in ids]
 
 
 def table_row(result: dict[str, Any], clip_id: str) -> str:
