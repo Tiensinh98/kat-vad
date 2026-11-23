@@ -1,6 +1,6 @@
 # EDA — Nexar_window
 
-Data dir: `/content/nexar_eda/data` · score head kernel **9** · MIL top-k pct **16** · sections: corpus, labels, protocol
+Data dir: `/content/nexar_eda/data` · score head kernel **9** · MIL top-k pct **5** · sections: corpus, labels, protocol
 
 Every number here is a property of the data on disk, not of a model.
 
@@ -8,7 +8,6 @@ Every number here is a property of the data on disk, not of a model.
 
 | Level | Finding | Measurement | What to do |
 |---|---|---|---|
-| **HIGH** | MIL top-k degenerates to a plain max | 100.0% of clips get k = 1 at mil_topk_pct = 16: one supervised frame per clip per step. | Lower loss.mil_topk_pct, or accept that supervision is clip-level here and stop reading frame-level claims into it. |
 | **CRITICAL** | Micro AUC here is mostly clip classification (lesson C12) | A constant-score-per-clip oracle scores micro AUC 0.9156 with zero localization; 100.0% of the positive/negative pairs span two clips. | Report auc_macro as the headline and print this oracle beside any micro number. Never place a micro number from this corpus next to a published frame-level AUC. |
 
 ## 1. Corpus shape
@@ -36,11 +35,11 @@ DVS dataset length (2 x abnormal train): **3,378** → **53 steps/epoch** at bat
 - clips entirely inside the kernel: **0** (**0.0%**), holding **0.0%** of all test frames
 - short-clip counts: `T<=3` → 0, `T<=5` → 0, `T<=9` → 0, `T<=13` → 0, `T<=17` → 0
 
-### 1.3 MIL top-k floor (mil_topk_pct = 16)
+### 1.3 MIL top-k floor (mil_topk_pct = 5)
 
-- clips at `k = 1` (loss is a plain max): **1,788** (**100.0%**)
-- median k: **1.0**
-- k distribution: {'1': 1788}
+- clips at `k = 1` (loss is a plain max): **0** (**0.0%**)
+- median k: **4.0**
+- k distribution: {'4': 1788}
 
 ### 1.4 Subgroups by `split` (2 groups)
 

@@ -71,13 +71,13 @@
     },
     "mil_topk_floor_test": {
       "clips": 1788,
-      "clips_at_k1": 1788,
-      "fraction_at_k1": 1.0,
+      "clips_at_k1": 0,
+      "fraction_at_k1": 0.0,
       "k_distribution": {
-        "1": 1788
+        "4": 1788
       },
-      "median_k": 1.0,
-      "topk_pct": 16
+      "median_k": 4.0,
+      "topk_pct": 5
     },
     "splits": {
       "dvs_dataset_len": 3378,
@@ -264,7 +264,7 @@
       "video_ids": []
     }
   },
-  "mil_topk_pct": 16,
+  "mil_topk_pct": 5,
   "protocol": {
     "clip_constant_oracle": {
       "ap_micro": 0.3662442396313364,
@@ -369,12 +369,6 @@
     "protocol"
   ],
   "verdicts": [
-    {
-      "action": "Lower loss.mil_topk_pct, or accept that supervision is clip-level here and stop reading frame-level claims into it.",
-      "detail": "100.0% of clips get k = 1 at mil_topk_pct = 16: one supervised frame per clip per step.",
-      "level": "HIGH",
-      "title": "MIL top-k degenerates to a plain max"
-    },
     {
       "action": "Report auc_macro as the headline and print this oracle beside any micro number. Never place a micro number from this corpus next to a published frame-level AUC.",
       "detail": "A constant-score-per-clip oracle scores micro AUC 0.9156 with zero localization; 100.0% of the positive/negative pairs span two clips.",
