@@ -520,6 +520,16 @@ NEXAR_EDA_OUTPUT_DIRNAME = "nexar_eda"
 NEXAR_EDA_REPORT_STEM = "nexar_eda_report"
 NEXAR_EDA_NEAR_ROWS = 2  # a normal window this many rows (~0.5 s at s8) or fewer from the span
 NEXAR_EDA_ROW_THRESHOLDS = (1, 3, 5, 10)  # share of positive windows with <= k abnormal rows
+NEXAR_EDA_FIGURES_DIRNAME = "figures"  # nexar_eda --plots writes its PNGs here
+NEXAR_EDA_FIGURE_DPI = 150
+NEXAR_EDA_FIGURE_WIDTH = 7.5  # inches; one panel
+NEXAR_EDA_FIGURE_HEIGHT = 4.5
+NEXAR_EDA_COLOUR_TRAIN = "#4477aa"
+NEXAR_EDA_COLOUR_VAL = "#ee7733"
+NEXAR_EDA_COLOUR_MARK = "#cc3311"
+NEXAR_EDA_COLOUR_NORMAL = "#999999"
+NEXAR_EDA_GRID_ALPHA = 0.3
+NEXAR_EDA_CENTER_BINS = 20  # window-centre histogram bins over [0, 1]
 NEXAR_EDA_HUMP_CENTER = 0.5  # accidents sit mid-video: position ruler = -|center - 0.5| (a hump)
 # Event captions for option C (core/docs/final/KIM_RUN.md §29; core.tools.nexar_caption).
 # §29.3 CP3'': 4-bit NF4 (bitsandbytes). Rounds 2-6: Qwen2.5-VL-32B on a 40 GB A100; round 7

@@ -12,9 +12,11 @@ Every number is a dataset property measured from files, never a model result, an
 gates. Read: counts · abnormal rows per positive window and where they sit in the window · how far
 the normal windows lie from the span · windows per source · scene / weather per class · what
 position and source length alone score as a window-label predictor · the same geometry on the
-val windows (the side every Nexar number is read on).
+val windows (the side every Nexar number is read on). ``--plots`` also writes six PNG figures
+(:func:`write_plots`) under ``<output-dir>/figures``.
 
-    python -m core.tools.nexar_eda --data-dir <Thesis-V2/data/Nexar_window> --output-dir <dir>
+    python -m core.tools.nexar_eda --data-dir <Thesis-V2/data/Nexar_window> --output-dir <dir> \\
+        --plots
 """
 
 from __future__ import annotations
@@ -27,6 +29,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from matplotlib.figure import Figure
 
 from core import constants
 from core.data.dada import DadaRecord, sampled_frame_labels
@@ -230,7 +233,10 @@ def val_geometry(test: dict[str, list[int]]) -> dict[str, Any]:
     }
 
 
-def build_report(data_dir: Path, stride: int) -> dict[str, Any]:
+def gated_rows(
+    data_dir: Path, stride: int
+) -> tuple[list[dict[str, Any]], dict[str, list[int]]]:
+    """The train window rows and the val frame labels, after the rebuild gate."""
     labels, meta, test = load_corpus(data_dir)
     rows, mismatched = window_rows(labels, meta, stride)
     if mismatched:
@@ -242,6 +248,13 @@ def build_report(data_dir: Path, stride: int) -> dict[str, Any]:
     if wrong_label:
         raise ValueError(f"{len(wrong_label)} windows' label != (positive rows >= "
                          f"{constants.WINDOW_MIN_POSITIVE}): {wrong_label[:3]}")
+    return rows, test
+
+
+def summarize(
+    rows: list[dict[str, Any]], test: dict[str, list[int]], data_dir: Path, stride: int
+) -> dict[str, Any]:
+    """The report dict of gated rows (:func:`gated_rows`)."""
     return {
         "data_dir": str(data_dir), "stride": stride,
         "gate": {"windows_checked": len(rows), "positive_rows_rebuilt_equal_meta": True},
@@ -253,6 +266,10 @@ def build_report(data_dir: Path, stride: int) -> dict[str, Any]:
         "weather": covariate_table(rows, "weather"),
         "val": val_geometry(test),
     }
+
+
+def build_report(data_dir: Path, stride: int) -> dict[str, Any]:
+    return summarize(*gated_rows(data_dir, stride), data_dir, stride)
 
 
 def _fmt(value: Any) -> str:
@@ -337,19 +354,175 @@ def render_markdown(report: dict[str, Any]) -> str:
     return "\n".join(out)
 
 
+def _save(figure: Figure, target: Path) -> Path:
+    figure.tight_layout()
+    figure.savefig(target, dpi=constants.NEXAR_EDA_FIGURE_DPI)
+    return target
+
+
+def _new(width: float = constants.NEXAR_EDA_FIGURE_WIDTH) -> tuple[Figure, Any]:
+    figure = Figure(figsize=(width, constants.NEXAR_EDA_FIGURE_HEIGHT))
+    return figure, figure.subplots()
+
+
+def _plot_abnormal_rows(rows: list[dict[str, Any]], test: dict[str, list[int]],
+                        out_dir: Path) -> Path:
+    train = [r["positive"] for r in rows if r["label"] == 1]
+    val = [int(sum(v)) for v in test.values() if sum(v) > 0]
+    edges = np.arange(0.5, constants.NEXAR_WINDOW_LENGTH + 1.5)
+    figure, axis = _new()
+    for values, name, colour in ((train, "train", constants.NEXAR_EDA_COLOUR_TRAIN),
+                                 (val, "val", constants.NEXAR_EDA_COLOUR_VAL)):
+        if values:
+            weights = np.full(len(values), 1.0 / len(values))
+            axis.hist(values, bins=edges, weights=weights, histtype="step", linewidth=2,
+                      color=colour, label=f"{name} (n = {len(values)}, p50 "
+                                          f"{float(np.median(values)):.0f})")
+    axis.set_xlabel(f"abnormal rows in a positive window (of {constants.NEXAR_WINDOW_LENGTH})")
+    axis.set_ylabel("share of positive windows")
+    axis.set_title("How much of a positive bag is abnormal")
+    axis.legend()
+    return _save(figure, out_dir / "abnormal_rows_per_positive_window.png")
+
+
+def _plot_row_profile(report: dict[str, Any], out_dir: Path) -> Path:
+    figure, axis = _new()
+    for key, name, colour in (("positive_windows", "train", constants.NEXAR_EDA_COLOUR_TRAIN),
+                              ("val", "val", constants.NEXAR_EDA_COLOUR_VAL)):
+        profile = report[key]["row_profile"]
+        axis.plot(range(len(profile)), profile, marker="o", color=colour, label=name)
+    axis.set_ylim(0, 1)
+    axis.set_xlabel("row index inside the window")
+    axis.set_ylabel("share of positive windows abnormal at this row")
+    axis.set_title("Where the abnormal rows sit inside a positive window (flat = no position cue)")
+    axis.grid(alpha=constants.NEXAR_EDA_GRID_ALPHA)
+    axis.legend()
+    return _save(figure, out_dir / "row_profile.png")
+
+
+def _plot_normal_gap(rows: list[dict[str, Any]], report: dict[str, Any], out_dir: Path) -> Path:
+    before = [r["span_start"] - r["end"] for r in rows
+              if r["label"] == 0 and r["span_start"] is not None and r["end"] <= r["span_start"]]
+    after = [r["start"] - r["span_end"] for r in rows
+             if r["label"] == 0 and r["span_start"] is not None and r["end"] > r["span_start"]]
+    top = max([*before, *after, 1])
+    width = constants.NEXAR_EDA_NEAR_ROWS + 1  # one bin = the "near the span" rows exactly
+    edges = np.arange(-0.5, top + width, width)
+    figure, axis = _new()
+    axis.hist([before, after], bins=edges, stacked=True,
+              color=[constants.NEXAR_EDA_COLOUR_TRAIN, constants.NEXAR_EDA_COLOUR_VAL],
+              label=[f"before the span ({len(before)})", f"after the span ({len(after)})"])
+    near = constants.NEXAR_EDA_NEAR_ROWS
+    share = report["normal_windows"]["share_within_near_rows"]
+    axis.axvline(near + 0.5, color=constants.NEXAR_EDA_COLOUR_MARK, linestyle="--",
+                 label=f"<= {near} rows: {_fmt(share)} of normal windows")
+    axis.set_xlabel("rows between a normal window and its own video's span")
+    axis.set_ylabel("normal windows")
+    axis.set_title("How hard the in-video negatives are (near the span = hard)")
+    axis.legend()
+    return _save(figure, out_dir / "normal_gap_to_span.png")
+
+
+def _plot_center(rows: list[dict[str, Any]], report: dict[str, Any], out_dir: Path) -> Path:
+    edges = np.linspace(0.0, 1.0, constants.NEXAR_EDA_CENTER_BINS + 1)
+    figure, axis = _new()
+    for label, name, colour in ((0, "normal", constants.NEXAR_EDA_COLOUR_NORMAL),
+                                (1, "positive", constants.NEXAR_EDA_COLOUR_MARK)):
+        values = [r["center"] for r in rows if r["label"] == label]
+        if values:
+            axis.hist(values, bins=edges, density=True, histtype="step", linewidth=2,
+                      color=colour, label=f"{name} windows ({len(values)})")
+    hump = report["rulers"]["center_hump"]
+    axis.set_xlabel("window centre / source length")
+    axis.set_ylabel("density")
+    axis.set_title(f"Window position in its video (hump AUC {_fmt(hump)}: a corpus prior, "
+                   "not a model result)")
+    axis.legend()
+    return _save(figure, out_dir / "window_center_by_class.png")
+
+
+def _plot_covariates(report: dict[str, Any], out_dir: Path) -> Path:
+    figure = Figure(figsize=(2 * constants.NEXAR_EDA_FIGURE_WIDTH,
+                             constants.NEXAR_EDA_FIGURE_HEIGHT))
+    axes = figure.subplots(1, 2)
+    total = report["corpus"]["train_positive"] / max(report["corpus"]["train_windows"], 1)
+    for axis, key in zip(axes, ("scene", "weather"), strict=True):
+        table = report[key]
+        names = [str(r[key]) for r in table]
+        rates = [r["positive_rate"] or 0.0 for r in table]
+        bars = axis.bar(names, rates, color=constants.NEXAR_EDA_COLOUR_TRAIN)
+        for bar, r in zip(bars, table, strict=True):
+            axis.annotate(f"n={r['normal'] + r['positive']}", (bar.get_x() + bar.get_width() / 2,
+                          bar.get_height()), ha="center", va="bottom", fontsize="small")
+        axis.axhline(total, color=constants.NEXAR_EDA_COLOUR_MARK, linestyle="--",
+                     label=f"corpus {total:.3f}")
+        axis.set_ylim(0, 1)
+        axis.set_ylabel("positive rate (positive / all windows)")
+        axis.set_title(f"Positive rate by {key}")
+        axis.tick_params(axis="x", labelrotation=30)
+        axis.legend()
+    return _save(figure, out_dir / "scene_weather_positive_rate.png")
+
+
+def _plot_val_share(test: dict[str, list[int]], report: dict[str, Any], out_dir: Path) -> Path:
+    arrays = [np.asarray(v, dtype=np.int64) for v in test.values()]
+    all_normal = sum(a.size for a in arrays if a.sum() == 0)
+    mixed = [a for a in arrays if 0 < a.sum() < a.size]
+    mixed_pos = int(sum(a.sum() for a in mixed))
+    mixed_neg = int(sum(a.size for a in mixed)) - mixed_pos
+    all_pos = sum(a.size for a in arrays if a.size and a.sum() == a.size)
+    figure, axis = _new()
+    names = ["all-normal windows", "mixed: normal rows", "mixed: abnormal rows",
+             "all-abnormal windows"]
+    bars = axis.bar(names, [all_normal, mixed_neg, mixed_pos, all_pos],
+                    color=[constants.NEXAR_EDA_COLOUR_NORMAL, constants.NEXAR_EDA_COLOUR_VAL,
+                           constants.NEXAR_EDA_COLOUR_MARK, constants.NEXAR_EDA_COLOUR_MARK])
+    for bar in bars:
+        axis.annotate(str(int(bar.get_height())), (bar.get_x() + bar.get_width() / 2,
+                      bar.get_height()), ha="center", va="bottom", fontsize="small")
+    oracle = report["val"]["clip_oracle"]["auc_micro"]
+    axis.set_ylabel("val frames (rows)")
+    axis.set_title(f"Val frames by window kind: constant-per-window oracle micro AUC "
+                   f"{_fmt(oracle)}")
+    axis.tick_params(axis="x", labelrotation=15)
+    return _save(figure, out_dir / "val_frame_share.png")
+
+
+def write_plots(rows: list[dict[str, Any]], test: dict[str, list[int]], report: dict[str, Any],
+                out_dir: Path) -> list[Path]:
+    """Six figures of the gated rows; every one is a dataset property, never a model result."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    written = [
+        _plot_abnormal_rows(rows, test, out_dir),
+        _plot_row_profile(report, out_dir),
+        _plot_normal_gap(rows, report, out_dir),
+        _plot_center(rows, report, out_dir),
+        _plot_covariates(report, out_dir),
+        _plot_val_share(test, report, out_dir),
+    ]
+    LOGGER.info("Wrote %d figures to %s", len(written), out_dir)
+    return written
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n", 1)[0])
     parser.add_argument("--data-dir", type=Path, required=True,
                         help="a built windowed Nexar corpus dir")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--stride", type=int, default=constants.NEXAR_TRAIN_STRIDE)
+    parser.add_argument("--plots", action="store_true",
+                        help=f"also write PNG figures to <output-dir>/"
+                             f"{constants.NEXAR_EDA_FIGURES_DIRNAME}")
     return parser
 
 
 def main(argv: list[str] | None = None) -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     args = build_arg_parser().parse_args(argv)
-    report = build_report(args.data_dir, args.stride)
+    rows, test = gated_rows(args.data_dir, args.stride)
+    report = summarize(rows, test, args.data_dir, args.stride)
+    if args.plots:
+        write_plots(rows, test, report, args.output_dir / constants.NEXAR_EDA_FIGURES_DIRNAME)
     stem = constants.NEXAR_EDA_REPORT_STEM
     write_json_atomic(args.output_dir / f"{stem}.json", report)
     (args.output_dir / f"{stem}.md").write_text(render_markdown(report), encoding="utf-8")

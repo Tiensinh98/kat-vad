@@ -69,3 +69,19 @@ def test_main_writes_both_files(corpus: Path, tmp_path: Path) -> None:
     nexar_eda.main(["--data-dir", str(corpus), "--output-dir", str(out)])
     stem = constants.NEXAR_EDA_REPORT_STEM
     assert (out / f"{stem}.md").is_file() and (out / f"{stem}.json").is_file()
+
+
+def test_plots_write_six_figures(corpus: Path, tmp_path: Path) -> None:
+    out = tmp_path / "out"
+    nexar_eda.main(["--data-dir", str(corpus), "--output-dir", str(out), "--plots"])
+    figures = sorted((out / constants.NEXAR_EDA_FIGURES_DIRNAME).glob("*.png"))
+    assert [f.name for f in figures] == sorted([
+        "abnormal_rows_per_positive_window.png", "row_profile.png", "normal_gap_to_span.png",
+        "window_center_by_class.png", "scene_weather_positive_rate.png", "val_frame_share.png"])
+    assert all(f.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n" for f in figures)
+
+
+def test_no_plots_without_the_flag(corpus: Path, tmp_path: Path) -> None:
+    out = tmp_path / "out"
+    nexar_eda.main(["--data-dir", str(corpus), "--output-dir", str(out)])
+    assert not (out / constants.NEXAR_EDA_FIGURES_DIRNAME).exists()
