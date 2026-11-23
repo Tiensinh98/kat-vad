@@ -1,0 +1,855 @@
+{
+  "rows": [
+    "K5dfiM3",
+    "K5dfiM9",
+    "K5fM3",
+    "K5fM9",
+    "L0dfiM3",
+    "L0dfiM9",
+    "L0fM3",
+    "L0fM9"
+  ],
+  "seed": 2024,
+  "sets": {
+    "MSAD-full": {
+      "base_rate": 0.22997275204359674,
+      "contrasts": [
+        {
+          "a": "K5fM3",
+          "b": "L0fM3",
+          "delta": {
+            "clips": 96,
+            "clusters": 96,
+            "high": 0.08854614784329934,
+            "low": -0.006309931827903217,
+            "mean": 0.04139809357948268
+          },
+          "label": "motion + KIM, DVS off (k3)",
+          "sentence": "not separated"
+        },
+        {
+          "a": "K5dfiM3",
+          "b": "L0dfiM3",
+          "delta": {
+            "clips": 96,
+            "clusters": 96,
+            "high": 0.10764894160975669,
+            "low": 0.013532162071049555,
+            "mean": 0.06096692659815741
+          },
+          "label": "motion + KIM, DVS ignore (k3)",
+          "sentence": "above"
+        },
+        {
+          "a": "K5dfiM3",
+          "b": "K5fM3",
+          "delta": {
+            "clips": 96,
+            "clusters": 96,
+            "high": 0.020870357416167964,
+            "low": 0.004952390675870817,
+            "mean": 0.012715017235666204
+          },
+          "label": "DVS ignore on KIM (k3)",
+          "sentence": "above"
+        },
+        {
+          "a": "L0dfiM3",
+          "b": "L0fM3",
+          "delta": {
+            "clips": 96,
+            "clusters": 96,
+            "high": 0.004555719854076212,
+            "low": -0.018363888492663134,
+            "mean": -0.006853815783008514
+          },
+          "label": "DVS ignore on plain CLIP (k3)",
+          "sentence": "not separated"
+        },
+        {
+          "a": "K5fM9",
+          "b": "L0fM9",
+          "delta": {
+            "clips": 96,
+            "clusters": 96,
+            "high": 0.07547623152061007,
+            "low": -0.018489342243466725,
+            "mean": 0.028731392352063945
+          },
+          "label": "motion + KIM, DVS off (k9)",
+          "sentence": "not separated"
+        },
+        {
+          "a": "K5dfiM9",
+          "b": "L0dfiM9",
+          "delta": {
+            "clips": 96,
+            "clusters": 96,
+            "high": 0.10300446949232678,
+            "low": 0.00897442533508206,
+            "mean": 0.05655647650593552
+          },
+          "label": "motion + KIM, DVS ignore (k9)",
+          "sentence": "above"
+        },
+        {
+          "a": "K5dfiM9",
+          "b": "K5fM9",
+          "delta": {
+            "clips": 96,
+            "clusters": 96,
+            "high": 0.042620172532062885,
+            "low": 0.02067613449755764,
+            "mean": 0.031276493087446726
+          },
+          "label": "DVS ignore on KIM (k9)",
+          "sentence": "above"
+        },
+        {
+          "a": "L0dfiM9",
+          "b": "L0fM9",
+          "delta": {
+            "clips": 96,
+            "clusters": 96,
+            "high": 0.021177298171758542,
+            "low": -0.013024942463154207,
+            "mean": 0.0034514089335751508
+          },
+          "label": "DVS ignore on plain CLIP (k9)",
+          "sentence": "not separated"
+        },
+        {
+          "a": "K5fM9",
+          "b": "K5fM3",
+          "delta": {
+            "clips": 96,
+            "clusters": 96,
+            "high": -0.0018941577851733418,
+            "low": -0.03738495937227917,
+            "mean": -0.019134694973726243
+          },
+          "label": "kernel 9 - 3, K5f (printed, never a selection)",
+          "sentence": "below"
+        },
+        {
+          "a": "K5dfiM9",
+          "b": "K5dfiM3",
+          "delta": {
+            "clips": 96,
+            "clusters": 96,
+            "high": 0.014445103343068318,
+            "low": -0.016380055965882805,
+            "mean": -0.0005732191219457233
+          },
+          "label": "kernel 9 - 3, K5dfi (printed, never a selection)",
+          "sentence": "not separated"
+        },
+        {
+          "a": "L0fM9",
+          "b": "L0fM3",
+          "delta": {
+            "clips": 96,
+            "clusters": 96,
+            "high": 0.020321892521968532,
+            "low": -0.0344190925110082,
+            "mean": -0.006467993746307503
+          },
+          "label": "kernel 9 - 3, L0f (printed, never a selection)",
+          "sentence": "not separated"
+        },
+        {
+          "a": "L0dfiM9",
+          "b": "L0dfiM3",
+          "delta": {
+            "clips": 96,
+            "clusters": 96,
+            "high": 0.026188576319729942,
+            "low": -0.019137081105583525,
+            "mean": 0.0038372309702761572
+          },
+          "label": "kernel 9 - 3, L0dfi (printed, never a selection)",
+          "sentence": "not separated"
+        }
+      ],
+      "rows": {
+        "K5dfiM3": {
+          "ap": 0.7189978209384863,
+          "clip_auc": 0.970970206264324,
+          "macro": {
+            "clips": 96,
+            "clusters": 96,
+            "high": 0.8241323330865291,
+            "low": 0.7322790210777042,
+            "mean": 0.7792675490480763
+          },
+          "micro": 0.9069664305383659,
+          "micro_equal_video": 0.8698338184548514
+        },
+        "K5dfiM9": {
+          "ap": 0.709353309079611,
+          "clip_auc": 0.9699284672546704,
+          "macro": {
+            "clips": 96,
+            "clusters": 96,
+            "high": 0.825228246444409,
+            "low": 0.7288219741864987,
+            "mean": 0.7786943299261306
+          },
+          "micro": 0.9041153909365641,
+          "micro_equal_video": 0.8634527695966295
+        },
+        "K5fM3": {
+          "ap": 0.717089918413203,
+          "clip_auc": 0.9706229599277728,
+          "macro": {
+            "clips": 96,
+            "clusters": 96,
+            "high": 0.8135675808579428,
+            "low": 0.7179297272735762,
+            "mean": 0.76655253181241
+          },
+          "micro": 0.9073204049734523,
+          "micro_equal_video": 0.8685458252109068
+        },
+        "K5fM9": {
+          "ap": 0.7053919309020426,
+          "clip_auc": 0.9681922355719147,
+          "macro": {
+            "clips": 96,
+            "clusters": 96,
+            "high": 0.7982795394297568,
+            "low": 0.6937735113533586,
+            "mean": 0.7474178368386838
+          },
+          "micro": 0.9041969960723545,
+          "micro_equal_video": 0.8612395937328641
+        },
+        "L0dfiM3": {
+          "ap": 0.6696769318807916,
+          "clip_auc": 0.9645114244044725,
+          "macro": {
+            "clips": 96,
+            "clusters": 96,
+            "high": 0.7700424294016585,
+            "low": 0.6657241555661757,
+            "mean": 0.7183006224499189
+          },
+          "micro": 0.8891274405235071,
+          "micro_equal_video": 0.8443399663747839
+        },
+        "L0dfiM9": {
+          "ap": 0.6673943990197072,
+          "clip_auc": 0.9649281200083338,
+          "macro": {
+            "clips": 96,
+            "clusters": 96,
+            "high": 0.7769366557246885,
+            "low": 0.6647326673842384,
+            "mean": 0.722137853420195
+          },
+          "micro": 0.8947600144896911,
+          "micro_equal_video": 0.8473036105048752
+        },
+        "L0fM3": {
+          "ap": 0.6715837909144583,
+          "clip_auc": 0.9639558302659906,
+          "macro": {
+            "clips": 96,
+            "clusters": 96,
+            "high": 0.7767418190181643,
+            "low": 0.6714767565992787,
+            "mean": 0.7251544382329272
+          },
+          "micro": 0.8919999463344769,
+          "micro_equal_video": 0.8458560972636513
+        },
+        "L0fM9": {
+          "ap": 0.6840133184260788,
+          "clip_auc": 0.9618723522466838,
+          "macro": {
+            "clips": 96,
+            "clusters": 96,
+            "high": 0.7777389590852386,
+            "low": 0.6580760066336933,
+            "mean": 0.7186864444866199
+          },
+          "micro": 0.8973939015841392,
+          "micro_equal_video": 0.85032692845294
+        }
+      },
+      "rulers": {
+        "clip_oracle_micro": 0.8943029016277424,
+        "length_ruler_micro": 0.6466235916992852,
+        "monotone_ruler_macro": {
+          "clips": 96,
+          "clusters": 96,
+          "high": 0.7749726181651455,
+          "low": 0.6407259448704324,
+          "mean": 0.7089991563864668
+        }
+      },
+      "two_class": 96,
+      "videos": 240
+    },
+    "MSAD-traffic": {
+      "base_rate": 0.03162613098696771,
+      "contrasts": [
+        {
+          "a": "K5fM3",
+          "b": "L0fM3",
+          "delta": {
+            "clips": 19,
+            "clusters": 19,
+            "high": 0.07415948301821211,
+            "low": -0.1949489803307459,
+            "mean": -0.05738624020457903
+          },
+          "label": "motion + KIM, DVS off (k3)",
+          "sentence": "not separated"
+        },
+        {
+          "a": "K5dfiM3",
+          "b": "L0dfiM3",
+          "delta": {
+            "clips": 19,
+            "clusters": 19,
+            "high": 0.14979592434176245,
+            "low": -0.15086715652719665,
+            "mean": 0.005102386511243524
+          },
+          "label": "motion + KIM, DVS ignore (k3)",
+          "sentence": "not separated"
+        },
+        {
+          "a": "K5dfiM3",
+          "b": "K5fM3",
+          "delta": {
+            "clips": 19,
+            "clusters": 19,
+            "high": 0.05948666573425678,
+            "low": 0.019053568481743374,
+            "mean": 0.037885957824081384
+          },
+          "label": "DVS ignore on KIM (k3)",
+          "sentence": "above"
+        },
+        {
+          "a": "L0dfiM3",
+          "b": "L0fM3",
+          "delta": {
+            "clips": 19,
+            "clusters": 19,
+            "high": -0.0010667052279072862,
+            "low": -0.04667308390791956,
+            "mean": -0.024602668891741182
+          },
+          "label": "DVS ignore on plain CLIP (k3)",
+          "sentence": "below"
+        },
+        {
+          "a": "K5fM9",
+          "b": "L0fM9",
+          "delta": {
+            "clips": 19,
+            "clusters": 19,
+            "high": 0.061075294863586614,
+            "low": -0.14535827820167552,
+            "mean": -0.044178138830985814
+          },
+          "label": "motion + KIM, DVS off (k9)",
+          "sentence": "not separated"
+        },
+        {
+          "a": "K5dfiM9",
+          "b": "L0dfiM9",
+          "delta": {
+            "clips": 19,
+            "clusters": 19,
+            "high": 0.1458964878368807,
+            "low": -0.10199493942227761,
+            "mean": 0.020572112179474914
+          },
+          "label": "motion + KIM, DVS ignore (k9)",
+          "sentence": "not separated"
+        },
+        {
+          "a": "K5dfiM9",
+          "b": "K5fM9",
+          "delta": {
+            "clips": 19,
+            "clusters": 19,
+            "high": 0.08559344310451925,
+            "low": 0.03166344471892816,
+            "mean": 0.057017357419715184
+          },
+          "label": "DVS ignore on KIM (k9)",
+          "sentence": "above"
+        },
+        {
+          "a": "L0dfiM9",
+          "b": "L0fM9",
+          "delta": {
+            "clips": 19,
+            "clusters": 19,
+            "high": 0.029748208823716787,
+            "low": -0.04061868287527207,
+            "mean": -0.007732893590745547
+          },
+          "label": "DVS ignore on plain CLIP (k9)",
+          "sentence": "not separated"
+        },
+        {
+          "a": "K5fM9",
+          "b": "K5fM3",
+          "delta": {
+            "clips": 19,
+            "clusters": 19,
+            "high": 0.034838381254120226,
+            "low": -0.022860381311550573,
+            "mean": 0.0043797625857229855
+          },
+          "label": "kernel 9 - 3, K5f (printed, never a selection)",
+          "sentence": "not separated"
+        },
+        {
+          "a": "K5dfiM9",
+          "b": "K5dfiM3",
+          "delta": {
+            "clips": 19,
+            "clusters": 19,
+            "high": 0.05384232762356319,
+            "low": -0.004578350012614716,
+            "mean": 0.023511162181356782
+          },
+          "label": "kernel 9 - 3, K5dfi (printed, never a selection)",
+          "sentence": "not separated"
+        },
+        {
+          "a": "L0fM9",
+          "b": "L0fM3",
+          "delta": {
+            "clips": 19,
+            "clusters": 19,
+            "high": 0.047043725202515534,
+            "low": -0.060808112419550024,
+            "mean": -0.008828338787870246
+          },
+          "label": "kernel 9 - 3, L0f (printed, never a selection)",
+          "sentence": "not separated"
+        },
+        {
+          "a": "L0dfiM9",
+          "b": "L0dfiM3",
+          "delta": {
+            "clips": 19,
+            "clusters": 19,
+            "high": 0.046147205332387906,
+            "low": -0.02900698671039591,
+            "mean": 0.00804143651312539
+          },
+          "label": "kernel 9 - 3, L0dfi (printed, never a selection)",
+          "sentence": "not separated"
+        }
+      ],
+      "rows": {
+        "K5dfiM3": {
+          "ap": 0.4378036435874726,
+          "clip_auc": 0.9795833333333334,
+          "macro": {
+            "clips": 19,
+            "clusters": 19,
+            "high": 0.7865529122077326,
+            "low": 0.5534540191661138,
+            "mean": 0.6772200341546756
+          },
+          "micro": 0.9652070107043236,
+          "micro_equal_video": 0.9466389971099478
+        },
+        "K5dfiM9": {
+          "ap": 0.43220363703299824,
+          "clip_auc": 0.9820833333333334,
+          "macro": {
+            "clips": 19,
+            "clusters": 19,
+            "high": 0.805431896324363,
+            "low": 0.5840264705426563,
+            "mean": 0.7007311963360324
+          },
+          "micro": 0.9642669119900215,
+          "micro_equal_video": 0.9442743865892957
+        },
+        "K5fM3": {
+          "ap": 0.4194716338279915,
+          "clip_auc": 0.97875,
+          "macro": {
+            "clips": 19,
+            "clusters": 19,
+            "high": 0.7500626601000419,
+            "low": 0.5162252715194907,
+            "mean": 0.6393340763305941
+          },
+          "micro": 0.9627811128014965,
+          "micro_equal_video": 0.9433148486822798
+        },
+        "K5fM9": {
+          "ap": 0.4074897493001011,
+          "clip_auc": 0.97875,
+          "macro": {
+            "clips": 19,
+            "clusters": 19,
+            "high": 0.75136159613053,
+            "low": 0.5278795874719617,
+            "mean": 0.6437138389163172
+          },
+          "micro": 0.961166959821776,
+          "micro_equal_video": 0.9396673482033133
+        },
+        "L0dfiM3": {
+          "ap": 0.44194031145284596,
+          "clip_auc": 0.9758333333333333,
+          "macro": {
+            "clips": 19,
+            "clusters": 19,
+            "high": 0.787574561792198,
+            "low": 0.5494980056251711,
+            "mean": 0.6721176476434321
+          },
+          "micro": 0.9661900815029699,
+          "micro_equal_video": 0.9459291380606079
+        },
+        "L0dfiM9": {
+          "ap": 0.43470858504083115,
+          "clip_auc": 0.975,
+          "macro": {
+            "clips": 19,
+            "clusters": 19,
+            "high": 0.7935565617903682,
+            "low": 0.5587926136963923,
+            "mean": 0.6801590841565575
+          },
+          "micro": 0.96631348563,
+          "micro_equal_video": 0.9455206539724464
+        },
+        "L0fM3": {
+          "ap": 0.4480289301172824,
+          "clip_auc": 0.9745833333333334,
+          "macro": {
+            "clips": 19,
+            "clusters": 19,
+            "high": 0.8060999176438225,
+            "low": 0.5821259284393344,
+            "mean": 0.6967203165351732
+          },
+          "micro": 0.9662897497404801,
+          "micro_equal_video": 0.9461843653095002
+        },
+        "L0fM9": {
+          "ap": 0.42151029564275233,
+          "clip_auc": 0.96875,
+          "macro": {
+            "clips": 19,
+            "clusters": 19,
+            "high": 0.8071484696740527,
+            "low": 0.5612223404217765,
+            "mean": 0.687891977747303
+          },
+          "micro": 0.9621859156856207,
+          "micro_equal_video": 0.941213687959003
+        }
+      },
+      "rulers": {
+        "clip_oracle_micro": 0.9770701182924739,
+        "length_ruler_micro": 0.963919760544247,
+        "monotone_ruler_macro": {
+          "clips": 19,
+          "clusters": 19,
+          "high": 0.7525109126984125,
+          "low": 0.42127844077247384,
+          "mean": 0.5873980979580735
+        }
+      },
+      "two_class": 19,
+      "videos": 140
+    },
+    "TAD": {
+      "base_rate": 0.0724309642372114,
+      "contrasts": [
+        {
+          "a": "K5fM3",
+          "b": "L0fM3",
+          "delta": {
+            "clips": 60,
+            "clusters": 60,
+            "high": -0.00524401116671497,
+            "low": -0.0992175272615875,
+            "mean": -0.05080393528581632
+          },
+          "label": "motion + KIM, DVS off (k3)",
+          "sentence": "below"
+        },
+        {
+          "a": "K5dfiM3",
+          "b": "L0dfiM3",
+          "delta": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.0027653606679433713,
+            "low": -0.07969871283915918,
+            "mean": -0.03751410675880039
+          },
+          "label": "motion + KIM, DVS ignore (k3)",
+          "sentence": "not separated"
+        },
+        {
+          "a": "K5dfiM3",
+          "b": "K5fM3",
+          "delta": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.016752205204527117,
+            "low": -0.005112291265238774,
+            "mean": 0.0060177800503286175
+          },
+          "label": "DVS ignore on KIM (k3)",
+          "sentence": "not separated"
+        },
+        {
+          "a": "L0dfiM3",
+          "b": "L0fM3",
+          "delta": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.001858984866292474,
+            "low": -0.01665122898718556,
+            "mean": -0.007272048476687322
+          },
+          "label": "DVS ignore on plain CLIP (k3)",
+          "sentence": "not separated"
+        },
+        {
+          "a": "K5fM9",
+          "b": "L0fM9",
+          "delta": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.03655795074230277,
+            "low": -0.06480662622228911,
+            "mean": -0.015175205236739564
+          },
+          "label": "motion + KIM, DVS off (k9)",
+          "sentence": "not separated"
+        },
+        {
+          "a": "K5dfiM9",
+          "b": "L0dfiM9",
+          "delta": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.0329860874788181,
+            "low": -0.06015517283203903,
+            "mean": -0.013742312424338037
+          },
+          "label": "motion + KIM, DVS ignore (k9)",
+          "sentence": "not separated"
+        },
+        {
+          "a": "K5dfiM9",
+          "b": "K5fM9",
+          "delta": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.0190247739815432,
+            "low": -0.0005149323757707228,
+            "mean": 0.009189110266464233
+          },
+          "label": "DVS ignore on KIM (k9)",
+          "sentence": "not separated"
+        },
+        {
+          "a": "L0dfiM9",
+          "b": "L0fM9",
+          "delta": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.0310682600874059,
+            "low": -0.01388744661966026,
+            "mean": 0.007756217454062704
+          },
+          "label": "DVS ignore on plain CLIP (k9)",
+          "sentence": "not separated"
+        },
+        {
+          "a": "K5fM9",
+          "b": "K5fM3",
+          "delta": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.06474495252489629,
+            "low": -0.01446865932689282,
+            "mean": 0.024885702082503236
+          },
+          "label": "kernel 9 - 3, K5f (printed, never a selection)",
+          "sentence": "not separated"
+        },
+        {
+          "a": "K5dfiM9",
+          "b": "K5dfiM3",
+          "delta": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.06429515252786269,
+            "low": -0.007261323224818786,
+            "mean": 0.028057032298638856
+          },
+          "label": "kernel 9 - 3, K5dfi (printed, never a selection)",
+          "sentence": "not separated"
+        },
+        {
+          "a": "L0fM9",
+          "b": "L0fM3",
+          "delta": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.03088500859400732,
+            "low": -0.05636235799413264,
+            "mean": -0.010743027966573528
+          },
+          "label": "kernel 9 - 3, L0f (printed, never a selection)",
+          "sentence": "not separated"
+        },
+        {
+          "a": "L0dfiM9",
+          "b": "L0dfiM3",
+          "delta": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.036573802664986416,
+            "low": -0.03052164048941276,
+            "mean": 0.004285237964176499
+          },
+          "label": "kernel 9 - 3, L0dfi (printed, never a selection)",
+          "sentence": "not separated"
+        }
+      ],
+      "rows": {
+        "K5dfiM3": {
+          "ap": 0.3075107022422495,
+          "clip_auc": 0.8470833333333333,
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.7747579381962083,
+            "low": 0.6695684431002188,
+            "mean": 0.7228089882461535
+          },
+          "micro": 0.8759864568081992,
+          "micro_equal_video": 0.6961655299829728
+        },
+        "K5dfiM9": {
+          "ap": 0.3067359257165686,
+          "clip_auc": 0.8495833333333334,
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.8021330821675711,
+            "low": 0.6984588900436236,
+            "mean": 0.7508660205447923
+          },
+          "micro": 0.8776661176183504,
+          "micro_equal_video": 0.6997576808900405
+        },
+        "K5fM3": {
+          "ap": 0.3059956077052987,
+          "clip_auc": 0.8425,
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.7690651795084741,
+            "low": 0.6618459540925591,
+            "mean": 0.716791208195825
+          },
+          "micro": 0.8779868228404101,
+          "micro_equal_video": 0.6940449486970159
+        },
+        "K5fM9": {
+          "ap": 0.29920684173509343,
+          "clip_auc": 0.8462500000000001,
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.7942592653904528,
+            "low": 0.6877050377294587,
+            "mean": 0.7416769102783279
+          },
+          "micro": 0.8771727061981455,
+          "micro_equal_video": 0.6965346918220814
+        },
+        "L0dfiM3": {
+          "ap": 0.3133995475782013,
+          "clip_auc": 0.88,
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.8091999917391262,
+            "low": 0.7078135535290497,
+            "mean": 0.760323095004954
+          },
+          "micro": 0.8933901293313812,
+          "micro_equal_video": 0.7193570877231811
+        },
+        "L0dfiM9": {
+          "ap": 0.2949176655417053,
+          "clip_auc": 0.86625,
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.8231407935085596,
+            "low": 0.7019774554808427,
+            "mean": 0.7646083329691303
+          },
+          "micro": 0.8892117496339679,
+          "micro_equal_video": 0.7109364715926157
+        },
+        "L0fM3": {
+          "ap": 0.30901905419127784,
+          "clip_auc": 0.87375,
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.8181068494902961,
+            "low": 0.7130138107863341,
+            "mean": 0.7675951434816413
+          },
+          "micro": 0.8915566739873109,
+          "micro_equal_video": 0.7157157982141782
+        },
+        "L0fM9": {
+          "ap": 0.27637601283335694,
+          "clip_auc": 0.8616666666666666,
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.8192222529858526,
+            "low": 0.6895378137337862,
+            "mean": 0.7568521155150677
+          },
+          "micro": 0.8845389214250854,
+          "micro_equal_video": 0.6995444054007163
+        }
+      },
+      "rulers": {
+        "clip_oracle_micro": 0.9226451927769644,
+        "length_ruler_micro": 0.8967914836505612,
+        "monotone_ruler_macro": {
+          "clips": 60,
+          "clusters": 60,
+          "high": 0.6611340574075316,
+          "low": 0.51255918085734,
+          "mean": 0.5872495980899007
+        }
+      },
+      "two_class": 60,
+      "videos": 100
+    }
+  }
+}
