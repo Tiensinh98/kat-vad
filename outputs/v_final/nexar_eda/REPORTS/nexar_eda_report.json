@@ -1,0 +1,330 @@
+{
+  "corpus": {
+    "normal_per_source": {
+      "mean": 12.465631929046562,
+      "n": 451,
+      "name": "normal windows / source",
+      "percentiles": {
+        "p0": 2.0,
+        "p100": 23.0,
+        "p25": 13.0,
+        "p5": 3.0,
+        "p50": 13.0,
+        "p75": 14.0,
+        "p95": 14.0
+      },
+      "std": 2.833211842710807
+    },
+    "normal_windows_from_abnormal_sources": 5622,
+    "positive_per_source": {
+      "mean": 3.745011086474501,
+      "n": 451,
+      "name": "positive windows / source",
+      "percentiles": {
+        "p0": 2.0,
+        "p100": 5.0,
+        "p25": 3.0,
+        "p5": 3.0,
+        "p50": 4.0,
+        "p75": 4.0,
+        "p95": 5.0
+      },
+      "std": 0.5683372779590375
+    },
+    "sources_without_a_normal_window": 0,
+    "sources_without_a_positive_window": 0,
+    "train_normal": 5622,
+    "train_positive": 1689,
+    "train_sources": 451,
+    "train_windows": 7311,
+    "val_all_abnormal": 0,
+    "val_all_normal": 1354,
+    "val_two_class": 434,
+    "val_windows": 1788,
+    "window_rows": {
+      "mean": 20.0,
+      "n": 7311,
+      "name": "rows / window",
+      "percentiles": {
+        "p0": 20.0,
+        "p100": 20.0,
+        "p25": 20.0,
+        "p5": 20.0,
+        "p50": 20.0,
+        "p75": 20.0,
+        "p95": 20.0
+      },
+      "std": 0.0
+    }
+  },
+  "data_dir": "/content/nexar_eda/data",
+  "gate": {
+    "positive_rows_rebuilt_equal_meta": true,
+    "windows_checked": 7311
+  },
+  "normal_windows": {
+    "after_span": 2754,
+    "before_span": 2868,
+    "gap_rows": {
+      "mean": 25.980078263963,
+      "n": 5622,
+      "name": "rows between a normal window and its span",
+      "percentiles": {
+        "p0": 0.0,
+        "p100": 161.0,
+        "p25": 12.0,
+        "p5": 2.0,
+        "p50": 25.0,
+        "p75": 39.0,
+        "p95": 51.0
+      },
+      "std": 16.520137279885905
+    },
+    "normal_windows_with_a_span": 5622,
+    "share_within_near_rows": 0.06296691568836713
+  },
+  "positive_windows": {
+    "abnormal_rows": {
+      "mean": 7.450562462995856,
+      "n": 1689,
+      "name": "abnormal rows / positive window",
+      "percentiles": {
+        "p0": 1.0,
+        "p100": 20.0,
+        "p25": 4.0,
+        "p5": 1.0,
+        "p50": 8.0,
+        "p75": 10.0,
+        "p95": 14.0
+      },
+      "std": 3.9225873493295573
+    },
+    "first_abnormal_row": {
+      "mean": 6.2048549437537,
+      "n": 1689,
+      "name": "first abnormal row",
+      "percentiles": {
+        "p0": 0.0,
+        "p100": 19.0,
+        "p25": 0.0,
+        "p5": 0.0,
+        "p50": 4.0,
+        "p75": 12.0,
+        "p95": 18.0
+      },
+      "std": 6.428046901532494
+    },
+    "last_abnormal_row": {
+      "mean": 12.655417406749557,
+      "n": 1689,
+      "name": "last abnormal row",
+      "percentiles": {
+        "p0": 0.0,
+        "p100": 19.0,
+        "p25": 7.0,
+        "p5": 1.0,
+        "p50": 15.0,
+        "p75": 19.0,
+        "p95": 19.0
+      },
+      "std": 6.504334435438671
+    },
+    "row_profile": [
+      0.3771462403789224,
+      0.37122557726465366,
+      0.369449378330373,
+      0.3629366489046773,
+      0.3724097098875074,
+      0.3747779751332149,
+      0.37359384251036115,
+      0.37951450562462996,
+      0.3783303730017762,
+      0.3724097098875074,
+      0.3706335109532268,
+      0.3641207815275311,
+      0.37300177619893427,
+      0.3753700414446418,
+      0.37359384251036115,
+      0.3789224393132031,
+      0.3777383066903493,
+      0.37181764357608055,
+      0.3700414446417999,
+      0.3635287152161042
+    ],
+    "share_at_most": {
+      "1": 0.06571936056838366,
+      "10": 0.7815275310834814,
+      "3": 0.19301361752516283,
+      "5": 0.32918886915334516
+    },
+    "share_whole_window_abnormal": 0.0005920663114268798
+  },
+  "rulers": {
+    "center_hump": 0.9733003052585218,
+    "center_hump_within_source": {
+      "mean_auc": 0.9790950024139554,
+      "sources": 451
+    },
+    "center_raw": 0.5103871726127102,
+    "definition": "AUC over train windows; hump = -|window center / source rows - 0.5|",
+    "source_rows": 0.4609836515136867
+  },
+  "scene": [
+    {
+      "normal": 3751,
+      "positive": 1068,
+      "positive_rate": 0.2216227433077402,
+      "scene": "Urban",
+      "share_of_normal": 0.6672002845962292,
+      "share_of_positive": 0.6323268206039077,
+      "sources": 286
+    },
+    {
+      "normal": 1200,
+      "positive": 410,
+      "positive_rate": 0.2546583850931677,
+      "scene": "Highway",
+      "share_of_normal": 0.21344717182497333,
+      "share_of_positive": 0.2427471876850207,
+      "sources": 110
+    },
+    {
+      "normal": 509,
+      "positive": 157,
+      "positive_rate": 0.23573573573573572,
+      "scene": "Sub-urban",
+      "share_of_normal": 0.09053717538242619,
+      "share_of_positive": 0.09295441089402014,
+      "sources": 41
+    },
+    {
+      "normal": 147,
+      "positive": 46,
+      "positive_rate": 0.23834196891191708,
+      "scene": "Other",
+      "share_of_normal": 0.026147278548559232,
+      "share_of_positive": 0.027235050325636473,
+      "sources": 12
+    },
+    {
+      "normal": 12,
+      "positive": 4,
+      "positive_rate": 0.25,
+      "scene": "Rural",
+      "share_of_normal": 0.0021344717182497333,
+      "share_of_positive": 0.002368265245707519,
+      "sources": 1
+    },
+    {
+      "normal": 3,
+      "positive": 4,
+      "positive_rate": 0.5714285714285714,
+      "scene": "Nature",
+      "share_of_normal": 0.0005336179295624333,
+      "share_of_positive": 0.002368265245707519,
+      "sources": 1
+    }
+  ],
+  "stride": 8,
+  "val": {
+    "abnormal_rows": {
+      "mean": 7.324884792626728,
+      "n": 434,
+      "name": "abnormal rows / positive window",
+      "percentiles": {
+        "p0": 1.0,
+        "p100": 17.0,
+        "p25": 4.0,
+        "p5": 1.0,
+        "p50": 8.0,
+        "p75": 10.0,
+        "p95": 14.0
+      },
+      "std": 4.020452104549451
+    },
+    "clip_oracle": {
+      "ap_micro": 0.3662442396313364,
+      "auc_macro": 0.5,
+      "auc_micro": 0.9155796323010343,
+      "definition": "constant score per clip = clip label; zero within-clip ranking"
+    },
+    "frame_share": {
+      "clips": {
+        "all_normal": 1354,
+        "all_positive": 0,
+        "mixed": 434
+      },
+      "frame_fraction": {
+        "all_normal": 0.7572706935123042,
+        "all_positive": 0.0,
+        "mixed": 0.24272930648769575
+      },
+      "frames": {
+        "all_normal": 27080,
+        "all_positive": 0,
+        "mixed": 8680
+      },
+      "total_frames": 35760
+    },
+    "row_profile": [
+      0.3640552995391705,
+      0.35714285714285715,
+      0.35944700460829493,
+      0.37327188940092165,
+      0.3709677419354839,
+      0.37327188940092165,
+      0.3686635944700461,
+      0.3686635944700461,
+      0.3640552995391705,
+      0.35714285714285715,
+      0.35944700460829493,
+      0.37327188940092165,
+      0.3709677419354839,
+      0.37327188940092165,
+      0.3686635944700461,
+      0.3686635944700461,
+      0.3640552995391705,
+      0.35714285714285715,
+      0.35944700460829493,
+      0.37327188940092165
+    ]
+  },
+  "weather": [
+    {
+      "normal": 3317,
+      "positive": 988,
+      "positive_rate": 0.2295005807200929,
+      "share_of_normal": 0.5900035574528637,
+      "share_of_positive": 0.5849615156897573,
+      "sources": 265,
+      "weather": "Clear"
+    },
+    {
+      "normal": 1761,
+      "positive": 537,
+      "positive_rate": 0.23368146214099217,
+      "share_of_normal": 0.31323372465314836,
+      "share_of_positive": 0.31793960923623443,
+      "sources": 143,
+      "weather": "Cloudy"
+    },
+    {
+      "normal": 541,
+      "positive": 160,
+      "positive_rate": 0.2282453637660485,
+      "share_of_normal": 0.09622909996442547,
+      "share_of_positive": 0.09473060982830077,
+      "sources": 42,
+      "weather": "Rain"
+    },
+    {
+      "normal": 3,
+      "positive": 4,
+      "positive_rate": 0.5714285714285714,
+      "share_of_normal": 0.0005336179295624333,
+      "share_of_positive": 0.002368265245707519,
+      "sources": 1,
+      "weather": "Snow"
+    }
+  ]
+}

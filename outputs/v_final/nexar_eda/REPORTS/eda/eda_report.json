@@ -1,0 +1,385 @@
+{
+  "corpus": {
+    "classes": [
+      "Normal",
+      "CarAccident"
+    ],
+    "kernel_coverage_test": {
+      "clips": 1788,
+      "clips_at_or_below": {
+        "T<=13": 0,
+        "T<=17": 0,
+        "T<=3": 0,
+        "T<=5": 0,
+        "T<=9": 0
+      },
+      "clips_fully_covered": 0,
+      "fraction_frames_fully_covered": 0.0,
+      "fraction_fully_covered": 0.0,
+      "frames_in_fully_covered_clips": 0,
+      "kernel": 9,
+      "mean_coverage": 0.4500000000000001,
+      "median_coverage": 0.45,
+      "median_length": 20.0
+    },
+    "lengths": {
+      "raw_total_frames": {
+        "mean": 1186.005824815914,
+        "n": 9099,
+        "name": "raw frames per clip (pre-stride)",
+        "percentiles": {
+          "p0": 420.0,
+          "p100": 1800.0,
+          "p25": 1198.0,
+          "p5": 1076.0,
+          "p50": 1206.0,
+          "p75": 1225.0,
+          "p95": 1247.0
+        },
+        "std": 128.80193271584022
+      },
+      "test_sampled": {
+        "mean": 20.0,
+        "n": 1788,
+        "name": "test sampled frames per clip",
+        "percentiles": {
+          "p0": 20.0,
+          "p100": 20.0,
+          "p25": 20.0,
+          "p5": 20.0,
+          "p50": 20.0,
+          "p75": 20.0,
+          "p95": 20.0
+        },
+        "std": 0.0
+      },
+      "train_sampled": {
+        "mean": 20.0,
+        "n": 7311,
+        "name": "train sampled frames per clip",
+        "percentiles": {
+          "p0": 20.0,
+          "p100": 20.0,
+          "p25": 20.0,
+          "p5": 20.0,
+          "p50": 20.0,
+          "p75": 20.0,
+          "p95": 20.0
+        },
+        "std": 0.0
+      }
+    },
+    "mil_topk_floor_test": {
+      "clips": 1788,
+      "clips_at_k1": 1788,
+      "fraction_at_k1": 1.0,
+      "k_distribution": {
+        "1": 1788
+      },
+      "median_k": 1.0,
+      "topk_pct": 16
+    },
+    "splits": {
+      "dvs_dataset_len": 3378,
+      "split_leak_ids": [],
+      "steps_per_epoch_at_batch_64": 53,
+      "test_abnormal": 434,
+      "test_clips": 1788,
+      "test_normal": 1354,
+      "test_positive_frames": 3179,
+      "test_sampled_frames": 35760,
+      "train_abnormal": 1689,
+      "train_abnormal_fraction": 0.23102174805088224,
+      "train_clips": 7311,
+      "train_normal": 5622
+    },
+    "subgroups": {
+      "anomaly_class": {
+        "groups": {},
+        "key": "anomaly_class",
+        "present": false
+      },
+      "class_name": {
+        "groups": {
+          "CarAccident": {
+            "clips": 9099,
+            "test_clips": 1788,
+            "test_frames": 35760,
+            "test_positive_fraction": 0.08889821029082774,
+            "test_positive_frames": 3179,
+            "train_clips": 7311
+          }
+        },
+        "key": "class_name",
+        "num_groups": 1,
+        "present": true
+      },
+      "ego_involve": {
+        "groups": {
+          "False": {
+            "clips": 9099,
+            "test_clips": 1788,
+            "test_frames": 35760,
+            "test_positive_fraction": 0.08889821029082774,
+            "test_positive_frames": 3179,
+            "train_clips": 7311
+          }
+        },
+        "key": "ego_involve",
+        "num_groups": 1,
+        "present": true
+      },
+      "fault_label": {
+        "groups": {
+          "nexar_ego": {
+            "clips": 9099,
+            "test_clips": 1788,
+            "test_frames": 35760,
+            "test_positive_fraction": 0.08889821029082774,
+            "test_positive_frames": 3179,
+            "train_clips": 7311
+          }
+        },
+        "key": "fault_label",
+        "num_groups": 1,
+        "present": true
+      },
+      "split": {
+        "groups": {
+          "test": {
+            "clips": 1788,
+            "test_clips": 1788,
+            "test_frames": 35760,
+            "test_positive_fraction": 0.08889821029082774,
+            "test_positive_frames": 3179,
+            "train_clips": 0
+          },
+          "train": {
+            "clips": 7311,
+            "test_clips": 0,
+            "test_frames": 0,
+            "test_positive_fraction": null,
+            "test_positive_frames": 0,
+            "train_clips": 7311
+          }
+        },
+        "key": "split",
+        "num_groups": 2,
+        "present": true
+      }
+    }
+  },
+  "data_dir": "/content/nexar_eda/data",
+  "dataset": "Nexar_window",
+  "frame_stride_assumed": 8,
+  "labels": {
+    "positives": {
+      "abnormal_clips": {
+        "mean": 7.324884792626728,
+        "n": 434,
+        "name": "positive frames per abnormal test clip",
+        "percentiles": {
+          "p0": 1.0,
+          "p100": 17.0,
+          "p25": 4.0,
+          "p5": 1.0,
+          "p50": 8.0,
+          "p75": 10.0,
+          "p95": 14.0
+        },
+        "std": 4.020452104549451
+      },
+      "abnormal_clips_with_one_positive": 36,
+      "abnormal_clips_with_two_or_fewer": 73,
+      "all_clips": {
+        "mean": 1.7779642058165548,
+        "n": 1788,
+        "name": "positive frames per test clip",
+        "percentiles": {
+          "p0": 0.0,
+          "p100": 17.0,
+          "p25": 0.0,
+          "p5": 0.0,
+          "p50": 0.0,
+          "p75": 0.0,
+          "p95": 10.0
+        },
+        "std": 3.7129114306408724
+      },
+      "positive_fraction_within_abnormal": {
+        "mean": 0.3662442396313364,
+        "n": 434,
+        "name": "positive fraction within abnormal clips",
+        "percentiles": {
+          "p0": 0.05,
+          "p100": 0.85,
+          "p25": 0.2,
+          "p5": 0.05,
+          "p50": 0.4,
+          "p75": 0.5,
+          "p95": 0.7
+        },
+        "std": 0.20102260522747253
+      }
+    },
+    "spans": {
+      "multi_span_clips": 0,
+      "multi_span_examples": [],
+      "span_length": {
+        "mean": 7.324884792626728,
+        "n": 434,
+        "name": "span length (sampled frames)",
+        "percentiles": {
+          "p0": 1.0,
+          "p100": 17.0,
+          "p25": 4.0,
+          "p5": 1.0,
+          "p50": 8.0,
+          "p75": 10.0,
+          "p95": 14.0
+        },
+        "std": 4.020452104549451
+      },
+      "spans_per_abnormal_clip": {
+        "mean": 1.0,
+        "n": 434,
+        "name": "spans per abnormal test clip",
+        "percentiles": {
+          "p0": 1.0,
+          "p100": 1.0,
+          "p25": 1.0,
+          "p5": 1.0,
+          "p50": 1.0,
+          "p75": 1.0,
+          "p95": 1.0
+        },
+        "std": 0.0
+      }
+    },
+    "vanished_windows": {
+      "clips_without_explicit_span_field": 0,
+      "count": 0,
+      "negative_windows_of_abnormal_clips": 1354,
+      "unit": "source clip",
+      "video_ids": []
+    }
+  },
+  "mil_topk_pct": 16,
+  "protocol": {
+    "clip_constant_oracle": {
+      "ap_micro": 0.3662442396313364,
+      "auc_macro": 0.5,
+      "auc_micro": 0.9155796323010343,
+      "definition": "constant score per clip = clip label; zero within-clip ranking"
+    },
+    "clip_length_leak": {
+      "abnormal_length": {
+        "mean": 20.0,
+        "n": 434,
+        "name": "abnormal clip length T",
+        "percentiles": {
+          "p0": 20.0,
+          "p100": 20.0,
+          "p25": 20.0,
+          "p5": 20.0,
+          "p50": 20.0,
+          "p75": 20.0,
+          "p95": 20.0
+        },
+        "std": 0.0
+      },
+      "ap_micro": 0.08889821029082774,
+      "auc_clip_level": 0.5,
+      "auc_macro": 0.5,
+      "auc_micro": 0.5,
+      "definition": "constant score per clip = clip length (signed to the predictive direction); zero within-clip ranking, no pixels read",
+      "direction": "longer",
+      "disjoint_normal_clips": 0,
+      "disjoint_normal_frames": 0,
+      "normal_length": {
+        "mean": 20.0,
+        "n": 1354,
+        "name": "normal clip length T",
+        "percentiles": {
+          "p0": 20.0,
+          "p100": 20.0,
+          "p25": 20.0,
+          "p5": 20.0,
+          "p50": 20.0,
+          "p75": 20.0,
+          "p95": 20.0
+        },
+        "std": 0.0
+      }
+    },
+    "frame_share": {
+      "clips": {
+        "all_normal": 1354,
+        "all_positive": 0,
+        "mixed": 434
+      },
+      "frame_fraction": {
+        "all_normal": 0.7572706935123042,
+        "all_positive": 0.0,
+        "mixed": 0.24272930648769575
+      },
+      "frames": {
+        "all_normal": 27080,
+        "all_positive": 0,
+        "mixed": 8680
+      },
+      "total_frames": 35760
+    },
+    "macro_resolution": {
+      "auc_grid_step": {
+        "mean": 0.01676979485611746,
+        "n": 434,
+        "name": "per-clip AUC resolution (1 / (pos * neg))",
+        "percentiles": {
+          "p0": 0.01,
+          "p100": 0.05263157894736842,
+          "p25": 0.010101010101010102,
+          "p5": 0.01,
+          "p50": 0.01098901098901099,
+          "p75": 0.015625,
+          "p95": 0.05263157894736842
+        },
+        "std": 0.011934351608119297
+      },
+      "single_class_clips": 1354,
+      "two_class_clips": 434
+    },
+    "pair_decomposition": {
+      "cross_clip_fraction": 0.9996786965935669,
+      "cross_clip_pairs": 103541720,
+      "total_pairs": 103574999,
+      "within_clip_fraction": 0.00032130340643305247,
+      "within_clip_pairs": 33279
+    },
+    "score_norm_auto": {
+      "normal_clip_fraction": 0.7572706935123042,
+      "resolves_to": "none",
+      "threshold": 0.05
+    }
+  },
+  "score_head_kernel": 9,
+  "sections": [
+    "corpus",
+    "labels",
+    "protocol"
+  ],
+  "verdicts": [
+    {
+      "action": "Lower loss.mil_topk_pct, or accept that supervision is clip-level here and stop reading frame-level claims into it.",
+      "detail": "100.0% of clips get k = 1 at mil_topk_pct = 16: one supervised frame per clip per step.",
+      "level": "HIGH",
+      "title": "MIL top-k degenerates to a plain max"
+    },
+    {
+      "action": "Report auc_macro as the headline and print this oracle beside any micro number. Never place a micro number from this corpus next to a published frame-level AUC.",
+      "detail": "A constant-score-per-clip oracle scores micro AUC 0.9156 with zero localization; 100.0% of the positive/negative pairs span two clips.",
+      "level": "CRITICAL",
+      "title": "Micro AUC here is mostly clip classification (lesson C12)"
+    }
+  ]
+}
