@@ -2396,3 +2396,21 @@ Clip oracle micro 0.9226, so TAD micro is clip classification. Δ vs K5dfi: LaGo
 | E4 Status | Printed, never gating. No arm, no decision, no change to K5f. The hump AUC is a position ruler, not a model; it is printed beside any macro per the cubic-probe rule. |
 
 **Built (2026-11-22, not run on real data).** `core/tools/nexar_eda.py` (`load_corpus`, `window_rows`, `build_report`, `render_markdown`), `core/tests/test_nexar_eda.py` (4 passed; ruff / mypy / pyright / bandit clean), constants `NEXAR_EDA_*`, notebook `colab/final/nexar_eda.ipynb` (CPU, parses). Smoke-tested on a synthetic corpus built by `nexar_build.build_window` with both `nexar_eda` and `core.tools.eda report` (the generic run works on a Nexar-built corpus). Not committed.
+
+**Read-out of §40 (2026-11-23, user's Colab run; printed, decides nothing).** Raw: `outputs/v_final/nexar_eda/REPORTS/` (`nexar_eda_report.{md,json}`, `eda/eda_report.{md,json}`; commits `e172d5f`, `a217f23`). Gate passed: rebuilt positive rows equal `meta.json` on all 7,311 train windows.
+
+| Item | Measured |
+|---|---|
+| Counts | train 7,311 windows = 1,689 positive + 5,622 normal from 451 positive videos (every video has both classes; 3.7 positive / 12.5 normal windows per video); val 1,788 = 434 two-class + 1,354 all-normal + 0 all-abnormal |
+| Positive windows | abnormal rows / window: mean 7.45, p50 8 of 20; at most 1 row 6.6 %, at most 3 rows 19.3 %, whole window abnormal 0.1 %. Share abnormal per row index is flat 0.36-0.38 (train and val): the position inside the window carries no label |
+| Normal windows | 2,868 before the span, 2,754 after; rows to the span p50 25, p25 12, p75 39; within 2 rows of the span 6.3 % (few hard negatives) |
+| No-pixel AUC over train windows | source length 0.461; window centre raw 0.510; **hump `-\|c - 0.5\|` 0.973** (0.979 inside one source) |
+| Scene / weather | positive rate Urban 0.222, Highway 0.255, Sub-urban 0.236; Clear 0.230, Cloudy 0.234, Rain 0.228: the strata do not separate the classes |
+| Val oracle | constant score per window: micro AUC **0.9156**, AP 0.3662, macro 0.5 by construction; 99.97 % of positive / negative frame pairs span two windows. 27,080 of 35,760 val frames (75.7 %) sit in all-normal windows; of the 8,680 mixed-window frames 3,179 are positive and 5,501 normal, and those 5,501 tie with the positives, which is what holds the oracle at 0.9156 instead of 1.0 |
+| Length leak | window length is 20 rows everywhere, length AUC 0.5000 |
+| MIL k | `mil_topk_pct = 5` (K5f's trained value): **k = 4 for every window**, 0 % at k = 1; `mul_mil_topk_pct` stays 16, so the multi-class MIL has k = 1 |
+
+**Correction inside this read-out.** The first run of `core.tools.eda report` (`e172d5f`) was read at the profiler's default `mil_topk_pct = 16` and printed a HIGH verdict "MIL top-k degenerates to a plain max (100 % of clips k = 1)". K5f / K5dfi / K5dfiACC trained with `mil_topk_pct = 5` (their `config.yaml`), so that verdict did not apply to them. The notebook's cell 10 now passes `--mil-topk-pct constants.DADA_ORIGIN_MIL_TOPK_PCT` (= 5, `e09635d`), the re-run (`a217f23`) shows k = 4 and no HIGH verdict. Only the CRITICAL verdict (micro is clip classification, C12) remains. Pending (du).
+
+**Licensed sentences.** "Nexar's val micro AUC is mostly clip classification: a constant score per window scores 0.9156, so only the part above it and `auc_macro` can show localization." "In the K5f corpus the positive windows' abnormal rows are not tied to a row position, and a source's window-centre hump predicts the window label at AUC 0.973 (a property of the corpus, not of a model)."
+**Not licensed.** Any claim that K5f uses the position prior: the model sees 20 rows, not the window centre; the hump AUC says a position prior exists in the corpus, not that it is learned (test it with `position_shift same-frame`, never from this table). Never write "k = 1" for K5f's `L_MIL`. No arm, decision or change to K5f follows from this read-out.

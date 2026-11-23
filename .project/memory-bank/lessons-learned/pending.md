@@ -2581,3 +2581,12 @@ Promote if a second harness needs the same split.
 **Rule:** Compare a dedup τ with the cross-source nearest-neighbour quantiles before applying it, and review pairs sorted by score.
 **Files:** `core/tools/accident_dedup.py:dedup`, `core/tools/accident_dedup.py:high_score_pairs`, `core/docs/final/KIM_RUN.md` §39 (read-out 1, D′).
 **Gate status.** One occurrence (the stop rule caught it before any training); candidate. Related: (dq) check which TAD an overlap list cites, (ds) grouping key over every id.
+
+## (du) [MEDIUM] Tooling - pass the trained run's knob to a profiler, never read the default (2026-11-23)
+**Triggers:** eda report, mil_topk_pct, default, profiler, verdict, k = 1, notebook, config.yaml
+**Problem:** `core.tools.eda report` takes `--mil-topk-pct` with default `constants.MIL_TOPK_PCT = 16`; `nexar_eda.ipynb` cell 10 did not pass it, so the report printed "MIL top-k degenerates to a plain max (100 % k = 1)" for arms trained with `mil_topk_pct = 5` (k = 4).
+**Bad:** run a data profiler whose verdict depends on a training knob without passing the knob (`run([... 'eda', 'report', '--no-probe'])`).
+**Good:** pass the value the arms trained with, from a constant or the arm's `config.yaml`, and print it in the report header (it already is: "MIL top-k pct **5**").
+**Rule:** Pass every training knob a profiler verdict depends on from the trained arms' config, and check the report header's value against `config.yaml` before quoting a verdict.
+**Files:** `colab/final/nexar_eda.ipynb` cell 10, `core/tools/eda.py:57`, `core/eda/report.py:107`.
+**Gate status.** One occurrence (caught by the user from memory, fixed `e09635d`); candidate.
