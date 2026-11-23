@@ -1563,5 +1563,7 @@ MSAD_VIDEO_SUFFIXES = (".mp4", ".avi")  # one normal-train video is an .avi (per
 MSAD_TRAIN_VIDEOS = 480  # labels_train.json: 120 abnormal + 360 normal (V2_TADG_MSAD_TRAIN)
 MSAD_TRAIN_ABNORMAL = 120
 MSAD_TRAIN_CENSUS_FILENAME = "msad_train_census.json"
-# cache/v2/A2_S/<this>: Nexar's A2 statistics (§41 B)
-MSAD_TRAIN_BAKE_DIRNAME = "MSAD-full_train_s8_nexar"
+# cache/v2/A2_S/<this>: the statistics fitted on MSAD train (§41 B) + the 480 train videos baked
+MSAD_TRAIN_BAKE_DIRNAME = "MSAD-full_train_s8_msad"
+MSAD_TEST_BAKE_DIRNAME = "MSAD-full_test_s8_msad"  # the 240 test videos, MSAD's statistics
+MSAD_TAD_BAKE_DIRNAME = "TAD_s8_msad"  # TAD (100 videos), MSAD's statistics, for the TAD reads

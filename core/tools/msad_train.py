@@ -11,10 +11,12 @@ A *row* is ``<arm>M<kernel>`` (``K5fM3``, ``L0dfiM9``). The recipes are the Nexa
 Both kernels are rows and **neither is picked on the MSAD test set**: the report prints every
 row and never a best-of.
 
+The motion input of the K5 rows is baked with statistics fitted on **MSAD train** (§41 B): the
+point is a clean CCTV-trained version, not a comparison with the Nexar-trained rows.
+
 Layout read by ``report``::
 
-    <root>/eval/<row>/s<seed>/        core.evaluate on the MSAD test set (trained rows AND the
-                                      Nexar-trained controls K5f / K5dfi / L0dfi, zero-shot)
+    <root>/eval/<row>/s<seed>/        core.evaluate on the MSAD test set
     <root>/eval_tad/<row>/s<seed>/    optional: the same rows on TAD (raw scores)
 
 CLI::
@@ -45,8 +47,6 @@ LOGGER = logging.getLogger(__name__)
 
 Curves = dict[str, np.ndarray]
 
-# Nexar-trained controls, read zero-shot on the MSAD test set (their own checkpoints, §41 R4)
-CONTROLS = ("K5f", "K5dfi", "L0dfi")
 TAD_SET = "tad"
 LABEL = "PRELIMINARY (n = 1)"
 
@@ -161,8 +161,6 @@ def contrast_pairs(rows: set[str]) -> list[tuple[str, str, str]]:
                   (f"motion + KIM, DVS ignore (k{k})", d, ld),
                   (f"DVS ignore on KIM (k{k})", d, f),
                   (f"DVS ignore on plain CLIP (k{k})", ld, lf)]
-        pairs += [(f"in-domain vs zero-shot (k{k})", row_name(a, k), c)
-                  for a, c in (("K5f", "K5f"), ("K5dfi", "K5dfi"), ("L0dfi", "L0dfi"))]
     for arm in constants.KIM_MSAD_TRAIN_ARMS:
         lo, hi = (row_name(arm, k) for k in constants.KIM_MSAD_TRAIN_KERNELS)
         pairs.append((f"kernel 9 - 3, {arm} (printed, never a selection)", hi, lo))
@@ -211,8 +209,8 @@ def render(report: dict[str, Any]) -> str:
     lines = [
         "# K5f / K5dfi / L0f / L0dfi trained on MSAD-full — KIM_RUN.md §41", "",
         f"**{LABEL}.** Seed {report['seed']}; one seed per row. Both kernels (3, 9) are printed; "
-        "nothing here picks a kernel or a row (§41 R2 / R6). Controls K5f / K5dfi / L0dfi are the "
-        "Nexar-trained rows read zero-shot.", "",
+        "nothing here picks a kernel or a row (§41 R2 / R6). Every row is trained on MSAD; no "
+        "Nexar-trained row is compared.", "",
     ]
     for name, s in report["sets"].items():
         lines += [f"## {name} ({s['videos']} videos, macro over {s['two_class']}, base rate "
@@ -234,8 +232,6 @@ def render(report: dict[str, Any]) -> str:
         "## How to read this", "",
         "* Micro on MSAD measures clip classification (oracle in the rulers); read macro first.",
         "* Never write \"the better kernel\": it would be chosen on the set it is read on.",
-        "* \"In-domain vs zero-shot\" mixes the corpus with the recipe's MSAD geometry "
-        "(top-k 16, 125 epochs); it is not a pure data effect.",
         "* TAD micro is clip classification (oracle 0.9226); TAD macro is the localization read.",
     ]
     return "\n".join(lines) + "\n"

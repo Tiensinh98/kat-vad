@@ -152,10 +152,10 @@ class TestReport:
                           "kernel 9 - 3, K5f (printed, never a selection)"}
 
     def test_report_prints_every_row_and_no_selection(self, tmp_path: Path) -> None:
-        root = self._root(tmp_path, {"K5fM3": 0.9, "L0fM3": 0.0, "K5fM9": 0.5, "K5f": 0.2})
+        root = self._root(tmp_path, {"K5fM3": 0.9, "L0fM3": 0.0, "K5fM9": 0.5, "L0fM9": 0.1})
         report = mt.run_report(root, 2024, None)
         full = report["sets"]["MSAD-full"]
-        assert set(full["rows"]) == {"K5fM3", "L0fM3", "K5fM9", "K5f"}
+        assert set(full["rows"]) == {"K5fM3", "L0fM3", "K5fM9", "L0fM9"}
         assert full["videos"] == 5 and full["two_class"] == 3
         by = {c["label"]: c for c in full["contrasts"]}
         motion = by["motion + KIM, DVS off (k3)"]
