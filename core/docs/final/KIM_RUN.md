@@ -2445,3 +2445,23 @@ Clip oracle micro 0.9226, so TAD micro is clip classification. Δ vs K5dfi: LaGo
 **Limits.** n = 1 (s2024); 120 positive videos. The motion stream decodes the blurred release while CLIP stays `MSAD_ncc`'s (§18 M1′: 8 of 12 checked test videos were not bit-equal, cosine ≥ 0.999992); the train videos' CLIP identity is **not** re-checked (M2's row count is the gate). MSAD's frame rates are not all 30 (the table lists 6, 10, 12.5, 15, 23.98, 24, 25, 29.97, 30); the V2-S window is 1.6 s only at 30 fps and the census prints the spread. A repeated-frame distortion of motion at low fps is a hypothesis, never a finding. Abnormal train videos often span most of the video (the annotation's windows are not used: weak supervision), so MIL sees few clean negatives inside a positive bag.
 
 **Runbook.** `colab/final/k5_msad_train.ipynb` (train census + gate, copy / decode, V2-S, bake, KNN, 8 rows, reads, table); table `core.tools.msad_train report` (tests `core/tests/test_msad_train.py`); census `core.tools.msad_zs census --split train` (tests `core/tests/test_msad_zs.py::TestTrainSplit`). Outputs `Thesis-Final/outputs/kim_msad_train/`. **Built 2026-11-23, not run.**
+
+## 42. K5dfiACCs: K5dfiACC with the A2 statistics fitted on ACCIDENT train (dated note 2026-11-23, before any number; user)
+
+**Why.** §39 B baked ACCIDENT with **Nexar's** A2 statistics so that K5dfiACC − K5dfi changes one factor (the training data) and reuses every zero-shot bake. §41 Amendment 1 fits MSAD's own statistics, so the two CCTV lines are not symmetric. The user asked to try ACCIDENT with its own statistics (2026-11-23). The open question: does K5dfiACC's input carry a scale mismatch (ACCIDENT's motion moments normalized by Nexar's)?
+
+| # | Choice |
+|---|---|
+| R1 Row | **K5dfiACCs** = K5dfiACC's §39 command, unchanged (`ACCIDENT_window`, same dedup = none, same KNN cache, same plan steps / epochs, s2024); **config diff to K5dfiACC = {}** (guarded). Only `--clip-dir` differs: `cache/v2/A2_S/ACCIDENT_s8_acc`. Control **K5dfiACC**; K5dfi printed. L0 rows are not re-run: they read plain CLIP, which no A2 statistic touches |
+| R2 Statistics | `build_v2_inputs fit-ids` on the ACCIDENT **train** sources that hold a train window (val excluded), CRN off, V2-S, stride 1 over the s8 caches (= §39's bake input). Fitted: `c` (CLIP RMS), `m_u`, `σ_u`; CLIP columns are `x` itself under CRN off |
+| R3 Zero-shot bakes | The four bakes K5dfi / K5dfiACC read (DADA test sources, DoTA-CAP-dev s3-from-s1, TAD s8, DAD) are **re-expressed** with ACCIDENT's statistics by `build_v2_inputs restat` (new): under CRN off the motion columns `c (u − m_u) / σ_u` are a per-channel affine map of `u`, so `u` is recovered and re-scaled exactly; CLIP columns copied. No re-extraction. Outputs `cache/v2/A2_S/<name>_acc` |
+| R4 Gate | **R2-gate (HARD):** restat of §39's ACCIDENT bake (Nexar statistics) to ACCIDENT's == the direct `fit-ids` bake on every ACCIDENT clip, max \|diff\| < `V2_RESTAT_GATE_ATOL` = 1e-4, CLIP columns bit-equal. Fails → stop. Plus the usual J10, `mul_mil` floor, manifest `train_ids_sha1` = ACCIDENT's on every new bake |
+| R5 Reads | TAD (raw), DoTA-CAP-dev (protocol B), DADA whole, DAD, ACCIDENT val (printed), each on the ACCIDENT-statistics bake; K5dfi's protocols |
+| R6 Table | `zs_arm_table` control **K5dfiACC**, rows K5dfiACCs and K5dfi, four sets, macro + micro; the statistics line (`c` Nexar → ACCIDENT, σ_u ratio, \|Δm_u\|/σ_u) printed beside it |
+| N Status | **No primary, printed only, decides nothing.** K5f stays the reference and the main model |
+
+**What a difference means.** K5dfiACCs − K5dfiACC changes the statistics at **train and at read together** (every zero-shot input moves with them), so it is "the effect of normalizing with ACCIDENT's moments instead of Nexar's", never "ACCIDENT's statistics fit the test sets better", and never evidence on the repeated-frame hypothesis of §39 W by itself.
+
+**Not licensed.** Comparing K5dfiACCs with any §41 MSAD row as "CCTV A vs CCTV B" (different data and different fit sets); any cause from n = 1.
+
+**Runbook.** `colab/final/k5dfi_acc_stats.ipynb` (run after `k5dfi_acc.ipynb`; preflight, tests, fit + gate + restat, train, reads, table). Code: `core.data.v2_inputs.restat_rows`, `core.tools.build_v2_inputs restat`; tests `core/tests/test_v2_restat.py` (7). Constants `KIM_ACCIDENT_STATS_*`, `ACCIDENT_SELF_BAKE_DIRNAME`, `{NEXAR,ACCIDENT}_STATS_BAKE_SUFFIX`, `V2_RESTAT_GATE_ATOL`. **Built 2026-11-23, NOT RUN.**

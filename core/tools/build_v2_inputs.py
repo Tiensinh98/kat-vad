@@ -19,6 +19,12 @@ clip, plus :data:`constants.V2_INPUT_MANIFEST_FILENAME` and the fitted statistic
     Another corpus (DoTA-dev clips) baked with the statistics of a ``fit`` cache;
     each clip is its own CRN reference. Nothing is refitted.
 
+``restat``
+    An A2 cache (CRN off) already baked with one set of statistics, re-expressed with another
+    (``KIM_RUN.md`` §42: the zero-shot bakes K5dfi read, moved from Nexar's statistics to
+    ACCIDENT's) without the raw VideoMAE rows: ``restat_rows`` inverts the per-channel affine
+    motion scaling exactly; the CLIP columns are copied. A CRN cache is refused.
+
 Arms (``--crn``, ``--motion``): A1 = CRN only, A2 = motion only, A3 = both. A0 is
 the plain CLIP cache and is never baked.
 
@@ -56,6 +62,7 @@ from core.data.v2_inputs import (
     bake_rows,
     fit_stats,
     load_stats,
+    restat_rows,
     save_stats,
 )
 from core.data.v2_splits import lines_sha1
@@ -68,6 +75,7 @@ LOGGER = logging.getLogger(__name__)
 SUBCOMMAND_FIT = "fit"
 SUBCOMMAND_APPLY = "apply"
 SUBCOMMAND_FIT_IDS = "fit-ids"
+SUBCOMMAND_RESTAT = "restat"
 FITTED_ON = "T2-train minus T2-val (core/splits/v2/t2_val_sources.txt)"
 
 
@@ -280,6 +288,52 @@ def run_apply(args: argparse.Namespace) -> dict[str, Any]:
     return manifest
 
 
+def run_restat(args: argparse.Namespace) -> dict[str, Any]:
+    """``--from-dir`` (baked with its own statistics) -> ``--out-dir`` with ``--stats-dir``'s."""
+    old, new = load_stats(args.from_dir), load_stats(args.stats_dir)
+    source = json.loads(
+        (args.from_dir / constants.V2_INPUT_MANIFEST_FILENAME).read_text(encoding="utf-8")
+    )
+    fitted = json.loads(
+        (args.stats_dir / constants.V2_INPUT_MANIFEST_FILENAME).read_text(encoding="utf-8")
+    )
+    if args.ids_file is not None:
+        ids = read_id_lines(args.ids_file)
+    else:
+        ids = sorted(p.stem for p in args.from_dir.glob("*.npy"))
+    if not ids:
+        raise SystemExit(f"nothing to restat in {args.from_dir}")
+    args.out_dir.mkdir(parents=True, exist_ok=True)
+    width = 0
+    for video_id in ids:
+        rows = restat_rows(np.load(args.from_dir / f"{video_id}.npy"), old, new)
+        width = rows.shape[1]
+        save_array(args.out_dir / f"{video_id}.npy", rows)
+    save_stats(args.out_dir, new)
+    manifest = _manifest(
+        new,
+        width,
+        {
+            "mode": SUBCOMMAND_RESTAT,
+            "fitted_on": fitted["fitted_on"],
+            "train_ids_sha1": fitted["train_ids_sha1"],
+            "stats_from": str(args.stats_dir),
+            "restat_from": str(args.from_dir),
+            "restat_from_train_ids_sha1": source["train_ids_sha1"],
+            "baked_ids": len(ids),
+            "baked_ids_sha1": lines_sha1(ids),
+            "reference_unit": source.get("reference_unit"),
+            "clip_dir": source.get("clip_dir"),
+            "stride_over_clip_dir": source.get("stride_over_clip_dir"),
+            "video_dir": source.get("video_dir"),
+        },
+    )
+    write_json_atomic(args.out_dir / constants.V2_INPUT_MANIFEST_FILENAME, manifest)
+    LOGGER.info("restat %d files %s -> %s (c %.4f -> %.4f)", len(ids), args.from_dir,
+                args.out_dir, old.c, new.c)
+    return manifest
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n", 1)[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -308,6 +362,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--stride", type=int, default=1, help="subsample clip rows [::N] first (DoTA s1 -> 3)"
     )
     apply.add_argument("--out-dir", type=Path, required=True)
+    restat = sub.add_parser(SUBCOMMAND_RESTAT, help="re-express an A2 cache with other stats")
+    restat.add_argument("--from-dir", type=Path, required=True, help="a baked A2 cache")
+    restat.add_argument("--stats-dir", type=Path, required=True, help="the new statistics")
+    restat.add_argument("--ids-file", type=Path, default=None, help="ids (default: all)")
+    restat.add_argument("--out-dir", type=Path, required=True)
     return parser
 
 
@@ -324,6 +383,8 @@ def main(argv: list[str] | None = None) -> None:
             raise SystemExit("--motion needs --video-dir")
         arm_name(args.crn, args.motion)
         run_fit_ids(args)
+    elif args.command == SUBCOMMAND_RESTAT:
+        run_restat(args)
     else:
         run_apply(args)
 

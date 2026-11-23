@@ -120,6 +120,34 @@ def bake_rows(x: np.ndarray, u: np.ndarray | None, stats: V2Stats) -> np.ndarray
     return rows
 
 
+def restat_rows(rows: np.ndarray, old: V2Stats, new: V2Stats) -> np.ndarray:
+    """Rows baked with ``old`` re-expressed with ``new``, exactly, without the raw ``u``.
+
+    Only for CRN off (A2): there the CLIP columns are ``x`` itself (``s = 1``) and the motion
+    columns ``c (u - m_u) / sigma_u`` are a per-channel affine map of ``u``, so
+    ``u = z sigma_u / c + m_u`` is recovered and re-scaled. With CRN the per-clip reference
+    is subtracted from ``u`` and cannot be undone; that is refused.
+    """
+    for name, st in (("old", old), ("new", new)):
+        if st.has_crn or not st.has_motion:
+            raise ValueError(f"restat needs CRN off and a motion stream ({name}: crn={st.crn!r}, "
+                             f"motion={st.motion!r})")
+    m_old, sd_old, m_new, sd_new = old.m_u, old.sigma_u, new.m_u, new.sigma_u
+    if m_old is None or sd_old is None or m_new is None or sd_new is None:
+        raise ValueError("restat needs m_u and sigma_u on both sides")
+    if old.motion != new.motion or m_old.shape != m_new.shape:
+        raise ValueError(f"restat across encoders: {old.motion!r} -> {new.motion!r}")
+    d_v = m_old.shape[0]
+    if rows.ndim != 2 or rows.shape[1] <= d_v:
+        raise ValueError(f"rows of shape {rows.shape} carry no {d_v}-wide motion block")
+    base = np.asarray(rows, dtype=np.float64)
+    clip, z = base[:, :-d_v], base[:, -d_v:]
+    u = z * sd_old / old.c + m_old
+    scaled = new.c * (u - m_new) / sd_new
+    out: np.ndarray = np.concatenate([clip, scaled], axis=1).astype(np.float32)
+    return out
+
+
 def save_stats(out_dir: Path, stats: V2Stats) -> Path:
     """Write the arrays beside the manifest (``np.savez``; small)."""
     arrays: dict[str, np.ndarray] = {"s": np.array(stats.s), "c": np.array(stats.c)}
@@ -188,5 +216,6 @@ __all__ = [
     "fit_stats",
     "load_stats",
     "read_input_manifest",
+    "restat_rows",
     "save_stats",
 ]

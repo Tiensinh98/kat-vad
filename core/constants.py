@@ -1542,6 +1542,15 @@ KIM_ACCIDENT_REPORT_STEM = "k5dfiacc_report"  # REPORTS/<this>.md: build + val +
 KIM_ACCIDENT_TABLE_NAME = "k5dfiacc_s2024"  # zs_arm_table control K5dfi (rows K5dfiACC, K5f)
 KIM_ACCIDENT_L0_TABLE_NAME = "l0dfiacc_s2024"  # zs_arm_table control L0dfi (row L0dfiACC)
 ACCIDENT_BAKE_DIRNAME = "ACCIDENT_s8_nexar"  # cache/v2/A2_S/<this>: Nexar's A2 statistics (§39 B)
+# KIM_RUN.md §42: K5dfiACC with the A2 statistics FITTED ON ACCIDENT train (§39 B used Nexar's)
+KIM_ACCIDENT_STATS_ROW = "K5dfiACCs"  # K5dfiACC's command; only the input cache's statistics differ
+KIM_ACCIDENT_STATS_OUTPUT_DIRNAME = "kim_accident_stats"  # OUTPUT_ROOT/<this>/<row>/K5/s<seed>
+KIM_ACCIDENT_STATS_REPORT_STEM = "k5dfiaccs_report"  # REPORTS/<this>.md
+KIM_ACCIDENT_STATS_TABLE_NAME = "k5dfiaccs_s2024"  # zs_arm_table control K5dfiACC (row K5dfiACCs)
+ACCIDENT_SELF_BAKE_DIRNAME = "ACCIDENT_s8_acc"  # cache/v2/A2_S/<this>: fit-ids on ACCIDENT train
+NEXAR_STATS_BAKE_SUFFIX = "_nexar"  # a zero-shot A2 bake with Nexar's statistics ends with this
+ACCIDENT_STATS_BAKE_SUFFIX = "_acc"  # ... and its restat to ACCIDENT's statistics ends with this
+V2_RESTAT_GATE_ATOL = 1e-4  # §42 R: restat(Nexar-stats bake) vs a direct bake, max |diff|
 # TAD (Lv 2021, WSAL release) on Kaggle: TAD/frames/{abnormal,normal}/<id>.mp4/<k>.jpg
 # Only the §39 dedup contact sheet reads it (single frames); TAD scores read cache/clip/TAD_ncc.
 TAD_KAGGLE_HANDLE = "nikanvasei/traffic-anomaly-dataset-tad"
