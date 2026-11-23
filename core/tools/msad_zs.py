@@ -88,6 +88,17 @@ def length_auc(abnormal_rows: list[int], normal_rows: list[int]) -> float:
     return float(((a < n).sum() + 0.5 * (a == n).sum()) / (a.size * n.size))
 
 
+def canonical_id(stem: str, aliases: dict[str, str] | None = None) -> str:
+    """A file stem spelled as the release spells it -> the id ``labels_train.json`` uses.
+
+    ``perdestrian_street7`` -> ``pedestrian_street7`` (the release's typo, §41 note 2026-11-23).
+    """
+    for typo, correct in (aliases or {}).items():
+        if stem.startswith(typo):
+            return correct + stem[len(typo):]
+    return stem
+
+
 def index_videos(paths: list[Path]) -> dict[str, list[Path]]:
     """``{stem: [paths]}``; a stem with two paths is a duplicate the census refuses."""
     found: dict[str, list[Path]] = {}
@@ -165,6 +176,7 @@ def summarize(entries: dict[str, dict[str, Any]], expected: int | None = None,
     }
     if expected_abnormal is not None:
         out["abnormal"] = abnormal
+        out["alias_matched"] = sorted(v for v, e in entries.items() if e.get("alias"))
         out["train"] = train_stats(entries)
     return out
 
@@ -266,13 +278,21 @@ def census(root: Path, labels: dict[str, Any], clip_dir: Path | None, stride: in
            dirs: tuple[str, ...] = constants.MSAD_ZS_SOURCE_DIRS,
            suffixes: tuple[str, ...] = (VIDEO_SUFFIX,),
            expected: int | None = None,
-           expected_abnormal: int | None = None) -> dict[str, Any]:
+           expected_abnormal: int | None = None,
+           aliases: dict[str, str] | None = None) -> dict[str, Any]:
     """Census of ``labels``' ids. A list value is the test split's per-frame labels; an int
-    (``labels_train.json``) is the video-level label, which must agree with the folder."""
+    (``labels_train.json``) is the video-level label, which must agree with the folder.
+
+    ``aliases`` (train split) maps a typo'd file prefix to the id's spelling; a file spelled
+    exactly as the id always wins, an alias match is flagged ``alias`` in the entry.
+    """
     found = index_videos(source_videos(root, dirs, suffixes))
+    by_alias: dict[str, list[Path]] = {}
+    for stem, stem_paths in found.items():
+        by_alias.setdefault(canonical_id(stem, aliases), []).extend(stem_paths)
     entries: dict[str, dict[str, Any]] = {}
     for vid in sorted(labels):
-        paths = found.get(vid, [])
+        paths = found.get(vid) or by_alias.get(vid, [])
         frames: int | None = None
         fps: float | None = None
         rows: int | None = None
@@ -291,6 +311,7 @@ def census(root: Path, labels: dict[str, Any], clip_dir: Path | None, stride: in
             "frames": frames, "fps": fps, "rows": rows, "clip_rows": clip_rows,
             "label_rows": None if video_level else len(labels[vid]),
             "label": int(labels[vid]) if video_level else None, "reason": reason,
+            "alias": len(paths) == 1 and paths[0].stem != vid,
         }
         LOGGER.info("%s: %s frames, %s fps, rows %s / clip %s -> %s", vid, frames, fps, rows,
                     clip_rows, reason)
@@ -356,7 +377,8 @@ def main(argv: list[str] | None = None) -> None:
         if args.split == SPLIT_TRAIN:
             doc = census(args.videos_root, _read_json(args.labels), args.clip_dir, args.stride,
                          constants.MSAD_TRAIN_SOURCE_DIRS, constants.MSAD_VIDEO_SUFFIXES,
-                         constants.MSAD_TRAIN_VIDEOS, constants.MSAD_TRAIN_ABNORMAL)
+                         constants.MSAD_TRAIN_VIDEOS, constants.MSAD_TRAIN_ABNORMAL,
+                         constants.MSAD_FILE_STEM_ALIASES)
         else:
             doc = census(args.videos_root, _read_json(args.labels), args.clip_dir, args.stride)
         args.out.parent.mkdir(parents=True, exist_ok=True)

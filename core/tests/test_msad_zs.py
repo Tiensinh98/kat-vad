@@ -299,3 +299,59 @@ class TestDecodeIds:
         msad_zs.main(["decode", "--videos-root", str(tmp_path), "--census",
                       str(self._census_doc(tmp_path)), "--out-dir", str(tmp_path / "f")])
         assert seen == ["Fire_1", "Fire_2"]
+
+
+class TestFileNameAliases:
+    """The release spells ``perdestrian_street<n>``; labels / CLIP say ``pedestrian_street<n>``."""
+
+    ALIASES = constants.MSAD_FILE_STEM_ALIASES
+
+    def test_canonical_id(self) -> None:
+        assert msad_zs.canonical_id("perdestrian_street7", self.ALIASES) == "pedestrian_street7"
+        assert msad_zs.canonical_id("pedestrian_street7", self.ALIASES) == "pedestrian_street7"
+        assert msad_zs.canonical_id("perdestrian_street7") == "perdestrian_street7"  # no aliases
+
+    def _tree(self, tmp_path: Path, names: dict[str, str]) -> tuple[Path, Path]:
+        root, clip = tmp_path / "videos", tmp_path / "clip"
+        clip.mkdir()
+        (root / "MSAD_anomaly").mkdir(parents=True)
+        for rel in names.values():
+            path = root / "MSAD_normal_training" / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"")
+        for vid in names:
+            np.save(clip / f"{vid}.npy", np.zeros((2, 2), np.float32))
+        return root, clip
+
+    def _census(self, root: Path, clip: Path, labels: dict[str, int],
+                aliases: dict[str, str] | None) -> dict[str, object]:
+        return msad_zs.census(root, labels, clip, 8, constants.MSAD_TRAIN_SOURCE_DIRS,
+                              constants.MSAD_VIDEO_SUFFIXES, len(labels), 0, aliases)
+
+    def test_typo_spelled_file_matches_the_id_and_is_flagged(
+            self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        root, clip = self._tree(tmp_path, {"pedestrian_street7": "street/perdestrian_street7.avi"})
+        monkeypatch.setattr(msad_zs, "probe_video", lambda p: (16, 30.0))
+        doc = self._census(root, clip, {"pedestrian_street7": 0}, self.ALIASES)
+        summary = doc["summary"]
+        assert isinstance(summary, dict) and summary["pass"], summary
+        assert summary["alias_matched"] == ["pedestrian_street7"]
+        assert doc["videos"]["pedestrian_street7"]["video"].endswith("perdestrian_street7.avi")  # type: ignore[index]
+
+    def test_without_aliases_the_typo_is_missing(self, tmp_path: Path,
+                                                 monkeypatch: pytest.MonkeyPatch) -> None:
+        root, clip = self._tree(tmp_path, {"pedestrian_street7": "street/perdestrian_street7.avi"})
+        monkeypatch.setattr(msad_zs, "probe_video", lambda p: (16, 30.0))
+        doc = self._census(root, clip, {"pedestrian_street7": 0}, None)
+        assert doc["summary"]["failures"] == {"pedestrian_street7": msad_zs.MISSING}  # type: ignore[index]
+
+    def test_an_exactly_spelled_file_wins_over_the_alias(
+            self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        root, clip = self._tree(tmp_path, {"pedestrian_street6": "a/pedestrian_street6.mp4"})
+        extra = root / "MSAD_normal_training" / "b" / "perdestrian_street6.mp4"
+        extra.parent.mkdir(parents=True)
+        extra.write_bytes(b"")
+        monkeypatch.setattr(msad_zs, "probe_video", lambda p: (16, 30.0))
+        doc = self._census(root, clip, {"pedestrian_street6": 0}, self.ALIASES)
+        assert doc["summary"]["pass"] and doc["summary"]["alias_matched"] == []  # type: ignore[index]
+        assert doc["videos"]["pedestrian_street6"]["video"].endswith("a/pedestrian_street6.mp4")  # type: ignore[index]

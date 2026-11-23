@@ -1560,6 +1560,9 @@ KIM_MSAD_TRAIN_REPORT_STEM = "k5msad_train_report"  # REPORTS/<this>.{md,json}
 MSAD_TRAIN_SOURCE_DIRS = ("MSAD_anomaly", "MSAD_normal_training")
 MSAD_ANOMALY_DIR = "MSAD_anomaly"  # a train id's label must agree with the folder it is found in
 MSAD_VIDEO_SUFFIXES = (".mp4", ".avi")  # one normal-train video is an .avi (perdestrian_street7)
+# the release spells 26 files "perdestrian_street<n>"; labels_train.json and MSAD_ncc say
+# "pedestrian_street<n>"
+MSAD_FILE_STEM_ALIASES = {"perdestrian_street": "pedestrian_street"}
 MSAD_TRAIN_VIDEOS = 480  # labels_train.json: 120 abnormal + 360 normal (V2_TADG_MSAD_TRAIN)
 MSAD_TRAIN_ABNORMAL = 120
 MSAD_TRAIN_CENSUS_FILENAME = "msad_train_census.json"
