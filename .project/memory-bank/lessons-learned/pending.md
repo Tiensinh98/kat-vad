@@ -2589,7 +2589,7 @@ Promote if a second harness needs the same split.
 **Good:** pass the value the arms trained with, from a constant or the arm's `config.yaml`, and print it in the report header (it already is: "MIL top-k pct **5**").
 **Rule:** Pass every training knob a profiler verdict depends on from the trained arms' config, and check the report header's value against `config.yaml` before quoting a verdict.
 **Files:** `colab/final/nexar_eda.ipynb` cell 10, `core/tools/eda.py:57`, `core/eda/report.py:107`.
-**Gate status.** One occurrence (caught by the user from memory, fixed `e09635d`); candidate.
+**Gate status.** Two occurrences in the same run: `--mil-topk-pct` (caught by the user from memory, fixed `e09635d`) and `--score-head-kernel` (default 9 vs K5f's 3, found by Claude reading the raw report 2026-11-23, no verdict changed, notebook fixed); candidate. Recurrence passes the gate's "seen twice" bar only if counted per knob.
 
 ## (dv) [MEDIUM] Config - `*_topk_pct` is a divisor, not a percentage: k = n // pct, so a smaller number is a larger share (2026-11-23)
 **Triggers:** mil_topk_pct, topk_pct, k = n // pct, porting a recipe, MSAD, whole video, window geometry
@@ -2599,3 +2599,12 @@ Promote if a second harness needs the same split.
 **Rule:** Print k = n // pct at the corpus's median clip length whenever `*_topk_pct` crosses to a new corpus, and never call the value a percentage.
 **Files:** `core/losses/mil.py:22`, `core/tools/msad_train.py:train_sets`, `colab/final/k5_msad_train.ipynb` step 9, `core/docs/final/KIM_RUN.md` §41.
 **Gate status.** One occurrence caught at design time (no run affected); candidate. Related: index lesson "A score head whose kernel spans the clip is a clip classifier", (du).
+
+## (dw) [MEDIUM] Concurrency - a future cancelled after the first failure comes back from `as_completed` and raises `CancelledError` (2026-11-23)
+**Triggers:** ThreadPoolExecutor, as_completed, cancel, fail fast, decode_many, parallel decode
+**Problem:** `msad_zs.decode_many` cancelled pending futures on the first failure, but `as_completed` still yields them and `future.result()` raises a bare `CancelledError`, which escaped the `except` and hid the named failure (which video, which error).
+**Bad:** `for f in as_completed(fs): try: f.result() except ValueError: ...; for p in fs: p.cancel()`
+**Good:** `if f.cancelled(): continue` before `f.result()`; test it with 1 worker and the failing job first, so the result does not depend on thread timing.
+**Rule:** Skip cancelled futures before calling `result()` whenever a loop over `as_completed` cancels the others, and test the fail-fast path with one worker.
+**Files:** `core/tools/msad_zs.py:decode_many`, `core/tests/test_msad_zs.py::TestParallelDecode::test_cancelled_jobs_do_not_hide_the_failure`.
+**Gate status.** One occurrence, caught before any Colab run; candidate.

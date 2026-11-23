@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 
 import numpy as np
@@ -394,6 +395,25 @@ class TestParallelDecode:
         jobs = [(tmp_path / f"{v}.mp4", tmp_path / v, 8) for v in ("a", "bad", "c")]
         with pytest.raises(RuntimeError, match="bad"):
             msad_zs.decode_many(jobs, 2)
+
+    def test_cancelled_jobs_do_not_hide_the_failure(self, tmp_path: Path,
+                                                    monkeypatch: pytest.MonkeyPatch) -> None:
+        """One worker, the bad video first: the others are cancelled before they start, and
+        the error still names the bad video (was: a bare CancelledError)."""
+        ran: list[str] = []
+
+        def fake(src: Path, out: Path, frames: int) -> bool:
+            ran.append(out.name)
+            if out.name == "bad":
+                raise ValueError("decoded 5 frames, census 8 (C10)")
+            time.sleep(0.05)  # the worker is busy when the failure is handled
+            return True
+
+        monkeypatch.setattr(msad_zs, "decode_video", fake)
+        jobs = [(tmp_path / f"{v}.mp4", tmp_path / v, 8) for v in ("bad", "a", "c", "d")]
+        with pytest.raises(RuntimeError, match=r"bad.*C10"):
+            msad_zs.decode_many(jobs, 1)
+        assert ran[0] == "bad" and len(ran) < len(jobs)  # pending jobs were not run
 
     def test_threads_write_what_the_sequential_loop_writes(self, tmp_path: Path) -> None:
         """Real PyAV decode + JPEG encode on tiny clips: bytes equal for 1 and 3 workers."""

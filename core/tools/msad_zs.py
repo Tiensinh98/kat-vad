@@ -41,8 +41,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
-import av
 import numpy as np
+from av.error import FFmpegError
 
 from core import constants
 from core.data.definitions import DATASET_CLS_DEFS
@@ -225,9 +225,11 @@ def decode_many(jobs: list[tuple[Path, Path, int]], workers: int) -> int:
         futures = {pool.submit(decode_video, src, out, frames): out.name
                    for src, out, frames in jobs}
         for n, future in enumerate(as_completed(futures), 1):
+            if future.cancelled():  # cancelled below after a failure; result() would raise
+                continue            # CancelledError and hide the failure being reported
             try:
                 decoded += bool(future.result())
-            except (ValueError, OSError, av.error.FFmpegError) as err:
+            except (ValueError, OSError, FFmpegError) as err:
                 failed[futures[future]] = str(err)
                 for pending in futures:
                     pending.cancel()
