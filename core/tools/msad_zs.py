@@ -1,15 +1,19 @@
-"""MSAD test videos for the zero-shot read of ``KIM_RUN.md`` §18: census, identity, frame decode.
+"""MSAD videos for ``KIM_RUN.md`` §18 (zero-shot test) and §41 (train): census, identity, decode.
 
-The ``mp4`` come from the official blurred release through the user's Drive shortcut
-(``MSAD_anomaly/<class>/<id>.mp4``, ``MSAD_normal_testing/<id>.mp4``); labels, definitions and
-the CLIP cache are the ones ``full_gate_a`` read (``data/MSAD``, ``cache/clip/MSAD_ncc``).
+The videos come from the official blurred release through the user's Drive shortcut
+(``MSAD_anomaly/<class>/<id>.mp4``, ``MSAD_normal_testing/<id>.mp4`` for the test split,
+``MSAD_normal_training/<scenario>/<id>.mp4`` for the train normals); labels, definitions and the
+CLIP cache are the ones ``full_gate_a`` read (``data/MSAD``, ``cache/clip/MSAD_ncc``).
 
 Subcommands::
 
-    census     find each test id's mp4 exactly once under MSAD_ZS_SOURCE_DIRS (never VALU's
-               modified copy), decode-count it (C10), read its fps, and gate M2:
+    census     find each id's video exactly once under the split's official folders (never
+               VALU's modified copy), decode-count it (C10), read its fps, and gate M2:
                ceil(decoded / stride) == rows(MSAD_ncc). rows != len(labels) is counted only
-               (core.evaluate truncates both rows alike). Exit non-zero on failure
+               (core.evaluate truncates both rows alike). ``--split train`` (§41) reads
+               ``labels_train.json`` ({id: 0|1}), also accepts ``.avi``, requires each label to
+               agree with the folder it was found in, and prints the train length ruler.
+               Exit non-zero on failure
     pick       the 12 ids of gate M1 (first test id of each class + first normal) -> ids file
     identity   gate M1: re-extracted CLIP rows are MSAD_ncc's rows -- per-row cosine >=
                MSAD_ZS_IDENTITY_MIN_COS and the nearest video-mean is the video's own; max abs
@@ -38,26 +42,50 @@ from typing import Any
 import numpy as np
 
 from core import constants
+from core.data.definitions import DATASET_CLS_DEFS
 from core.tools.dad import decode_video, probe_video
 from core.tools.kill_switch_probe import write_json_atomic
 
 LOGGER = logging.getLogger(__name__)
 
+# the 11 MSAD anomaly classes (definitions.py), without "Normal"
+MSAD_ANOMALY_CLASSES = frozenset(c for c in DATASET_CLS_DEFS["msad"] if c != "Normal")
+
 OK = "ok"
 MISSING = "mp4_missing"
 DUPLICATE = "mp4_found_twice"
 ROWS_MISMATCH = "decoded_rows_differ_from_clip_rows"
+LABEL_FOLDER = "label_disagrees_with_folder"
 VIDEO_SUFFIX = ".mp4"
+SPLIT_TEST = "test"
+SPLIT_TRAIN = "train"
 
 
 # ---------------------------------------------------------------------------
 # pure pieces
 # ---------------------------------------------------------------------------
 def video_class(video_id: str) -> str:
-    """``Traffic_accident_20`` -> ``Traffic_accident``; every normal -> ``Normal``."""
+    """``Traffic_accident_20`` -> ``Traffic_accident``; every normal -> ``Normal``.
+
+    Test normals are ``MSAD_normal_testing_<n>``; train normals are ``<scenario><n>``
+    (``frontdoor1``, ``street_highview1``): a normal is every id whose prefix is not a class.
+    """
     if video_id.startswith(constants.MSAD_ZS_NORMAL_PREFIX):
         return "Normal"
-    return video_id.rsplit("_", 1)[0]
+    head = video_id.rsplit("_", 1)[0]
+    return head if head in MSAD_ANOMALY_CLASSES else "Normal"
+
+
+def folder_agrees_with_label(label: int, relative_video: Path) -> bool:
+    """Abnormal (1) iff the video is under ``MSAD_anomaly``; a swapped label inverts supervision."""
+    return (relative_video.parts[0] == constants.MSAD_ANOMALY_DIR) == bool(label)
+
+
+def length_auc(abnormal_rows: list[int], normal_rows: list[int]) -> float:
+    """P(an abnormal video is shorter than a normal one), ties half: C28's length ruler."""
+    a = np.asarray(abnormal_rows, dtype=np.float64)[:, None]
+    n = np.asarray(normal_rows, dtype=np.float64)[None, :]
+    return float(((a < n).sum() + 0.5 * (a == n).sum()) / (a.size * n.size))
 
 
 def index_videos(paths: list[Path]) -> dict[str, list[Path]]:
@@ -73,26 +101,59 @@ def stride_rows(frames: int, stride: int) -> int:
     return math.ceil(frames / stride)
 
 
-def entry_reason(paths: list[Path], rows: int | None, clip_rows: int | None) -> str:
+def entry_reason(paths: list[Path], rows: int | None, clip_rows: int | None,
+                 label_ok: bool = True) -> str:
     if not paths:
         return MISSING
     if len(paths) > 1:
         return DUPLICATE
     if clip_rows is not None and rows != clip_rows:
         return ROWS_MISMATCH
+    if not label_ok:
+        return LABEL_FOLDER
     return OK
 
 
-def summarize(entries: dict[str, dict[str, Any]]) -> dict[str, Any]:
-    """Counts, fps spread, label-length mismatches (printed) and the M2 verdict."""
+def train_stats(entries: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """Train split only (§41): the length ruler and rows by label. Printed, never gated.
+
+    ``length_ruler_auc`` is P(abnormal shorter than normal) over the 480 videos at the census
+    stride: above 0.5 a clip-length shortcut exists in the supervision (lesson C28).
+    """
+    rows: dict[int, list[int]] = {1: [], 0: []}
+    for e in entries.values():
+        if e.get("rows") is not None and e.get("label") is not None:
+            rows[int(e["label"])].append(int(e["rows"]))
+    if not rows[1] or not rows[0]:
+        return {}
+    return {
+        "abnormal": len(rows[1]), "normal": len(rows[0]),
+        "rows_median_abnormal": float(np.median(rows[1])),
+        "rows_median_normal": float(np.median(rows[0])),
+        "rows_min": min(rows[1] + rows[0]), "rows_max": max(rows[1] + rows[0]),
+        "length_ruler_auc": length_auc(rows[1], rows[0]),
+    }
+
+
+def summarize(entries: dict[str, dict[str, Any]], expected: int | None = None,
+              expected_abnormal: int | None = None) -> dict[str, Any]:
+    """Counts, fps spread, label-length mismatches (printed) and the M2 verdict.
+
+    ``expected`` defaults to the test split's size (read at call time); ``expected_abnormal``
+    (train split) also gates the number of label-1 ids.
+    """
+    target = constants.MSAD_ZS_TEST_VIDEOS if expected is None else expected
     bad = {v: e["reason"] for v, e in entries.items() if e["reason"] != OK}
     fps = [round(float(e["fps"]), 2) for e in entries.values() if e.get("fps") is not None]
     spread: dict[str, int] = {}
     for f in fps:
         spread[str(f)] = spread.get(str(f), 0) + 1
     label_diff = {v: e["label_rows"] - e["clip_rows"] for v, e in entries.items()
-                  if e.get("clip_rows") is not None and e["label_rows"] != e["clip_rows"]}
-    return {
+                  if e.get("clip_rows") is not None and e.get("label_rows") is not None
+                  and e["label_rows"] != e["clip_rows"]}
+    abnormal = sum(1 for e in entries.values() if e.get("label") == 1)
+    abnormal_ok = expected_abnormal is None or abnormal == expected_abnormal
+    out: dict[str, Any] = {
         "videos": len(entries),
         "found": sum(1 for e in entries.values() if e["reason"] != MISSING),
         "fps_spread": dict(sorted(spread.items(), key=lambda kv: -kv[1])),
@@ -100,8 +161,12 @@ def summarize(entries: dict[str, dict[str, Any]]) -> dict[str, Any]:
         "label_rows_differ": len(label_diff),
         "label_rows_differ_examples": dict(sorted(label_diff.items())[:10]),
         "failures": bad,
-        "pass": not bad and len(entries) == constants.MSAD_ZS_TEST_VIDEOS,
+        "pass": not bad and len(entries) == target and abnormal_ok,
     }
+    if expected_abnormal is not None:
+        out["abnormal"] = abnormal
+        out["train"] = train_stats(entries)
+    return out
 
 
 def pick_identity_ids(ids: list[str]) -> list[str]:
@@ -188,17 +253,23 @@ def _rows(directory: Path, video_id: str) -> int | None:
 
 
 def source_videos(root: Path,
-                  dirs: tuple[str, ...] = constants.MSAD_ZS_SOURCE_DIRS) -> list[Path]:
-    """Every mp4 under the official folders only (never VALU's modified copies)."""
+                  dirs: tuple[str, ...] = constants.MSAD_ZS_SOURCE_DIRS,
+                  suffixes: tuple[str, ...] = (VIDEO_SUFFIX,)) -> list[Path]:
+    """Every video under the official folders only (never VALU's modified copies)."""
     missing = [d for d in dirs if not (root / d).is_dir()]
     if missing:
         raise FileNotFoundError(f"no {missing} under {root}")
-    return [p for d in dirs for p in (root / d).rglob(f"*{VIDEO_SUFFIX}")]
+    return [p for d in dirs for s in suffixes for p in (root / d).rglob(f"*{s}")]
 
 
-def census(root: Path, labels: dict[str, list[int]], clip_dir: Path | None,
-           stride: int) -> dict[str, Any]:
-    found = index_videos(source_videos(root))
+def census(root: Path, labels: dict[str, Any], clip_dir: Path | None, stride: int,
+           dirs: tuple[str, ...] = constants.MSAD_ZS_SOURCE_DIRS,
+           suffixes: tuple[str, ...] = (VIDEO_SUFFIX,),
+           expected: int | None = None,
+           expected_abnormal: int | None = None) -> dict[str, Any]:
+    """Census of ``labels``' ids. A list value is the test split's per-frame labels; an int
+    (``labels_train.json``) is the video-level label, which must agree with the folder."""
+    found = index_videos(source_videos(root, dirs, suffixes))
     entries: dict[str, dict[str, Any]] = {}
     for vid in sorted(labels):
         paths = found.get(vid, [])
@@ -209,23 +280,28 @@ def census(root: Path, labels: dict[str, list[int]], clip_dir: Path | None,
             frames, fps = probe_video(paths[0])
             rows = stride_rows(frames, stride)
         clip_rows = _rows(clip_dir, vid) if clip_dir is not None else None
-        reason = entry_reason(paths, rows, clip_rows)
+        video_level = not isinstance(labels[vid], list)
+        label_ok = True
+        if video_level and len(paths) == 1:
+            label_ok = folder_agrees_with_label(int(labels[vid]), paths[0].relative_to(root))
+        reason = entry_reason(paths, rows, clip_rows, label_ok)
         entries[vid] = {
             "cls": video_class(vid),
             "video": str(paths[0].relative_to(root)) if len(paths) == 1 else None,
             "frames": frames, "fps": fps, "rows": rows, "clip_rows": clip_rows,
-            "label_rows": len(labels[vid]), "reason": reason,
+            "label_rows": None if video_level else len(labels[vid]),
+            "label": int(labels[vid]) if video_level else None, "reason": reason,
         }
-        LOGGER.info("%s: %s frames, %s fps, rows %s / clip %s / labels %d -> %s", vid, frames,
-                    fps, rows, clip_rows, len(labels[vid]), reason)
-    return {"root": str(root), "stride": stride, "source_dirs": list(constants.MSAD_ZS_SOURCE_DIRS),
-            "summary": summarize(entries), "videos": entries}
+        LOGGER.info("%s: %s frames, %s fps, rows %s / clip %s -> %s", vid, frames, fps, rows,
+                    clip_rows, reason)
+    return {"root": str(root), "stride": stride, "source_dirs": list(dirs),
+            "summary": summarize(entries, expected, expected_abnormal), "videos": entries}
 
 
-def census_current(doc: dict[str, Any]) -> bool:
+def census_current(doc: dict[str, Any],
+                   dirs: tuple[str, ...] = constants.MSAD_ZS_SOURCE_DIRS) -> bool:
     """A census that passed and read only the official folders; anything else is re-run."""
-    return bool(doc["summary"]["pass"]) and doc.get("source_dirs") == list(
-        constants.MSAD_ZS_SOURCE_DIRS)
+    return bool(doc["summary"]["pass"]) and doc.get("source_dirs") == list(dirs)
 
 
 def identity(ref_dir: Path, new_dir: Path, ids: list[str], atol: float,
@@ -241,9 +317,13 @@ def _read_json(path: Path) -> Any:
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n", 1)[0])
     sub = parser.add_subparsers(dest="command", required=True)
-    c = sub.add_parser("census", help="find, decode-count and gate the 240 test mp4 (M2)")
+    c = sub.add_parser("census", help="find, decode-count and gate the split's videos (M2)")
     c.add_argument("--videos-root", type=Path, required=True)
-    c.add_argument("--labels", type=Path, required=True, help="data/MSAD/frame_labels_test.json")
+    c.add_argument("--split", choices=(SPLIT_TEST, SPLIT_TRAIN), default=SPLIT_TEST,
+                   help="test: 240 videos from frame_labels_test.json (§18); train: 480 from "
+                        "labels_train.json (§41)")
+    c.add_argument("--labels", type=Path, required=True,
+                   help="data/MSAD/frame_labels_test.json (test) or labels_train.json (train)")
     c.add_argument("--clip-dir", type=Path, default=None, help="cache/clip/MSAD_ncc")
     c.add_argument("--stride", type=int, default=constants.FRAME_STRIDE)
     c.add_argument("--out", type=Path, required=True)
@@ -263,6 +343,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     d.add_argument("--videos-root", type=Path, required=True)
     d.add_argument("--census", type=Path, required=True)
     d.add_argument("--out-dir", type=Path, required=True)
+    d.add_argument("--ids-file", type=Path, default=None,
+                   help="decode only these ids (one per line): the runbook decodes, extracts and "
+                        "deletes in chunks so the 480 train videos never sit on VM disk at once")
     return parser
 
 
@@ -270,7 +353,12 @@ def main(argv: list[str] | None = None) -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     args = build_arg_parser().parse_args(argv)
     if args.command == "census":
-        doc = census(args.videos_root, _read_json(args.labels), args.clip_dir, args.stride)
+        if args.split == SPLIT_TRAIN:
+            doc = census(args.videos_root, _read_json(args.labels), args.clip_dir, args.stride,
+                         constants.MSAD_TRAIN_SOURCE_DIRS, constants.MSAD_VIDEO_SUFFIXES,
+                         constants.MSAD_TRAIN_VIDEOS, constants.MSAD_TRAIN_ABNORMAL)
+        else:
+            doc = census(args.videos_root, _read_json(args.labels), args.clip_dir, args.stride)
         args.out.parent.mkdir(parents=True, exist_ok=True)
         write_json_atomic(args.out, doc)
         LOGGER.info("census summary: %s", json.dumps(doc["summary"]))
@@ -296,10 +384,16 @@ def main(argv: list[str] | None = None) -> None:
         args.out.write_text("".join(f"{v}\n" for v in ids), encoding="utf-8")
         LOGGER.info("M1 ids (%d): %s", len(ids), ids)
         return
+    keep = {v for v in args.ids_file.read_text(encoding="utf-8").split() if v} \
+        if args.ids_file is not None else None
+    unknown = sorted(keep - set(doc["videos"])) if keep is not None else []
+    if unknown:
+        raise SystemExit(f"--ids-file names ids the census does not hold: {unknown[:5]}")
+    wanted = {v: e for v, e in doc["videos"].items() if keep is None or v in keep}
     done = 0
-    for vid, e in sorted(doc["videos"].items()):
+    for vid, e in sorted(wanted.items()):
         done += decode_video(args.videos_root / e["video"], args.out_dir / vid, int(e["frames"]))
-    LOGGER.info("decoded %d new videos -> %s (%d total)", done, args.out_dir, len(doc["videos"]))
+    LOGGER.info("decoded %d new videos -> %s (%d wanted)", done, args.out_dir, len(wanted))
 
 
 if __name__ == "__main__":

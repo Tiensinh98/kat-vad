@@ -2590,3 +2590,12 @@ Promote if a second harness needs the same split.
 **Rule:** Pass every training knob a profiler verdict depends on from the trained arms' config, and check the report header's value against `config.yaml` before quoting a verdict.
 **Files:** `colab/final/nexar_eda.ipynb` cell 10, `core/tools/eda.py:57`, `core/eda/report.py:107`.
 **Gate status.** One occurrence (caught by the user from memory, fixed `e09635d`); candidate.
+
+## (dv) [MEDIUM] Config - `*_topk_pct` is a divisor, not a percentage: k = n // pct, so a smaller number is a larger share (2026-11-23)
+**Triggers:** mil_topk_pct, topk_pct, k = n // pct, porting a recipe, MSAD, whole video, window geometry
+**Problem:** `core/losses/mil.py:22` computes `k = max(1, n_valid // topk_pct)`. K5f's `loss.mil_topk_pct=5` is k = 4 on a 20-row Nexar window (20 %), but on MSAD's median 86-row video it is k = 17 (20 % of the video, mostly normal rows in a positive bag); LaGoVAD / v1's 16 is k = 5 there. Carrying the Nexar value onto whole videos would change what MIL optimizes while the config diff would look like "the same recipe". (Recurrence of the index lesson on porting a temporal knob to a new corpus; the new facet is the name: "pct" reads as a share and is its inverse.)
+**Bad:** reuse `loss.mil_topk_pct=5` on a corpus whose clips are 4x longer, reading it as "top 5 %".
+**Good:** print `k` at the corpus's median length for every candidate value (`KIM_RUN.md` §41 prints it in the runbook preflight) and write the geometry in the rule before any run.
+**Rule:** Print k = n // pct at the corpus's median clip length whenever `*_topk_pct` crosses to a new corpus, and never call the value a percentage.
+**Files:** `core/losses/mil.py:22`, `core/tools/msad_train.py:train_sets`, `colab/final/k5_msad_train.ipynb` step 9, `core/docs/final/KIM_RUN.md` §41.
+**Gate status.** One occurrence caught at design time (no run affected); candidate. Related: index lesson "A score head whose kernel spans the clip is a clip classifier", (du).

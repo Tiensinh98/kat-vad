@@ -163,3 +163,139 @@ class TestIdentityCli:
             msad_zs.main(["identity", "--ref", str(ref), "--new", str(new), "--ids-file",
                           str(ids), "--out", str(tmp_path / "i.json")])
         assert not json.loads((tmp_path / "i.json").read_text())["pass"]
+
+
+class TestTrainSplit:
+    """``--split train`` (KIM_RUN.md §41): ids are file stems, labels are video-level."""
+
+    @pytest.mark.parametrize(("vid", "want"), [
+        ("frontdoor1", "Normal"), ("street_highview3", "Normal"), ("restaurant&bar1", "Normal"),
+        ("perdestrian_street7", "Normal"), ("MSAD_normal_testing_9", "Normal"),
+        ("People_falling_7", "People_falling"), ("Fire_25", "Fire"),
+    ])
+    def test_video_class_of_train_normals(self, vid: str, want: str) -> None:
+        assert msad_zs.video_class(vid) == want
+
+    def test_length_auc(self) -> None:
+        assert msad_zs.length_auc([1, 2], [3, 4]) == 1.0
+        assert msad_zs.length_auc([3, 4], [1, 2]) == 0.0
+        assert msad_zs.length_auc([2], [2]) == 0.5
+
+    def test_folder_agreement(self) -> None:
+        assert msad_zs.folder_agrees_with_label(1, Path("MSAD_anomaly/Fire/Fire_1.mp4"))
+        assert msad_zs.folder_agrees_with_label(0, Path("MSAD_normal_training/shop/shop2.mp4"))
+        assert not msad_zs.folder_agrees_with_label(1, Path("MSAD_normal_training/shop/shop2.mp4"))
+        assert not msad_zs.folder_agrees_with_label(0, Path("MSAD_anomaly/Fire/Fire_1.mp4"))
+
+    def _setup(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+               frames: dict[str, int]) -> tuple[Path, Path]:
+        root, clip = tmp_path / "videos", tmp_path / "clip"
+        clip.mkdir()
+        where = {"Fire_1": ("MSAD_anomaly/Fire", ".mp4"),
+                 "frontdoor1": ("MSAD_normal_training/frontdoor", ".mp4"),
+                 "perdestrian_street7": ("MSAD_normal_training/perdestrian_street", ".avi")}
+        for vid in frames:
+            sub, suffix = where[vid]
+            (root / sub).mkdir(parents=True, exist_ok=True)
+            (root / sub / f"{vid}{suffix}").write_bytes(b"")
+            np.save(clip / f"{vid}.npy", np.zeros((msad_zs.stride_rows(frames[vid], 8), 2),
+                                                  np.float32))
+        monkeypatch.setattr(msad_zs, "probe_video", lambda p: (frames[p.stem], 30.0))
+        return root, clip
+
+    def _census(self, root: Path, labels: dict[str, int], clip: Path,
+                abnormal: int = 1) -> dict[str, object]:
+        return msad_zs.census(root, labels, clip, 8, constants.MSAD_TRAIN_SOURCE_DIRS,
+                              constants.MSAD_VIDEO_SUFFIXES, len(labels), abnormal)
+
+    def test_pass_with_avi_and_ruler(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        frames = {"Fire_1": 80, "frontdoor1": 600, "perdestrian_street7": 480}
+        root, clip = self._setup(tmp_path, monkeypatch, frames)
+        doc = self._census(root, {"Fire_1": 1, "frontdoor1": 0, "perdestrian_street7": 0}, clip)
+        summary = doc["summary"]
+        assert isinstance(summary, dict) and summary["pass"], summary
+        videos = doc["videos"]
+        assert isinstance(videos, dict)
+        assert videos["perdestrian_street7"]["video"].endswith(".avi")
+        assert videos["Fire_1"]["label_rows"] is None and videos["Fire_1"]["label"] == 1
+        assert summary["train"]["length_ruler_auc"] == 1.0  # the abnormal video is the short one
+        assert summary["train"]["rows_median_normal"] == (75 + 60) / 2
+
+    def test_default_suffix_ignores_avi(self, tmp_path: Path,
+                                        monkeypatch: pytest.MonkeyPatch) -> None:
+        root, _ = self._setup(tmp_path, monkeypatch, {"perdestrian_street7": 480})
+        (root / "MSAD_anomaly").mkdir()
+        found = msad_zs.source_videos(root, constants.MSAD_TRAIN_SOURCE_DIRS)
+        assert found == []
+
+    def test_label_against_folder_fails(self, tmp_path: Path,
+                                        monkeypatch: pytest.MonkeyPatch) -> None:
+        root, clip = self._setup(tmp_path, monkeypatch, {"Fire_1": 80, "frontdoor1": 600})
+        doc = self._census(root, {"Fire_1": 1, "frontdoor1": 1}, clip, abnormal=2)
+        assert doc["summary"]["failures"] == {"frontdoor1": msad_zs.LABEL_FOLDER}  # type: ignore[index]
+        assert not doc["summary"]["pass"]  # type: ignore[index]
+
+    def test_abnormal_count_is_gated(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        root, clip = self._setup(tmp_path, monkeypatch, {"Fire_1": 80, "frontdoor1": 600})
+        doc = self._census(root, {"Fire_1": 1, "frontdoor1": 0}, clip, abnormal=2)
+        assert doc["summary"]["failures"] == {}  # type: ignore[index]
+        assert not doc["summary"]["pass"]  # type: ignore[index]
+
+    def test_cli_train_census(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        root, clip = self._setup(tmp_path, monkeypatch, {"Fire_1": 80, "frontdoor1": 600})
+        monkeypatch.setattr(constants, "MSAD_TRAIN_VIDEOS", 2)
+        monkeypatch.setattr(constants, "MSAD_TRAIN_ABNORMAL", 1)
+        lab, out = tmp_path / "labels_train.json", tmp_path / "c.json"
+        lab.write_text(json.dumps({"Fire_1": 1, "frontdoor1": 0}))
+        msad_zs.main(["census", "--split", "train", "--videos-root", str(root), "--labels",
+                      str(lab), "--clip-dir", str(clip), "--out", str(out)])
+        doc = json.loads(out.read_text())
+        assert doc["source_dirs"] == list(constants.MSAD_TRAIN_SOURCE_DIRS)
+        assert msad_zs.census_current(doc, constants.MSAD_TRAIN_SOURCE_DIRS)
+        assert not msad_zs.census_current(doc)  # the test split's dirs never match a train census
+
+
+class TestDecodeIds:
+    def _census_doc(self, tmp_path: Path) -> Path:
+        doc = {"summary": {"pass": True}, "videos": {
+            v: {"video": f"MSAD_anomaly/{v}.mp4", "frames": 8} for v in ("Fire_1", "Fire_2")}}
+        path = tmp_path / "census.json"
+        path.write_text(json.dumps(doc))
+        return path
+
+    def test_decodes_only_the_listed_ids(self, tmp_path: Path,
+                                         monkeypatch: pytest.MonkeyPatch) -> None:
+        seen: list[str] = []
+
+        def fake_decode(src: Path, out: Path, frames: int) -> bool:
+            seen.append(out.name)
+            return True
+
+        monkeypatch.setattr(msad_zs, "decode_video", fake_decode)
+        ids = tmp_path / "ids.txt"
+        ids.write_text("Fire_2\n")
+        msad_zs.main(["decode", "--videos-root", str(tmp_path), "--census",
+                      str(self._census_doc(tmp_path)), "--out-dir", str(tmp_path / "f"),
+                      "--ids-file", str(ids)])
+        assert seen == ["Fire_2"]
+
+    def test_unknown_id_refused(self, tmp_path: Path) -> None:
+        ids = tmp_path / "ids.txt"
+        ids.write_text("Fire_9\n")
+        with pytest.raises(SystemExit, match="census does not hold"):
+            msad_zs.main(["decode", "--videos-root", str(tmp_path), "--census",
+                          str(self._census_doc(tmp_path)), "--out-dir", str(tmp_path / "f"),
+                          "--ids-file", str(ids)])
+
+    def test_no_ids_file_decodes_everything(self, tmp_path: Path,
+                                            monkeypatch: pytest.MonkeyPatch) -> None:
+        seen: list[str] = []
+
+        def fake_decode(src: Path, out: Path, frames: int) -> bool:
+            seen.append(out.name)
+            return True
+
+        monkeypatch.setattr(msad_zs, "decode_video", fake_decode)
+        msad_zs.main(["decode", "--videos-root", str(tmp_path), "--census",
+                      str(self._census_doc(tmp_path)), "--out-dir", str(tmp_path / "f")])
+        assert seen == ["Fire_1", "Fire_2"]

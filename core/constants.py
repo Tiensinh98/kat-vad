@@ -1545,3 +1545,23 @@ ACCIDENT_BAKE_DIRNAME = "ACCIDENT_s8_nexar"  # cache/v2/A2_S/<this>: Nexar's A2 
 # TAD (Lv 2021, WSAL release) on Kaggle: TAD/frames/{abnormal,normal}/<id>.mp4/<k>.jpg
 # Only the §39 dedup contact sheet reads it (single frames); TAD scores read cache/clip/TAD_ncc.
 TAD_KAGGLE_HANDLE = "nikanvasei/traffic-anomaly-dataset-tad"
+
+# --- KIM_RUN.md §41: K5f / K5dfi / L0f / L0dfi trained on MSAD-full, kernel 3 and 9 ---
+# OUTPUT_ROOT/<this>/<row>/{K5/s<seed>, eval}, REPORTS
+KIM_MSAD_TRAIN_OUTPUT_DIRNAME = "kim_msad_train"
+KIM_MSAD_TRAIN_ARMS = ("K5f", "K5dfi", "L0f", "L0dfi")  # recipes (§41 R1); a row is <arm>M<kernel>
+KIM_MSAD_TRAIN_ROW_INFIX = "M"
+KIM_MSAD_TRAIN_KERNELS = (3, 9)  # §41 R2: both are rows; neither is picked on the MSAD test set
+KIM_MSAD_TRAIN_EPOCHS = 125  # v1's MSAD budget (RESULTS_MSAD.md): 4 balanced steps/epoch = 500
+KIM_MSAD_TRAIN_MIL_TOPK_PCT = MIL_TOPK_PCT  # 16: k = n // 16, LaGoVAD's and v1's MSAD value
+KIM_MSAD_TRAIN_BALANCED_FACTOR = 2  # a balanced epoch draws 2 x the positive videos
+KIM_MSAD_TRAIN_REPORT_STEM = "k5msad_train_report"  # REPORTS/<this>.{md,json}
+# the official folders only (never VALU's modified copy)
+MSAD_TRAIN_SOURCE_DIRS = ("MSAD_anomaly", "MSAD_normal_training")
+MSAD_ANOMALY_DIR = "MSAD_anomaly"  # a train id's label must agree with the folder it is found in
+MSAD_VIDEO_SUFFIXES = (".mp4", ".avi")  # one normal-train video is an .avi (perdestrian_street7)
+MSAD_TRAIN_VIDEOS = 480  # labels_train.json: 120 abnormal + 360 normal (V2_TADG_MSAD_TRAIN)
+MSAD_TRAIN_ABNORMAL = 120
+MSAD_TRAIN_CENSUS_FILENAME = "msad_train_census.json"
+# cache/v2/A2_S/<this>: Nexar's A2 statistics (§41 B)
+MSAD_TRAIN_BAKE_DIRNAME = "MSAD-full_train_s8_nexar"
