@@ -2467,3 +2467,40 @@ Clip oracle micro 0.9226, so TAD micro is clip classification. Δ vs K5dfi: LaGo
 **Not licensed.** Comparing K5dfiACCs with any §41 MSAD row as "CCTV A vs CCTV B" (different data and different fit sets); any cause from n = 1.
 
 **Runbook.** `colab/final/k5dfi_acc_stats.ipynb` (run after `k5dfi_acc.ipynb`; preflight, tests, fit + gate + restat, train, reads, table). Code: `core.data.v2_inputs.restat_rows`, `core.tools.build_v2_inputs restat`; tests `core/tests/test_v2_restat.py` (7). Constants `KIM_ACCIDENT_STATS_*`, `ACCIDENT_SELF_BAKE_DIRNAME`, `{NEXAR,ACCIDENT}_STATS_BAKE_SUFFIX`, `V2_RESTAT_GATE_ATOL`. **Built 2026-11-23, NOT RUN.**
+
+## 43. Pre-onset rise on Nexar val: does K5f's score climb before the alert? (dated note 2026-11-23, before any number; user)
+
+**Why.** The user reads K5f's curves as rising before the accident. §40 shows the supervision that would produce it: only 6.3 % of normal windows lie within 2 rows of their span, and the ~12.5 normal rows inside a positive window get no target (MIL top-k lifts only k = 4; `dvs_sup` runs on normal and spliced rows only, `core/train.py:470`), while `dvs_anchor_mode=span` trains every row of a spliced anchor to 1 (C29). §27 NC6(d) printed one number of this kind for pre-§31 K5 (5 s before onset, share with max > 0.5: 0.3214 vs 0.1871 on negative 5 s chunks); nothing event-locked, and nothing on K5f. This section measures it on saved reads; **no model is loaded, nothing is trained, nothing gates.**
+
+| # | Choice |
+|---|---|
+| P1 Data | `nexar_val` whole videos (225, 112 positive), the saved `scores/*.npz` of protocol N-B (s1[::3] rows, native frames). Onset = first `gt = 1` frame = `time_of_alert` (the span is `[alert, event + 1.4 s]`, `nexar_build.span_seconds`). Time = frames / `NEXAR_NOMINAL_FPS` |
+| P2 Rows | Control **K5f**; printed beside: **K5df** (DVS `span`), **K5dfi** (DVS `ignore`), **K5fno** (normals from negative videos only, §38), **LaGoVAD** (released, zero-shot). All rows must carry identical videos and labels (`tadz_readout.check_labels`) |
+| P3 Reads | (a) event-locked mean raw score, 0.5 s bins from −10 s to +3 s, per-bin 95 % interval over videos; each row's negative-video mean beside it. (b) Zone AUC vs negative-video frames (pooled frames, the row's own ranking): far (< −5 s), [−5, −2), [−2, −1), [−1, 0), span. 0.5 = the zone scores like a video with no accident. (c) Per positive video, scale-free **rise** = (mean[−2 s, 0) − far) / (span mean − far), far = mean before −5 s; mean and interval over videos with span − far > `PRE_ONSET_MIN_CONTRAST`. (d) Paired per video: rise(row) − rise(K5f). Intervals: cluster bootstrap (cluster = video) 10,000, seed 2026 |
+| P4 Status | **Printed only, decides nothing.** K5f stays the reference and the main model. A rise is a property of the scores; it does not say which loss term makes it |
+
+**Expectations, written before the numbers (a wrong one changes nothing).** E1: K5f's rise > 0 with an interval above 0 and its [−1, 0) zone AUC above 0.5 (the user's reading). E2: K5df's rise > K5dfi's (`span` lifts the whole anchor). E3: K5fno's rise ≥ K5f's (its negatives are all far from any span). No prediction for LaGoVAD.
+
+**Not licensed.** "K5f anticipates accidents" (a rise before the alert is unlabeled positive score, not foresight, and Nexar's alert is itself an anticipation mark). Any cause from a row contrast at n = 1. The head's kernel at the read's 0.1 s rows spans ±0.1 s, so bins before −0.5 s are not the head kernel's smear; the encoder's attention may still carry them.
+
+**Runbook.** `core.tools.pre_onset_read` (tests `core/tests/test_pre_onset_read.py`), notebook `colab/final/pre_onset_read.ipynb` (CPU, reads Drive's saved scores). Report `outputs/kim_fixed/REPORTS/pre_onset/`. **Built 2026-11-23.**
+
+**Read-out of §43 (2026-11-23, Claude, on the saved reads synced from Drive; printed, decides nothing).** Raw: `outputs/v_final/kim_fixed/REPORTS/pre_onset/` (`pre_onset_read.{md,json}`, `pre_onset_curves.png`). Same 225 videos and labels on all five rows (checked).
+
+| row | negative videos | far (< −5 s) | last 2 s | span | rise | zone AUC far / [−5,−2) / [−2,−1) / [−1,0) / span |
+|---|---|---|---|---|---|---|
+| K5f | 0.046 | 0.025 | 0.092 | 0.511 | **0.179 [0.050, 0.397]** | 0.437 / 0.525 / 0.590 / **0.694** / 0.887 |
+| K5df | 0.111 | 0.081 | 0.215 | 0.650 | 0.143 [0.017, 0.245] | 0.485 / 0.577 / 0.641 / 0.741 / 0.895 |
+| K5dfi | 0.053 | 0.029 | 0.093 | 0.495 | 0.173 [0.051, 0.372] | 0.458 / 0.550 / 0.613 / 0.708 / 0.878 |
+| K5fno | 0.077 | 0.200 | 0.258 | 0.519 | (unstable) | **0.639** / 0.659 / 0.663 / 0.717 / 0.839 |
+| LaGoVAD | 0.249 | 0.258 | 0.270 | 0.280 | (unstable) | 0.517 / 0.520 / 0.531 / 0.533 / 0.530 |
+
+Paired rise − K5f: K5df +0.010 [−0.169, +0.120], K5dfi +0.005 [−0.034, +0.050]. Event-locked K5f (raw): 0.026 at −5 s, 0.038 at −3 s, 0.053 at −2 s, 0.092 at −1 s, 0.159 at −0.5 s, 0.284 at 0, peak 0.561 at +1.5 s.
+
+* **E1 holds.** K5f leaves its far level about 2 s before the alert: rise above 0, [−1, 0) frames rank above negative-video frames at 0.694 ([−2, −1) 0.590; [−5, −2) 0.525 ≈ none). Most of the climb is in the last second; at −0.5 s K5f is already 3.5× its negative-video mean.
+* **E2: direction on zone AUC, not on rise.** K5df ranks every pre-onset zone higher than K5dfi (0.741 vs 0.708 on [−1, 0)) but also lifts its far level and its negatives (0.111 vs 0.053), so its scale-free rise is not higher (0.143 vs 0.173); the zone AUCs carry no interval. K5dfi − K5f ≈ 0 on every read: under `ignore`, DVS leaves the pre-onset shape as K5f's.
+* **E3 does not hold as written: K5fno is not "more rise", it lifts the whole accident video.** Its far frames rank above negative-video frames (0.639; K5f 0.437) and its zones are flat (0.66 → 0.72). Without in-video normals the model separates *which video* rather than *when*; with them (K5f) the far part of an accident video scores below a negative video. Same direction as §38's costs.
+* **LaGoVAD (released, zero-shot)** does not localize on Nexar val: span AUC 0.530, flat curve.
+* **Defect in P3(c), recorded, rule not changed after the numbers.** The rise is a ratio per video; where span − far is small it explodes (median span − far: K5f 0.504, K5fno 0.293, LaGoVAD 0.009; videos with span − far < 0.05: 12 %, 36 %, 68 %), so K5fno's and LaGoVAD's rise intervals (±2) are not read. `PRE_ONSET_MIN_CONTRAST` = 1e-3 was too small; the zone AUCs are the robust read. The rescaled figure panel is clipped to [−1, 2] (display only).
+
+**Licensed.** "On Nexar val K5f's score starts climbing about 2 s before the alert, mostly in the last second: frames in the last second before the alert rank above negative-video frames at AUC 0.694 (PRELIMINARY, n = 1)." "Without in-video normals (K5fno) the whole accident video is lifted (far-zone AUC 0.639 vs K5f 0.437)." **Not licensed:** "K5f anticipates accidents"; "DVS `span` causes the early rise" (no interval on the zone AUCs, rise not higher); any statement on TAD / DAD / DADA from this read.

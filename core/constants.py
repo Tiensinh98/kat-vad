@@ -1590,3 +1590,29 @@ MSAD_TRAIN_CENSUS_FILENAME = "msad_train_census.json"
 MSAD_TRAIN_BAKE_DIRNAME = "MSAD-full_train_s8_msad"
 MSAD_TEST_BAKE_DIRNAME = "MSAD-full_test_s8_msad"  # the 240 test videos, MSAD's statistics
 MSAD_TAD_BAKE_DIRNAME = "TAD_s8_msad"  # TAD (100 videos), MSAD's statistics, for the TAD reads
+# --- pre-onset rise on nexar_val (KIM_RUN.md §43; printed only) ---
+PRE_ONSET_BIN_S = 0.5  # event-locked curve bin width (s)
+PRE_ONSET_WINDOW_S = (-10.0, 3.0)  # event-locked curve range relative to the alert (s)
+PRE_ONSET_FAR_S = KIM_NEGCAP_PRE_ONSET_S  # "far" = more than this before the alert (§27)
+PRE_ONSET_ZONES_S = ((-5.0, -2.0), (-2.0, -1.0), (-1.0, 0.0))  # zones read against negatives
+PRE_ONSET_RISE_S = 2.0  # rise = (mean[-this, 0) - far) / (span - far)
+PRE_ONSET_MIN_CONTRAST = 1e-3  # a video enters the rise read only if span - far exceeds this
+PRE_ONSET_BOOTSTRAP = V2_E1_BOOTSTRAP
+PRE_ONSET_BOOTSTRAP_SEED = V5_BOOTSTRAP_SEED
+PRE_ONSET_LEVEL = V5_BOOTSTRAP_LEVEL
+PRE_ONSET_CONTROL = "K5f"
+PRE_ONSET_REPORT_STEM = "pre_onset_read"
+PRE_ONSET_DIRNAME = "pre_onset"  # <kim_fixed>/REPORTS/<this>/
+PRE_ONSET_FIGURE_DPI = 150
+PRE_ONSET_FIGURE_SIZE = (13.0, 4.8)  # inches, two panels
+PRE_ONSET_SCALED_YLIM = (-1.0, 2.0)  # display only: low-contrast videos explode the ratio
+PRE_ONSET_ROW_COLOURS = ("#222222", "#cc3311", "#4477aa", "#228833", "#aa3377", "#999999")
+# §43 P2: row -> its saved nexar_val read, relative to OUTPUT_ROOT (Thesis-Final/outputs)
+PRE_ONSET_ROWS = {
+    "K5f": "kim_fixed/K5f/eval/nexar/K5f",
+    "K5df": "kim_lneg_cap_fixed/K5df/eval/nexar/K5df",
+    "K5dfi": "kim_dvs_ignore/K5dfi/eval/nexar/K5dfi",
+    "K5fno": "kim_negonly/K5fno/eval/nexar/K5fno",
+    "LaGoVAD": "kim_t2/eval/nexar_curves/LaGoVAD",
+}
+PRE_ONSET_REPORT_DIR = "kim_fixed/REPORTS/pre_onset"  # relative to OUTPUT_ROOT
