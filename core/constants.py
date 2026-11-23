@@ -1565,6 +1565,7 @@ MSAD_VIDEO_SUFFIXES = (".mp4", ".avi")  # one normal-train video is an .avi (per
 MSAD_FILE_STEM_ALIASES = {"perdestrian_street": "pedestrian_street"}
 MSAD_TRAIN_VIDEOS = 480  # labels_train.json: 120 abnormal + 360 normal (V2_TADG_MSAD_TRAIN)
 MSAD_TRAIN_ABNORMAL = 120
+MSAD_DECODE_MAX_WORKERS = 8  # default cap on parallel decode threads (one frame each)
 MSAD_TRAIN_CENSUS_FILENAME = "msad_train_census.json"
 # cache/v2/A2_S/<this>: the statistics fitted on MSAD train (§41 B) + the 480 train videos baked
 MSAD_TRAIN_BAKE_DIRNAME = "MSAD-full_train_s8_msad"

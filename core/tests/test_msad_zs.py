@@ -355,3 +355,71 @@ class TestFileNameAliases:
         doc = self._census(root, clip, {"pedestrian_street6": 0}, self.ALIASES)
         assert doc["summary"]["pass"] and doc["summary"]["alias_matched"] == []  # type: ignore[index]
         assert doc["videos"]["pedestrian_street6"]["video"].endswith("a/pedestrian_street6.mp4")  # type: ignore[index]
+
+
+class TestParallelDecode:
+    def test_default_workers_is_bounded(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(msad_zs.os, "cpu_count", lambda: 64)
+        assert msad_zs.default_workers() == constants.MSAD_DECODE_MAX_WORKERS
+        monkeypatch.setattr(msad_zs.os, "cpu_count", lambda: 2)
+        assert msad_zs.default_workers() == 2
+        monkeypatch.setattr(msad_zs.os, "cpu_count", lambda: None)
+        assert msad_zs.default_workers() == 1
+
+    def test_zero_workers_refused(self) -> None:
+        with pytest.raises(ValueError, match="workers"):
+            msad_zs.decode_many([], 0)
+
+    def test_every_job_runs_and_the_count_is_returned(self, tmp_path: Path,
+                                                      monkeypatch: pytest.MonkeyPatch) -> None:
+        seen: list[str] = []
+
+        def fake(src: Path, out: Path, frames: int) -> bool:
+            seen.append(out.name)
+            return out.name != "skip"  # one video "already complete"
+
+        monkeypatch.setattr(msad_zs, "decode_video", fake)
+        jobs = [(tmp_path / f"{v}.mp4", tmp_path / v, 8) for v in ("a", "b", "skip", "c")]
+        assert msad_zs.decode_many(jobs, 3) == 3
+        assert sorted(seen) == ["a", "b", "c", "skip"]
+
+    def test_failures_are_named_and_raise(self, tmp_path: Path,
+                                          monkeypatch: pytest.MonkeyPatch) -> None:
+        def fake(src: Path, out: Path, frames: int) -> bool:
+            if out.name == "bad":
+                raise ValueError("decoded 5 frames, census 8 (C10)")
+            return True
+
+        monkeypatch.setattr(msad_zs, "decode_video", fake)
+        jobs = [(tmp_path / f"{v}.mp4", tmp_path / v, 8) for v in ("a", "bad", "c")]
+        with pytest.raises(RuntimeError, match="bad"):
+            msad_zs.decode_many(jobs, 2)
+
+    def test_threads_write_what_the_sequential_loop_writes(self, tmp_path: Path) -> None:
+        """Real PyAV decode + JPEG encode on tiny clips: bytes equal for 1 and 3 workers."""
+        import av
+
+        frames, jobs = 6, []
+        for i in range(3):
+            path = tmp_path / f"v{i}.mp4"
+            with av.open(str(path), "w") as container:
+                stream = container.add_stream("mpeg4", rate=10)
+                stream.width, stream.height, stream.pix_fmt = 64, 48, "yuv420p"
+                rng = np.random.default_rng(i)
+                for _ in range(frames):
+                    img = rng.integers(0, 255, (48, 64, 3), dtype=np.uint8)
+                    for packet in stream.encode(av.VideoFrame.from_ndarray(img, format="rgb24")):
+                        container.mux(packet)
+                for packet in stream.encode():
+                    container.mux(packet)
+            jobs.append((path, Path(f"v{i}"), frames))
+        outs = {}
+        for workers in (1, 3):
+            root = tmp_path / f"out{workers}"
+            todo = [(src, root / out, n) for src, out, n in jobs]
+            assert msad_zs.decode_many(todo, workers) == 3
+            outs[workers] = {p.relative_to(root): p.read_bytes()
+                             for p in sorted(root.rglob("*.jpg"))}
+        assert len(outs[1]) == 3 * frames and outs[1] == outs[3]
+        again = [(s, tmp_path / "out1" / o, n) for s, o, n in jobs]
+        assert msad_zs.decode_many(again, 2) == 0  # resumable: nothing to redo
