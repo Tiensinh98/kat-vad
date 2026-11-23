@@ -1,6 +1,6 @@
 # EDA — Nexar_window
 
-Data dir: `/content/nexar_eda/data` · score head kernel **9** · MIL top-k pct **5** · sections: corpus, labels, protocol
+Data dir: `/content/nexar_eda/data` · score head kernel **3** · MIL top-k pct **5** · sections: corpus, labels, protocol
 
 Every number here is a property of the data on disk, not of a model.
 
@@ -28,10 +28,10 @@ DVS dataset length (2 x abnormal train): **3,378** → **53 steps/epoch** at bat
 | train sampled | 7,311 | 20.00 | 20.0 | 20.0 | 20.0 | 20.0 | 20.0 | 20.0 | 20.0 |
 | raw (pre-stride) | 9,099 | 1186.01 | 1076.0 | 1198.0 | 1206.0 | 1225.0 | 1247.0 | 420.0 | 1800.0 |
 
-### 1.2 Score-head receptive field (kernel 9) — lesson C27
+### 1.2 Score-head receptive field (kernel 3) — lesson C27
 
 - median clip length **20** sampled frames
-- median fraction of a clip inside one output timestep: **45.0%**
+- median fraction of a clip inside one output timestep: **15.0%**
 - clips entirely inside the kernel: **0** (**0.0%**), holding **0.0%** of all test frames
 - short-clip counts: `T<=3` → 0, `T<=5` → 0, `T<=9` → 0, `T<=13` → 0, `T<=17` → 0
 
