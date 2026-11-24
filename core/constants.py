@@ -1638,3 +1638,10 @@ PRE_ONSET_ZS_ROWS = {  # set -> row -> its saved read, relative to OUTPUT_ROOT
         "LaGoVAD": "zs_lagovad/eval/dada/LaGoVAD/clip_scores.npz",
     },
 }
+
+# --- KIM_RUN §44.2: where raw micro is lost on DoTA-CAP / DADA (micro_level_read) ---
+MICRO_LEVEL_LOW = 0.5  # L2: a clip is low when its accident frames rank below the set's median normal
+MICRO_LEVEL_GATE_ATOL = 1e-6  # L2: positive-weighted mean of A_c must equal the pooled raw micro
+MICRO_LEVEL_REPORT_STEM = "micro_level_read"
+MICRO_LEVEL_REPORT_DIR = "kim_fixed/REPORTS/micro_level"  # relative to OUTPUT_ROOT
+MICRO_LEVEL_ROWS = ("K5f", "K5dfi")  # L1, the first is the overlap's reference

@@ -2564,3 +2564,73 @@ Macro cost of the normal frames in [−2, 0) s (macro without them − macro): D
 **Licensed.** "On whole DoTA-CAP, K5f's score reaches 0.81 of its span level 1–2 s before the annotated onset (fixed composition, rescaled; Nexar val 0.04), and those pre-onset normal frames cost 0.020 macro (PRELIMINARY, n = 1, post-hoc)." "The early rise is carried by the motion + KIM rows: plain CLIP trained the same way reaches 0.23." **Not licensed:** "K5f anticipates accidents"; "VideoMAE causes the early rise" (L0dfi changes motion and KIM together); "DoTA's annotation starts late" (not measured); any claim from the min-max figure alone.
 
 **Runbook.** `core.tools.pre_onset_read --set {nexar,dota,dada}` (§4 of each report = Q2–Q4; tests `core/tests/test_pre_onset_read.py`, 6); notebook `colab/final/pre_onset_read.ipynb` now runs the three sets.
+
+## 44. DoTA-CAP and DADA micro: raw against min-max, and where raw micro is lost (dated note 2026-11-24, user)
+
+**Why.** The user asked how micro AUC on DoTA and DADA could rise, what the raw micro is, and how far raw sits from min-max for K5f and K5dfi. Both sets hold an accident in every item (C12), so micro there = ranking inside each clip + how level the scores are across clips; the clip mean alone scores 0.51–0.53.
+
+### 44.1 Raw against min-max (post-hoc, printed, decides nothing)
+
+**Post-hoc:** computed in a scratch script on the saved reads and shown to the user before this note; the min-max column reproduces `zs_arm_table` (`kim_cap_eval/REPORTS/zs_arm_table_cap_all_s2024.md`, `…_dada_lagovad_s2024.md`) to 4 decimals. Items: whole DoTA-CAP (1,129, protocol B) and DADA whole (370, s8), s2024, n = 1.
+
+| set | row | macro | micro raw | micro min-max | raw − min-max | p10 of clip max (raw) |
+|---|---|---|---|---|---|---|
+| DoTA-CAP | K5f | 0.8226 | 0.6839 | 0.7362 | −0.052 | 0.039 |
+| DoTA-CAP | K5dfi | 0.8240 | 0.7207 | 0.7603 | −0.040 | 0.092 |
+| DADA | K5f | 0.7744 | 0.7065 | 0.7551 | −0.049 | 0.044 |
+| DADA | K5dfi | 0.7677 | 0.7218 | 0.7591 | −0.037 | 0.092 |
+
+Printed beside, **not a protocol** (choosing a pooling after seeing its number is lesson 12/14): per-clip z-score micro DoTA 0.759 / 0.776, DADA 0.752 / 0.754; per-clip rank micro DoTA 0.779 / 0.782, DADA 0.753 / 0.747 (K5f / K5dfi). Clip mean as the only score: 0.51–0.53.
+
+**Licensed:** "Raw micro sits 0.04–0.05 below min-max micro on DoTA-CAP and DADA for K5f and K5dfi; K5dfi's raw micro is higher than K5f's (DoTA +0.037, DADA +0.015, no interval) and its gap is smaller (PRELIMINARY, n = 1, post-hoc)." **Not licensed:** any per-clip normalization as "the" micro; "`ignore` raises micro" as a cause (no interval here; §35.1's paired min-max micro K5dfi − K5f on DoTA-CAP is +0.024 [+0.019, +0.029]).
+
+### 44.2 Check 2: which clips sit low across the set? (rule written before any number of this check)
+
+| # | Choice |
+|---|---|
+| L1 Items / rows | As §44.1: K5f and K5dfi, whole DoTA-CAP (1,129; cluster = source video, `dota_group`) and DADA whole (370; cluster = video). Raw scores |
+| L2 Level of a clip | `A_c` = mean over the clip's **positive** frames of the share of the set's **negative** frames (all clips) scored below it, ties ½. Raw micro = the positive-frame-weighted mean of `A_c` (gate: recomputed equal to the pooled micro within 1e-6, or the tool raises). **Low clip** = `A_c` < 0.5: its accident frames rank below the set's median normal frame. 0.5 is fixed by construction, not fitted. Printed beside: `A_c` under per-clip min-max |
+| L3 Normal side (printed, no strata) | `N_c` = mean over the clip's negative frames of the share of the set's positive frames scored below it; **loud clip** = `N_c` > 0.5 |
+| L4 Reads | Per set × row: share of low clips, share of positive frames in low clips, share of loud clips. Calibration vs ranking: among low clips, mean own AUC and share with own AUC ≥ 0.5, against the rest. Overlap of K5f's and K5dfi's low sets (both, K5f only, K5dfi only, Jaccard) |
+| L5 Strata | §24 FT2's (DoTA `ego_involve`, `night`, `accident_name`; DADA `light`, `weather`, `scenes`, `linear`, ego from `texts`, actor), pooled as §24; covariates §24 FT3 (length, span share, span centre, span seconds). Low share per stratum, Δ vs rest, cluster bootstrap 2,000, seed 2026. **Lead = §24 FT5** (≥ 20 items, ≥ 2 × the overall low share, Δ interval excludes 0; covariate \|AUC − 0.5\| ≥ 0.10 with its interval excluding 0.5) |
+| L6 Status | **Printed only, decides nothing, n = 1.** No arm. K5f stays the reference and the main model. Leads found → Claude may propose one targeted check; the user decides |
+
+**Expectations, written before the numbers (a wrong one changes nothing).** E1: K5dfi has fewer low clips than K5f on DoTA-CAP. E2: ego-uninvolved accidents are over-represented among low clips on both sets (§24's direction). E3: most low clips (> 50 %) still have own AUC ≥ 0.5, i.e. raw micro is lost to level, not to ranking. E4: K5f's and K5dfi's low sets overlap with Jaccard > 0.5.
+
+**Limits.** n = 1; about 25 strata and covariates per set and row, so about one false lead per set and row at 95 %; strata are the datasets' own annotations (DADA ego from free text). Code: `core/tools/micro_level_read.py` (reuses `k5_fail_tail`'s strata, pooling and bootstrap), tests `core/tests/test_micro_level_read.py`, output `outputs/v_final/kim_fixed/REPORTS/micro_level/`.
+
+### 44.3 Read-out of check 2 (2026-11-24, Claude, saved reads synced from Drive; printed, decides nothing, n = 1)
+
+Raw `outputs/v_final/kim_fixed/REPORTS/micro_level/micro_level_read.{md,json}`. L2 gate passed on all four set × row reads (weighted `A_c` = pooled raw micro within 1e-6); every clip two-class; DoTA annotations 1,129 / 1,129, DADA workbook rows 370 / 370.
+
+| set | row | micro raw | low clips | low (min-max) | positive frames in low | loud clips | own AUC low / rest | low with own AUC ≥ 0.5 |
+|---|---|---|---|---|---|---|---|---|
+| DoTA-CAP | K5f | 0.6839 | 0.244 (275) | 0.094 | 0.250 | 0.176 | 0.688 / 0.866 | 0.785 |
+| DoTA-CAP | K5dfi | 0.7207 | 0.190 (215) | 0.066 | 0.200 | 0.086 | 0.665 / 0.861 | 0.763 |
+| DADA | K5f | 0.7065 | 0.235 (87) | 0.103 | 0.241 | 0.170 | 0.546 / 0.845 | 0.529 |
+| DADA | K5dfi | 0.7218 | 0.186 (69) | 0.103 | 0.189 | 0.116 | 0.524 / 0.824 | 0.551 |
+
+Overlap of low sets (K5f, K5dfi): DoTA both 200, K5f only 75, K5dfi only 15, Jaccard 0.690; DADA both 66 / 21 / 3, Jaccard 0.733.
+
+**Leads by L5 (= §24 FT5): one, `span centre` on DADA K5dfi** (AUC 0.383 [0.313, 0.457]; low clips' spans sit earlier, centre 0.46 vs 0.54; K5f 0.409 [0.343, 0.479], 0.009 short of the margin). About one false lead per set and row is expected; it is not read further.
+
+**The largest pattern is not a lead by the 2× rule: accidents without the ego car.**
+
+| set | row | low share, ego-uninvolved (n) | low share, ego-involved (n) | Δ [95 %] | ratio to overall |
+|---|---|---|---|---|---|
+| DoTA-CAP | K5f | 0.434 (502) | 0.091 (627) | +0.343 [+0.290, +0.396] | 1.78 |
+| DoTA-CAP | K5dfi | 0.359 (502) | 0.056 (627) | +0.303 [+0.249, +0.357] | 1.89 |
+| DADA | K5f | 0.269 (275) | 0.137 (95) | +0.132 [+0.040, +0.218] | 1.14 |
+| DADA | K5dfi | 0.215 (275) | 0.105 (95) | +0.109 [+0.027, +0.187] | 1.16 |
+
+The interval excludes 0 in all four. FT5's 2× bar cannot be reached by a stratum holding 44 % of DoTA's clips unless almost every low clip falls in it (ceiling 1 / 0.445 = 2.25); recorded as a property of the rule, **the rule is not changed after the numbers**.
+
+**Post-hoc, printed (computed after the table, not in L4):** DoTA raw micro by ego stratum, K5f / K5dfi: ego-involved 0.741 / 0.783, ego-uninvolved **0.632 / 0.660**; median clip max (raw) ego-involved 0.993 / 0.998, ego-uninvolved **0.578 / 0.631**. The model saturates on ego accidents and fires at about half that level on third-party ones.
+
+Other strata with an interval excluding 0 (none a lead): DoTA `leave_to_left` / `leave_to_right` more low (+0.11…+0.14, both rows), `oncoming` less (−0.15…−0.19), night less (K5f only, −0.080); DADA daylight (`light` 1) more (K5f only), `linear` 3 more / 4 less, motorbike more (K5f only).
+
+**Expectations, scored.** E1 K5dfi fewer low clips than K5f on DoTA: **held** (215 vs 275). E2 ego-uninvolved over-represented: **held on both sets and both rows** (interval excludes 0), not a lead by FT5. E3 most low clips still rank well inside: **held on DoTA** (0.785 / 0.763), **at the edge on DADA** (0.529 / 0.551; their mean own AUC 0.55 / 0.52): on DADA a low clip is about as often a ranking failure as a level failure. E4 overlap Jaccard > 0.5: **held** (0.69, 0.73).
+
+**Reading.** On DoTA-CAP raw micro is lost mostly to **level, not ranking**: a quarter of K5f's clips (25 % of the positive frames) put their accident frames below the set's median normal frame, and 79 % of those clips still rank their own accident above their own normal frames. These clips are concentrated in accidents that do not involve the ego car (43 % low vs 9 %). K5dfi removes 75 of K5f's low clips and adds 15; its low set is mostly K5f's. The fit with frame-global features, Nexar's ego-involved training events and §24.1's ranking pattern is inferred, not tested.
+
+**Licensed (PRELIMINARY, n = 1).** "On whole DoTA-CAP, 24 % of K5f's clips (19 % for K5dfi) have accident frames that rank below the set's median normal frame under raw scores, and most of them (79 % / 76 %) still rank their own accident above their own normal frames. Accidents not involving the ego car are low about 4.8× (K5f) and 6.4× (K5dfi) as often as ego-involved ones; DADA shows the same direction (about 2×)." **Not licensed:** "K5f cannot detect third-party accidents" (it ranks them inside the clip at own AUC 0.75); "`ignore` fixes level" (no interval on the row difference); any cause; any per-clip normalization as the micro. **What could follow (not authorized, the user decides):** a check whether ego-uninvolved accidents are rare in Nexar's training spans (`nexar_train` annotation, no training); nothing about the model changes from this read.
