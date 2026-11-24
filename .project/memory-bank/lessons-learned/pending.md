@@ -2635,3 +2635,12 @@ Promote if a second harness needs the same split.
 **Rule:** Compute per-video macro before writing any localization sentence from a pooled in-video AUC.
 **Files:** core/docs/final/KIM_RUN.md §41.2
 **Gate status.** One occurrence (caught before it was written into the docs); candidate. Related: C12, (dy).
+
+## (ea) [MEDIUM] Testing - An RNG-stream test on a tiny fixture agrees by chance (2026-11-24)
+**Triggers:** RNG stream, same draws, paired sampler test, small fixture, mutation test
+**Problem:** `test_forced_normals_...` compared the random slots of two datasets over one epoch of a fixture with 3 normal slots, one of them random. With the bug in (a forced slot that skips its draw) it passed; a mutation run showed it.
+**Bad:** one epoch, one compared draw out of 6 candidates.
+**Good:** 20 epochs in shuffled order, every random slot compared; the same mutation now fails.
+**Rule:** Run the mutation the test is meant to catch before trusting a "same draws" test.
+**Files:** core/tests/test_dvs_dataset.py, core/data/dataset.py:_normal_anchor
+**Gate status.** One occurrence (caught before any run); candidate.

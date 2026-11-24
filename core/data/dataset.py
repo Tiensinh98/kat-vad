@@ -98,6 +98,8 @@ class DVSFeatureDataset(Dataset[dict[str, Any]]):
                 f"{len(self.anomaly_ids)} abnormal in {data_dir}"
             )
 
+        self.forced_normal_ids = self._load_forced_normals(data_dir, set(labels))
+
         meta_path = data_dir / constants.META_FILENAME
         self._classes: dict[str, str] = {}
         if meta_path.exists():
@@ -113,6 +115,36 @@ class DVSFeatureDataset(Dataset[dict[str, Any]]):
 
     def __len__(self) -> int:
         return 2 * len(self.anomaly_ids)  # A9: anomaly half + normal half
+
+    def _load_forced_normals(self, data_dir: Path, labelled: set[str]) -> list[str]:
+        """``forced_normals.json``'s ids (``KIM_RUN.md`` §49); ``[]`` when the corpus has none."""
+        path = data_dir / constants.FORCED_NORMALS_FILENAME
+        if not path.exists():
+            return []
+        ids: list[str] = _load_json(path)
+        if not ids or len(set(ids)) != len(ids):
+            raise ValueError(f"{path}: expected a non-empty list of unique ids")
+        if len(ids) > len(self.anomaly_ids):
+            raise ValueError(f"{path}: {len(ids)} forced normals do not fit in the "
+                             f"{len(self.anomaly_ids)} normal slots of an epoch")
+        if labelled & set(ids):
+            raise ValueError(f"{path}: forced normals must not be in labels_train.json: "
+                             f"{sorted(labelled & set(ids))[:5]}")
+        if not self.slicer.is_windowed:
+            raise ValueError(f"{path}: forced normals need a windowed corpus")
+        for vid in ids:
+            self.slicer.window_of(vid)  # raises on an id windows.json does not know
+        LOGGER.info("%d forced normals, each drawn once per epoch", len(ids))
+        return ids
+
+    def _normal_anchor(self, slot: int) -> str:
+        """The normal item of a slot: a forced id in the first slots, else a random draw.
+
+        The draw is made in every slot, so the random slots keep the ids of a corpus without
+        forced normals (§49 ED3: K5f's draws).
+        """
+        drawn = self._rng.choice(self.normal_ids)
+        return self.forced_normal_ids[slot] if slot < len(self.forced_normal_ids) else drawn
 
     def _class_name(self, video_id: str, is_abnormal: bool) -> str:
         """The item's class: ``Normal`` for a label-0 item whatever ``meta.json`` says.
@@ -174,7 +206,7 @@ class DVSFeatureDataset(Dataset[dict[str, Any]]):
         anchor_id = (
             self.anomaly_ids[index]
             if is_anomaly_half
-            else self._rng.choice(self.normal_ids)
+            else self._normal_anchor(index - len(self.anomaly_ids))
         )
         anchor_feats, anchor_flow = self._load_clip(anchor_id)
 

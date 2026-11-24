@@ -24,6 +24,8 @@ data/{DATASET}/meta.json                     per-video scenario/class/split/wind
 data/{DATASET}/windows.json                  OPTIONAL {window_id: {source, start, end}}
                                              present only for a corpus re-sharded into
                                              fixed-length windows (lesson C28)
+data/{DATASET}/forced_normals.json           OPTIONAL [window_id, ...] (KIM_RUN.md §49): normal
+                                             windows drawn exactly once per epoch
 
 cache/clip/{DATASET}/{video_id}.npy          (L, 512) float32 CLIP ViT-B/16 features
 cache/flow/v1/{DATASET}/{video_id}.npy       (L, 256) float32 RAFT flow embeddings e_O (train only)
@@ -80,6 +82,11 @@ Rules:
 - **No padding, ever.** A clip shorter than one window contributes no window and is
   logged; padding would fabricate frames that `ConvScoreHead`'s
   `padding_mode="replicate"` then smooths over (lesson **C27**).
+- **`forced_normals.json` (optional) is a second presence switch** (`KIM_RUN.md` §49). Its ids are
+  in `windows.json` and **not** in `labels_train.json`: `DVSFeatureDataset` gives them the first
+  normal slots of every epoch, once each, and draws the remaining slots from the unchanged random
+  pool. The random draw is still made in a forced slot, so the other slots draw the ids of the same
+  corpus without the file. Absent = the sampler every earlier corpus used.
 - **A window never crosses a clip boundary**, and **appearance and flow are sliced
   by the same window** — an offset between the two branches is lesson **C13** in
   miniature. `FeatureSlicer.load(..., suffix=)` covers `.stats.npy` for the same reason.

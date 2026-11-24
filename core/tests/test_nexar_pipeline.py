@@ -294,6 +294,58 @@ def test_window_negonly_is_opt_in() -> None:
     assert args.constructions == [constants.NEXAR_CONSTRUCTION_WINDOW_NEGONLY]
 
 
+@pytest.mark.parametrize("side", constants.NEXAR_EDGE_SIDES)
+def test_build_window_edge_adds_one_normal_window_beside_each_span(
+    tmp_path: Path, side: str
+) -> None:
+    """§49 ED2/ED4: only windows.json grows; each edge window touches its span, all rows normal."""
+    rows, train, val, frames = _rows()
+    nexar_build.build_window(tmp_path / "w", rows, train, val, frames)
+    stats = nexar_build.build_window_edge(tmp_path / "e", rows, train, val, frames, side)
+    for name in (constants.LABELS_TRAIN_FILENAME, constants.FRAME_LABELS_TEST_FILENAME,
+                 constants.DEFS_FILENAME, constants.META_FILENAME, TRAIN_IDS_FILENAME):
+        assert (tmp_path / "e" / name).read_text() == (tmp_path / "w" / name).read_text()
+    base = json.loads((tmp_path / "w" / constants.WINDOWS_FILENAME).read_text())
+    windows = json.loads((tmp_path / "e" / constants.WINDOWS_FILENAME).read_text())
+    forced = json.loads((tmp_path / "e" / constants.FORCED_NORMALS_FILENAME).read_text())
+    assert {w: windows[w] for w in base} == base and set(windows) - set(base) == set(forced)
+    assert not (tmp_path / "w" / constants.FORCED_NORMALS_FILENAME).exists()
+    assert stats["edge_windows"] == len(forced) == 2 and stats["edge_videos_without_room"] == []
+    assert {windows[w]["source"] for w in forced} == {"p1", "p2"}  # never a negative, never val
+    for wid in forced:
+        w = windows[wid]
+        labels = sampled_frame_labels(
+            nexar_build.make_record(w["source"], rows[w["source"]], 1200),
+            constants.NEXAR_TRAIN_STRIDE)
+        assert w["end"] - w["start"] == constants.NEXAR_WINDOW_LENGTH
+        assert not any(labels[w["start"]:w["end"]])
+        touching = w["end"] if side == constants.NEXAR_EDGE_SIDE_PRE else w["start"] - 1
+        assert labels[touching] == 1  # gap 0
+
+
+def test_edge_window_room_and_bad_input() -> None:
+    labels = [0] * 5 + [1] * 3 + [0] * 4
+    pre = nexar_build.edge_window("v", labels, constants.NEXAR_EDGE_SIDE_PRE, length=5)
+    post = nexar_build.edge_window("v", labels, constants.NEXAR_EDGE_SIDE_POST, length=4)
+    assert pre is not None and (pre.start, pre.end) == (0, 5)
+    assert post is not None and (post.start, post.end) == (8, 12)
+    assert nexar_build.edge_window("v", labels, constants.NEXAR_EDGE_SIDE_PRE, length=6) is None
+    assert nexar_build.edge_window("v", labels, constants.NEXAR_EDGE_SIDE_POST, length=5) is None
+    with pytest.raises(ValueError, match="no abnormal row"):
+        nexar_build.edge_window("v", [0] * 9, constants.NEXAR_EDGE_SIDE_PRE, length=2)
+    with pytest.raises(ValueError, match="side must be"):
+        nexar_build.edge_window("v", labels, "left", length=2)
+
+
+def test_window_edge_is_opt_in() -> None:
+    base = ["corpus", "--census", "c", "--clip-s1-dir", "x", "--report", "r"]
+    edges = [constants.NEXAR_CONSTRUCTION_WINDOW_EDGEPRE,
+             constants.NEXAR_CONSTRUCTION_WINDOW_EDGEPOST]
+    assert not set(edges) & set(nexar_build.build_arg_parser().parse_args(base).constructions)
+    args = nexar_build.build_arg_parser().parse_args([*base, "--constructions", *edges])
+    assert args.constructions == edges
+
+
 def test_negative_cap_needs_negatives(tmp_path: Path) -> None:
     rows, train, val, frames = _rows()
     with pytest.raises(ValueError, match="negative_cap needs include_negatives"):

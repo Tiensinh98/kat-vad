@@ -39,6 +39,26 @@ def _dataset(fixture, **overrides) -> DVSFeatureDataset:
     return DVSFeatureDataset(**kwargs)
 
 
+def _windowed(fixture, data_dir):
+    """The fixture's corpus with one whole-clip window per id (ids unchanged)."""
+    shutil.copytree(fixture.data_dir, data_dir)
+    windows = {
+        vid: {"source": vid, "start": 0, "end": len(np.load(fixture.clip_dir / f"{vid}.npy"))}
+        for vid in json.loads((data_dir / constants.LABELS_TRAIN_FILENAME).read_text())
+    }
+    (data_dir / constants.WINDOWS_FILENAME).write_text(json.dumps(windows))
+    return data_dir
+
+
+def _add_forced(data_dir, sources, ids) -> None:
+    path = data_dir / constants.WINDOWS_FILENAME
+    windows = json.loads(path.read_text())
+    for source, wid in zip(sources, ids, strict=True):
+        windows[wid] = {**windows[source], "end": 6}
+    path.write_text(json.dumps(windows))
+    (data_dir / constants.FORCED_NORMALS_FILENAME).write_text(json.dumps(ids))
+
+
 class TestSynthesisPrimitives:
     def test_compose_alignment_and_span(self) -> None:
         anchor = torch.ones(5, D)
@@ -130,6 +150,53 @@ class TestDVSFeatureDataset:
             if item["label"].item() == 1:
                 # un-synthesized abnormal: window unknown -> zero pseudo label
                 assert not item["pseudo_frame_label"].any()
+
+    def test_forced_normals_are_drawn_once_per_epoch_and_keep_the_other_draws(
+        self, fixture, tmp_path
+    ) -> None:
+        """§49 ED3: forced slots hold the edge windows; every other slot draws what it drew."""
+        data_dir = _windowed(fixture, tmp_path / "data")
+        plain = _dataset(fixture, data_dir=data_dir, dvs=DVSConfig(theta=1.0))
+        forced = ["edge_b", "edge_a"]
+        _add_forced(data_dir, plain.normal_ids[:2], forced)
+        edged = _dataset(fixture, data_dir=data_dir, dvs=DVSConfig(theta=1.0))
+        assert edged.normal_ids == plain.normal_ids and len(edged) == len(plain)
+        half = len(plain.anomaly_ids)
+        rng = np.random.default_rng(0)
+        for _ in range(20):  # 20 epochs, so a shifted stream cannot agree by chance (3 slots here)
+            order = [int(i) for i in rng.permutation(len(plain))]
+            a = {i: plain[i] for i in order}
+            b = {i: edged[i] for i in order}
+            for i in order:
+                if not half <= i < half + 2:
+                    assert b[i]["video_id"] == a[i]["video_id"]
+        assert [b[half + k]["video_id"] for k in range(2)] == forced
+        for i in order:
+            assert b[i]["label"] == a[i]["label"]
+        assert b[half]["cls_label"] == NORMAL_CLASS and b[half]["label"].item() == 0
+        assert len(b[half]["v_feat"]) == len(edged._load_features("edge_b"))
+        seen = [edged[half + k]["video_id"] for k in range(half)]  # the next epoch
+        assert seen[:2] == forced and not set(seen[2:]) & set(forced)
+
+    @pytest.mark.parametrize(("ids", "match"), [
+        ([], "non-empty"), (["edge_a", "edge_a"], "unique"), (["labelled"], "must not be in"),
+        (["nowhere"], "not in windows.json"), ([f"edge_{i}" for i in range(99)], "do not fit"),
+    ])
+    def test_bad_forced_normals_raise(self, fixture, tmp_path, ids, match) -> None:
+        data_dir = _windowed(fixture, tmp_path / "data")
+        base = _dataset(fixture, data_dir=data_dir)
+        _add_forced(data_dir, base.normal_ids[:1], ["edge_a"])
+        ids = [base.normal_ids[0] if i == "labelled" else i for i in ids]
+        (data_dir / constants.FORCED_NORMALS_FILENAME).write_text(json.dumps(ids))
+        with pytest.raises((ValueError, KeyError), match=match):
+            _dataset(fixture, data_dir=data_dir)
+
+    def test_forced_normals_need_a_windowed_corpus(self, fixture, tmp_path) -> None:
+        data_dir = tmp_path / "data"
+        shutil.copytree(fixture.data_dir, data_dir)
+        (data_dir / constants.FORCED_NORMALS_FILENAME).write_text(json.dumps(["edge_a"]))
+        with pytest.raises(ValueError, match="windowed"):
+            _dataset(fixture, data_dir=data_dir)
 
     def test_normal_item_is_normal_whatever_meta_says(self, fixture, tmp_path) -> None:
         """§31: a windowed corpus's meta gives a normal window its source's class; ignore it."""

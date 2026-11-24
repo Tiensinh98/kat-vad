@@ -2819,3 +2819,41 @@ Other printed reads (K5f, U): size × speed ρ_A +0.236 [+0.149, +0.315] (+0.225
 The user closed the line after §45–§47 ("ok đóng line đi"). Nothing follows: no arm, no corpus change. K5f stays. DAD and CCD as a source of third-party positives were discussed and not taken: DAD's label is a fixed last 0.4 s on 15-row clips (`t/N` macro 1.000, `ZS_DAD.md` §8), has no ego flag and is one of the four zero-shot sets; CCD stays PARKED (2026-09-26). Reopening takes a new dated note.
 
 **Limitation text (for the report; n = 1, s2024, whole DoTA-CAP, raw scores).** "K5f scores accidents that do not involve the camera car at a lower level: the accident frames of 43 % of the ego-uninvolved DoTA-CAP clips rank below the set's median normal frame, against 9 % of the ego-involved ones. Nexar's positives are by definition ego-involved front-side (near-)collisions with a car or truck. Training on T2, where 74 % of the abnormal windows do not name an ego car, narrows the gap only by 0.07 [0.005, 0.13] of 0.34, and matching the accident's box size leaves 0.29 [0.21, 0.37] of 0.35. Neither the missing positives nor the box size explains most of the gap; the cause is not established." **Never write:** that either factor is, or is not, the cause; that the two shares add up; that K5f cannot detect third-party accidents (own AUC 0.75 within the clip).
+
+## 49. K5fepre / K5fepost (edge normal windows, once per epoch) and K5fbk (bottom-k MIL) on K5f (dated note 2026-11-24, before any number of these rows; user)
+
+**Why.** The user reads K5f's curves as rising before the accident (§43, §43.1) and wants (a) normal windows right beside the span ("edge windows") and (b) the bottom-k MIL term. Claude advised against (b); **the user keeps it: its two earlier failures were on the DADA archive and TAD, corpora that are not clean training sets (C28, C14), so they are not counted as evidence about Nexar.** This note reopens nothing closed: §26 closed `min_positive` and other top-k divisors; §27 / §38 changed the *source* of the normals. Here the positive windows, the random normal pool and every other key are K5f's.
+
+**Printed before this rule (post-hoc, saved K5f reads, n = 1; they motivate the arms and choose none of their geometry).**
+
+| read | value |
+|---|---|
+| macro gained by dropping the normal frames of [−2, 0) s: Nexar val / DoTA-CAP / DADA | +0.002 ns / +0.021 / −0.002 ns (K5dfi DoTA +0.005 ns) |
+| same, (0, 2] s **after** the span | **+0.006 / +0.020 / +0.030**, every interval above 0 (K5dfi DoTA +0.037, DADA +0.040) |
+| Nexar val windows with an abnormal row (433, rows cut from the whole-video reads): bottom-4 rows' mean score, median | 0.001 (93 % of the windows below 0.05); other normal rows 0.151, abnormal rows 0.494 |
+| lost AUC carried by the bottom-4 rows (Nexar val) / by the lowest 20 % of frames (DoTA, DADA) | 1.7 % / 0.9 %, 1.4 % |
+| share of those bottom-4 rows that are abnormal | 8.6 % |
+| edge windows the random pool already holds (gap 0; builder on the census, exactly K5f's 7,311 / 1,689) | before 62 videos, after 61 of 451 (nearest normal window: mean gap ~3.5 rows, from an approximate rebuild) |
+| videos with room for a 20-row edge window: before / after | 449 / 449 |
+| positive train windows with fewer than 4 normal rows | 1.3 % |
+
+| # | Choice |
+|---|---|
+| ED1 Rows | **K5fepre**, **K5fepost**, **K5fbk**, each = K5f's exact command (`kim.enabled`, `kim.prototypes`, `kim.edge_mask`, DVS off, A2 V2-S bake, 33 epochs, 1,749 steps), **s2024**, control **K5f** (not retrained). Never combined in one run. Order: K5fepre, K5fepost, K5fbk |
+| ED2 Edge window | Per `nexar_train` positive video, 20 rows at s8: **pre** = the rows ending right before the first abnormal row, **post** = the rows starting right after the last one (gap 0, no guard). Videos without room contribute none. Every row must be normal (asserted) |
+| ED3 Dose (user: option C) | Each edge window is drawn **exactly once per epoch**, as every positive window is: normal slots `0 … n_edge − 1` are the edge windows, the other 1,689 − n_edge slots draw at random from K5f's unchanged 5,622. ~449 / 1,689 ≈ 27 % of the normal items, ~8.5 of ~32 per batch; nothing is tuned. `rng.choice` is still called on every slot, so the random slots draw K5f's items |
+| ED4 Corpus | `nexar_build corpus --constructions window_edgepre window_edgepost` = `window` plus `windows.json` entries for the edge windows and `forced_normals.json`. `labels_train.json`, `frame_labels_test.json`, `defs.json`, `meta.json` byte-identical to `Nexar_window`. **Config diff to K5f = {}** (the corpus is a CLI path) |
+| ED5 Bottom-k | `loss.bottomk_weight=1.0` (symmetry with `L_MIL`), `loss.bottomk_topk_pct=5` (k = 4, `L_MIL`'s k; the default 16 gives k = 1). **Config diff = those two keys.** Acts on the host score only, not on KIM's. No other weight or k |
+| ED6 Guards | J10 (1,749); config diff as above; last-epoch `mul_mil` > 0.01; K5fbk step-1 `mil` = K5f's within `KIM_START_TOL` (same draws, else a flag). Edge rows' step-1 `mil` must **differ** from K5f's (equal = the forced windows were not read; the notebook raises) |
+| ED7 Reads | K5f's five: Nexar val with `--save-scores`, DoTA-CAP-dev protocol B, DADA whole, TAD s8, DAD s7. Macro **and** micro on all four zero-shot sets (`zs_arm_table`) |
+| ED8 Early-rise target | **T1** Nexar val: zone AUC of [−1, 0) s frames against every negative-video frame (§43's definition), row − K5f, video bootstrap (positive and negative videos resampled): **hit** iff the interval is below 0. **T2** DoTA-CAP-dev: per clip, AUC of the span's frames against the **normal frames of [−2, 0) s** ("onset AUC"), row − K5f, source-video clusters: **hit** iff the interval is above 0. Printed beside: the onset AUC on Nexar val and DADA; §43.1's rescaled level; the post-span twin (span vs (0, 2] s). **Change from the form agreed in chat:** T2 was "the rescaled level at [−2, −1) s", which only 58 dev clips define; checked on the known pair K5dfi − K5f (dev), its interval is [−0.44, −0.08] against the onset AUC's [+0.034, +0.059] on 568 clips. Chosen before any number of these rows |
+| ED9 Cost / gain | §34's label per set (margin 0.01 and the interval past 0). **COST** on any of Nexar val crops, DoTA-CAP-dev, DADA, DAD; **GAIN** only on DoTA-CAP-dev or DADA. TAD printed |
+| ED10 K5fepre | T1 and T2 hit, no COST → **REDUCED**, s2025 may run. T1 or T2 hit and a COST → **TRADE-OFF**, closed. Exactly one hit, no COST → **PARTIAL**, closed. No hit → **NOT REDUCED**, closed |
+| ED11 K5fepost, K5fbk | GAIN and no COST → s2025 may run; anything else → closed. T1 / T2 printed |
+| ED12 After | Nothing is adopted at n = 1; K5f stays the reference. Closed = no other dose, gap, guard, weight or k, and no combination (lesson 14) |
+
+**Expectations, written before the numbers (a wrong one changes nothing).** K5fepre: T1 hit, T2 not (§43.1: the DoTA rise starts ~4 s before the GT, the edge window adds ~1 s); DADA not separated; a possible COST on Nexar val, because the rows just before and just after the alert look alike. K5fepost: no prediction of sign (the post-span cost is real on three sets, but Nexar's 1.4 s tail is borrowed from DADA and the causal 1.5 s VideoMAE window still holds accident motion in the first ~6 rows after it, so those rows may teach "accident motion is normal"). K5fbk: no difference on any set (the rows it pushes are already near 0).
+
+**Not licensed, whatever the outcome.** "Edge windows reduce the early rise" from one hit or from TRADE-OFF; "K5f anticipates"; which loss acts (`mil`, `kim_mil`, `mul_mil` and NKC all see the edge windows); any sentence about bottom-k beyond this host, weight and k.
+
+Code: `core/data/dataset.py` (`forced_normals.json`, opt-in), `core/tools/nexar_build.py` (`build_window_edge`), `core/tools/k5_edge_report.py`; tests `core/tests/test_dvs_dataset.py`, `test_nexar_pipeline.py`, `test_k5_edge_report.py`; runbook `colab/final/k5_edge.ipynb`; outputs `Thesis-Final/outputs/kim_edge/`.

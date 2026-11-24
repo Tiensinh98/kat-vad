@@ -26,6 +26,10 @@ Constructions (both train at ``s1[::8]``, both labelled by the rule above):
 ``window_negonly`` -> ``data/Nexar_window_negonly/`` (``KIM_RUN.md`` §38.2, opt-in)
     ``window``'s positive windows; **no** normal window of a positive video; the negative videos
     capped at the per-video cap whose total is closest to the in-video normals it replaces.
+``window_edgepre`` / ``window_edgepost`` -> ``data/Nexar_window_edge{pre,post}/`` (§49, opt-in)
+    ``window`` unchanged, plus ``windows.json`` entries for one all-normal window right before
+    (right after) each positive train video's span and their ids in ``forced_normals.json``: the
+    training set draws each exactly once per epoch, outside the random normal pool.
 
 ``subsample`` writes ``cache/clip/Nexar_s8_ncc`` = ``Nexar_s1_ncc[::8]`` for A0 and the KNN key.
 
@@ -66,7 +70,7 @@ from core.data.dataset_files import (
     write_windows,
 )
 from core.data.v2_splits import lines_sha1, load_split
-from core.data.windows import cap_windows, load_windows
+from core.data.windows import Window, cap_windows, load_windows
 from core.metrics import frame_auc
 from core.tools.feature_cache import save_array
 from core.tools.kill_switch_probe import write_json_atomic
@@ -271,6 +275,70 @@ def build_window_negonly(
     }
 
 
+def edge_window(source: str, labels: list[int], side: str,
+                length: int = constants.NEXAR_WINDOW_LENGTH) -> Window | None:
+    """The ``length`` rows right before (``pre``) or right after (``post``) the span (§49 ED2).
+
+    ``None`` when the video has no room on that side; raises when a row of the window is abnormal
+    (a second span) or the video has no abnormal row.
+    """
+    if side not in constants.NEXAR_EDGE_SIDES:
+        raise ValueError(f"side must be one of {constants.NEXAR_EDGE_SIDES}, got {side!r}")
+    positive = np.flatnonzero(np.asarray(labels))
+    if not positive.size:
+        raise ValueError(f"{source}: no abnormal row, so no span edge")
+    start = (int(positive[0]) - length if side == constants.NEXAR_EDGE_SIDE_PRE
+             else int(positive[-1]) + 1)
+    if start < 0 or start + length > len(labels):
+        return None
+    if any(labels[start:start + length]):
+        raise ValueError(f"{source}: the {side} edge window holds an abnormal row")
+    return Window(source, start, start + length)
+
+
+def build_window_edge(
+    out_dir: Path, rows: dict[str, dict[str, Any]], train: list[str], val: list[str],
+    frames: dict[str, int], side: str,
+) -> dict[str, Any]:
+    """``window_edge<side>`` (§49): ``window`` plus the forced edge windows of one side.
+
+    Only ``windows.json`` grows and ``forced_normals.json`` appears; the labels, the val side,
+    ``meta.json`` and ``defs.json`` stay ``window``'s.
+    """
+    stats = build_window(out_dir, rows, train, val, frames)
+    windows = load_windows(out_dir)
+    if windows is None:
+        raise ValueError(f"{out_dir} has no windows.json after build_window")
+    tiled = {(w.source, w.start) for w in windows.values()}
+    edges: dict[str, Window] = {}
+    no_room: list[str] = []
+    for v in sorted(train):
+        if rows[v]["label"] != 1:
+            continue
+        labels = sampled_frame_labels(make_record(v, rows[v], frames[v]),
+                                      constants.NEXAR_TRAIN_STRIDE)
+        window = edge_window(v, labels, side)
+        if window is None:
+            no_room.append(v)
+            continue
+        edges[constants.NEXAR_EDGE_WINDOW_ID.format(source=v, side=side)] = window
+    if not edges:
+        raise ValueError(f"no positive train video has room for a {side} edge window")
+    clash = sorted(set(edges) & set(windows))
+    if clash:
+        raise ValueError(f"edge window ids already in windows.json: {clash[:5]}")
+    write_windows(out_dir, {**windows, **edges})
+    (out_dir / constants.FORCED_NORMALS_FILENAME).write_text(
+        json.dumps(sorted(edges), indent=2), encoding="utf-8")
+    return {
+        **stats,
+        "edge_side": side,
+        "edge_windows": len(edges),
+        "edge_windows_already_tiled": sum((w.source, w.start) in tiled for w in edges.values()),
+        "edge_videos_without_room": no_room,
+    }
+
+
 def epoch_plan(train_abnormal: int, batch_size: int = constants.BATCH_SIZE) -> dict[str, int]:
     """Epochs that spend ``NEXAR_STEP_BUDGET`` optimizer steps (DVS len = 2 x abnormal)."""
     steps_per_epoch = math.ceil(2 * train_abnormal / batch_size)
@@ -324,6 +392,10 @@ def run_corpus(args: argparse.Namespace) -> dict[str, Any]:
         constants.NEXAR_CONSTRUCTION_WINDOW_NEGCAP: partial(
             build_window, include_negatives=True, negative_cap=constants.NEXAR_NEG_WINDOW_CAP),
         constants.NEXAR_CONSTRUCTION_WINDOW_NEGONLY: build_window_negonly,
+        constants.NEXAR_CONSTRUCTION_WINDOW_EDGEPRE: partial(
+            build_window_edge, side=constants.NEXAR_EDGE_SIDE_PRE),
+        constants.NEXAR_CONSTRUCTION_WINDOW_EDGEPOST: partial(
+            build_window_edge, side=constants.NEXAR_EDGE_SIDE_POST),
     }
     for name in args.constructions:
         out_dir = args.out_root / f"{constants.NEXAR_DATASET}_{name}"

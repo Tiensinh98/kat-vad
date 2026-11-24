@@ -43,6 +43,9 @@ META_FILENAME = "meta.json"  # per-video scenario/class/split/window (diagnostic
 # every loader behaves exactly as before. See core/docs/DATA_LAYOUT.md.
 WINDOWS_FILENAME = "windows.json"
 WINDOW_ID_SEPARATOR = "__w"  # "{source}__w{index:03d}"
+# Optional corpus file (KIM_RUN.md §49): normal window ids drawn exactly once per epoch, outside
+# labels_train.json's random normal pool. Absent = the sampler every earlier corpus used
+FORCED_NORMALS_FILENAME = "forced_normals.json"
 # core.tools.subset_train: a train-source subset of a dataset dir (learning curve,
 # plan katvad-t2-learning-curve.md). Written beside the filtered labels_train.json.
 SUBSET_MANIFEST_FILENAME = "subset_manifest.json"
@@ -637,8 +640,17 @@ NEXAR_NEG_WINDOW_CAP = 2
 # KIM_RUN.md §38.2: `window_neg` minus every in-video normal window, negative videos capped so the
 # normal pool matches the in-video normals it replaces. Opt-in, not a default build
 NEXAR_CONSTRUCTION_WINDOW_NEGONLY = "window_negonly"
+# KIM_RUN.md §49: `window` plus one normal window right before / right after each positive train
+# video's span, drawn once per epoch (forced_normals.json). Opt-in, not a default build
+NEXAR_EDGE_SIDE_PRE = "pre"
+NEXAR_EDGE_SIDE_POST = "post"
+NEXAR_EDGE_SIDES = (NEXAR_EDGE_SIDE_PRE, NEXAR_EDGE_SIDE_POST)
+NEXAR_CONSTRUCTION_WINDOW_EDGEPRE = "window_edgepre"
+NEXAR_CONSTRUCTION_WINDOW_EDGEPOST = "window_edgepost"
+NEXAR_EDGE_WINDOW_ID = "{source}__edge_{side}"
 NEXAR_CORPUS_CHOICES = (*NEXAR_CONSTRUCTIONS, NEXAR_CONSTRUCTION_WINDOW_NEG,
-                        NEXAR_CONSTRUCTION_WINDOW_NEGCAP, NEXAR_CONSTRUCTION_WINDOW_NEGONLY)
+                        NEXAR_CONSTRUCTION_WINDOW_NEGCAP, NEXAR_CONSTRUCTION_WINDOW_NEGONLY,
+                        NEXAR_CONSTRUCTION_WINDOW_EDGEPRE, NEXAR_CONSTRUCTION_WINDOW_EDGEPOST)
 NEXAR_WINDOW_LENGTH = DADA_ORIGIN_WINDOW_LENGTH  # 20 rows at s8, T2's geometry
 NEXAR_WINDOW_STRIDE = DADA_ORIGIN_WINDOW_STRIDE  # hop 8
 # No per-video cap: T2's cap of 4 evenly spaced windows would skip the ~11-row event of a
@@ -1663,3 +1675,16 @@ BOX_SIZE_THIRD = 1.0 / 3.0  # BS5: share of G_raw the size mix must carry
 BOX_SIZE_RHO_FLOOR = 0.2  # BS5: ρ upper bound below this (and including 0) = no relation
 BOX_SIZE_ROWS = ("K5f", "K5dfi", "K5fT2", "K5dfiT2")  # BS1, first = primary
 BOX_SIZE_REPORT_STEM = "box_size_read"
+
+# --- KIM_RUN §49: edge normal windows and bottom-k MIL on K5f (k5_edge_report) ---
+KIM_EDGE_PRE_ROW = "K5fepre"  # K5f + pre-span edge windows, once per epoch (ED2, ED3)
+KIM_EDGE_POST_ROW = "K5fepost"  # K5f + post-span edge windows, once per epoch
+KIM_BOTTOMK_ROW = "K5fbk"  # K5f + loss.bottomk_weight / bottomk_topk_pct (ED5)
+KIM_EDGE_ROWS = (KIM_EDGE_PRE_ROW, KIM_EDGE_POST_ROW, KIM_BOTTOMK_ROW)
+KIM_EDGE_OUTPUT_DIRNAME = "kim_edge"  # OUTPUT_ROOT/<this>/<row>/{K5/s<seed>, eval}, REPORTS/
+KIM_EDGE_REPORT_STEM = "k5_edge_report"  # REPORTS/<this>.{md,json}
+KIM_EDGE_TABLE_NAME = "k5_edge_s2024"  # REPORTS/zs_arm_table_<this>.md (control K5f)
+KIM_BOTTOMK_WEIGHT = 1.0  # ED5: symmetry with L_MIL, not tuned
+KIM_BOTTOMK_TOPK_PCT = DADA_ORIGIN_MIL_TOPK_PCT  # ED5: a divisor; k = 20 // 5 = 4 = L_MIL's k
+EDGE_TARGET_ZONE_S = (-1.0, 0.0)  # ED8 T1: zone AUC against negative-video frames
+EDGE_ONSET_S = 2.0  # ED8 T2: span vs the normal frames within this many seconds of its edge
