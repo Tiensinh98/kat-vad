@@ -1707,6 +1707,21 @@ KIM_DFI_BOTTOMK25_OUTPUT_DIRNAME = "kim_dfi_bottomk25"  # OUTPUT_ROOT/<this>/<ro
 KIM_DFI_BOTTOMK25_REPORT_STEM = "k5dfi_bottomk_report"  # REPORTS/<this>.{md,json}
 KIM_DFI_BOTTOMK25_TABLE_NAME = "k5dfi_bottomk25_s2024"  # REPORTS/zs_arm_table_<this>.md
 
+# --- KIM_RUN §53: KIM-on vs KIM-off on six arms (kim_ablation_report) ---
+# KA1: KIM-on arm -> (its KIM-off row, OUTPUT_ROOT dir that holds the on row); first = KA7 reference
+KIM_ABLATION_ARMS = {
+    KIM_FIXED_ARM: ("K0f", KIM_FIXED_OUTPUT_DIRNAME),
+    KIM_DVS_IGNORE_ROW: ("K0dfi", KIM_DVS_IGNORE_OUTPUT_DIRNAME),
+    KIM_DVS_IGNORE_EGO_ROW: ("K0dfie", KIM_DVS_IGNORE_OUTPUT_DIRNAME),
+    KIM_BOTTOMK25_ROW: ("K0fbk25", KIM_BOTTOMK25_OUTPUT_DIRNAME),
+    KIM_DFI_BOTTOMK25_ROW: ("K0dfibk25", KIM_DFI_BOTTOMK25_OUTPUT_DIRNAME),
+    KIM_EDGE_PRE_ROW: ("K0fepre", KIM_EDGE_OUTPUT_DIRNAME),
+}
+KIM_ABLATION_RERUN_SUFFIX = "rr"  # KA3: the on row re-trained when the starts do not match
+KIM_ABLATION_FLAGS = ("kim.enabled", "kim.prototypes", "kim.edge_mask", "kim.seam_mask")  # KA1
+KIM_ABLATION_OUTPUT_DIRNAME = "kim_ablation"  # OUTPUT_ROOT/<this>/<row>/{K5/s<seed>, eval}
+KIM_ABLATION_REPORT_STEM = "kim_ablation_report"  # REPORTS/<this>.{md,json}
+
 # --- KIM_RUN §52: DoTA train pixels located in CAP-DATA (construction only, no model) ---
 DOTA_TRAIN_SPLITS_DIR = Path(__file__).resolve().parent / "splits" / "dota_train"
 DOTA_TRAIN_MAP_FILENAME = "DOTA_TRAIN_CAP.json"  # frozen dota_id -> CAP video map
