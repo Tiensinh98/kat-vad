@@ -2922,3 +2922,36 @@ The per-video peak does not move on DoTA (n.s.) and falls 0.05 to 0.07 elsewhere
 **Not licensed, whatever the outcome.** "Bottom-k fixes the early rise"; any read of K5fbk (weight 1.0) against K5frr, or of K5fbk25 against the old K5f; a runtime conclusion from one re-run.
 
 Code: `core/tools/k5_bottomk_report.py`; tests `core/tests/test_k5_bottomk_report.py`; runbook `colab/final/k5_bottomk25.ipynb`; outputs `Thesis-Final/outputs/kim_bottomk25/`.
+
+### 50.1 Read-out (s2024, n = 1): TRADE-OFF, closed; K5f stays (2026-11-24)
+
+Guards pass: step-1 `mil` 0.687794 in both rows (same draws), same GPU / torch / CUDA (NVIDIA L4, 2.14.1+cu130), config diff exactly the two bottom-k keys, J10, last-epoch `mul_mil` 0.0963 / 0.0932. Control K5frr.
+
+| set | macro K5frr → K5fbk25 | Δ macro | label | Δ micro |
+|---|---|---|---|---|
+| Nexar val crops | 0.8942 → 0.8679 | −0.0263 [−0.0324, −0.0206] | **COST** | not read |
+| DoTA-CAP-dev | 0.8188 → 0.8268 | +0.0080 [+0.0041, +0.0121] | above 0, under the 0.01 margin | +0.0362 [+0.0312, +0.0414] (min-max) |
+| DADA | 0.7744 → 0.7624 | −0.0120 [−0.0170, −0.0069] | **COST** | +0.0032 n.s. (min-max) |
+| TAD (printed) | 0.6981 → 0.7073 | +0.0092 n.s. | – | −0.0150 below (raw) |
+| DAD | 0.8070 → 0.8063 | −0.0007 n.s. | no difference | +0.0232 above (raw) |
+
+Target **A fails**: first third of the span Nexar −0.0482 [−0.0595, −0.0373], DADA −0.0301 [−0.0385, −0.0219] (strict bound fails too; DoTA, printed, −0.0087). Target **B holds**: DoTA onset AUC, pre side, +0.0454 [+0.0375, +0.0541]. Two COSTs. As expected in §50. BQ8 applies: no other weight, no other k, no partial bottom-k, no combination with edge windows.
+
+**The re-run is bit-identical to K5f.** K5frr's `metrics.jsonl` equals K5f's byte for byte over 1,749 steps, and the five sets' macros and the TAD / DAD scores are equal to the last digit. The notebook trains it from scratch (its skip reads only the new folder, no path copies K5f; its `config.yaml` carries `normal_caption`, a key K5f's does not have). So training is deterministic where K5frr and K5f ran, and no code change since K5f moved it. It does **not** give a runtime spread: a spread of 0 in one environment says nothing about another, and K5f's GPU was not saved. BQ4 is therefore unanswered. K5fbk's 0.6925 start came from something other than the code; the GPU difference stays a suspicion. K5fepre's −0.0149 stays unplaced.
+
+**Post-hoc, printed, decides nothing** (per video on the saved scores; video bootstrap; DoTA not clustered; `scratchpad` script, not a repo tool):
+
+| read (K5frr → K5fbk25) | Nexar val | DoTA-CAP-dev | DADA |
+|---|---|---|---|
+| raw max inside the span | 0.805 → 0.802 n.s. | 0.686 → 0.681 | 0.621 → 0.611 |
+| width of the min-max curve above 0.5 (s) | 2.51 → 1.94 | 4.31 → 3.19 | 3.76 → 2.90 |
+| first crossing of 0.5, relative to onset (s; from −5 s) | +0.51 → +0.79 | −1.03 → −0.18 | −0.28 → +0.29 |
+| last crossing of 0.5, relative to the span's end (s) | +1.90 → +1.75 n.s. | +0.64 → +0.36 | +0.76 → +0.62 |
+| span vs [−2, 0) s before | −0.027 | +0.045 | +0.008 n.s. |
+| span vs (0, 2] s after | −0.027 | −0.027 | −0.026 |
+| last third of the span vs all normal | −0.003 | +0.024 | +0.003 n.s. |
+| macro gained by dropping the [−2, 0) normals | +0.0016 → +0.0018 | +0.0192 → +0.0021 | −0.0018 → −0.0069 n.s. both |
+
+The curve is **narrower with the same peak**, not shifted: delaying K5frr by 0.25 to 2 s matches K5fbk25 worse than no delay on every set (MAE of min-max curves). The same narrowing helps where K5frr rose early (DoTA, first crossing 1.0 s before onset) and hurts where it did not (Nexar val, already 0.5 s after the alert). On DADA the early rise is visibly smaller, but the span's ranking against [−2, 0) does not separate. Nexar val false alarms at 0.5: 0.549 → 0.575.
+
+**Not licensed.** "Bottom-k fixes the early rise" (DoTA only, with a Nexar and DADA cost); "bottom-k 0.25 is adopted / better on DoTA" (below the margin, closed); any dose trend from K5fbk (unmatched start); "re-run spread = 0" beyond the same environment.

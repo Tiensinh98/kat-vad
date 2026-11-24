@@ -2653,3 +2653,12 @@ Promote if a second harness needs the same split.
 **Rule:** Prove a data change was read by counting the new items, never by a loss that another runtime also moves.
 **Files:** colab/final/k5_edge.ipynb (`check_run`), core/docs/final/KIM_RUN.md §49.1
 **Gate status.** One occurrence; candidate. Related: (cq) (the two runtimes, still unmeasured).
+
+## (ec) [LOW] Experiments - A same-environment re-run measures no spread when training is deterministic (2026-11-24)
+**Triggers:** re-run spread, control re-train, K5frr, bit-identical, runtime cluster, env.json
+**Problem:** §50 BQ4 re-trained K5f to size the re-run spread. The re-run was byte-identical to K5f (1,749 steps), so the spread read 0 and the question (is −0.0149 inside the cross-runtime spread) stayed open.
+**Bad:** plan a re-run as a spread estimate without saying which source of variation it varies.
+**Good:** name the source (seed, or GPU model) and vary it; record GPU + torch in every run so two runs can be compared.
+**Rule:** Before spending a re-run on spread, state what differs between the two runs; if nothing does, it can only confirm determinism.
+**Files:** core/docs/final/KIM_RUN.md §50.1, colab/final/k5_bottomk25.ipynb
+**Gate status.** One occurrence; candidate. Related: (cq), (eb).
