@@ -2662,3 +2662,12 @@ Promote if a second harness needs the same split.
 **Rule:** Before spending a re-run on spread, state what differs between the two runs; if nothing does, it can only confirm determinism.
 **Files:** core/docs/final/KIM_RUN.md §50.1, colab/final/k5_bottomk25.ipynb
 **Gate status.** One occurrence; candidate. Related: (cq), (eb).
+
+## (ed) [MEDIUM] Data - "X is gone" recorded from a search that never queried X (2026-11-24)
+**Triggers:** pixels gone, unrecoverable, not in the archive, coverage, provenance, MM-AU, CAP-DATA, train split
+**Problem:** The project planned for weeks on "DoTA's train pixels are gone". MM-AU P0 had searched CAP only with the 1,397 val clips (the only ones with CLIP rows); CAP holds at least 3,023 of 3,275 train clips, found from file-name order and frame counts alone.
+**Bad:** generalizing a coverage read over one split to the whole dataset; assuming a content match is the only way to identify a re-hosted clip.
+**Good:** state which ids were queried; before writing "gone", check metadata (id order, frame counts, annotation fields) on the pairs already matched, with a held-out fold for precision.
+**Rule:** Write the queried set beside every "not available" claim, and look for an ordering in the pairs already matched.
+**Files:** core/tools/mmau_match.py, core/tools/dota_train_match.py, core/docs/final/KIM_RUN.md §52
+**Gate status.** One occurrence (pixels not verified yet, DT7); candidate.

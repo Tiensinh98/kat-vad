@@ -20,7 +20,8 @@ Subcommands::
         --dota-clip-dir cache/clip/DoTA_s1_ncc --report .../verify.json
 
 ``verify`` checks every aligned clip has a zip whose entry count equals both the frame map and
-the clip's ``DoTA_s1_ncc`` rows (the native frame count every protocol uses).
+the clip's ``DoTA_s1_ncc`` rows (the native frame count every protocol uses). DoTA **train** clips
+(``KIM_RUN.md`` §52) have no s1 cache: without ``--dota-clip-dir`` the count is the annotation's.
 """
 
 from __future__ import annotations
@@ -185,10 +186,13 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
             reason = BAD_ARCHIVE if exists else NO_ARCHIVE
             per_clip[dota_id] = {"reason": reason}
             continue
-        native = len(np.load(args.dota_clip_dir / f"{dota_id}.npy", mmap_mode="r"))
+        native = (
+            len(np.load(args.dota_clip_dir / f"{dota_id}.npy", mmap_mode="r"))
+            if args.dota_clip_dir is not None else clip["dota_frames"]
+        )
         ok = n == clip["dota_frames"] == len(clip["frame_map"]) == native
         per_clip[dota_id] = {"reason": OK if ok else COUNT_MISMATCH, "frames": n,
-                             "dota_s1_rows": native}
+                             "dota_s1_rows": native if args.dota_clip_dir is not None else None}
     failed = {k: v["reason"] for k, v in per_clip.items() if v["reason"] != OK}
     total_bytes = sum(
         archive_path(args.archive_dir, k).stat().st_size for k, v in per_clip.items()
@@ -205,7 +209,8 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
     }
     manifest = {k: v for k, v in result.items() if k != "failed"} | {
         "layout": "{dota_id}.zip, entries {d:06d}.jpg = original CAP bytes of frame_map[d], stored",
-        "rows": "DoTA native frames (== DoTA_s1_ncc rows)",
+        "rows": "DoTA native frames (== DoTA_s1_ncc rows)" if args.dota_clip_dir is not None
+        else "DoTA annotation num_frames (no DoTA_s1_ncc for train clips)",
     }
     if result["pass"]:
         write_json_atomic(args.archive_dir / constants.DOTA_CAP_FRAMES_MANIFEST, manifest)
@@ -228,7 +233,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     pack.add_argument("--frames-subdir", default="images")
     pack.add_argument("--max-batch-gb", type=float, default=constants.MMAU_STREAM_BATCH_GB)
     verify = sub.add_parser("verify", help="every aligned clip has a complete archive")
-    verify.add_argument("--dota-clip-dir", type=Path, required=True, help="DoTA_s1_ncc")
+    verify.add_argument("--dota-clip-dir", type=Path, default=None,
+                        help="DoTA_s1_ncc; omit for DoTA train clips, which have no s1 cache")
     for p in (pack, verify):
         p.add_argument("--alignment", type=Path, required=True, help="dota_cap_alignment.json")
         p.add_argument("--archive-dir", type=Path, required=True)

@@ -3000,3 +3000,37 @@ Target **B fails**: DoTA onset AUC, pre side, −0.0005 [−0.0036, +0.0025]. Ta
 **Expectation check.** TRADE-OFF or closed: held (closed). "First-third losses may add": held in sign on Nexar and DADA, small.
 
 **Not licensed.** "Bottom-k and DVS are redundant / complementary"; "bottom-k fixes the early rise"; any comparison of K5dfibk25 with K5fbk25 as rows.
+
+## 52. DoTA **train** frames located in CAP-DATA: construction and pixel gate (dated note 2026-11-24; user)
+
+**Why.** The user wants to train on DoTA's train split. The project recorded "DoTA's train pixels are gone" without a test: MM-AU Phase 0 queried only the 1,397 **val** clips (they alone have surviving CLIP rows). CAP-DATA also holds the train clips. This note fixes how they are found, packed and checked. **No model runs under this note; the training recipe, the windows and the reads get their own note before any number.**
+
+**Order of events, stated honestly.** The matching below was developed on the 1,248 exact val pairs and its counts were read before this note was written. DT7 (the pixel gate) was written before any train frame was looked at.
+
+| # | Choice |
+|---|---|
+| DT1 Annotation | `DoTA_annotations.zip` (4,677 clips; train = 3,275 = the zip minus `val_split.txt` = the ids of `metadata_train.json`). Official GitHub copy = the local copy (sha256 in the map) |
+| DT2 Order | Inside three CAP id ranges the exact val pairs are in DoTA file-name order **as Windows Explorer sorts it** (case-blind, `-` ignored, `_` before digits): 0 breaks inside a range (case-blind ASCII order: 11). A = [800, 1509) and B = [1509, 6450) at 10 fps, C = [9000, 11800) at 30 fps |
+| DT3 Matching | Per range, a maximum-weight monotone matching of CAP ids to **all** 4,677 DoTA names; a pair is allowed iff CAP's total frames = `n` (A, B) or `3n − 2` / `3n − 3` (C); weight 1 + exp(−start gap / 8 frames), so the annotated start ranks but never filters; exact val pairs are anchors. A clip found twice takes B, then A, then C |
+| DT4 No val pixels | A CAP video that hit **any** val clip (exact or near, all retrieved candidates) is never given to a train clip. One CAP video serves one train clip |
+| DT5 Clock | 10 fps: frame `d`. 30 fps: frame `3d − 1` clamped (the mode of the frozen val maps; within 2 CAP frames, 67 ms, of 305 / 310 of them) |
+| DT6 Pack | `dota_cap_frames pack` unchanged (original CAP bytes, stored). A clip whose streamed CAP video has another frame count than annotated is dropped and counted; every other missing clip raises |
+| DT7 Pixel gate | DoTA's boxes on the recovered frames, judged by eye by the user, blind: 30 real train clips per rate group, 6 val controls (pixels already verified by CLIP), 10 decoys (a neighbouring clip of the same video under this clip's boxes), seed 2024, shuffled. A row is wrong if at least one of its three frames has no participant under a box. **Valid** iff ≥ 8 / 10 decoys are flagged and ≤ 1 / 6 controls. Valid → a rate group with > 2 / 30 flagged rows is dropped from the corpus. 10 fps dropped → STOP. Not valid → redraw once with 5 frames per row and seed 2025 (dated note), then STOP |
+| DT8 Name | The corpus is **DoTA-CAP-train (n/3275)**. A read on DoTA-CAP val by a model trained on it is **in-domain**, never zero-shot: 177 of 188 train YouTube videos are also val videos (3,246 / 3,275 clips). This is DoTA's official split; no train clip overlaps a val clip in time (1,033 end or start within 5 frames of one). Nexar val, DADA, TAD, DAD stay zero-shot |
+| DT9 Held-out rule | "DoTA stays held out" ends for rows trained on this corpus only. Every earlier row and K5f keep DoTA as zero-shot; K5f stays the reference |
+
+**Map (frozen, `core/splits/dota_train/DOTA_TRAIN_CAP.json`, ids sha1 `64d796b0…`): 3,023 / 3,275 clips (0.923)**: A 258, B 2,045, C 720; 186 YouTube videos; 307,874 DoTA frames, about 57 GB as CAP JPEGs (estimate from the val archive's bytes per frame).
+
+| check | A | B | C | all |
+|---|---|---|---|---|
+| val pairs hidden from the anchors (2 folds), right / wrong | 116 / 2 | 846 / 5 | 246 / 2 | **1,208 / 9 of 1,248** (precision 0.993, recall 0.968) |
+| train: night flag agrees (not used by DT3) | 0.985 | 0.975 | 0.961 | |
+| train: span end within 15 frames (not used) | 0.864 | 0.774 | 0.769 | |
+
+On the first, looser alignment the true val pairs read 0.96–0.98 on the night flag and 0.75–0.85 on the span end, shuffled pairs 0.77–0.88 and 0.40–0.62: the train pairs agree like true pairs.
+
+**Known before training (counts from the annotation; decide nothing yet).** DoTA has no normal video and its median clip is 99 frames (33 rows at s3). On the first alignment's 2,721 clips: windows W = 20 / hop 8 give 5,724 positive and only **504** normal (353 clips hold both); W = 16 / 8: 6,487 / 1,172; W = 12 / 6: 8,479 / 3,004 (1,803 clips hold both). Cutting them uses the annotated span, as T2 and `Nexar_window` do. A cubic position probe scores 0.852 on DoTA-CAP-dev with no pixel: print the rulers beside every in-domain number.
+
+**Not licensed.** "DoTA's train pixels are verified" before DT7; any zero-shot claim on DoTA for a row trained here; a comparison of this corpus with DoTA's published train split as if complete (252 clips are missing, not at random).
+
+Code: `core/tools/dota_train_match.py`, `core/tools/dota_train_sheet.py`, `dota_cap_frames verify` (`--dota-clip-dir` optional); tests `core/tests/test_dota_train.py`; runbook `colab/final/dota_train_pack_frames.ipynb`; frames `Thesis-Final/data/DoTA_CAP_train_frames/`, reports `Thesis-Final/outputs/REPORTS/dota_train/`. `--cap-csv` = CAP's `cap_text_annotations.xls` (HF `JeffreyChou/MM-AU`, sha256 `1b5b1fa1…`), columns video, type, light, abnormal start, abnormal end, total frames.

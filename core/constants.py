@@ -1706,3 +1706,38 @@ KIM_DFI_BOTTOMK25_ROW = "K5dfibk25"  # BD1: K5dfirr + the two bottom-k keys
 KIM_DFI_BOTTOMK25_OUTPUT_DIRNAME = "kim_dfi_bottomk25"  # OUTPUT_ROOT/<this>/<row>/
 KIM_DFI_BOTTOMK25_REPORT_STEM = "k5dfi_bottomk_report"  # REPORTS/<this>.{md,json}
 KIM_DFI_BOTTOMK25_TABLE_NAME = "k5dfi_bottomk25_s2024"  # REPORTS/zs_arm_table_<this>.md
+
+# --- KIM_RUN §52: DoTA train pixels located in CAP-DATA (construction only, no model) ---
+DOTA_TRAIN_SPLITS_DIR = Path(__file__).resolve().parent / "splits" / "dota_train"
+DOTA_TRAIN_MAP_FILENAME = "DOTA_TRAIN_CAP.json"  # frozen dota_id -> CAP video map
+DOTA_TRAIN_FRAMES_DIRNAME = "DoTA_CAP_train_frames"  # <drive data>/<this>/{dota_id}.zip
+DOTA_TRAIN_OUTPUT_DIRNAME = "dota_train"  # OUTPUT_ROOT/REPORTS/<this>/
+# DT2: CAP id ranges [low, high) holding DoTA clips in name order, with CAP frames per DoTA frame;
+# read off the 1,248 exact val pairs of MM-AU P0
+DOTA_TRAIN_BLOCKS = {"A": (800, 1509, 1), "B": (1509, 6450, 1), "C": (9000, 11800, 3)}
+DOTA_TRAIN_BLOCK_PREFERENCE = ("B", "A", "C")  # a clip CAP stores twice: 10 fps copy first
+# DT3: CAP total frames - rate * DoTA frames that counts as the same clip (the val pairs' values)
+DOTA_TRAIN_LENGTH_DIFF = {1: (0,), 3: (-2, -3)}
+DOTA_TRAIN_START_SCALE = 8.0  # DoTA frames; weight 1 + exp(-|start diff| / this), never a filter
+DOTA_TRAIN_ANCHOR_WEIGHT = 50.0  # an exact val pair outweighs any chain of unanchored matches
+DOTA_TRAIN_CV_FOLDS = 2
+DOTA_TRAIN_CV_SEED = 0
+DOTA_TRAIN_FRAME_PHASE = {1: 0, 3: -1}  # DT5: CAP frame = rate * d + this, clamped (val maps)
+CAP_LIGHT_NIGHT = 2  # CAP's light column: 1 day, 2 night
+# DT7 pixel gate: DoTA boxes drawn on the recovered frames, judged by eye
+DOTA_BOX_WIDTH = 1280  # DoTA's boxes live on a 1280 x 720 frame
+DOTA_BOX_HEIGHT = 720
+DOTA_SHEET_SEED = 2024
+DOTA_SHEET_PER_GROUP = {"10fps": 30, "30fps": 30}  # real train clips per rate group
+DOTA_SHEET_VAL_CONTROLS = 6  # val clips whose pixels CLIP already verified
+DOTA_SHEET_DECOYS = 10  # wrong on purpose: frames of a neighbouring clip of the same video
+DOTA_SHEET_FRAMES = 3  # first, middle and last boxed frame of the annotated span
+DOTA_SHEET_ROWS_PER_PAGE = 8
+DOTA_SHEET_TILE_WIDTH = 480
+DOTA_SHEET_MARGIN = 6
+DOTA_SHEET_LABEL_WIDTH = 60
+DOTA_SHEET_BOX_COLOUR = "#ff2020"
+DOTA_SHEET_BOX_LINE = 3
+DOTA_SHEET_MIN_DECOYS_CAUGHT = 8  # of DOTA_SHEET_DECOYS, else the gate cannot see errors
+DOTA_SHEET_MAX_FLAGGED = 2  # real clips per rate group; more drops the group
+DOTA_SHEET_MAX_CONTROLS_FLAGGED = 1  # val controls; more means the judging is too strict
