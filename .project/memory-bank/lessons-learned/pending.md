@@ -2644,3 +2644,12 @@ Promote if a second harness needs the same split.
 **Rule:** Run the mutation the test is meant to catch before trusting a "same draws" test.
 **Files:** core/tests/test_dvs_dataset.py, core/data/dataset.py:_normal_anchor
 **Gate status.** One occurrence (caught before any run); candidate.
+
+## (eb) [MEDIUM] Experiments - "step-1 loss differs from the control" does not prove the new data were read (2026-11-24)
+**Triggers:** step-1 mil, must differ, forced items, unmatched runtime, start guard, K5f 0.6878, 0.6925
+**Problem:** §49 ED6 asserted the edge rows' step-1 `mil` differs from K5f's, to prove the forced windows were read. K5fbk's value (0.6925445795) is a known second cluster, cause unmeasured (Kcap, K5Lneg, K5c: same to ten digits; K5f, K5, K0: 0.687794), so a run reading nothing new would also differ, and the guard passes for free.
+**Bad:** `assert arm == BK or not same`.
+**Good:** assert the forced ids appear in the first epoch's batches (or count forced items logged by the dataset), and save torch version + GPU beside each run.
+**Rule:** Prove a data change was read by counting the new items, never by a loss that another runtime also moves.
+**Files:** colab/final/k5_edge.ipynb (`check_run`), core/docs/final/KIM_RUN.md §49.1
+**Gate status.** One occurrence; candidate. Related: (cq) (the two runtimes, still unmeasured).

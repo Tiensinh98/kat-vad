@@ -2857,3 +2857,47 @@ The user closed the line after §45–§47 ("ok đóng line đi"). Nothing follo
 **Not licensed, whatever the outcome.** "Edge windows reduce the early rise" from one hit or from TRADE-OFF; "K5f anticipates"; which loss acts (`mil`, `kim_mil`, `mul_mil` and NKC all see the edge windows); any sentence about bottom-k beyond this host, weight and k.
 
 Code: `core/data/dataset.py` (`forced_normals.json`, opt-in), `core/tools/nexar_build.py` (`build_window_edge`), `core/tools/k5_edge_report.py`; tests `core/tests/test_dvs_dataset.py`, `test_nexar_pipeline.py`, `test_k5_edge_report.py`; runbook `colab/final/k5_edge.ipynb`; outputs `Thesis-Final/outputs/kim_edge/`.
+
+### 49.1 Read-out (s2024, n = 1): nothing adopted, all three rows CLOSED, K5f stays (2026-11-24)
+
+Raw: `outputs/v_final/kim_edge/REPORTS/{k5_edge_report,zs_arm_table_k5_edge_s2024,k5_edge_summary}.md`. **Re-checked locally 2026-11-24 after the full sync:** `k5_edge_report` re-run from the saved scores is identical to the Colab report; every row has 1,749 metrics rows and `verified.json` step 1,749; config diff to K5f = `loss.normal_caption` (added later, at its default) for the edge rows, plus the two bottom-k keys for K5fbk. Per-video curves and onset figures: `outputs/v_final/kim/REPORTS/figures/train_nexar/<set>/kim_edge_s2024/` (gitignored). Last-epoch `mul_mil` 0.1335 / 0.1173 / 0.0730 (floor 0.01).
+
+| row − K5f | Nexar val crops | DoTA-CAP-dev | DADA | DAD | TAD (printed) | T1 Nexar [−1, 0) | T2 DoTA onset AUC | verdict |
+|---|---|---|---|---|---|---|---|---|
+| K5fepre | **−0.0149 [−0.0214, −0.0087]** COST | +0.0026 n.s. | −0.0086 [−0.0158, −0.0014], inside the margin | −0.0037 n.s. | +0.0035 n.s. | −0.0119 [−0.0277, +0.0045] no | **+0.0663 [+0.0546, +0.0787]** hit | **TRADE-OFF, closed** |
+| K5fepost | +0.0020 n.s. | −0.0062 n.s. | +0.0059 n.s. | **−0.0942 [−0.1161, −0.0732]** COST | +0.0086 n.s. | +0.0172 n.s. | −0.0416 (below) | **closed** |
+| K5fbk | **−0.0732 [−0.0883, −0.0587]** COST | −0.0063 n.s. | **−0.0331 [−0.0427, −0.0232]** COST | **−0.0513 [−0.0732, −0.0301]** COST | −0.0055 n.s. | −0.0720 hit | +0.0460 hit | **closed** |
+
+**The edge rows move the curve in time, they do not sharpen it.** Onset AUC against the 2 s on each side (row − K5f, every interval past 0 except the one marked):
+
+| set | K5fepre: pre / post | K5fepost: pre / post |
+|---|---|---|
+| Nexar val | −0.006 n.s. / −0.030 | −0.028 / **+0.036** |
+| DoTA-CAP-dev | **+0.066** / −0.071 | −0.042 / **+0.043** |
+| DADA | **+0.019** / −0.049 | −0.023 / **+0.049** |
+
+Each row gains on its own side and loses on the other; macro does not move on DoTA for either. The [−2, 0) s frames cost K5f 0.0192 of DoTA macro and cost K5fepre −0.0084, (negative = those frames now help its macro), so the pre-span cost is gone on DoTA; the post-span side got worse by the onset AUC above. A drop in the rise measure is separated on DoTA (−0.210 [−0.369, −0.090]) and DADA (−0.239 [−0.525, −0.032]); on Nexar it is not (+0.061 [−0.049, +0.257]).
+
+**K5fbk: on DoTA the early rise is visibly smaller** (onset-aligned min-max mean at the GT onset about 0.28 against K5f's 0.62, read by eye from `onset_aligned.png`; consistent with T2 +0.0460 and the micro gain), **but the curve also starts late inside the span, and Nexar val, DADA and DAD lose macro.** On Nexar T1 is met together with a lower span, so there it is not a repair. Nexar span zone AUC falls 0.887 → 0.813, the span's mean raw score 0.511 → 0.295, and Nexar onset AUC falls on both sides (−0.091 / −0.039). Min-max micro on DoTA-CAP-dev rises +0.0440 [+0.0343, +0.0535] while macro does not move: the pooled number improves without better ranking inside a clip (one reading, not measured: lower min-max level on the far frames, see the event-locked table). DAD micro +0.0329, TAD micro −0.0519 (both printed). **This is the first bottom-k number on a clean training corpus**, so the user's reason for running it was right to test; on this host, weight 1.0 and k = 4 it costs three sets.
+
+**Flag, K5fbk − K5f (ED6): the starts do not match.** Step-1 `mil` 0.692545 vs 0.687794. The value is not random: Kcap, K5Lneg, K5Lnegu and K5c read exactly 0.6925445795, with the same `kim_mil` (0.864495) and step-2 `mil` (0.7198), and K0 / K5 / K5ln / K5f read 0.687794 and 0.7168. Two clusters, same data and config family; "two runtimes" is an inference, the cause was never measured (§11.6, pending (cq), torch and GPU lines not saved here either). **It likely affects the edge rows too** (same session), so every row − K5f above may carry it. It does not readily explain the mirror, whose two rows sit on opposite sides of K5f (K5fepre − K5fepost = +0.108 on DoTA pre, −0.114 on DoTA post, whatever K5f's start). **Its size is unknown: no pair of runs here differs by the cluster alone**, and n = 1 has no seed spread either. **Update after the sync:** step-1 `mil` K5fepre 0.6973, K5fepost 0.6913, K5fbk 0.6925 (plain pool), so the edge rows differ from the plain-pool row of the same notebook, which is stronger evidence that the forced windows were read; it assumes the three shared a runtime, which is not logged. **ED6's edge guard was weak:** an edge row whose step-1 `mil` differs from K5f's could differ because of the runtime alone, so "differs" does not prove the forced windows were read. That they were is supported by the mirror and, if the log is kept, by its "449 forced normals" line (not seen here).
+
+**Expectations.** K5fepre: wrong on both targets (T1 predicted hit, T2 predicted not; the opposite happened), right on a possible Nexar cost, right that DADA is not a COST. K5fepost: no sign was predicted; it hurts DAD and raises Nexar false alarms (peak > 0.5: 0.549 → 0.708). K5fbk: **wrong** ("no difference on any set").
+
+**Licensed:** the table rows and the verdicts; "K5fepre reaches T2 and costs Nexar val at s2024". **Never write:** that edge windows reduce the early rise, or fix DoTA; that K5fbk anticipates less, or reduces early alarms; "bottom-k fails" (one weight, one k, one seed, one unmatched start); anything from the micro gains. Closed by ED12: no other dose, gap, weight or k, and no pre + post combination.
+
+### 49.2 Where K5fbk loses (post-hoc, printed, decides nothing; s2024, n = 1; 2026-11-24)
+
+The user read the K5fbk figures (§49.1) as "rises at the right time and falls well, only the peak is a little lower". k = 20 // 5 = 4 rows, weight 1.0. Per video on the saved scores, two-class videos, means; K5fbk − K5f with a video bootstrap (1,000; DoTA not clustered by source here).
+
+| read | Nexar val | DoTA-CAP-dev | DADA | DAD |
+|---|---|---|---|---|
+| AUC of the span's **first third** vs all normal rows | 0.871 → 0.753 (**−0.118**) | 0.827 → 0.787 (**−0.040**) | 0.750 → 0.680 (**−0.070**) | not read (span too short) |
+| ... last third | −0.032 | +0.020 | +0.001 n.s. | not read |
+| span vs [−2, 0) s before | −0.091 | +0.046 | −0.025 | −0.090 |
+| span vs (0, 2] s after | −0.039 | −0.055 | −0.051 | no post zone |
+| raw max inside the span | 0.805 → 0.752 | 0.686 → 0.691 n.s. | 0.621 → 0.572 | 0.389 → 0.323 |
+| raw mean inside the span | 0.511 → 0.295 | 0.565 → 0.446 | 0.486 → 0.321 | 0.369 → 0.294 |
+| min-max level inside the span | 0.549 → 0.315 | 0.682 → 0.516 | 0.592 → 0.392 | 0.744 → 0.583 |
+
+The per-video peak does not move on DoTA (n.s.) and falls 0.05 to 0.07 elsewhere (Nexar val, DADA, DAD); the mean level inside the span falls on every set. So a K5fbk curve is **narrower**: the start of the accident scores low, which is what shows as a clean onset in a min-max picture. A lower mean peak in the onset-aligned figure is a mean over curves that peak at different times, not a lower peak. **On DADA the picture misleads:** the pre-onset level looks lower, but the span ranks *worse* against the 2 s before it (−0.025). Never "bottom-k fixes the early rise" from the min-max picture; the DoTA onset gain (+0.046) is real but it comes with a lower first third of the span on Nexar val, DoTA and DADA. Why (the loss on k rows at 1.0 falls to 0.002 and yet moves the whole curve) is not established.
