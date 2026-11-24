@@ -1,0 +1,66 @@
+# KIM_RUN.md §41.2 -- post-hoc, printed, n = 1 (s2024). Computed from the saved TAD score npz files.
+## A. micro decomposition
+n {'released LaGoVAD': 100, 'K5f': 100, 'K5dfi': 100, 'K5dfiACC': 100, 'K5dfiACCs': 100, 'L0dfi': 100, 'L0dfiACC': 100, 'K5fno': 100, 'L0fM3': 100, 'L0dfiM3': 100, 'K5fM3': 100, 'K5dfiM3': 100, 'K5dfiM9': 100, 'L0fM9': 100} same ids True
+abn 60 norm 40 frames abn vid/normal vid 2385 8660 median len 36.0 139.0
+normal names ['Normal_012', 'Normal_020', 'Normal_031'] two-class 60
+row micro macro | AUC(mean) AUC(max) AUC(med) | level-only micro | micro abn vids only | normal med/mean/frac>.5 | abn-video normal frames mean | abn frames mean | len-corr normal
+released LaGoVAD  0.791 0.758 | 0.800 0.769 | lvl 0.774 | vsNormVid 0.837 vsInVid 0.539 | normvid frames mean 0.023 >.5 0.00 | in-vid normal 0.155 >.5 0.12 | abn 0.205 >.5 0.19 | rho(len,mean) norm -0.19 all -0.31
+K5f               0.671 0.698 | 0.669 0.625 | lvl 0.643 | vsNormVid 0.682 vsInVid 0.612 | normvid frames mean 0.077 >.5 0.03 | in-vid normal 0.214 >.5 0.20 | abn 0.353 >.5 0.36 | rho(len,mean) norm +0.27 all -0.02
+K5dfi             0.612 0.720 | 0.633 0.605 | lvl 0.592 | vsNormVid 0.609 vsInVid 0.629 | normvid frames mean 0.062 >.5 0.02 | in-vid normal 0.128 >.5 0.11 | abn 0.270 >.5 0.25 | rho(len,mean) norm +0.35 all +0.07
+K5dfiACC          0.617 0.699 | 0.519 0.652 | lvl 0.524 | vsNormVid 0.607 vsInVid 0.672 | normvid frames mean 0.359 >.5 0.31 | in-vid normal 0.300 >.5 0.28 | abn 0.525 >.5 0.52 | rho(len,mean) norm +0.20 all +0.14
+K5dfiACCs         0.619 0.715 | 0.520 0.650 | lvl 0.518 | vsNormVid 0.608 vsInVid 0.682 | normvid frames mean 0.363 >.5 0.32 | in-vid normal 0.294 >.5 0.27 | abn 0.529 >.5 0.53 | rho(len,mean) norm +0.23 all +0.15
+L0dfi             0.673 0.590 | 0.615 0.640 | lvl 0.679 | vsNormVid 0.690 vsInVid 0.579 | normvid frames mean 0.090 >.5 0.04 | in-vid normal 0.210 >.5 0.16 | abn 0.318 >.5 0.31 | rho(len,mean) norm -0.24 all -0.23
+L0dfiACC          0.739 0.690 | 0.665 0.686 | lvl 0.723 | vsNormVid 0.753 vsInVid 0.660 | normvid frames mean 0.234 >.5 0.18 | in-vid normal 0.348 >.5 0.32 | abn 0.541 >.5 0.56 | rho(len,mean) norm -0.13 all -0.09
+K5fno             0.501 0.695 | 0.408 0.429 | lvl 0.444 | vsNormVid 0.483 vsInVid 0.599 | normvid frames mean 0.685 >.5 0.68 | in-vid normal 0.507 >.5 0.51 | abn 0.636 >.5 0.65 | rho(len,mean) norm +0.03 all +0.01
+L0fM3             0.892 0.768 | 0.871 0.874 | lvl 0.873 | vsNormVid 0.953 vsInVid 0.557 | normvid frames mean 0.085 >.5 0.08 | in-vid normal 0.765 >.5 0.78 | abn 0.824 >.5 0.85 | rho(len,mean) norm -0.50 all -0.53
+L0dfiM3           0.893 0.760 | 0.875 0.880 | lvl 0.873 | vsNormVid 0.954 vsInVid 0.560 | normvid frames mean 0.093 >.5 0.09 | in-vid normal 0.796 >.5 0.82 | abn 0.850 >.5 0.86 | rho(len,mean) norm -0.49 all -0.53
+K5fM3             0.878 0.717 | 0.843 0.843 | lvl 0.866 | vsNormVid 0.937 vsInVid 0.554 | normvid frames mean 0.071 >.5 0.06 | in-vid normal 0.659 >.5 0.66 | abn 0.746 >.5 0.76 | rho(len,mean) norm -0.54 all -0.52
+K5dfiM3           0.876 0.723 | 0.846 0.847 | lvl 0.866 | vsNormVid 0.935 vsInVid 0.555 | normvid frames mean 0.087 >.5 0.08 | in-vid normal 0.702 >.5 0.70 | abn 0.787 >.5 0.79 | rho(len,mean) norm -0.55 all -0.54
+K5dfiM9           0.878 0.751 | 0.849 0.850 | lvl 0.859 | vsNormVid 0.938 vsInVid 0.551 | normvid frames mean 0.080 >.5 0.07 | in-vid normal 0.670 >.5 0.66 | abn 0.750 >.5 0.76 | rho(len,mean) norm -0.50 all -0.51
+L0fM9             0.885 0.757 | 0.864 0.862 | lvl 0.875 | vsNormVid 0.947 vsInVid 0.545 | normvid frames mean 0.081 >.5 0.08 | in-vid normal 0.712 >.5 0.73 | abn 0.763 >.5 0.77 | rho(len,mean) norm -0.49 all -0.53
+weights of negatives: normal vids 8660 in-video normals 1585
+## B. length-matched video AUC (video mean score), micro contrasts (bootstrap MEAN, 2,000 draws, seed 2026)
+len q abn [ 5.   18.7  26.75 36.   50.   68.   99.  ] norm [   3.     11.7    22.5   139.    261.75  460.2  1362.  ]
+length ruler clip AUC (shorter=abn) 0.6939583333333333
+released LaGoVAD  clipAUC 0.800 | len-matched x1.25 (0.8129032258064516, 155) x1.5 (0.8113879003558719, 281) | first 36 rows only 0.807
+K5f               clipAUC 0.669 | len-matched x1.25 (0.5161290322580645, 155) x1.5 (0.5516014234875445, 281) | first 36 rows only 0.683
+K5dfi             clipAUC 0.633 | len-matched x1.25 (0.47096774193548385, 155) x1.5 (0.5231316725978647, 281) | first 36 rows only 0.658
+K5dfiACC          clipAUC 0.519 | len-matched x1.25 (0.45806451612903226, 155) x1.5 (0.4483985765124555, 281) | first 36 rows only 0.589
+K5dfiACCs         clipAUC 0.520 | len-matched x1.25 (0.4838709677419355, 155) x1.5 (0.46619217081850534, 281) | first 36 rows only 0.594
+L0dfi             clipAUC 0.615 | len-matched x1.25 (0.49032258064516127, 155) x1.5 (0.498220640569395, 281) | first 36 rows only 0.607
+L0dfiACC          clipAUC 0.665 | len-matched x1.25 (0.5806451612903226, 155) x1.5 (0.5480427046263345, 281) | first 36 rows only 0.667
+K5fno             clipAUC 0.408 | len-matched x1.25 (0.23225806451612904, 155) x1.5 (0.23843416370106763, 281) | first 36 rows only 0.420
+L0fM3             clipAUC 0.871 | len-matched x1.25 (0.9161290322580645, 155) x1.5 (0.9074733096085409, 281) | first 36 rows only 0.865
+L0dfiM3           clipAUC 0.875 | len-matched x1.25 (0.9161290322580645, 155) x1.5 (0.9181494661921709, 281) | first 36 rows only 0.865
+K5fM3             clipAUC 0.843 | len-matched x1.25 (0.8580645161290322, 155) x1.5 (0.8469750889679716, 281) | first 36 rows only 0.842
+K5dfiM3           clipAUC 0.846 | len-matched x1.25 (0.8774193548387097, 155) x1.5 (0.8612099644128114, 281) | first 36 rows only 0.841
+K5dfiM9           clipAUC 0.849 | len-matched x1.25 (0.8580645161290322, 155) x1.5 (0.8540925266903915, 281) | first 36 rows only 0.843
+L0fM9             clipAUC 0.864 | len-matched x1.25 (0.9225806451612903, 155) x1.5 (0.9110320284697508, 281) | first 36 rows only 0.853
+micro L0fM3 - released LaGoVAD (0.10002259882486705, array([0.02936927, 0.177415  ]))
+micro K5fM3 - released LaGoVAD (0.08716852582366048, array([0.02353866, 0.15585065]))
+micro K5dfiACC - released LaGoVAD (-0.1709857007803986, array([-0.27553871, -0.06848281]))
+micro L0dfiACC - released LaGoVAD (-0.05262379056973464, array([-0.14834815,  0.04874383]))
+## C. within-video ranking and flatness, macro contrasts
+released LaGoVAD  macro 0.7579 | abn videos pooled raw 0.539 min-max 0.731 | median in-video gap +0.008 mean +0.059 | median range 0.064 | range<.1: 35/60
+K5f               macro 0.6981 | abn videos pooled raw 0.612 min-max 0.650 | median in-video gap +0.027 mean +0.120 | median range 0.487 | range<.1: 16/60
+K5dfi             macro 0.7198 | abn videos pooled raw 0.629 min-max 0.663 | median in-video gap +0.043 mean +0.139 | median range 0.353 | range<.1: 18/60
+K5dfiACC          macro 0.6987 | abn videos pooled raw 0.672 min-max 0.682 | median in-video gap +0.219 mean +0.224 | median range 0.953 | range<.1: 4/60
+K5dfiACCs         macro 0.7148 | abn videos pooled raw 0.682 min-max 0.691 | median in-video gap +0.246 mean +0.236 | median range 0.968 | range<.1: 3/60
+L0dfi             macro 0.5902 | abn videos pooled raw 0.579 min-max 0.597 | median in-video gap +0.011 mean +0.078 | median range 0.619 | range<.1: 11/60
+L0dfiACC          macro 0.6904 | abn videos pooled raw 0.660 min-max 0.674 | median in-video gap +0.174 mean +0.186 | median range 0.888 | range<.1: 0/60
+K5fno             macro 0.6951 | abn videos pooled raw 0.599 min-max 0.631 | median in-video gap +0.012 mean +0.098 | median range 0.184 | range<.1: 26/60
+L0fM3             macro 0.7676 | abn videos pooled raw 0.557 min-max 0.709 | median in-video gap +0.001 mean +0.053 | median range 0.014 | range<.1: 39/60
+L0dfiM3           macro 0.7603 | abn videos pooled raw 0.560 min-max 0.697 | median in-video gap +0.000 mean +0.045 | median range 0.007 | range<.1: 39/60
+K5fM3             macro 0.7168 | abn videos pooled raw 0.554 min-max 0.687 | median in-video gap +0.002 mean +0.077 | median range 0.029 | range<.1: 36/60
+K5dfiM3           macro 0.7228 | abn videos pooled raw 0.555 min-max 0.687 | median in-video gap +0.001 mean +0.076 | median range 0.011 | range<.1: 38/60
+K5dfiM9           macro 0.7509 | abn videos pooled raw 0.551 min-max 0.722 | median in-video gap +0.001 mean +0.069 | median range 0.007 | range<.1: 40/60
+L0fM9             macro 0.7569 | abn videos pooled raw 0.545 min-max 0.731 | median in-video gap +0.003 mean +0.052 | median range 0.021 | range<.1: 38/60
+macro L0fM3 - released LaGoVAD +0.0097 [-0.0542, +0.0782]
+macro K5fM3 - released LaGoVAD -0.0411 [-0.0943, +0.0147]
+macro K5dfiM3 - released LaGoVAD -0.0351 [-0.0883, +0.0215]
+macro K5dfiACC - released LaGoVAD -0.0592 [-0.1423, +0.0180]
+macro L0dfiACC - released LaGoVAD -0.0675 [-0.1451, +0.0077]
+micro point L0fM3 released LaGoVAD 0.1003
+micro point K5fM3 released LaGoVAD 0.0868
+micro point K5dfiACC released LaGoVAD -0.1742
+micro point L0dfiACC released LaGoVAD -0.0523

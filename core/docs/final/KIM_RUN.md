@@ -2466,6 +2466,31 @@ Clip oracle micro 0.9226, so TAD micro is clip classification. Δ vs K5dfi: LaGo
 
 **Decision (R6): none. K5f stays the reference and the main model; no kernel is picked.** Licensed (PRELIMINARY, n = 1): "Trained on MSAD-full, VideoMAE + KIM with `dvs_anchor_mode=ignore` raises MSAD-full macro by +0.06 over plain CLIP with the same recipe; on zero-shot TAD, motion + KIM does not raise macro, and lowers it in one configuration (kernel 3, DVS off: −0.051). `ignore` raises macro on the KIM host on MSAD-full and MSAD-traffic, not on plain CLIP." **Not licensed (W):** "CCTV data fixes TAD", "KIM helps on CCTV", "kernel 9 / 3 fits MSAD", any Nexar-vs-MSAD sentence (e.g. against §34.1's `ignore` cost on Nexar val), TAD micro as evidence, "plain CLIP localizes on MSAD" (it sits ≈ 0.01–0.02 above `t/N`). **Limits:** one seed; 120 positive videos; train length shortcut 0.632; the MIL loss is near 0 at the end; MSAD fps not all 30 (repeated-frame distortion of motion = hypothesis only). The DVS-ignore × KIM pattern is the only one worth more seeds; a new arm would not settle it. Next steps need their own dated note.
 
+### 41.2 Why TAD micro is above the public checkpoint for the MSAD rows and below it for K5dfiACC (2026-11-24, user's question; post-hoc, printed, decides nothing; n = 1, s2024)
+
+Computed from the saved TAD score files (no new run); raw output `outputs/v_final/kim_msad_train/REPORTS/tad_micro_decomposition.txt`. Written after the numbers. It explains what the micro column measures; it is **not** a ranking of MSAD against ACCIDENT (§42 W) and TAD micro stays no evidence (W).
+
+**TAD test:** 60 accident videos (2,385 rows, median 36) and 40 normal videos (8,660 rows, median 139). The negatives are 8,660 rows of normal videos (84.5 %) and 1,585 normal rows inside accident videos (15.5 %), so micro = 0.845 · AUC(accident rows vs normal-video rows) + 0.155 · AUC(accident rows vs normal rows of accident videos, pooled over the 60 videos).
+
+| row | micro | vs normal-video rows | vs in-video normal rows (pooled) | macro | accident videos pooled after min-max | median in-video score range |
+|---|---|---|---|---|---|---|
+| LaGoVAD public | 0.791 | 0.837 | 0.539 | 0.758 | 0.731 | 0.064 |
+| L0fM3 (MSAD) | 0.892 | 0.953 | 0.557 | 0.768 | 0.709 | 0.014 |
+| K5fM3 (MSAD) | 0.878 | 0.937 | 0.554 | 0.717 | 0.687 | 0.029 |
+| K5dfiM3 (MSAD) | 0.876 | 0.935 | 0.555 | 0.723 | 0.687 | 0.011 |
+| L0dfiACC (ACCIDENT) | 0.739 | 0.753 | 0.660 | 0.690 | 0.674 | 0.888 |
+| K5dfiACC (ACCIDENT) | 0.617 | 0.607 | 0.672 | 0.699 | 0.682 | 0.953 |
+| K5f (Nexar) | 0.671 | 0.682 | 0.612 | 0.698 | 0.650 | 0.487 |
+| K5fno (Nexar, negative-video normals) | 0.501 | 0.483 | 0.599 | 0.695 | 0.631 | 0.184 |
+
+Δ vs public, paired video bootstrap (2,000 draws, seed 2026): micro L0fM3 +0.100 [+0.029, +0.177], K5fM3 +0.087 [+0.024, +0.156] above; K5dfiACC −0.174 [−0.276, −0.068] below; L0dfiACC −0.052 [−0.148, +0.049] not separated. **Macro, all not separated:** L0fM3 +0.010 [−0.054, +0.078], K5fM3 −0.041 [−0.094, +0.015], K5dfiM3 −0.035 [−0.088, +0.022], K5dfiACC −0.059 [−0.142, +0.018], L0dfiACC −0.068 [−0.145, +0.008].
+
+**Reading.** (1) The micro gap sits in the normal-video term: the MSAD rows score normal videos low (mean 0.07–0.09) and whole accident videos high (normal rows 0.66–0.80, accident rows 0.75–0.85); K5dfiACC scores normal videos 0.359, above the normal rows of its accident videos (0.300). (2) **The pooled in-video column is not localization.** It mixes score levels across 60 videos; within a video the MSAD rows rank at 0.72–0.77 (macro) and ACCIDENT's at 0.69–0.70. What the MSAD rows and the public checkpoint lack is score **contrast**: in-video range < 0.1 on 36–40 and 35 of the 60 accident videos (K5dfiACC 4), so one absolute alarm threshold separates videos, not moments. (3) Length does not explain the video separation: on accident / normal pairs within ×1.25 in length (155 pairs) the video AUC is 0.86–0.92 on MSAD rows, 0.81 public, 0.46 K5dfiACC. (4) It needs neither KIM nor DVS: L0fM3 (plain CLIP, DVS off) has the highest macro and near-highest micro, and a logistic gate on mean CLIP fitted on MSAD-train reached video AUC 0.851 on TAD (`RESULTS_TADZ.md` §3.1). (5) With ACCIDENT, VideoMAE + KIM lowers micro further (K5dfiACC − L0dfiACC −0.122 [−0.199, −0.043], §39).
+
+**Candidate reason, not established.** MSAD-train has 360 stand-alone normal videos; ACCIDENT's normals are pre-impact windows of the accident clips, so its objective never asks whether a whole video is normal (the T2 finding, `RESULTS_TADZ.md` §2.3). Stand-alone normals alone are not enough: K5fno (Nexar negative videos, dashcam) reads 0.501. The corpora also differ in label rule, bag (whole video vs 20-row window), steps, fps and source, and recording style (continuous recording vs compiled accident clip) is not ruled out.
+
+**Licensed (PRELIMINARY, n = 1).** "On TAD, the MSAD-trained rows separate videos with an incident from normal videos better than the released checkpoint (micro +0.09 to +0.10); their within-video ranking (macro) is not separated from it." Always print the length ruler (0.897) and clip oracle (0.923) beside a micro number; every MSAD row is below both. **Never:** "MSAD is better than the public checkpoint on TAD" without "micro, video separation"; "MSAD beats ACCIDENT"; "MSAD does not localize" (macro says it ranks); "normal videos fix TAD micro".
+
 ## 42. K5dfiACCs: K5dfiACC with the A2 statistics fitted on ACCIDENT train (dated note 2026-11-23, before any number; user)
 
 **Why.** §39 B baked ACCIDENT with **Nexar's** A2 statistics so that K5dfiACC − K5dfi changes one factor (the training data) and reuses every zero-shot bake. §41 Amendment 1 fits MSAD's own statistics, so the two CCTV lines are not symmetric. The user asked to try ACCIDENT with its own statistics (2026-11-23). The open question: does K5dfiACC's input carry a scale mismatch (ACCIDENT's motion moments normalized by Nexar's)?
@@ -2484,7 +2509,35 @@ Clip oracle micro 0.9226, so TAD micro is clip classification. Δ vs K5dfi: LaGo
 
 **Not licensed.** Comparing K5dfiACCs with any §41 MSAD row as "CCTV A vs CCTV B" (different data and different fit sets); any cause from n = 1.
 
-**Runbook.** `colab/final/k5dfi_acc_stats.ipynb` (run after `k5dfi_acc.ipynb`; preflight, tests, fit + gate + restat, train, reads, table). Code: `core.data.v2_inputs.restat_rows`, `core.tools.build_v2_inputs restat`; tests `core/tests/test_v2_restat.py` (7). Constants `KIM_ACCIDENT_STATS_*`, `ACCIDENT_SELF_BAKE_DIRNAME`, `{NEXAR,ACCIDENT}_STATS_BAKE_SUFFIX`, `V2_RESTAT_GATE_ATOL`. **Built 2026-11-23, NOT RUN.**
+**Runbook.** `colab/final/k5dfi_acc_stats.ipynb` (run after `k5dfi_acc.ipynb`; preflight, tests, fit + gate + restat, train, reads, table). Code: `core.data.v2_inputs.restat_rows`, `core.tools.build_v2_inputs restat`; tests `core/tests/test_v2_restat.py` (7). Constants `KIM_ACCIDENT_STATS_*`, `ACCIDENT_SELF_BAKE_DIRNAME`, `{NEXAR,ACCIDENT}_STATS_BAKE_SUFFIX`, `V2_RESTAT_GATE_ATOL`. **Built 2026-11-23, run by the user (read out 2026-11-24, §42.1).**
+
+### 42.1 Read-out (2026-11-24, user's Colab run; raw `outputs/v_final/kim_accident_stats/`; s2024, n = 1, printed, decides nothing)
+
+**Guards.** J10: ckpt step 1,722 = last `metrics.jsonl` step = K5dfiACC's; `config.yaml` identical to K5dfiACC's (diff {}); gate R2 max |diff| 2.4e-07 < 1e-4; last-epoch mean `mul_mil` 0.313 (> 0.01; K5dfiACC 0.318). Fitted on 1,339 ACCIDENT train clips. Statistics Nexar → ACCIDENT: `c` 0.4293 → 0.4073, σ_u ratio median 1.088 [p10 0.915, p90 1.291], |Δm_u| / σ_u median **0.517**. Last-epoch motion share 0.151 (K5dfiACC 0.228).
+
+| macro / micro | DoTA-CAP-dev | DADA | TAD | DAD |
+|---|---|---|---|---|
+| K5dfiACC (control) | 0.7372 / 0.6815 | 0.6593 / 0.6420 | 0.6987 / 0.6170 | 0.8266 / 0.7391 |
+| **K5dfiACCs** | 0.7452 / 0.6872 | 0.6720 / 0.6491 | 0.7148 / 0.6193 | 0.8228 / 0.7420 |
+| K5dfi (Nexar) | 0.8259 / 0.7613 | 0.7677 / 0.7591 | 0.7198 / 0.6119 | 0.7494 / 0.7091 |
+| K5f (reference) | 0.8188 / 0.7353 | 0.7744 / 0.7551 | 0.6981 / 0.6711 | 0.8070 / 0.7072 |
+
+| K5dfiACCs − K5dfiACC | macro | micro |
+|---|---|---|
+| DoTA-CAP-dev | +0.0079 [+0.0042, +0.0115] above | +0.0057 [+0.0029, +0.0084] above |
+| DADA | +0.0127 [+0.0087, +0.0168] above | +0.0071 [+0.0039, +0.0103] above |
+| TAD | +0.0161 [+0.0029, +0.0361] above | +0.0023 [−0.0089, +0.0148] not separated |
+| DAD | −0.0037 [−0.0156, +0.0077] not separated | +0.0029 [−0.0033, +0.0092] not separated |
+
+ACCIDENT val (in-domain, printed): macro 0.7682 vs 0.7667, micro 0.6982 vs 0.6934.
+
+**K5dfiACCs − K5dfi (printed; `REPORTS/zs_arm_table_k5dfiaccs_vs_k5dfi.md`, local):** macro DoTA **−0.0808 [−0.1013, −0.0601] below**, DADA **−0.0957 [−0.1220, −0.0696] below**, TAD −0.0050 [−0.0715, +0.0612] not separated, DAD **+0.0734 [+0.0275, +0.1193] above**; micro −0.0741 / −0.1100 below, TAD and DAD not separated.
+
+**Post-hoc, printed (after the table).** (a) TAD's +0.0161 rests on one of 60 videos: `01_Accident_072` (+0.50); without it +0.0079, without the top 5 +0.0038; median +0.0025; 30 videos up, 19 down. DoTA and DADA are broad (341 up / 213 down, median +0.0055; 223 / 129, +0.0076). (b) The intervals cover items, **not seeds**: the same recipe at two seeds differed by 0.003 (K5 DoTA-CAP-dev) and 0.011 (K5 DADA) (§10.2), so DADA's +0.013 is of the size of the one seed gap measured.
+
+**Reading.** Fitting the statistics on ACCIDENT's own train clips gives a small, broad gain on DoTA-CAP-dev and DADA and no separated change on DAD. It recovers 9 % of K5dfiACC's deficit against K5dfi on DoTA-CAP-dev (0.0079 of 0.0887) and 12 % on DADA (0.0127 of 0.1084). The input-scale mismatch therefore is not why ACCIDENT-trained K5 falls on dashcam sets; about nine tenths of the deficit remains, and `H-dom` (§39 P1) is unchanged.
+
+**Licensed (PRELIMINARY, n = 1).** "Normalizing with ACCIDENT's own moments instead of Nexar's (train and read together) changes ACCIDENT-trained K5dfi by +0.008 [0.004, 0.012] macro on DoTA-CAP-dev and +0.013 [0.009, 0.017] on DADA; it stays 0.08 and 0.10 below the Nexar-trained row." **Not licensed (§42):** "ACCIDENT's statistics fit the test sets better"; "the statistics fix CCTV training"; any sentence on the repeated frames (§39 W); any TAD gain as a finding (one video); DAD's +0.073 over K5dfi as a training-corpus gain (K5f − K5dfi there is +0.058, the DVS cost of §34); any comparison with a §41 MSAD row. **Decision: none; K5f stays the reference and the main model.**
 
 ## 43. Pre-onset rise on Nexar val: does K5f's score climb before the alert? (dated note 2026-11-23, before any number; user)
 

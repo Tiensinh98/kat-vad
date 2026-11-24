@@ -2626,3 +2626,12 @@ Promote if a second harness needs the same split.
 **Rule:** Write one verdict per observable state, each conditioned on its own interval; never define a claim as the complement of another claim.
 **Files:** `core/tools/ego_gap_read.py:verdict`, `core/docs/final/KIM_RUN.md` §46 EG4 / §46.1.
 **Gate status.** One occurrence; candidate.
+
+## (dz) [MEDIUM] Evaluation - A frame AUC pooled over the abnormal videos only is not a localization read (2026-11-24)
+**Triggers:** micro decomposition, in-video normals, pooled AUC, localization, TAD, flat scores
+**Problem:** Splitting TAD micro into "vs normal videos" and "vs in-video normals", Claude read the second term (MSAD 0.56 vs ACCIDENT 0.67) as "MSAD does not know when". It pools 60 videos, so it measures score level across videos; per-video macro said the opposite order (0.768 vs 0.699, not separated from public).
+**Bad:** "AUC on accident videos only is 0.56, so the model cannot localize."
+**Good:** quote per-video macro for ranking, the in-video score range for contrast, and the pooled number only as a level read.
+**Rule:** Compute per-video macro before writing any localization sentence from a pooled in-video AUC.
+**Files:** core/docs/final/KIM_RUN.md §41.2
+**Gate status.** One occurrence (caught before it was written into the docs); candidate. Related: C12, (dy).
