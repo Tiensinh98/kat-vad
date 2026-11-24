@@ -183,7 +183,8 @@ def _score_path(view: argparse.Namespace, nexar_dir: Path, set_name: str) -> Pat
 
 
 def onset_reads(views: dict[str, argparse.Namespace], dirs: dict[str, Path],
-                groups: dict[str, dict[str, str]]) -> tuple[dict[str, Any], dict[str, Any]]:
+                groups: dict[str, dict[str, str]], control: str = K5F
+                ) -> tuple[dict[str, Any], dict[str, Any]]:
     """``(per-set onset AUC and deltas on both sides, T1)`` from the saved per-frame scores."""
     onset: dict[str, Any] = {}
     t1: dict[str, Any] = {}
@@ -192,13 +193,14 @@ def onset_reads(views: dict[str, argparse.Namespace], dirs: dict[str, Path],
         scores, labels = load_rows(
             [(row, _score_path(views[row], dirs[row], set_name)) for row in views])
         if set_name == NEXAR:
-            t1 = zone_delta({r: zone_wins(scores[r], labels, fps) for r in views}, K5F)
+            t1 = zone_delta({r: zone_wins(scores[r], labels, fps) for r in views}, control)
         onset[set_name] = {}
         for side in (PRE, POST):
             aucs = {row: onset_aucs(scores[row], labels, fps, side) for row in views}
             onset[set_name][side] = {row: {
                 "videos": len(a), "auc": float(np.mean(list(a.values()))),
-                "delta": None if row == K5F else paired_ci(a, aucs[K5F], groups.get(set_name)),
+                "delta": (None if row == control
+                          else paired_ci(a, aucs[control], groups.get(set_name))),
             } for row, a in aucs.items()}
     return onset, t1
 

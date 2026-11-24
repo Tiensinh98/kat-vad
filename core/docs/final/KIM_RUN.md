@@ -2901,3 +2901,24 @@ The user read the K5fbk figures (§49.1) as "rises at the right time and falls w
 | min-max level inside the span | 0.549 → 0.315 | 0.682 → 0.516 | 0.592 → 0.392 | 0.744 → 0.583 |
 
 The per-video peak does not move on DoTA (n.s.) and falls 0.05 to 0.07 elsewhere (Nexar val, DADA, DAD); the mean level inside the span falls on every set. So a K5fbk curve is **narrower**: the start of the accident scores low, which is what shows as a clean onset in a min-max picture. A lower mean peak in the onset-aligned figure is a mean over curves that peak at different times, not a lower peak. **On DADA the picture misleads:** the pre-onset level looks lower, but the span ranks *worse* against the 2 s before it (−0.025). Never "bottom-k fixes the early rise" from the min-max picture; the DoTA onset gain (+0.046) is real but it comes with a lower first third of the span on Nexar val, DoTA and DADA. Why (the loss on k rows at 1.0 falls to 0.002 and yet moves the whole curve) is not established.
+
+## 50. K5fbk25 (bottom-k weight 0.25) against a same-notebook K5f (K5frr) (dated note 2026-11-24, before any number of these rows; user)
+
+**Why.** ED12 closed bottom-k's weight and k; **the user reopens it with one value**, weight **0.25** (k stays 4: `bottomk_topk_pct=5`), and asks for K5f re-trained in the same notebook. §49.2: K5fbk (weight 1.0) loses the first third of the span (Nexar −0.118, DoTA −0.040, DADA −0.070) and gains the DoTA onset (+0.046). K5fbk − K5f had unmatched starts (0.6925 vs 0.6878, §49.1), so the control is **not** the old K5f. **Post-hoc:** both targets below were chosen after §49.2 on the sets they are read on; 0.25 was named as an example, not derived or swept.
+
+| # | Choice |
+|---|---|
+| BQ1 Rows | **K5frr** = K5f's exact command (config diff to K5f {}); **K5fbk25** = K5frr + `loss.bottomk_weight=0.25`, `loss.bottomk_topk_pct=5` (those two keys). s2024, 33 epochs, 1,749 steps, `Nexar_window`. Trained in one notebook; GPU name, torch and CUDA version saved beside each run. **K5f stays the project reference**; the control of every contrast here is K5frr |
+| BQ2 Start gate | Step-1 `mil` of K5fbk25 = K5frr's within `KIM_START_TOL`. Not equal → the report writes "UNMATCHED START" instead of a verdict. K5frr vs the old K5f printed |
+| BQ3 Guards | J10 (1,749), the config diffs, last-epoch `mul_mil` > 0.01 |
+| BQ4 Runtime read | K5frr − K5f on all five sets, printed, decides nothing. It is **one** observation of the re-run spread: it says whether a difference of the size of K5fepre's Nexar −0.0149 is inside that spread, and no more |
+| BQ5 Targets | **A** first third of the span (`np.array_split` of the abnormal rows in three; at least 3 rows) against **all** normal rows, per video, K5fbk25 − K5frr, on Nexar val and DADA: the interval must not lie wholly below 0 on either set. **B** DoTA-CAP-dev onset AUC against the [−2, 0) s before (§49's): interval above 0. Intervals as §49 (videos on Nexar; source clusters on DoTA / DADA) |
+| BQ6 Cost | §34's label (margin 0.01 and the interval past 0) on Nexar val crops, DoTA-CAP-dev, DADA, DAD against K5frr |
+| BQ7 Verdict | A and B and no COST → **HELD**, s2025 may run. B, with A failed or a COST → **TRADE-OFF, closed**. Otherwise **closed**. Nothing is adopted at n = 1 |
+| BQ8 After | Closed = no other weight, no other k, no bottom-k restricted to part of the window, no combination with edge windows |
+
+**A is lenient** ("not wholly below 0" is not non-inferiority); the report prints, beside it, whether the lower bound is above −0.01. **Expectation (a wrong one changes nothing):** TRADE-OFF; weight 0.25 sits between K5frr and K5fbk, so B is met and A fails on Nexar.
+
+**Not licensed, whatever the outcome.** "Bottom-k fixes the early rise"; any read of K5fbk (weight 1.0) against K5frr, or of K5fbk25 against the old K5f; a runtime conclusion from one re-run.
+
+Code: `core/tools/k5_bottomk_report.py`; tests `core/tests/test_k5_bottomk_report.py`; runbook `colab/final/k5_bottomk25.ipynb`; outputs `Thesis-Final/outputs/kim_bottomk25/`.

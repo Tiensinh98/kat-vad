@@ -1688,3 +1688,14 @@ KIM_BOTTOMK_WEIGHT = 1.0  # ED5: symmetry with L_MIL, not tuned
 KIM_BOTTOMK_TOPK_PCT = DADA_ORIGIN_MIL_TOPK_PCT  # ED5: a divisor; k = 20 // 5 = 4 = L_MIL's k
 EDGE_TARGET_ZONE_S = (-1.0, 0.0)  # ED8 T1: zone AUC against negative-video frames
 EDGE_ONSET_S = 2.0  # ED8 T2: span vs the normal frames within this many seconds of its edge
+
+# --- KIM_RUN §50: bottom-k weight 0.25 against K5f re-trained in the same notebook ---
+KIM_BOTTOMK25_CONTROL = "K5frr"  # BQ1: K5f's exact command, re-trained in the session (control)
+KIM_BOTTOMK25_ROW = "K5fbk25"  # BQ1: K5frr + the two bottom-k keys
+KIM_BOTTOMK25_WEIGHT = 0.25  # BQ1: one value, not derived and not swept
+KIM_BOTTOMK25_OUTPUT_DIRNAME = "kim_bottomk25"  # OUTPUT_ROOT/<this>/<row>/{K5/s<seed>, eval}
+KIM_BOTTOMK25_REPORT_STEM = "k5_bottomk_report"  # REPORTS/<this>.{md,json}
+KIM_BOTTOMK25_TABLE_NAME = "k5_bottomk25_s2024"  # REPORTS/zs_arm_table_<this>.md
+KIM_RUN_ENV_FILENAME = "env.json"  # beside a run: GPU name, torch and CUDA version
+SPAN_THIRDS = 3  # BQ5: the span's abnormal rows split in this many parts; the first is read
+BOTTOMK25_STRICT_LOW = -0.01  # BQ5: printed non-inferiority bound beside target A
