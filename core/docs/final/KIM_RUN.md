@@ -2976,3 +2976,27 @@ The curve is **narrower with the same peak**, not shifted: delaying K5frr by 0.2
 **Not licensed, whatever the outcome.** "Bottom-k and DVS are complementary / redundant" (one row, no 2 × 2: K5fbk25 is on another control and start); "bottom-k fixes the early rise"; a comparison of K5dfibk25 with K5fbk25; a runtime conclusion.
 
 Code: `core/tools/k5_bottomk_report.py --spec k5dfi` (§50's report re-run on the synced reads: identical); tests `core/tests/test_k5_bottomk_report.py`; runbook `colab/final/k5dfi_bottomk25.ipynb`; outputs `Thesis-Final/outputs/kim_dfi_bottomk25/`.
+
+### 51.1 Read-out (s2024, n = 1): CLOSED (target B not met); K5f stays (2026-11-24)
+
+Guards pass: step-1 `mil` 0.690560 in both rows (same draws), same GPU / torch / CUDA (Tesla T4, 2.14.1+cu130), K5dfirr's config diff to K5dfi {} and K5dfibk25's exactly the two bottom-k keys, J10, last-epoch `mul_mil` 0.1519 / 0.1510. Control K5dfirr.
+
+| set | macro K5dfirr → K5dfibk25 | Δ vs K5dfirr | label | Δ vs K5f | label |
+|---|---|---|---|---|---|
+| Nexar val crops | 0.8698 → 0.8611 | −0.0087 [−0.0130, −0.0048] below | no difference (under 0.01) | −0.0332 [−0.0433, −0.0236] | **COST** |
+| DoTA-CAP-dev | 0.8259 → 0.8252 | −0.0007 n.s. | no difference | +0.0064 n.s. | no difference |
+| DADA | 0.7677 → 0.7632 | −0.0045 [−0.0070, −0.0018] below | no difference (under 0.01) | −0.0112 [−0.0206, −0.0018] | **COST** |
+| DAD | 0.7494 → 0.7515 | +0.0021 n.s. | no difference | −0.0555 [−0.0760, −0.0357] | **COST** |
+| TAD (printed) | 0.7198 → 0.7160 | −0.0038 n.s. | – | +0.0179 n.s. | – |
+
+Micro Δ vs K5dfirr: DoTA +0.0077 [+0.0054, +0.0101] above; DADA −0.0003, TAD −0.0094, DAD +0.0013, none separated.
+
+Target **B fails**: DoTA onset AUC, pre side, −0.0005 [−0.0036, +0.0025]. Target **A fails**: first third Nexar −0.0107 [−0.0173, −0.0045], DADA −0.0058 [−0.0099, −0.0018] (DADA passes the strict bound; DoTA +0.0017 n.s.). Verdict by BD7: **CLOSED**. BD8 applies: no other weight, k, host or combination. The Nexar and DAD COST vs K5f was already K5dfi's (−0.0245, −0.0576); the DADA one is new (K5dfi −0.0067 n.s.).
+
+**Post-hoc, printed, decides nothing** (per video on the saved scores; video bootstrap; scratch script): bottom-k still narrows the curve on K5dfi, but less than on K5f: width of the min-max curve above 0.5 −0.28 s on DoTA (−1.12 on K5f), −0.25 on DADA (−0.87), −0.16 on Nexar (−0.57); first crossing of 0.5 relative to onset −0.39 → −0.25 s on DoTA (K5f host −1.03 → −0.18). The onset AUC vs [−2, 0) does not move on DoTA and falls on Nexar (−0.019) and DADA (−0.006). Nexar val false alarms at 0.5: 0.681 → 0.717. So the DoTA onset gain of K5fbk25 − K5frr (+0.045) is not seen on this host, where K5dfi's onset was already that good; "redundant" is not licensed (no 2 × 2, different start and GPU).
+
+**Re-run.** K5dfirr's `metrics.jsonl` is byte-identical to the old K5dfi's (T4 here; §50's K5frr was identical to K5f on an L4). Deterministic again; it says nothing of a cross-GPU spread.
+
+**Expectation check.** TRADE-OFF or closed: held (closed). "First-third losses may add": held in sign on Nexar and DADA, small.
+
+**Not licensed.** "Bottom-k and DVS are redundant / complementary"; "bottom-k fixes the early rise"; any comparison of K5dfibk25 with K5fbk25 as rows.
