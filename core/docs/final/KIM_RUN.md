@@ -2955,3 +2955,24 @@ Target **A fails**: first third of the span Nexar −0.0482 [−0.0595, −0.037
 The curve is **narrower with the same peak**, not shifted: delaying K5frr by 0.25 to 2 s matches K5fbk25 worse than no delay on every set (MAE of min-max curves). The same narrowing helps where K5frr rose early (DoTA, first crossing 1.0 s before onset) and hurts where it did not (Nexar val, already 0.5 s after the alert). On DADA the early rise is visibly smaller, but the span's ranking against [−2, 0) does not separate. Nexar val false alarms at 0.5: 0.549 → 0.575.
 
 **Not licensed.** "Bottom-k fixes the early rise" (DoTA only, with a Nexar and DADA cost); "bottom-k 0.25 is adopted / better on DoTA" (below the margin, closed); any dose trend from K5fbk (unmatched start); "re-run spread = 0" beyond the same environment.
+
+## 51. K5dfibk25 (bottom-k weight 0.25 on K5dfi) against a same-notebook K5dfi (K5dfirr) (dated note 2026-11-24, before any number of these rows; user)
+
+**Why.** BQ8 (§50) closed every further bottom-k arm, including combinations; **the user reopens it with one row**: bottom-k on K5dfi. Claude recommended against it, after these reads of rows that already exist (printed, post-hoc, n = 1): K5dfi − K5f looks much like K5fbk25 − K5f on DoTA (onset AUC +0.046 vs +0.045, first third −0.017 vs −0.009) and DADA (onset +0.007 vs +0.008, first third −0.032 vs −0.030); both cost Nexar val about 0.025; K5dfi also costs DAD −0.058, which is DVS's (§34.1). So there is little onset left to gain, and the first-third losses may add. Not measured: whether the two act on the same rows (on a spliced window bottom-k's lowest rows are mostly filler normals that `L_dvs-sup` already pushes down).
+
+| # | Choice |
+|---|---|
+| BD1 Rows | **K5dfirr** = K5dfi's exact command (config diff to K5dfi {}); **K5dfibk25** = K5dfirr + `loss.bottomk_weight=0.25`, `loss.bottomk_topk_pct=5` (the two keys of §50; `k = n // 5`, so 4 on a plain window and larger on a spliced one). s2024, 33 epochs, 1,749 steps, `Nexar_window`, K5df's KNN cache. One session; GPU, torch, CUDA saved. **K5f stays the project reference**; the control of the deciding contrast is K5dfirr |
+| BD2 Start gate | Step-1 `mil` of K5dfibk25 = K5dfirr's within `KIM_START_TOL`; otherwise "UNMATCHED START". K5dfirr vs the old K5dfi printed |
+| BD3 Guards | J10 (1,749), config diffs, last-epoch `mul_mil` > 0.01, `dvs.theta` 0.7 / 0.85, `dvs_anchor_mode=ignore`, seam mask on |
+| BD4 Targets | §50's A and B, on K5dfibk25 − K5dfirr: **A** first third not wholly below 0 on Nexar val and DADA; **B** DoTA-CAP-dev onset AUC above 0 |
+| BD5 Cost | §34's label on Nexar val crops, DoTA-CAP-dev, DADA, DAD, against K5dfirr |
+| BD6 Reference | The same label against **K5f**. A set that is a COST against either K5dfirr **or** K5f fails the arm. (Starts not matched: DVS changes the draws.) |
+| BD7 Verdict | B fails → **closed**. B holds, and A fails or any COST (BD5 or BD6) → **TRADE-OFF, closed**. A, B and no COST → **HELD**, s2025 may run. Nothing is adopted at n = 1 |
+| BD8 After | Closed = no other weight, k, host or combination with DVS, edge windows or captions. A further arm needs a new dated note naming what it tests |
+
+**Expectation (a wrong one changes nothing):** TRADE-OFF or closed. K5dfi already fails BD6 on Nexar val (−0.0245) and DAD (−0.0576) and bottom-k is not a fix for either; HELD needs the pair to repair both, which is not expected.
+
+**Not licensed, whatever the outcome.** "Bottom-k and DVS are complementary / redundant" (one row, no 2 × 2: K5fbk25 is on another control and start); "bottom-k fixes the early rise"; a comparison of K5dfibk25 with K5fbk25; a runtime conclusion.
+
+Code: `core/tools/k5_bottomk_report.py --spec k5dfi` (§50's report re-run on the synced reads: identical); tests `core/tests/test_k5_bottomk_report.py`; runbook `colab/final/k5dfi_bottomk25.ipynb`; outputs `Thesis-Final/outputs/kim_dfi_bottomk25/`.

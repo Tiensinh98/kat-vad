@@ -96,12 +96,13 @@ def _report(**over: Any) -> dict[str, Any]:
     base = {"auc": 0.7, "delta": None, "videos": 9}
     two = {rep.CONTROL: base, rep.NEW: read}
     return {
-        "rule": rep.RULE, "seed": 2024, "fixed_mul_mil": {rep.CONTROL: 0.1},
+        "rule": rep.RULE, "spec": "k5f", "seed": 2024, "fixed_mul_mil": {rep.CONTROL: 0.1},
         "start_check": {"control": 0.69, "new": 0.69, "same_draws": True},
         "start_vs_k5f": {"control": 0.6878, "new": 0.69, "same_draws": False},
         "env": {rep.CONTROL: {"gpu": "T4"}, rep.NEW: {"gpu": "T4"}},
         "sets": dict.fromkeys(rep.ALL_SETS, cell), "labels": _labels(),
         "rerun": dict.fromkeys(rep.ALL_SETS, cell),
+        "reference_sets": None, "reference_labels": None,
         "thirds": dict.fromkeys(edge.ONSET_SETS, two),
         "onset": {s: {edge.PRE: two, edge.POST: two} for s in edge.ONSET_SETS},
         "targets": {"A": True, "B": True}, "a_strict": {rep.NEXAR: True, rep.DADA: False},
@@ -114,6 +115,49 @@ def test_render_prints_verdict_targets_and_rerun_column() -> None:
     text = rep.render(_report())
     assert f"**Verdict: {rep.HELD}.**" in text and "FLAG" not in text
     assert f"{rep.CONTROL} - {rep.K5F}" in text and "tad (printed)" in text
+
+
+def test_merge_cost_takes_a_cost_from_either_contrast() -> None:
+    labels = _labels(dota=GAIN)
+    assert rep.merge_cost(labels, None) == labels
+    merged = rep.merge_cost(labels, _labels(dad=COST, dota=NONE))
+    assert merged["dad"] == COST and merged["dota"] == GAIN and merged[rep.NEXAR] == NONE
+    assert rep.verdict(True, True, merged) == rep.TRADE_OFF
+
+
+def test_specs_are_distinct_and_k5dfi_has_a_reference() -> None:
+    dfi = rep.SPECS["k5dfi"]
+    assert (dfi.control, dfi.new, dfi.old, dfi.reference) == (
+        "K5dfirr", "K5dfibk25", "K5dfi", rep.K5F)
+    assert rep.SPEC50.reference is None and dfi.stem != rep.SPEC50.stem
+
+
+def test_spec_k5dfi_requires_the_reference_paths(tmp_path: Path) -> None:
+    args = rep.build_arg_parser().parse_args([
+        "--spec", "k5dfi", "--kim-root", str(tmp_path), "--k5f-nexar-dir", str(tmp_path),
+        "--root", str(tmp_path), "--out-dir", str(tmp_path)])
+    with pytest.raises(ValueError, match="--reference-root"):
+        rep.run(args)
+
+
+def test_render_k5dfi_adds_the_reference_table() -> None:
+    spec = rep.SPECS["k5dfi"]
+    base = _report()
+    cell = {**base["sets"][rep.NEXAR],
+            "rows": {k: {"macro": {"mean": 0.8}, "macro_crops": {"mean": 0.8}}
+                     for k in (rep.kw.K5, spec.new, spec.control)}}
+    two = {spec.control: {"auc": 0.7, "delta": None, "videos": 9},
+           spec.new: {"auc": 0.7, "delta": _ci(-0.02, 0.02), "videos": 9}}
+    text = rep.render({
+        **base, "spec": "k5dfi", "env": {spec.control: {"gpu": "L4"}, spec.new: {"gpu": "L4"}},
+        "sets": dict.fromkeys(rep.ALL_SETS, cell), "rerun": dict.fromkeys(rep.ALL_SETS, cell),
+        "reference_sets": dict.fromkeys(rep.ALL_SETS, cell),
+        "reference_labels": _labels(dad=COST),
+        "thirds": dict.fromkeys(edge.ONSET_SETS, two),
+        "onset": {s: {edge.PRE: two, edge.POST: two} for s in edge.ONSET_SETS}})
+    assert "# K5dfibk25 vs K5dfirr" in text and "K5dfirr - K5dfi |" in text
+    assert "## Macro against K5f" in text and "| dad | " in text
+    assert "Macro against" not in rep.render(base)
 
 
 def test_render_flags_a_different_environment() -> None:

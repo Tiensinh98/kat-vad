@@ -1699,3 +1699,10 @@ KIM_BOTTOMK25_TABLE_NAME = "k5_bottomk25_s2024"  # REPORTS/zs_arm_table_<this>.m
 KIM_RUN_ENV_FILENAME = "env.json"  # beside a run: GPU name, torch and CUDA version
 SPAN_THIRDS = 3  # BQ5: the span's abnormal rows split in this many parts; the first is read
 BOTTOMK25_STRICT_LOW = -0.01  # BQ5: printed non-inferiority bound beside target A
+
+# --- KIM_RUN §51: bottom-k weight 0.25 on K5dfi, K5dfi re-trained in the same notebook ---
+KIM_DFI_BOTTOMK25_CONTROL = "K5dfirr"  # BD1: K5dfi's exact command, re-trained (control)
+KIM_DFI_BOTTOMK25_ROW = "K5dfibk25"  # BD1: K5dfirr + the two bottom-k keys
+KIM_DFI_BOTTOMK25_OUTPUT_DIRNAME = "kim_dfi_bottomk25"  # OUTPUT_ROOT/<this>/<row>/
+KIM_DFI_BOTTOMK25_REPORT_STEM = "k5dfi_bottomk_report"  # REPORTS/<this>.{md,json}
+KIM_DFI_BOTTOMK25_TABLE_NAME = "k5dfi_bottomk25_s2024"  # REPORTS/zs_arm_table_<this>.md
