@@ -2608,3 +2608,12 @@ Promote if a second harness needs the same split.
 **Rule:** Skip cancelled futures before calling `result()` whenever a loop over `as_completed` cancels the others, and test the fail-fast path with one worker.
 **Files:** `core/tools/msad_zs.py:decode_many`, `core/tests/test_msad_zs.py::TestParallelDecode::test_cancelled_jobs_do_not_hide_the_failure`.
 **Gate status.** One occurrence, caught before any Colab run; candidate.
+
+## (dx) [LOW] Analysis - a "≥ 2 × overall share" lead rule cannot fire on a stratum that holds a large share of the items (2026-11-24)
+**Triggers:** lead rule, FT5, stratum, fail share, low share, ego_involve, ratio to overall, failing tail
+**Problem:** §24 FT5 (reused by §44.2) calls a stratum a lead only when its share is ≥ 2 × the overall share; a stratum holding a fraction f of the items has a ceiling of 1 / f (DoTA ego-uninvolved: 44 % → 2.25), so the largest, cleanest pattern of §44.3 (43 % vs 9 % low, Δ interval far from 0 on both sets and rows) was "not a lead".
+**Bad:** `lead = share >= 2.0 * overall and low > 0` alone, for strata of any size.
+**Good:** print the ceiling `1 / f` beside the ratio, and write a size-aware lead rule (e.g. ratio vs the rest, or Δ ≥ a margin) BEFORE the next read; never change a rule after its numbers.
+**Rule:** Check each stratum's ratio ceiling 1 / f when writing a share-ratio lead rule, and use the stratum-vs-rest Δ for strata above ~30 % of the items.
+**Files:** `core/tools/k5_fail_tail.py:stratum_reads`, `core/tools/micro_level_read.py`, `core/docs/final/KIM_RUN.md` §24 FT5, §44.3.
+**Gate status.** One occurrence (it also shaped §24.1's "1.5×, not a lead"); candidate.

@@ -1,12 +1,22 @@
 # Progress
 
+**2026-11-24 (full update, branch `v_final_las_vad`) — K5f is the reference and main model; every arm since §12 is printed only, none adopted.** One line per section, detail in `core/docs/final/KIM_RUN.md`:
+- §13–§16 (2026-11-07/09): K5 on T2 (only Nexar val separates), form probe closed, Normal-text probe, **K5-whole** below K5 on 4 / 5 sets with flat per-video curves (`mil` → 0 by epoch 45).
+- §17–§28 (2026-11-09/16): K5neg (FA −0.43 at cut 0.5 but 3 sets below), MSAD zero-shot, Nexar gate, baseline micro, lag / failing-tail (§24: ego-uninvolved fails ~1.5×), K5ln / K5k2 / K5nc2 / K5Lneg all closed.
+- §29–§31 (2026-11-16/17): Qwen captions built; **§31 label fix** (label-0 windows = `Normal`) → **K5f replaces K5** as reference (lesson (dn)).
+- §32–§34 (2026-11-18/19): caption `L_neg` × DVS 2 × 2 and K5cfn — line closed; K5dfi / K5dfie (`ignore`) — Nexar val cost, not candidates.
+- §35–§38 (2026-11-21/22): whole DoTA-CAP (1,129) table; L0dfi; K5fT2 / K5dfiT2; Nexar source-shortcut probe; K5fno (negative-video normals only) below on 4 sets.
+- §39–§42 (2026-11-22/23): CCTV training — ACCIDENT (P1 not separated), Nexar EDA (§40), MSAD-full × kernel 3/9 (§41: `ignore` on KIM above on MSAD, motion + KIM never raises TAD macro), K5dfiACCs built not run (§42).
+- §43–§44 (2026-11-23/24): pre-onset rise (Nexar val [−1, 0) AUC 0.694; DoTA K5f 0.81 of span level 1–2 s early, costs DoTA macro 0.020); raw vs min-max micro and check 2 — on DoTA raw micro is lost to **level, not ranking**, concentrated in ego-uninvolved accidents (43 % low vs 9 %).
+- Counts (2026-11-24, at `b8bf9b0`): **290 Python files under `core/` (175 source + 115 test), 52,984 source lines, 2,125 tests collected (0 collection errors), 71 tracked files under `core/docs/`.**
+
 **2026-11-07 (latest, branch `v_final_las_vad`) — main model = K5 by the user's choice, W0 dropped as a candidate (`KIM_RUN.md` §12.3); K5 − W0 s2024 shows no difference on any set.**
 
 **2026-11-07 (earlier, branch `v_final_las_vad`) — LaGoVAD-KIM CLOSED by `KIM_RUN.md` §12, nothing adopted.** K5 − K0 gains on DADA at two seeds (+0.0484, +0.0383), but explicit differences are not established (K5 − Kcap +0.0116, +0.0012; §6.3 fails), and no K row reaches a gain over W0 at s2024: K5 +0.0125, Kcap +0.0009, K5d (DVS on + KIM + seam mask) +0.0098 [+0.0010, +0.0185], the last below the +0.01 margin by 0.0002. K2, s2026 not run. Flags in §12.1: unmatched start, cause not measured. Seam check read: anchors do not concentrate on the joins (0.0545 vs 0.0636).
 
 **2026-11-07 (earlier, branch `v_final_las_vad`) — LaGoVAD-KIM read at s2024, n = 1, nothing adopted.** K5 passes `KIM_RUN.md` §6.1 against K0 (DoTA-CAP-dev +0.0193 [+0.0091, +0.0292], DADA +0.0484 [+0.0367, +0.0599]), but K5 − W0 shows no difference on any set (DoTA-CAP-dev +0.0085, DADA +0.0125, TAD +0.0019), because K0 itself costs against W0 (DVS off). Host kernel 3 stays; KP3 → first-pair mask; KP4 → H6 dropped. Done: `core/kim/`, pilot, read-out, runbooks, Kcap code. Left: s2025 K0 / K5 (§6.2) → if reproduced Kcap, K2, s2026. Record: `KIM_RUN.md` §9.
 
-**Gap, 2026-10-27 → 2026-11-06:** v5 Stage 0–2, LaGoVAD-STP, W_u arms, zero-shot TAD / DADA / DAD and SA²-v2 tokens (closed 2026-11-06) are not itemized in this file. Their record is `activeContext.md` and `core/docs/final/`, `core/docs/v5/`.
+**Gap, 2026-10-27 → 2026-11-06 (still not itemized; 2026-11-07 → 2026-11-24 is summarized at the top):** v5 Stage 0–2, LaGoVAD-STP, W_u arms, zero-shot TAD / DADA / DAD and SA²-v2 tokens (closed 2026-11-06) are not itemized in this file. Their record is `activeContext.md` and `core/docs/final/`, `core/docs/v5/`.
 
 **2026-10-26 (branch `v2`; `v2-crn-drop` merged) — §30 + §31 READ OUT, raw outputs committed (`607e4d9`), docs synced.** §30: A3 Δ\_ref +0.0113 [+0.0035, +0.0192], `f` = 0.17 (A1 0.26, A3-ign 0.03) → CRN's Nexar crop cost is ⅚ CRN itself. §31 A2-ign vs A3-ign (M = 0.01): **all four checks FAIL → `B` = A3-ign, CRN stays** — macro Δ +0.0023 [−0.0151, +0.0197] (per-seed) / −0.0014 [−0.0165, +0.0135] (per-clip), `f_2` −0.0119 [−0.0204, −0.0033], T2-val 0.7068 vs 0.7338, O1′ 5/5; shortcut 0.9997 vs 0.584. Every doc number re-derived from `outputs/v2/v2_crndrop/` and `outputs/v2/v2_nexar_window/{val,val_crnref}/` — all match. Note: seed-averaged-curve macro (0.7898 vs 0.7912) and mean-of-seed macros (0.7834 vs 0.7810) differ in sign; both ≈ 0. `crn_ref.md` is not in the tree (rows reproduced from the readouts). `REPORT_V2_RESULTS.md` gained §4.8 (Nexar) + §4.9 (drop CRN), TL;DR 10–11, §5/§7/§9 rows.
 

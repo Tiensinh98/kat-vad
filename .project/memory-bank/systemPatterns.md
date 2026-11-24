@@ -1,7 +1,7 @@
 # System Patterns — architecture & design decisions
 
 **Created:** 2026-07-31 (re-init from `b9978ff`, verified against the tree)
-**Last reviewed:** 2026-11-07 (branch `v_final_las_vad`: KIM section added below; v5, STP and SA²-v2 patterns are not in this file, see `core/docs/final/`). Before that 2026-09-30 (branch `v2`: v2 section rewritten — P5 builds the arms as a baked input cache + zero-init `MotionResidual`; DoTA protocol B from E1; new build patterns for E1/D11/Colab). Previously 2026-09-24 (the flow target gains a second cache version,
+**Last reviewed:** 2026-11-24 (branch `v_final_las_vad`: KIM section — reference K5f, label fix, receptive field in rows, micro on all-abnormal sets). Before that 2026-11-07 (branch `v_final_las_vad`: KIM section added below; v5, STP and SA²-v2 patterns are not in this file, see `core/docs/final/`). Before that 2026-09-30 (branch `v2`: v2 section rewritten — P5 builds the arms as a baked input cache + zero-init `MotionResidual`; DoTA protocol B from E1; new build patterns for E1/D11/Colab). Previously 2026-09-24 (the flow target gains a second cache version,
 `flow/v2_zscore`, and `lambda_rec` becomes a property of the cache — see "Two flow
 targets" under Loss composition). Previously 2026-09-15 (later — corpus construction: closing the length
 leak and lowering the clip oracle are separate jobs; earlier the same day, the two
@@ -18,6 +18,10 @@ text paths and the `L_neg` wiring documented)
 - **`kin_feat`** = `[state ; vel ; acc]`, 3 × 128. It holds the undifferenced `state`, so a K5 gain is not by itself about differences; `KIMCapacity` (arm Kcap) is the control, a per-step MLP with no differences.
 - **Test score:** host score only. `kim_score` trains `kim_mil` and `kim_nkc`. `kim.edge_mask` zeroes each bag's **first** valid pair (§5.3).
 - **Host:** W0's recipe with `dvs.theta = theta_ego = 1` in every K row. **Control = K0, not W0**, so read K5 − W0 beside K5 − K0: K0 itself costs against W0.
+
+- **Reference = K5f (2026-11-17, §31).** Windowed `meta.json` once gave every window its source's class; label-0 windows are now `Normal`. Pre-fix fingerprint: last-epoch `mul_mil` ≈ 0.0015 (fixed ≈ 0.1).
+- **The temporal band is in ROWS, not seconds.** `temporal_window` 25 = ±12 rows per layer, two layers, bidirectional; fusion's text tokens attend over all T rows (a global path). Seconds per row differ by read: train s8 0.267 s, Nexar val N-B 0.1 s, DoTA protocol B 0.3 s, DADA s8 0.267 s — so the same model sees ±2.4 s on Nexar val and ±7.2 s on DoTA (§43.1 H1, untested).
+- **Micro on all-abnormal sets (DoTA-CAP, DADA) = within-clip ranking + cross-clip level.** Raw micro = positive-frame-weighted mean of each clip's level `A_c` (`micro_level_read`, §44.2); clip mean alone scores 0.51–0.53. Min-max per clip is the protocol (lesson 12); other normalizations are printed, never adopted.
 
 ## Forward pass
 
