@@ -8,6 +8,7 @@
 - §35–§38 (2026-11-21/22): whole DoTA-CAP (1,129) table; L0dfi; K5fT2 / K5dfiT2; Nexar source-shortcut probe; K5fno (negative-video normals only) below on 4 sets.
 - §39–§42 (2026-11-22/23): CCTV training — ACCIDENT (P1 not separated), Nexar EDA (§40), MSAD-full × kernel 3/9 (§41: `ignore` on KIM above on MSAD, motion + KIM never raises TAD macro), K5dfiACCs built not run (§42).
 - §43–§44 (2026-11-23/24): pre-onset rise (Nexar val [−1, 0) AUC 0.694; DoTA K5f 0.81 of span level 1–2 s early, costs DoTA macro 0.020); raw vs min-max micro and check 2 — on DoTA raw micro is lost to **level, not ranking**, concentrated in ego-uninvolved accidents (43 % low vs 9 %).
+- §45–§48 (2026-11-24, n = 1, printed): ego-uninvolved (third-party) accidents score low on DoTA-CAP (43 % vs 9 %). Nexar has no third-party positive by definition; T2 narrows the gap by 0.07, box size carries 0.07 of 0.35; cause not established. **Line CLOSED by the user → LIMITATION** (`KIM_RUN.md` §48). New tools `ego_gap_read`, `box_size_read` (22 tests); committed in `ed95e4f`.
 - Counts (2026-11-24, at `b8bf9b0`): **290 Python files under `core/` (175 source + 115 test), 52,984 source lines, 2,125 tests collected (0 collection errors), 71 tracked files under `core/docs/`.**
 
 **2026-11-07 (latest, branch `v_final_las_vad`) — main model = K5 by the user's choice, W0 dropped as a candidate (`KIM_RUN.md` §12.3); K5 − W0 s2024 shows no difference on any set.**
