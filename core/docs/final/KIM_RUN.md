@@ -2634,3 +2634,129 @@ Other strata with an interval excluding 0 (none a lead): DoTA `leave_to_left` / 
 **Reading.** On DoTA-CAP raw micro is lost mostly to **level, not ranking**: a quarter of K5f's clips (25 % of the positive frames) put their accident frames below the set's median normal frame, and 79 % of those clips still rank their own accident above their own normal frames. These clips are concentrated in accidents that do not involve the ego car (43 % low vs 9 %). K5dfi removes 75 of K5f's low clips and adds 15; its low set is mostly K5f's. The fit with frame-global features, Nexar's ego-involved training events and §24.1's ranking pattern is inferred, not tested.
 
 **Licensed (PRELIMINARY, n = 1).** "On whole DoTA-CAP, 24 % of K5f's clips (19 % for K5dfi) have accident frames that rank below the set's median normal frame under raw scores, and most of them (79 % / 76 %) still rank their own accident above their own normal frames. Accidents not involving the ego car are low about 4.8× (K5f) and 6.4× (K5dfi) as often as ego-involved ones; DADA shows the same direction (about 2×)." **Not licensed:** "K5f cannot detect third-party accidents" (it ranks them inside the clip at own AUC 0.75); "`ignore` fixes level" (no interval on the row difference); any cause; any per-clip normalization as the micro. **What could follow (not authorized, the user decides):** a check whether ego-uninvolved accidents are rare in Nexar's training spans (`nexar_train` annotation, no training); nothing about the model changes from this read.
+
+## 45. Are ego-uninvolved events rare in `nexar_train`'s labelled spans? (dated note 2026-11-24, before any sheet is rated; user)
+
+**Question (user, §44.3 "what could follow").** K5f's low clips on DoTA-CAP sit in accidents without the ego car (43 % vs 9 %). Does K5f's training corpus hold such events at all? Dataset property only: nothing is trained or scored, no arm, `nexar_val` / `nexar_test` are not touched.
+
+**Read before this note (not blind).** Nexar's metadata has no ego column (census: `file_name, light_conditions, scene, time_of_alert, time_of_event, time_to_accident, weather`). The dataset paper (Moura et al., CVPRW 2025, §3 and §3.1) defines *collision* as "an accident event between the ego vehicle and a third party", *near-collision* as "a close call event between the ego vehicle and a third party", and accepts a positive only if it involves "cars or trucks (excluding pedestrians, bicycles, motorcycles, animals, or stationary objects)" with "the (potential) impact … on the front side of the ego vehicle". So by definition the share is 0; this note checks whether the released videos follow the definition.
+
+| # | Choice |
+|---|---|
+| NE1 Sample | The 30 contact sheets of §29.2's QC draw (seed 2024, 451 `nexar_train` positives; 16 frames from 2 s before `t_event` to 1.4 s after). Already on disk; the draw does not depend on the event. Membership in `nexar_train` asserted |
+| NE2 Label per sheet | **E** ego is a party: contact, or another road user moves into / stops in the ego path so that ego is at risk. **T** third-party only: the event is between other road users and ego is not at risk. **M** both. **U** cannot tell from 16 frames. Rater: Claude, by eye, one pass, without reading the sheets' captions or the user's QC ratings first |
+| NE3 Reading | Primary count T; sensitivity T + M + U. One-sided 95 % Clopper-Pearson upper bound on n = 30. **RARE** iff the bound on T is < 0.222 (half of DoTA-CAP's uninvolved share, 502 / 1,129 = 0.445), i.e. T ≤ 2 (bounds for 0 / 1 / 2 / 3: 0.095 / 0.149 / 0.195 / 0.239). **NOT RARE** iff T ≥ 3. If T ≤ 2 but T + M + U ≥ 3: "RARE on T, not settled by the sheets" |
+| NE4 Printed, never deciding | The share of the 451 Qwen2.5-VL-7B captions (§29.2, QC FAIL 3.43, prompt does not ask for the ego vehicle) that name the ego / camera car. Weak: the captioner's known failure is the ego perspective |
+| NE5 Status | A dataset property. RARE does **not** show that rarity causes the low level on DoTA: no training run varies it. K5f stays |
+
+**Expectation (written now).** T = 0 and U ≤ 5: "RARE".
+
+### 45.1 Read-out (2026-11-24, Claude, local; dataset property, decides nothing)
+
+Ratings `outputs/v_final/kim_fixed/REPORTS/nexar_ego/sheet_ratings.csv`. All 30 ids are in `nexar_train` (NE1).
+
+| label | n of 30 | share, one-sided 95 % upper bound |
+|---|---|---|
+| E ego is a party | 28 (3 low confidence: 00301, 00839, 00856) | |
+| **T third-party only** | **0** | **0 %, ≤ 0.095** |
+| M both | 0 | |
+| U cannot tell | 2 (00351, 00403) | |
+
+**NE3: RARE** (T = 0 ≤ 2; T + M + U = 2 < 3, so settled). Stricter, not in the rule: if the 3 low-confidence E also count as U, the sensitivity count is 5 and the sheets alone would not settle it; in those 3 what is uncertain is whether the event shows, not that another pair of road users collides. No sheet shows two other road users colliding. NE4: 41 / 451 captions (9.1 %) name a camera / dashcam viewpoint; 2 of the 30 sheets. As expected, that text is no ego label and is not used.
+
+**The definition is stronger than the sheets.** Nexar accepts a positive only if (a) ego and a third party collide or nearly do, (b) the other party is a **car or truck** (no pedestrian, bicycle, motorcycle, animal, stationary object), and (c) the (potential) impact is on ego's **front side**. The third-party accident is therefore outside the training support by construction, not merely rare; so are pedestrian / two-wheeler / obstacle accidents and impacts on ego's rear. Negatives are "no event" videos.
+
+**Expectation, scored.** T = 0 and U ≤ 5: **held**.
+
+**Licensed.** "By the dataset's own definition Nexar's positives are ego-involved front-side (near-)collisions with a car or truck; in a random 30 of the 451 training positives no third-party-only event was seen (upper bound 9.5 %, one rater, 16 frames each). About 44 % of DoTA-CAP's clips (ego-uninvolved) and 74 % of DADA's (no `ego-car` in `texts`) are events of a kind K5f had no positive example of." **Not licensed:** "the low level on third-party accidents is **caused** by this" (nothing varied it; small distant motion is the rival reading, §24.1); any claim on §43's pre-onset rise. **Limits.** One rater (Claude), not blind to the definition; 16 frames per event; the flags for DoTA / DADA are the datasets' own.
+
+**What could follow (not authorized, the user decides).** A CPU read on saved scores: DADA's videos are 76 % non-ego by `texts` (472 / 1,945 ego, whole workbook; T2's own train list is not local), so the T2-trained rows (§37, K5fT2 / K5dfiT2, whole DoTA-CAP saved) saw third-party accidents and the Nexar rows did not. Run `micro_level_read` on K5fT2 vs K5f and compare the low-share gap (ego-uninvolved − ego-involved). If the missing support drives the level, the gap should shrink on the T2 rows; if it does not, the motion-size reading stands. Confounded (corpus, windows and normals all differ), so it can weaken or support the reading, not prove it. Rule and bars in a dated note first.
+
+## 46. Does K5f's ego gap in level shrink when the corpus holds third-party accidents? (dated note 2026-11-24, before any number of this check; user)
+
+**Question (user, §45.1).** §45: Nexar holds no third-party accident positive. §44.3: K5f's low clips (accident frames below the set's median normal frame) are 43 % of DoTA-CAP's ego-uninvolved clips against 9 % of the ego-involved. Two readings are open: **support** (the corpus never showed such positives) and **size** (third-party accidents move few pixels at distance). K5fT2 / K5dfiT2 (§37) are the same recipes trained on T2, cut from DADA-2000, where about 3 / 4 of the accident videos do not name an ego-car (§45.1; counted on T2's own window list below). No training, no inference: saved whole DoTA-CAP reads (1,129 clips, protocol B), s2024.
+
+**Read before this note (not blind).** §37.1's macro / micro of these rows (K5fT2 0.809 / 0.717 min-max, K5f 0.823 / 0.736); §44.3's strata of K5f and K5dfi; no ego stratum of any T2 row.
+
+| # | Choice |
+|---|---|
+| EG1 Items / rows | Whole DoTA-CAP, raw scores. **Primary pair K5fT2 vs K5f**; secondary K5dfiT2 vs K5dfi. Ego flag = DoTA `ego_involve` (502 false / 627 true). DADA is not read (in-domain for the T2 rows, §37) |
+| EG2 Level | §44.2 L2's `A_c` and low flag (`A_c` < 0.5), computed per row from that row's own pooled negatives (a global offset of the scores cancels). Gate: L2's, and K5f / K5dfi must reproduce §44.3 (0.434 / 0.091; 0.359 / 0.056) to 0.001 or the tool raises |
+| EG3 Reads | Per row: low share per ego group, gap `G` = low share(uninvolved) − low share(involved), gap `G_A` = mean `A_c`(involved) − mean `A_c`(uninvolved), own AUC per group. Paired differences T2 − Nexar per group (`Δ_U`, `Δ_I`) and of the gaps (`D` = G(T2) − G(Nexar); `D_A` likewise). Cluster bootstrap over source videos (`dota_group`), 2,000 draws, seed 2026, same draws for every row |
+| EG4 Reading (primary pair) | **SUPPORT-CONSISTENT** iff `D`'s interval < 0, `D_A`'s interval < 0 and `Δ_U`'s (low share) interval < 0: the gap narrows because third-party clips rise. **NARROWED BY THE OTHER SIDE** iff `D` < 0 but `Δ_U` is not below 0 (the involved clips got worse). **NO SHRINK SHOWN** iff `D`'s interval includes 0: then a shrink of ≥ ⅓ of K5f's G (0.114) is **excluded** if `D`'s lower bound > −0.114, else **not settled**. **WIDENED** iff `D`'s interval > 0. `D` < 0 with `D_A` not below 0 = **MIXED** |
+| EG5 Secondary | Same reads on the K5dfi pair; printed, never deciding; a different verdict is stated |
+| EG6 Status | Printed, decides nothing, n = 1. K5f stays. **No verdict says T2 is the better corpus, or that support is the cause:** the corpora also differ in windows, normals, domain, frame rate, statistics |
+
+**Expectations, written before the numbers.** `D` < 0 with interval, `Δ_U` < 0; size: −0.05 to −0.20 (part of the gap, not all). Own AUC of the uninvolved group does not rise by more than 0.02.
+
+### 46.1 Read-out (2026-11-24, Claude, saved reads; printed, decides nothing, n = 1)
+
+Raw `outputs/v_final/kim_fixed/REPORTS/ego_gap/ego_gap_read.{md,json}`. EG2 gates passed (K5f 0.434 / 0.091, K5dfi 0.359 / 0.056 reproduced). T2 share, counted on `outputs/EDA/DADA2000_orig_T2_w20s8/meta.json` (assumed to be the geometry K5fT2 trained on, W = 20 / hop 8; corrects §45.1's "T2's train list is not local"): **2,770 abnormal train windows (T2-val out), 73.8 % with no `ego-car`**, 75.5 % of the sources.
+
+| row | trained on | low U / I | G | mean `A_c` U / I | own AUC U / I |
+|---|---|---|---|---|---|
+| K5f | Nexar | 0.434 / 0.091 | 0.343 | 0.550 / 0.818 | 0.749 / 0.881 |
+| K5fT2 | T2 | 0.380 / 0.105 | 0.275 | 0.581 / 0.804 | 0.758 / 0.850 |
+| K5dfi | Nexar | 0.359 / 0.056 | 0.303 | 0.603 / 0.848 | 0.751 / 0.882 |
+| K5dfiT2 | T2 | 0.327 / 0.094 | 0.233 | 0.617 / 0.795 | 0.747 / 0.837 |
+
+| T2 − Nexar | primary K5fT2 − K5f | secondary K5dfiT2 − K5dfi |
+|---|---|---|
+| `D` (gap in low share) | **−0.068 [−0.128, −0.005]** | −0.070 [−0.130, −0.012] |
+| `D_A` (gap in `A_c`) | −0.046 [−0.077, −0.016] | −0.067 [−0.096, −0.039] |
+| `Δ_U` low share, uninvolved | −0.054 [−0.111, +0.006] | −0.032 [−0.085, +0.026] |
+| `Δ_I` low share, involved | +0.014 [−0.013, +0.044] | +0.038 [+0.012, +0.065] |
+| mean `A_c` uninvolved | +0.032 [+0.005, +0.058] | +0.014 [−0.011, +0.038] |
+| mean `A_c` involved | −0.014 [−0.030, +0.001] | −0.053 [−0.066, −0.038] |
+| own AUC uninvolved | +0.009 [−0.012, +0.029] | −0.004 [−0.021, +0.012] |
+| own AUC involved | −0.032 [−0.044, −0.019] | −0.046 [−0.056, −0.034] |
+
+**EG4 verdict (primary): NARROWED BY THE OTHER SIDE** (`D` < 0, `Δ_U` includes 0); same on the secondary pair. The rule's wording is sharper than the primary numbers: "not below 0" is not "the involved side moved". On the primary pair neither side's low share is separated from 0 (−0.054 and +0.014 add to −0.068) and the continuous level of the uninvolved group is above (+0.032); on the secondary pair the involved side is clearly worse (−0.053 in level) and the uninvolved side is not separated. The rule is not changed after the numbers.
+
+**Expectations, scored.** `D` < 0 with its interval: **held**. `Δ_U` < 0 with its interval: **wrong** (just misses). Size −0.05 to −0.20: **held** (−0.068). Uninvolved own AUC not up by more than 0.02: **held** (+0.009).
+
+**Reading.** A corpus where 74 % of the positives are third-party narrows the gap by about a fifth (0.343 → 0.275), part of it because the ego-involved level is not higher on T2, and the interval's best end still leaves a gap of 0.215. Inside the clip T2 does not rank third-party accidents better (own AUC +0.009, interval includes 0). So the missing support in Nexar (§45) can explain **at most a minority** of the level gap here, and most of it survives in a corpus that has the support. That favors the rival reading (third-party accidents move few pixels; frame-global features) but does not test it.
+
+**Licensed (PRELIMINARY, n = 1, whole DoTA-CAP).** "Trained on T2 (74 % third-party positives), K5f's recipe still puts 38 % of ego-uninvolved clips low against 10 % of ego-involved; the gap is 0.07 [0.005, 0.13] smaller than on Nexar (0.34) and the uninvolved clips' own AUC is not separated." **Not licensed:** "Nexar's missing third-party positives are the cause" / "are not a cause"; "T2 fixes third-party accidents"; "motion size is the cause"; T2 as the better corpus (§37). **Limits.** T2 differs from Nexar in windows, normals, frame rate, country and statistics; DADA's flag is free text; one seed. **Next (user's call):** nothing follows from this alone; a size read on saved tracks (box size at the accident frame vs `A_c` within the uninvolved group) would test the rival, if boxes are on disk.
+
+## 47. Does box size explain K5f's ego gap in level on DoTA-CAP? (dated note 2026-11-24, before any score is paired with a box; user)
+
+**Question (user, §46.1).** §46 left the rival reading open: third-party accidents score low because they are small in the frame. DoTA annotates the boxes of the objects in the accident. No training, no inference; saved whole DoTA-CAP reads (protocol B, raw scores, s2024).
+
+**Read before this note (dataset property only, no score).** Boxes exist only inside `[anomaly_start, anomaly_end)`; all 502 ego-uninvolved clips have some, 564 of 627 ego-involved do (63 have none). Median box share of the frame (median over annotated frames of the largest box, 1280 × 720): uninvolved 0.018, involved 0.101. Also read: all of §44–§46 (K5f low shares by ego; no read by size).
+
+| # | Choice |
+|---|---|
+| BS1 Items / rows | The 1,066 boxed clips (502 U / 564 I). Levels `A_c`, low flags and own AUC are computed on **all 1,129** clips first (§44.2, §46 EG2 gate), then restricted. **K5f primary**, K5dfi secondary, K5fT2 / K5dfiT2 printed. Low shares of the 63 unboxed involved clips printed |
+| BS2 Size | `size` = median over the clip's annotated accident frames of the largest box's share of the 1280 × 720 frame. Printed beside: `speed` = median centre displacement per frame (px) of same-`obj_track_id` boxes, and `size × speed` |
+| BS3 Relation | Within U: Spearman `ρ_A` = ρ(size, `A_c`) and ρ(size, own AUC), cluster bootstrap (`dota_group`, 2,000, seed 2026). Printed: within I; ρ with the linear rank effect of §24 FT3's covariates (length, span share, span centre, span seconds) removed; the same for speed and size × speed |
+| BS4 Size-matched gap | Bins on `size` with fixed edges 0.01 / 0.02 / 0.04 / 0.08 / 0.16 (I counts 20 / 29 / 70 / 109 / 189 / 147, U 156 / 116 / 94 / 73 / 42 / 21). `G_raw` = low share U − I on boxed clips. `G_adj` = Σ_b w_b (low_U,b − low_I,b), w_b = U's share of bin b. `R` = `G_raw` − `G_adj`: how much of the gap the size mix carries. Same draws; a draw with an empty U or I bin is dropped and counted |
+| BS5 Verdict (primary; every state on its own interval) | **SIZE-CONSISTENT** iff ρ_A low > 0 **and** R low > 0 **and** R ≥ ⅓ `G_raw`. **RELATED, GAP NOT EXPLAINED** iff ρ_A low > 0 **and** R high < ⅓ `G_raw`. **NO SIZE RELATION** iff ρ_A's interval includes 0 with high < 0.2 **and** R high < ⅓ `G_raw`. Anything else: **NOT SETTLED**. A verdict on the secondary row that differs is stated |
+| BS6 Status | Printed, decides nothing, n = 1. K5f stays. Size is not motion: SIZE-CONSISTENT does not show that motion energy or a frame-global feature is the cause |
+
+**Expectations, written before the numbers.** ρ_A > 0 with its interval, 0.15 to 0.35. ρ(size, own AUC) > 0. R ≥ ⅓ `G_raw`: SIZE-CONSISTENT. Within I the relation is weaker than within U. Limits known in advance: the smallest involved bin holds 20 clips; "involved" also differs in ways size does not carry.
+
+### 47.1 Read-out (2026-11-24, Claude, saved reads and annotations; printed, decides nothing, n = 1)
+
+Raw `outputs/v_final/kim_fixed/REPORTS/box_size/box_size_read.{md,json}`. EG2 gates passed; no bootstrap draw dropped. Unboxed involved clips (63) low: K5f 0.190, K5dfi 0.159 (0.080 / 0.044 for the boxed ones), so the boxed `G_raw` (0.354 / 0.314) sits a little above §46's.
+
+| row | ρ_A within U | ρ(size, own AUC) within U | `G_raw` | `G_adj` | `R` | R / `G_raw` | verdict |
+|---|---|---|---|---|---|---|---|
+| **K5f (primary)** | +0.181 [+0.090, +0.269] | +0.255 [+0.165, +0.335] | 0.354 | 0.289 [0.206, 0.371] | **+0.066 [+0.006, +0.127]** | 0.19 | **NOT SETTLED** |
+| K5dfi | +0.226 [+0.133, +0.313] | +0.275 [+0.185, +0.353] | 0.314 | 0.254 [0.177, 0.334] | +0.060 [+0.008, +0.120] | 0.19 | NOT SETTLED |
+| K5fT2 (printed) | +0.194 [+0.119, +0.273] | +0.228 [+0.140, +0.310] | 0.287 | 0.181 [0.089, 0.265] | +0.105 [+0.038, +0.183] | 0.37 | SIZE-CONSISTENT |
+| K5dfiT2 (printed) | +0.225 [+0.153, +0.297] | +0.249 [+0.156, +0.334] | 0.243 | 0.188 [0.108, 0.263] | +0.056 [+0.001, +0.121] | 0.23 | NOT SETTLED |
+
+Why NOT SETTLED on K5f: ρ_A is separated from 0 and R is separated from 0, but R's point (0.066) is under ⅓ `G_raw` (0.118) while its upper bound (0.127) is above it. K5fT2's verdict is printed only and is the one of four; it is not the result.
+
+Low share by size bin (K5f, U / I; n U / I): < 0.01 0.551 / 0.250 (156 / 20); 0.01–0.02 0.405 / 0.103 (116 / 29); 0.02–0.04 0.351 / 0.129 (94 / 70); 0.04–0.08 0.315 / 0.083 (73 / 109); 0.08–0.16 0.476 / 0.079 (42 / 189); ≥ 0.16 0.429 / 0.027 (21 / 147).
+
+Other printed reads (K5f, U): size × speed ρ_A +0.236 [+0.149, +0.315] (+0.225 with §24 FT3's covariates removed), speed +0.188, size +0.165 with the covariates removed. Box speed carries camera motion, so it is not an object speed. Within I the size relation is at least as strong (ρ_A +0.233 [+0.159, +0.305]).
+
+**Expectations, scored.** ρ_A > 0 in 0.15–0.35: **held** (0.181). ρ(size, own AUC) > 0: **held**. R ≥ ⅓ `G_raw`, SIZE-CONSISTENT: **wrong** (0.19). Weaker within I than U: **wrong** for K5f and K5dfi.
+
+**Reading.** Size matters a little, also for ranking (own AUC 0.686 below 1 % of the frame vs 0.75–0.81 above), but it carries about a fifth of the ego gap (2 % to 36 % of it at the interval's ends). At matched size uninvolved clips are still low 0.29 [0.21, 0.37] more often, and big third-party accidents are not spared: at ≥ 8 % of the frame K5f puts 0.43–0.48 of the uninvolved clips low against 0.03–0.08 of the involved (63 uninvolved clips). With §46 (the T2 corpus narrows the gap by about a fifth, at most 37 % at the interval's end), **neither reading carries the majority of the gap**; what remains is that a collision with the camera car shakes, stops or turns the camera, which a frame-global feature reads and a third-party accident does not. That is inferred, not tested.
+
+**Licensed (PRELIMINARY, n = 1, whole DoTA-CAP, 1,066 boxed clips).** "Within ego-uninvolved accidents, the level of K5f's score rises weakly with the size of the accident's boxes (ρ 0.18 [0.09, 0.27]). At matched size the ego-uninvolved clips are still low 0.29 [0.21, 0.37] more often than the ego-involved ones; size carries about 0.07 of a 0.35 gap." **Not licensed:** "small motion is the cause" / "size is not a factor"; any sentence on motion energy; K5fT2's SIZE-CONSISTENT as the result. **Limits.** n = 1; box size is the annotator's largest involved object, not the moving pixels; the smallest involved bin holds 20 clips.
+
+**Close (Claude's recommendation, user decides).** Two rivals were tested on saved data and neither explains the gap. A test of the remaining reading (camera shake / ego motion) needs a new read of the optical flow or camera motion; DoTA's frames are gone, so it is not cheap. Claude recommends closing the line and writing the third-party gap into the limitations, with these two bounded reads.

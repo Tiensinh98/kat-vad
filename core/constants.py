@@ -1645,3 +1645,21 @@ MICRO_LEVEL_GATE_ATOL = 1e-6  # L2: positive-weighted mean of A_c must equal the
 MICRO_LEVEL_REPORT_STEM = "micro_level_read"
 MICRO_LEVEL_REPORT_DIR = "kim_fixed/REPORTS/micro_level"  # relative to OUTPUT_ROOT
 MICRO_LEVEL_ROWS = ("K5f", "K5dfi")  # L1, the first is the overlap's reference
+
+# --- KIM_RUN §46: does the ego gap in level shrink on T2-trained rows? (ego_gap_read) ---
+EGO_GAP_PAIRS = (("K5f", "K5fT2"), ("K5dfi", "K5dfiT2"))  # EG1 (Nexar row, T2 row), first = primary
+EGO_GAP_REFERENCE_LOW = {  # EG2 gate: §44.3 low share (ego-uninvolved, ego-involved)
+    "K5f": (0.434, 0.091),
+    "K5dfi": (0.359, 0.056),
+}
+EGO_GAP_GATE_ATOL = 1e-3  # EG2
+EGO_GAP_THIRD = 0.114  # EG4: a third of K5f's §44.3 gap (0.343)
+EGO_GAP_REPORT_STEM = "ego_gap_read"
+
+# --- KIM_RUN §47: does box size explain the ego gap in level? (box_size_read) ---
+BOX_SIZE_FRAME_AREA = 1280 * 720  # BS2: DoTA frame in px, the boxes' coordinate frame
+BOX_SIZE_EDGES = (0.01, 0.02, 0.04, 0.08, 0.16)  # BS4: fixed size bins
+BOX_SIZE_THIRD = 1.0 / 3.0  # BS5: share of G_raw the size mix must carry
+BOX_SIZE_RHO_FLOOR = 0.2  # BS5: ρ upper bound below this (and including 0) = no relation
+BOX_SIZE_ROWS = ("K5f", "K5dfi", "K5fT2", "K5dfiT2")  # BS1, first = primary
+BOX_SIZE_REPORT_STEM = "box_size_read"

@@ -2617,3 +2617,12 @@ Promote if a second harness needs the same split.
 **Rule:** Check each stratum's ratio ceiling 1 / f when writing a share-ratio lead rule, and use the stratum-vs-rest Δ for strata above ~30 % of the items.
 **Files:** `core/tools/k5_fail_tail.py:stratum_reads`, `core/tools/micro_level_read.py`, `core/docs/final/KIM_RUN.md` §24 FT5, §44.3.
 **Gate status.** One occurrence (it also shaped §24.1's "1.5×, not a lead"); candidate.
+
+## (dy) [LOW] Analysis - a verdict name must not assert what "not separated" does not show (2026-11-24)
+**Triggers:** verdict label, EG4, not separated, ns, reading rule, gap decomposition, pre-registered rule
+**Problem:** §46 EG4 named the case "`D` < 0 and `Δ_U` not below 0" NARROWED BY THE OTHER SIDE. On the primary pair it fired with `Δ_U` -0.054 [-0.111, +0.006] and the involved side +0.014 [-0.013, +0.044]: neither side is separated, so the label claims a cause the numbers do not carry.
+**Bad:** `return SUPPORT if d_u.high < 0 else OTHER_SIDE`
+**Good:** require the other side's own interval (`Δ_I` low > 0) for OTHER_SIDE, and add a NEITHER SIDE SEPARATED case.
+**Rule:** Write one verdict per observable state, each conditioned on its own interval; never define a claim as the complement of another claim.
+**Files:** `core/tools/ego_gap_read.py:verdict`, `core/docs/final/KIM_RUN.md` §46 EG4 / §46.1.
+**Gate status.** One occurrence; candidate.
