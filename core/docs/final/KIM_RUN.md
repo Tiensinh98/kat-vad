@@ -2522,3 +2522,45 @@ Paired rise − K5f: K5df +0.010 [−0.169, +0.120], K5dfi +0.005 [−0.034, +0.
 * **Defect in P3(c), recorded, rule not changed after the numbers.** The rise is a ratio per video; where span − far is small it explodes (median span − far: K5f 0.504, K5fno 0.293, LaGoVAD 0.009; videos with span − far < 0.05: 12 %, 36 %, 68 %), so K5fno's and LaGoVAD's rise intervals (±2) are not read. `PRE_ONSET_MIN_CONTRAST` = 1e-3 was too small; the zone AUCs are the robust read. The rescaled figure panel is clipped to [−1, 2] (display only).
 
 **Licensed.** "On Nexar val K5f's score starts climbing about 2 s before the alert, mostly in the last second: frames in the last second before the alert rank above negative-video frames at AUC 0.694 (PRELIMINARY, n = 1)." "Without in-video normals (K5fno) the whole accident video is lifted (far-zone AUC 0.639 vs K5f 0.437)." **Not licensed:** "K5f anticipates accidents"; "DVS `span` causes the early rise" (no interval on the zone AUCs, rise not higher); any statement on TAD / DAD / DADA from this read.
+
+### 43.1 Pre-onset rise on DoTA-CAP and DADA (dated note 2026-11-24, user; post-hoc, printed, decides nothing)
+
+**Why.** The user read `zs_curves`' onset-aligned figure (K5dfi vs LaGoVAD, `kim/REPORTS/figures/train_nexar/dota_dada/k5dfi_lagovad_kim_vs_lagovad_s2024/onset_aligned.png`) as rising ~4 s before the GT on DoTA and DADA, much earlier than on Nexar val. That figure and the Nexar one differ in three ways that move a mean curve: the model (Nexar: pre-§31 K5; DoTA / DADA: K5dfi), the pooling (raw vs per-video min-max) and the composition per bin (DoTA's pre-roll median 3.5 s; only 177 / 1,129 clips have >= 5 s, so the −4 s bin is another set of clips than the −1 s bin). **Post-hoc:** the numbers below were first computed in a scratch script and shown to the user, then put into the tool unchanged; nothing here was fixed before a number was seen.
+
+| # | Choice |
+|---|---|
+| Q1 Sets / rows | Nexar val (§43's five rows), whole DoTA-CAP (1,129, protocol B, native 10 fps) and DADA whole (370, s8 = 0.267 s), each with K5f, K5dfi, L0dfi (plain CLIP, no motion / KIM) and the released LaGoVAD (`constants.PRE_ONSET_ZS_ROWS`) |
+| Q2 Fixed composition | Clips with >= 5 s before onset; 1 s zones from −5 s to 0, the same clips in every zone. Rescaled per clip: 0 = mean before −4 s, 1 = span mean, clips with span − far < 0.05 left out (§43's 1e-3 guard was the defect found there). Min-max per clip printed beside it (what the figure shows) |
+| Q3 Macro cost | Per-clip AUC with and without the **normal** frames of [−2, 0) s, paired, mean over two-class clips (> 0 = those frames cost macro) |
+| Q4 Pre-roll strata | Min-max level of the last 1 s by pre-roll < 2 / 2–4 / >= 4 s (a short pre-roll puts the clip's minimum near the onset) |
+| Q5 Status | Printed only, n = 1; intervals: cluster bootstrap over clips 10,000, seed 2026. No arm, no decision; K5f stays |
+
+**GT onsets are comparable on Nexar and DADA, not checked on DoTA.** Nexar's span starts at `time_of_alert`, median 1.43 s before `time_of_event`; DADA's at "abnormal start", median 1.50 s before the accident frame (`NEXAR_SETUP.md` §1.1). Where DoTA's `anomaly_start` sits relative to contact is **not** measured here.
+
+**Read-out (2026-11-24, Claude, on saved reads synced from Drive).** Raw: `outputs/v_final/kim_fixed/REPORTS/pre_onset/pre_onset_read{,_dota,_dada}.{md,json}`, `pre_onset_curves{,_dota,_dada}.png`. The macros reproduce the recorded reads (DoTA K5f 0.8226 / K5dfi 0.8240, §35.1; DADA K5f 0.7744; Nexar K5f whole 0.9210, §43).
+
+Rescaled level on the fixed composition (0 = far, 1 = span):
+
+| set | row | clips | [−4, −3) s | [−3, −2) | [−2, −1) | [−1, 0) |
+|---|---|---|---|---|---|---|
+| Nexar val | K5f | 99 | 0.01 | 0.02 | 0.04 [0.00, 0.09] | 0.15 [0.10, 0.22] |
+| Nexar val | K5dfi | 98 | −0.00 | 0.01 | 0.03 | 0.14 |
+| DoTA-CAP | **K5f** | 143 | 0.37 | 0.61 | **0.81 [0.63, 1.01]** | 0.96 |
+| DoTA-CAP | K5dfi | 148 | 0.24 | 0.41 | 0.58 [0.50, 0.66] | 0.76 |
+| DoTA-CAP | L0dfi | 128 | 0.03 | 0.15 | 0.23 [−0.05, 0.50] | 0.48 |
+| DoTA-CAP | LaGoVAD | 76 | 0.11 | 0.23 | 0.44 [0.32, 0.57] | 0.71 |
+| DADA | K5f | 109 | 0.16 | 0.19 | 0.36 [0.25, 0.47] | 0.54 |
+| DADA | K5dfi | 113 | 0.19 | 0.19 | 0.33 [0.11, 0.61] | 0.44 |
+| DADA | L0dfi | 81 | −0.02 | 0.24 | 0.20 | 0.34 |
+| DADA | LaGoVAD | 47 | 0.17 | 0.28 | 0.45 [0.28, 0.64] | 0.62 |
+
+Macro cost of the normal frames in [−2, 0) s (macro without them − macro): DoTA K5f **+0.0204 [+0.0142, +0.0266]**, K5dfi +0.0046 [−0.0009, +0.0100], L0dfi −0.0038, LaGoVAD −0.0111; DADA K5f −0.0018 [−0.0094, +0.0056], K5dfi −0.0072, L0dfi −0.0041, LaGoVAD +0.0072; Nexar K5f +0.0016 [−0.0006, +0.0039], K5dfi +0.0033 [+0.0013, +0.0054].
+
+* **On the same definitions, the rise is a DoTA property of the KIM rows.** One to two seconds before the GT, K5f on DoTA already sits at 0.81 of its span level (Nexar 0.04, DADA 0.36); K5dfi 0.58. Plain CLIP trained the same way (L0dfi) sits at 0.23 and the released LaGoVAD at 0.44, so the early part is carried by the motion + KIM path, not by CLIP.
+* **It costs macro only on DoTA and only for K5f (+0.020).** K5dfi +0.005 (interval includes 0); on DADA and Nexar the zone costs nothing (dropping it does not raise macro). For scale, K5f − L0dfi on DoTA-CAP macro is +0.146.
+* **DADA's figure overstates it.** On the fixed composition K5f's DADA rise (0.36) is not above LaGoVAD's (0.45); the figure's gap comes from K5f's low far level under min-max beside LaGoVAD's high one. Short pre-roll lowers the min-max level of the last 1 s (DoTA K5f 0.33 at < 2 s vs 0.62 at >= 4 s): part of any min-max onset curve is the clip's own length.
+* **It reaches past the Nexar label gap.** The unlabeled stretch before a Nexar span is at most 1.87 s (§40); the DoTA rise starts ~4 s before the GT (rescaled 0.37 at [−4, −3) s), so an edge-window fix aimed at that gap is not expected to move DoTA's early part. Not tested.
+
+**Licensed.** "On whole DoTA-CAP, K5f's score reaches 0.81 of its span level 1–2 s before the annotated onset (fixed composition, rescaled; Nexar val 0.04), and those pre-onset normal frames cost 0.020 macro (PRELIMINARY, n = 1, post-hoc)." "The early rise is carried by the motion + KIM rows: plain CLIP trained the same way reaches 0.23." **Not licensed:** "K5f anticipates accidents"; "VideoMAE causes the early rise" (L0dfi changes motion and KIM together); "DoTA's annotation starts late" (not measured); any claim from the min-max figure alone.
+
+**Runbook.** `core.tools.pre_onset_read --set {nexar,dota,dada}` (§4 of each report = Q2–Q4; tests `core/tests/test_pre_onset_read.py`, 6); notebook `colab/final/pre_onset_read.ipynb` now runs the three sets.

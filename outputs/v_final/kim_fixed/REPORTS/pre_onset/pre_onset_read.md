@@ -1,4 +1,4 @@
-# Pre-onset rise on nexar_val (KIM_RUN.md §43)
+# Pre-onset rise on nexar (KIM_RUN.md §43 / §43.1)
 
 225 videos; onset = first `gt = 1` frame (= `time_of_alert`); 30 rows/s. **Printed only, decides nothing; PRELIMINARY (n = 1).** Control K5f.
 
@@ -55,9 +55,47 @@ rise = (mean[-2 s, 0) - far) / (span - far), far = mean before -5 s: 0 = still a
 | +2.0 | 0.537 | 0.692 | 0.549 | 0.574 | 0.269 |
 | +2.5 | 0.428 | 0.643 | 0.460 | 0.518 | 0.266 |
 
+## 4. Fixed composition and macro cost (§43.1, post-hoc)
+
+112 two-class videos; 112 with >= 5 s before onset (the same videos in every zone). Rescaled: 0 = mean before -4 s, 1 = span mean, per video (span - far < 0.05 left out). Min-max: per video, as the `zs_curves` figure shows it.
+
+| row | read | n | [-5, -4) s | [-4, -3) s | [-3, -2) s | [-2, -1) s | [-1, 0) s |
+|---|---|---|---|---|---|---|---|
+| K5f | rescaled | 99 | 0.00 [-0.02, 0.02] | 0.01 [-0.02, 0.04] | 0.02 [-0.01, 0.05] | 0.04 [0.00, 0.09] | 0.15 [0.10, 0.22] |
+| K5f | minmax | 112 | 0.03 [0.02, 0.05] | 0.04 [0.02, 0.06] | 0.04 [0.02, 0.06] | 0.06 [0.04, 0.09] | 0.13 [0.09, 0.18] |
+| K5df | rescaled | 103 | 0.03 [-0.03, 0.09] | -0.03 [-0.11, 0.04] | -0.03 [-0.17, 0.07] | 0.02 [-0.19, 0.15] | 0.21 [-0.00, 0.35] |
+| K5df | minmax | 112 | 0.10 [0.07, 0.13] | 0.10 [0.08, 0.14] | 0.12 [0.09, 0.15] | 0.16 [0.12, 0.20] | 0.30 [0.24, 0.35] |
+| K5dfi | rescaled | 98 | -0.00 [-0.03, 0.03] | -0.00 [-0.04, 0.05] | 0.01 [-0.04, 0.06] | 0.03 [-0.03, 0.09] | 0.14 [0.07, 0.21] |
+| K5dfi | minmax | 112 | 0.04 [0.02, 0.06] | 0.04 [0.02, 0.06] | 0.04 [0.03, 0.07] | 0.07 [0.04, 0.09] | 0.13 [0.10, 0.17] |
+| K5fno | rescaled | 71 | 0.23 [0.04, 0.47] | 0.11 [-0.12, 0.31] | -0.02 [-0.22, 0.15] | -0.03 [-0.25, 0.16] | 0.21 [-0.03, 0.43] |
+| K5fno | minmax | 112 | 0.25 [0.18, 0.32] | 0.25 [0.18, 0.32] | 0.23 [0.16, 0.30] | 0.23 [0.17, 0.31] | 0.29 [0.22, 0.37] |
+| LaGoVAD | rescaled | 36 | 0.39 [0.12, 0.68] | 0.54 [0.24, 0.88] | 0.52 [0.24, 0.82] | 0.70 [0.28, 1.19] | 0.72 [0.31, 1.17] |
+| LaGoVAD | minmax | 112 | 0.37 [0.32, 0.42] | 0.35 [0.31, 0.40] | 0.36 [0.31, 0.40] | 0.38 [0.33, 0.43] | 0.38 [0.34, 0.42] |
+
+Macro AUC (two-class videos) and its change when the normal frames of [-2, 0) s are dropped (paired per video; > 0 = those frames cost macro):
+
+| row | macro | without the zone - macro |
+|---|---|---|
+| K5f | 0.9210 [0.8998, 0.9406] | 0.0016 [-0.0006, 0.0039] |
+| K5df | 0.9305 [0.9102, 0.9493] | 0.0018 [-0.0005, 0.0041] |
+| K5dfi | 0.9043 [0.8825, 0.9250] | 0.0033 [0.0013, 0.0054] |
+| K5fno | 0.8348 [0.8055, 0.8626] | -0.0011 [-0.0043, 0.0021] |
+| LaGoVAD | 0.5832 [0.5380, 0.6284] | 0.0032 [-0.0005, 0.0069] |
+
+Min-max level of the last 1 s before onset, by pre-roll length (a short pre-roll puts the video's minimum near the onset):
+
+| row | <2 s | 2-4 s | >=4 s |
+|---|---|---|---|
+| K5f | - | - | 0.13 (n=112) |
+| K5df | - | - | 0.30 (n=112) |
+| K5dfi | - | - | 0.13 (n=112) |
+| K5fno | - | - | 0.29 (n=112) |
+| LaGoVAD | - | - | 0.38 (n=112) |
+
 ## How to read this
 
 * A rise above 0 says the score leaves its far level before the alert; it is unlabeled positive score, not foresight (Nexar's alert is itself an anticipation mark). Never "anticipates accidents".
 * Zone AUC uses the row's own ranking, so rows with different calibration compare; the rise is scale-free per video. Raw levels in §1/§3 are not comparable across rows.
 * At the read's 0.1 s rows the head's kernel spans about +-0.1 s; bins before -0.5 s are not its smear (the encoder's attention can still carry them).
-* A row contrast changes more than one training factor for K5fno and LaGoVAD; no cause follows from n = 1.
+* A row contrast changes more than one training factor for K5fno, L0dfi and LaGoVAD; no cause follows from n = 1.
+* §4 is post-hoc (§43.1): the same definitions on every set, so it is the table to compare sets with. Zone AUC (§2) needs negative videos and is `-` on DoTA / DADA.

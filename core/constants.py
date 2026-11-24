@@ -1616,3 +1616,25 @@ PRE_ONSET_ROWS = {
     "LaGoVAD": "kim_t2/eval/nexar_curves/LaGoVAD",
 }
 PRE_ONSET_REPORT_DIR = "kim_fixed/REPORTS/pre_onset"  # relative to OUTPUT_ROOT
+# §43.1 (post-hoc, printed): the same pre-onset reads on DoTA-CAP (all 1,129) and DADA whole,
+# on a fixed composition (videos with >= PREROLL s before onset), rescaled per video
+PRE_ONSET_FIXED_PREROLL_S = 5.0  # pre-roll a video needs to enter the fixed reads
+PRE_ONSET_FIXED_FAR_S = 4.0  # far = mean before -this (the fixed reads; >= 1 s of far by the above)
+PRE_ONSET_FIXED_ZONES_S = ((-5.0, -4.0), (-4.0, -3.0), (-3.0, -2.0), (-2.0, -1.0), (-1.0, 0.0))
+PRE_ONSET_RESCALE_MIN_CONTRAST = 0.05  # span - far below this: the video is left out of a ratio
+PRE_ONSET_COST_ZONE_S = (-2.0, 0.0)  # macro recomputed without the normal frames in this zone
+PRE_ONSET_PREROLL_STRATA_S = (2.0, 4.0)  # min-max level of the last 1 s by pre-roll: <2, 2-4, >=4
+PRE_ONSET_ZS_ROWS = {  # set -> row -> its saved read, relative to OUTPUT_ROOT
+    "dota": {
+        "K5f": "kim_cap_eval/K5f/eval/dota_cap_all/K5/clip_scores.npz",
+        "K5dfi": "kim_cap_eval/K5dfi/eval/dota_cap_all/K5/clip_scores.npz",
+        "L0dfi": "kim_lagovad_nexar/L0dfi/eval/dota_cap_all/K5/clip_scores.npz",
+        "LaGoVAD": "kim_cap_eval/LaGoVAD/eval/dota_cap_all/B/clip_scores.npz",
+    },
+    "dada": {
+        "K5f": "kim_fixed/K5f/eval/dada/K5/clip_scores.npz",
+        "K5dfi": "kim_dvs_ignore/K5dfi/eval/dada/K5/clip_scores.npz",
+        "L0dfi": "kim_lagovad_nexar/L0dfi/eval/dada/K5/clip_scores.npz",
+        "LaGoVAD": "zs_lagovad/eval/dada/LaGoVAD/clip_scores.npz",
+    },
+}

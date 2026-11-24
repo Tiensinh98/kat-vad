@@ -85,3 +85,54 @@ def test_main_writes_report_and_figure(tmp_path: Path) -> None:
     stem = constants.PRE_ONSET_REPORT_STEM
     assert (out / f"{stem}.md").is_file() and (out / f"{stem}.json").is_file()
     assert (out / po.FIGURE_NAME).read_bytes()[:4] == b"\x89PNG"
+
+
+DOTA_STEP = 0.1  # s per row (DoTA native 10 fps)
+PEAK = 1.0  # the climb ends above SPAN_LEVEL, so its last frames outrank the span
+D_LEN, D_ONSET, D_END = 120, 70, 100  # 7 s before onset: in the fixed composition
+
+
+def _clip_scores(path: Path, lead_s: float, n: int = 5) -> Path:
+    """A ``clip_scores.npz`` of two-class clips (no negative video): far level, a climb that
+    starts ``lead_s`` before onset and overshoots the span level, span level inside the span."""
+    rng = np.random.default_rng(1)
+    arrays = {}
+    for i in range(n):
+        s = np.full(D_LEN, NEG_LEVEL) + rng.normal(0, 0.01, D_LEN)
+        start = D_ONSET - round(lead_s / DOTA_STEP)
+        if lead_s > 0:
+            s[start:D_ONSET] = np.linspace(NEG_LEVEL, PEAK, D_ONSET - start, endpoint=False)
+        s[D_ONSET:D_END] = SPAN_LEVEL
+        g = np.zeros(D_LEN)
+        g[D_ONSET:D_END] = 1
+        arrays[f"score/c{i}"], arrays[f"label/c{i}"] = s, g
+    path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez(path, **arrays)
+    return path
+
+
+def test_clip_scores_set_without_negatives(tmp_path: Path) -> None:
+    early = _clip_scores(tmp_path / "e" / "clip_scores.npz", 2.0)
+    flat = _clip_scores(tmp_path / "f" / "clip_scores.npz", 0.0)
+    report = po.build([("early", early), ("flat", flat)], "flat", 1 / DOTA_STEP, "dota")
+    e, f = report["rows"]["early"], report["rows"]["flat"]
+    assert all(v is None for v in e["zone_auc"].values()) and e["negative_mean"] is None
+    zone = po._zone_key(-1.0, 0.0)
+    assert e["fixed"]["videos"]["fixed"] == 5
+    # a 2 s linear climb to PEAK: over [-1, 0) the mean is 3/4 of the way to PEAK
+    want = 0.75 * (PEAK - NEG_LEVEL) / (SPAN_LEVEL - NEG_LEVEL)
+    assert e["fixed"]["rescaled"][zone]["mean"] == pytest.approx(want, abs=0.03)
+    assert f["fixed"]["rescaled"][zone]["mean"] == pytest.approx(0.0, abs=0.03)
+    # dropping the climbing normal frames raises the early row's macro, not the flat one's
+    assert e["fixed"]["macro_without_zone_minus_macro"]["mean"] > 0.01
+    assert f["fixed"]["macro_without_zone_minus_macro"]["mean"] == pytest.approx(0.0, abs=1e-9)
+    assert "## 4. Fixed composition" in po.render(report)
+
+
+def test_main_names_non_nexar_files_by_set(tmp_path: Path) -> None:
+    out = tmp_path / "out"
+    src = _clip_scores(tmp_path / "k" / "clip_scores.npz", 1.0)
+    po.main(["--set", "dada", "--row", f"K5f={src}", "--out-dir", str(out), "--plots"])
+    stem, figure = po.report_names("dada")
+    assert (out / f"{stem}.md").is_file() and (out / figure).is_file()
+    assert stem.endswith("_dada")
