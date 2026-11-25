@@ -2662,6 +2662,7 @@ Promote if a second harness needs the same split.
 **Rule:** Before spending a re-run on spread, state what differs between the two runs; if nothing does, it can only confirm determinism.
 **Files:** core/docs/final/KIM_RUN.md §50.1, colab/final/k5_bottomk25.ipynb
 **Gate status.** One occurrence; candidate. Related: (cq), (eb).
+**Update 2026-11-25 (§53.1):** the spread across GPUs is now measured: T4 vs L4, same torch / CUDA and command, different step-1 `mil` (0.690560 / 0.689790) and up to ~0.01 micro on one set (four rows re-run). Pair an arm with a control trained on the same GPU model, or state the spread beside the Δ.
 
 ## (ed) [MEDIUM] Data - "X is gone" recorded from a search that never queried X (2026-11-24)
 **Triggers:** pixels gone, unrecoverable, not in the archive, coverage, provenance, MM-AU, CAP-DATA, train split
@@ -2679,4 +2680,13 @@ Promote if a second harness needs the same split.
 **Good:** also `flagged` (the judge's list) and `decoys_missed` (row -> id).
 **Rule:** Store the judge's raw list beside every score derived from it.
 **Files:** core/tools/dota_train_sheet.py:score, core/docs/final/KIM_RUN.md §52.1
+**Gate status.** One occurrence; candidate.
+
+## (ef) [MEDIUM] Experiments - An ablation Δ is large where its own off row is weak (2026-11-25)
+**Triggers:** on - off, contribution, which arm benefits most, ablation ranking, KIM, bottom-k
+**Problem:** §53 ranks arms by KIM on - off. The top Δ (K5dfibk25 +0.037 DADA micro) sits on the weakest off row (0.7211 against K0f 0.7450); its on row is +0.005 above the plain KIM-off arm on the DoTA / DADA mean.
+**Bad:** "KIM contributes most in arm X" read as "X is the best arm".
+**Good:** print on and off cells beside every Δ and the best off row of the whole grid as a floor.
+**Rule:** Report the best off row of the grid beside a ranking of on - off deltas.
+**Files:** core/tools/kim_ablation_report.py, core/docs/final/KIM_RUN.md §53.1
 **Gate status.** One occurrence; candidate.

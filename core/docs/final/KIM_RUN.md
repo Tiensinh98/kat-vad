@@ -3074,3 +3074,53 @@ Code: `dota_train_sheet sheet --frames --exclude-key`; `score` now stores `flagg
 **Expectation (before any number).** KIM's gain was measured on DADA (K5 − K0 +0.048, pre-§31, DVS off; n = 2) and nearly vanished with DVS on (K5d − W0 +0.010), so the DVS-off arms should show the larger DADA Δ. No expectation is stated for micro. K0dfi may equal K5dfi within noise: that reads NO DIFFERENCE, not "KIM does not work".
 
 Code: `core/tools/kim_ablation_report.py`; tests `core/tests/test_kim_ablation_report.py`; runbook `colab/final/kim_ablation.ipynb`; outputs `Thesis-Final/outputs/kim_ablation/<row>/`.
+
+### 53.1 Read-out (2026-11-25; user's Colab run, s2024, n = 1; decides nothing, K5f stays)
+
+**Guards pass** (the tool raises otherwise). **Start gate (KA3):** every arm is decided. K5f and K5fbk25 match their saved on rows (step-1 `mil` 0.687794); K5dfi, K5dfie, K5dfibk25 and K5fepre did not, so their on rows are the re-runs (`<arm>rr`), which match (0.689790 / 0.697346 / 0.689790 / 0.693477). All rows trained in this campaign ran on an L4.
+
+**Verdicts (KA6).** Micro first; macro BENEFITS on all six arms.
+
+| arm | micro verdict | Δ micro Nexar | DoTA | DADA | DAD | TAD (printed) |
+|---|---|---|---|---|---|---|
+| K5f | MIXED | +0.0569 | −0.0396 COST | +0.0100 n.s. | −0.0318 COST | +0.1235 |
+| K5dfi | BENEFITS | +0.0330 | −0.0041 n.s. | +0.0229 | −0.0036 n.s. | +0.0671 |
+| K5dfie | MIXED | +0.0490 | −0.0133 COST | +0.0256 | −0.0199 COST | +0.0994 |
+| K5fbk25 | MIXED | +0.0670 | −0.0021 n.s. | +0.0258 | −0.0157 COST | +0.1202 |
+| K5dfibk25 | BENEFITS | +0.0456 | +0.0037 n.s. | +0.0370 | −0.0075 n.s. | +0.0797 |
+| K5fepre | MIXED | +0.0745 | −0.0462 COST | +0.0081 n.s. | −0.0373 COST | +0.1275 |
+
+Unmarked = GAIN. Macro on − off is above 0 on Nexar and DADA for all six, on DoTA for all but K5f (+0.0087 [−0.0016, +0.0186]), on DAD for K5f, K5fbk25, K5dfibk25, K5fepre. Ranking by mean micro Δ over the four deciding sets (printed): K5dfibk25 > K5fbk25 > K5dfi > K5dfie > K5fepre > K5f. Full tables with intervals: `kim_ablation/REPORTS/kim_ablation_summary.md`.
+
+**Post-hoc (user's question: DoTA + DADA only, micro first, then macro and AP; not in §53's rule; printed).** Mean of the two sets, on − off; cluster bootstrap, 2,000 draws, same resamples as the tool; the AP and pairwise numbers come from a scratch script built on the tool's loader (its micro, macro and AP cells equal the reports').
+
+| arm | Δ micro | Δ macro | Δ AP |
+|---|---|---|---|
+| **K5dfibk25** | **+0.0204** [+0.0152, +0.0252] | +0.0313 [+0.0266, +0.0361] | +0.0218 [+0.0154, +0.0280] |
+| **K5fbk25** | **+0.0118** [+0.0055, +0.0180] | +0.0297 [+0.0233, +0.0358] | +0.0150 [+0.0064, +0.0230] |
+| K5dfi | +0.0094 [+0.0052, +0.0136] | +0.0249 [+0.0208, +0.0289] | +0.0085 [+0.0028, +0.0139] |
+| K5dfie | +0.0061 [+0.0004, +0.0117] | +0.0247 [+0.0187, +0.0305] | +0.0080 [−0.0003, +0.0159] |
+| K5f | −0.0148 [−0.0226, −0.0073] | +0.0195 [+0.0121, +0.0271] | −0.0109 [−0.0211, −0.0010] |
+| K5fepre | −0.0190 [−0.0269, −0.0112] | +0.0254 [+0.0184, +0.0327] | −0.0145 [−0.0242, −0.0051] |
+
+Top two = **K5dfibk25, K5fbk25**. Differences of differences, mean of the two sets: K5dfibk25 − K5fbk25 micro +0.0085 [+0.0028, +0.0140], AP +0.0068 [−0.0012, +0.0143], macro +0.0016 [−0.0042, +0.0073]; K5dfibk25 − K5dfi above 0 on all three; **K5fbk25 − K5dfi not separated** (micro +0.0024 [−0.0024, +0.0074]). Second place is a point-estimate rank.
+
+**What the numbers are.**
+1. On DoTA **micro**, KIM helps no arm (best +0.0037 n.s.; K5f, K5dfie, K5fepre COST) while DoTA macro rises on five of six: KIM improves the ranking inside a clip; on K5f, K5dfie and K5fepre the pooled micro falls anyway, which points at the level across clips (§44; inferred, not measured here). The two top arms' micro gain is DADA's.
+2. The largest Δ sit on the **weakest KIM-off rows**: bottom-k lowers DADA micro without KIM (K0f 0.7450, K0fbk25 0.7325, K0dfibk25 0.7211) and KIM gives part of it back. Mean micro of DoTA and DADA: K5fbk25 0.7649, K5dfibk25 0.7646, K5dfi 0.7630, **K0f (no KIM, no bottom-k) 0.7600**.
+3. "Largest contribution" is not "best model": DADA micro is highest on K5dfie (0.7647), DADA macro on K5dfie and K5f (0.7754, 0.7744).
+
+**Expectation check.** "The DVS-off arms show the larger DADA Δ": not held on micro (K5f +0.0100 against K5dfi +0.0229) and level on macro (+0.0302 / +0.0287).
+
+**Re-run spread (post-hoc, printed): the same command on another GPU moves a row by up to about 0.01 micro.** Re-run − saved:
+
+| row | Nexar micro / macro | DoTA | DADA | TAD | DAD |
+|---|---|---|---|---|---|
+| K5dfi | −0.0016 / −0.0029 | +0.0044 / +0.0005 | +0.0012 / −0.0012 | −0.0030 / +0.0015 | −0.0015 / +0.0051 |
+| K5dfie | −0.0021 / +0.0015 | −0.0012 / −0.0022 | +0.0049 / +0.0030 | −0.0072 / −0.0055 | +0.0000 / −0.0072 |
+| K5dfibk25 | −0.0021 / −0.0026 | +0.0019 / −0.0021 | −0.0005 / −0.0006 | +0.0023 / −0.0004 | −0.0011 / +0.0023 |
+| K5fepre | +0.0040 / +0.0078 | −0.0099 / +0.0040 | +0.0010 / +0.0043 | +0.0049 / +0.0028 | −0.0090 / +0.0186 |
+
+Recorded environments: K5dfirr and K5dfibk25 of §51 on a **T4** start at 0.690560, the same commands here on an **L4** at 0.689790, with the same torch and CUDA. The GPU model is the recorded difference (other differences are not excluded); K5dfi's saved run has no `env.json` and starts at the T4 value. K5f's second value 0.692545 is not measured this way. No interval in this project contains this spread. Consequence for §49.1: K5fepre's Nexar macro reads −0.0070 against K5f with the matched-GPU re-run (saved −0.0149); §49.1's TRADE-OFF label is not re-opened by this, but do not quote its Nexar cost without this line.
+
+**Not licensed.** "KIM helps / hurts on micro" without the set; "bottom-k + KIM is the best model"; "K5fbk25 benefits more than K5dfi"; a difference under about 0.01 micro between rows trained on different GPUs; "KIM hurts DAD" without macro beside it (K5f DAD macro +0.0559).
