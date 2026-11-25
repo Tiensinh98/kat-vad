@@ -46,6 +46,8 @@ DATASET_NAME_TO_ABBR = {
     # ACCIDENT (KIM_RUN.md §39): real CCTV accident clips, one abnormal class; trained under
     # Nexar's traffic definition set so only the training data differs from K5dfi.
     "ACCIDENT": "dada",
+    # DoTA train clips recovered from CAP-DATA (KIM_RUN.md §55): Nexar's traffic definition set.
+    "DoTA_train": "dada",
 }
 
 

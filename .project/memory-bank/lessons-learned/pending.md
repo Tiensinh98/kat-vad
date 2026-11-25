@@ -2699,3 +2699,12 @@ Promote if a second harness needs the same split.
 **Rule:** Measure a judge's catch rate on known-wrong rows from verified clips before freezing a validity bar.
 **Files:** core/tools/dota_train_sheet.py:choose_rows, core/docs/final/KIM_RUN.md §52.2
 **Gate status.** One occurrence (two sheets); candidate. Same family as C33 (threshold must be reachable). Also a recurrence of C39: the sheet re-counted 3,023 zips on Drive instead of reading `verify.json`.
+
+## (eh) [MEDIUM] Corpus - A new in-domain row needs its position ruler fitted on ITS OWN train set, before training
+**Triggers:** in-domain, position ruler, whole-clip read, DoTA train
+**Problem:** training on DoTA turns DoTA-CAP-dev in-domain; a no-pixel cubic prior fitted on the 3,020 train clips scores 0.8545, above the best arm (0.8259), so a gain up to there can be position.
+**Bad:** reading the in-domain macro against the zero-shot control only.
+**Good:** fit `position_prior.prior_scores` on the train annotations, print it in the rule note before any feature is extracted, and count shared source videos.
+**Rule:** Compute the train-fitted position ruler and the shared-source count before training a row whose benchmark becomes in-domain.
+**Files:** core/docs/final/KIM_RUN.md §55, core/tools/position_prior.py:prior_scores
+**Gate status.** One occurrence; candidate. Family of C12 / pending (ag), (ar).

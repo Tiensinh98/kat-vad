@@ -1738,6 +1738,27 @@ DOTA_TRAIN_ANCHOR_WEIGHT = 50.0  # an exact val pair outweighs any chain of unan
 DOTA_TRAIN_CV_FOLDS = 2
 DOTA_TRAIN_CV_SEED = 0
 DOTA_TRAIN_FRAME_PHASE = {1: 0, 3: -1}  # DT5: CAP frame = rate * d + this, clamped (val maps)
+# KIM_RUN §55: K5dfi's recipe trained on the recovered DoTA train clips (user's override of DT7)
+DOTA_TRAIN_EXCLUDED = (  # 3 clips whose box rows were wrong when re-read unblinded (§52.2)
+    "V3--0ubJkNE_005461", "gZbGLa253Ak_002191", "nvVk7L3GrJQ_002650",
+)
+DOTA_TRAIN_DATASET = "DoTA_train"  # data.dataset; same traffic definition set (definitions)
+DOTA_TRAIN_STRIDE = V2_E1_STRIDE_BC  # DoTA is 10 fps: one row = 0.3 s, protocol B's row
+DOTA_TRAIN_WINDOW_LENGTH = 12  # rows = 3.6 s
+DOTA_TRAIN_WINDOW_HOP = 6
+DOTA_TRAIN_FAULT_LABEL = "dota_train"  # DadaRecord.fault_label (not ego: is_egocentric=false)
+DOTA_TRAIN_CLIP_DATASET = "DoTA_train_s3_ncc"  # cache/clip/<this>/{id}.npy
+DOTA_TRAIN_VIDEO_DATASET = "DoTA_train_s3"  # cache/video/<encoder>/<this>_squash/
+DOTA_TRAIN_CORPUS_DIRNAME = "DoTA_train_window"  # data/<this>/
+DOTA_TRAIN_BAKE_DIRNAME = "DoTA_train_s3_dota"  # cache/v2/A2_S/<this>: fit-ids on DoTA train
+DOTA_TRAIN_STATS_BAKE_SUFFIX = "_dota"  # a zero-shot bake restated to those statistics ends so
+DOTA_TRAIN_BUILD_REPORT = "build_report.json"
+DOTA_TRAIN_DECODE_CHUNK = 4  # jpgs decoded and resized at a time: small = 720p floats fit the cache
+DOTA_TRAIN_IO_THREADS = 4  # decode threads beyond one per CPU core, to cover Drive read waits
+KIM_DOTA_TRAIN_ROW = "K5dfiDoTA"  # in-domain on DoTA, never a zero-shot row
+KIM_DOTA_TRAIN_OUTPUT_DIRNAME = "kim_dota_train"  # OUTPUT_ROOT/<this>/<row>/{K5/s<seed>, eval}
+KIM_DOTA_TRAIN_REPORT_STEM = "k5dfidota_report"  # REPORTS/<this>.md
+KIM_DOTA_TRAIN_TABLE_NAME = "k5dfidota_s2024"  # zs_arm_table control K5dfi (row K5f printed)
 CAP_LIGHT_NIGHT = 2  # CAP's light column: 1 day, 2 night
 # DT7 pixel gate: DoTA boxes drawn on the recovered frames, judged by eye
 DOTA_BOX_WIDTH = 1280  # DoTA's boxes live on a 1280 x 720 frame

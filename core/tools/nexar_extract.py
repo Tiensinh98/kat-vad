@@ -129,14 +129,15 @@ def motion_clips(
 @torch.no_grad()
 def motion_rows(
     resized: Tensor, encoder: nn.Module, device: torch.device, batch_size: int,
-    stride: int = 1,
+    stride: int = 1, clip_step: int = constants.VIDEOMAE_CLIP_FRAME_STEP,
 ) -> np.ndarray:
     """``(ceil(F / stride), d)`` VideoMAE features of frames ``0, stride, ...``.
 
     Each clip is ``(3, 16, 224, 224)`` squash-normalized; ``stride=1`` (the default) is every
     frame, and row ``k`` at ``stride`` equals row ``k * stride`` at 1 (causal clips are per frame).
+    ``clip_step`` = frames between the clip's 16 (3 at 30 fps, 1 at DoTA's 10 fps: 1.5 s each).
     """
-    clips = motion_clips(len(resized))[::stride]
+    clips = motion_clips(len(resized), clip_step)[::stride]
     chunks: list[Tensor] = []
     for start in range(0, len(clips), batch_size):
         index = torch.tensor(clips[start : start + batch_size])  # (B, 16)

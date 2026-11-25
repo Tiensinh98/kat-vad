@@ -3060,7 +3060,7 @@ Code: `dota_train_sheet sheet --frames --exclude-key`; `score` now stores `flagg
 
 Seed 2025, 5 frames, 76 rows, none from the first sheet. **Decoys caught 6 / 10 (bar 8): the gate is NOT VALID, and DT7's STOP applies.** Controls flagged 0 / 6. Real rows flagged: 10 fps 3 / 30 (`0qfbmt4G8Rw_001843`, `fWJbp43k644_002781`, `fb5i7JlmJdg_000281`), 30 fps 5 / 30 (`JmwUVoOrgk8_001359`, `TNZv-NBcV5U_004857`, `JkYzYrJpSoQ_004398`, `6E2N9ld0eHg_000290`, `90gyBengKDs_001407`). Decoys missed: #4 `P5MjgFmqouA_005080`, #8 `xjbbH74SwTg_003057`, #27 `t_bCDlNOhJc_004165`, #40 `y1vGuUK0db4_000391`. Flagged rows: 3, 10, 35, 39, 46, 51, 53, 54, 57, 59, 61, 64, 71, 74. Both groups' `pass: false` is not a verdict either (the gate is not valid); had it been valid, both groups were above 2 / 30 and 10 fps dropped would also have been STOP.
 
-**Consequence.** The pixels of DoTA-CAP-train are **not verified**; nothing trains on it; DoTA stays held out for every row. No third sheet, no re-score. The frozen map, the 3,023 zips and the reports stay on Drive as they are (deleting them is the user's decision). Reopening takes a new dated note written before any new number.
+**Consequence.** The pixels of DoTA-CAP-train are **not verified**; nothing trains on it; DoTA stays held out for every row. No third sheet, no re-score. The frozen map, the 3,023 zips and the reports stay on Drive as they are (deleting them is the user's decision). Reopening takes a new dated note written before any new number. *(Reopened by the user the same day: §55.)*
 
 **What it does not say.** Not "the map is wrong": a judge who misses 4 of 10 known-wrong rows cannot decide. The gate measured itself as too weak, on both sheets.
 
@@ -3153,3 +3153,28 @@ Recorded environments: K5dfirr and K5dfibk25 of §51 on a **T4** start at 0.6905
 **Expectation (before the number).** Whole-set macro within about 0.01 of the dev macro (0.8231), LaGoVAD's 0.6465 far below.
 
 Runbook `colab/final/k5dfibk25_cap_eval.ipynb`; outputs `kim_cap_eval/K5dfibk25rr/`, `kim_cap_eval/REPORTS/`.
+
+## 55. K5dfiDoTA: K5dfi's recipe trained on the recovered DoTA train clips (dated note 2026-11-25, before any feature or number; user)
+
+**Override.** §52's gate DT7 was NOT VALID twice and its rule said STOP (§52.2). **The user decided on 2026-11-25 to train anyway**, after the unblinded re-read of both sheets (117 of 120 real rows right, 3 wrong; not a gate). This note reopens the line; it does not change §52's verdicts. The pixels are **not verified by the pre-registered gate**: about 2.5 % [0.5, 7.1] of the rows looked wrong, and only the 3 seen ones are removed.
+
+| # | Choice |
+|---|---|
+| DC1 Corpus | `DOTA_TRAIN_CAP.json` (3,023 clips) minus `V3--0ubJkNE_005461`, `gZbGLa253Ak_002191`, `nvVk7L3GrJQ_002650` = **3,020 clips**. DoTA annotation, span `[anomaly_start, anomaly_end)`; row j at stride 3 is abnormal iff `start <= 3j < end` |
+| DC2 Windows (user) | **W = 12 rows (3.6 s), hop 6, stride 3**, `WINDOW_MIN_POSITIVE`, no cap, no padding: **12,937 windows = 9,386 positive + 3,551 normal**; 3,019 clips give a window, 2,051 both kinds. All normals come from accident clips (DoTA has no normal video) |
+| DC3 Features | CLIP `no_center_crop` and V2-S squash at stride 3 from the packed frames; V2-S clip = 16 frames, step 1 (1.5 s at 10 fps, the geometry of the DoTA-CAP cache). **A2 statistics (CRN off) fitted on DoTA train (user, 2026-11-25, before any feature; the first draft said Nexar's)**: `build_v2_inputs fit-ids` on the 3,019 clips that give a window. The four zero-shot bakes K5dfi was read on are re-expressed with them by `restat` (exact for CRN off), as §42; Nexar val is baked at read time from the new statistics. Gate R2 first: restat of a Nexar-statistics bake of the train clips == the direct bake, max abs diff < 1e-4, CLIP columns identical |
+| DC4 Recipe | **K5dfi's command (user, 2026-11-25; a first draft of this note named K5f, changed before any feature was extracted)**: KIM, DVS `theta` 0.7, `dvs_anchor_mode=ignore`, `seam_mask`, s2024. Config diff to K5dfi = exactly {`data.dataset` = DoTA_train, `data.frame_stride` = 3, `train.num_epochs` = 6}. 294 steps/epoch x 6 = **1,764 steps** (K5dfi 1,749). `mil_topk_pct` 5 gives k = 2 of 12 un-spliced rows (K5dfi 4 of 20); `mul_mil_topk_pct` 16 gives k = 1 of 12. KNN fillers = `knn_cache` on the plain CLIP s3 rows, as K5dfi's on s8. Fillers can come from the anchor's own clip, as for K5dfi; hop 6 of 12 means they can overlap the anchor by 6 rows (K5dfi: 12 of 20) |
+| DC5 Guards | J10; the config diff above; last-epoch `mul_mil` > 0.01 (§31 F3); bake manifests (CRN off, V2-S, DoTA `train_ids_sha1` on the train bake and the four restated ones); gate R2; corpus counts = DC2 |
+| DC6 Reads | Nexar val, DoTA-CAP-dev (protocol B, **in-domain**), DADA whole, TAD, DAD. The eval half of DoTA-CAP is not opened by this note |
+| DC7 Table | `zs_arm_table` control K5dfi (macro + micro, four sets; K5f printed as a row), Nexar val K5dfiDoTA − K5dfi paired per video. Two rulers beside the DoTA row |
+| DC8 Decision | none (n = 1). K5f stays the reference and the zero-shot model whatever the numbers |
+
+**Rulers, computed before any feature (annotation only, 569 dev clips).** A cubic position probe fitted on the 3,020 train clips scores DoTA-CAP-dev macro **0.8545 [0.8386, 0.8695]** with no pixel; `t/N` 0.5573. K5dfi (zero-shot) reads 0.8259 [0.8119, 0.8398], K5f 0.8188. So an in-domain macro up to about 0.85 can be position alone; windows of 12 rows hide the clip position from the model at training, but nothing hides it at the whole-clip read. **566 of the 569 dev clips share their YouTube id with a train clip** (DoTA's official split is by clip): an in-domain gain can also be camera and scene.
+
+**What the contrast is.** K5dfiDoTA − K5dfi changes the corpus (Nexar positives to DoTA) **and** the window (5.33 s of 20 rows to 3.6 s of 12), the row spacing (0.267 s to 0.3 s), the positive share, the input statistics (Nexar's to DoTA's, at train and at every read) and the pixels' checking. A difference is not attributable to "more data" or to DoTA. At the reads, DADA / TAD rows are 0.267 s and Nexar val 0.1 s, as for K5dfi.
+
+**Expectation (before the number).** DoTA-CAP-dev macro above K5dfi's 0.8259, uncertain whether above the 0.8545 ruler; Nexar val below K5dfi's 0.8698 (zero-shot now, in-domain for K5dfi); DADA (K5dfi 0.7677) not predictable; TAD / DAD near K5dfi.
+
+**Not licensed.** "Zero-shot on DoTA" for this row; "DoTA pixels verified"; "state of the art on DoTA"; "more data helps" from one contrast with several changes; any comparison with a method trained on DoTA's full train split (252 clips missing, not at random).
+
+Code: `core/tools/dota_train_extract.py`, `core/tools/dota_train_build.py`, `nexar_extract.motion_rows(clip_step=)`; tests `core/tests/test_dota_train_corpus.py`; runbook `colab/final/k5dfidota.ipynb`; outputs `Thesis-Final/outputs/kim_dota_train/`, caches `clip/DoTA_train_s3_ncc`, `video/<V2-S>/DoTA_train_s3_squash`, `v2/A2_S/DoTA_train_s3_dota` and the four `*_dota` restats, corpus `Thesis-Final/data/DoTA_train_window`.
