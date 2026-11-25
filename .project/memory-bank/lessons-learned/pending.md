@@ -2690,3 +2690,12 @@ Promote if a second harness needs the same split.
 **Rule:** Report the best off row of the grid beside a ranking of on - off deltas.
 **Files:** core/tools/kim_ablation_report.py, core/docs/final/KIM_RUN.md §53.1
 **Gate status.** One occurrence; candidate.
+
+## (eg) [MEDIUM] Experiments - A by-eye gate's sensitivity must be piloted before it can stop a line (2026-11-25)
+**Triggers:** decoy, blind sheet, judge, pixel gate, sensitivity, catch rate, by-eye check
+**Problem:** DT7 asked for 8 / 10 decoys caught and allowed one redraw. Two sheets caught 7 and 6 (13 / 20), so the gate ended not valid and 3,023 clips stay unused although real rows are flagged far less than decoys (12 / 120). Decoys were neighbouring clips of the same video, where a box lands on some vehicle by chance.
+**Bad:** fixing a catch-rate bar without measuring what the judge and the decoy design reach; 10 decoys (exact 95 % interval about +-0.3).
+**Good:** pilot the decoys on already-verified val clips first, choose the bar and the decoy count from that, then freeze; prefer a paired test over many clips.
+**Rule:** Measure a judge's catch rate on known-wrong rows from verified clips before freezing a validity bar.
+**Files:** core/tools/dota_train_sheet.py:choose_rows, core/docs/final/KIM_RUN.md §52.2
+**Gate status.** One occurrence (two sheets); candidate. Same family as C33 (threshold must be reachable). Also a recurrence of C39: the sheet re-counted 3,023 zips on Drive instead of reading `verify.json`.
