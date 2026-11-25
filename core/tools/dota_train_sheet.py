@@ -8,7 +8,8 @@ they must sit on the vehicle. A wrong clip, or a shifted clock, puts them elsewh
 and unlabelled: real train clips per frame-rate group, val clips whose pixels CLIP already
 verified (controls) and **decoys** (a neighbouring clip of the same YouTube video under this
 clip's boxes -- the error an off-by-one match would make). ``key.json`` holds the truth; do not
-open it before judging. ``score`` takes the row numbers the judge calls wrong.
+open it before judging. ``score`` takes the row numbers the judge calls wrong and stores them.
+``--exclude-key`` keeps every clip of an earlier sheet out of a redraw, so it is judged blind.
 
 CLI::
 
@@ -86,18 +87,18 @@ def neighbour(dota_id: str, pool: list[str]) -> list[str]:
 
 def choose_rows(
     clips: dict[str, dict[str, Any]], zf: zipfile.ZipFile, archive_dir: Path,
-    val_archive_dir: Path, seed: int,
+    val_archive_dir: Path, seed: int, n_frames: int = constants.DOTA_SHEET_FRAMES,
+    seen: frozenset[str] = frozenset(),
 ) -> list[Row]:
     rng = random.Random(seed)
     counts = {k: archive_frames(archive_path(archive_dir, k)) for k in sorted(clips)}
-    packed = [k for k, n in counts.items() if n]
+    packed = [k for k, n in counts.items() if n and k not in seen]
     rng.shuffle(packed)
     rows: list[Row] = []
     used: set[str] = set()
 
     def boxed(dota_id: str, limit: int) -> list[int]:
-        return spread([f for f in sorted(read_boxes(zf, dota_id)) if f < limit],
-                      constants.DOTA_SHEET_FRAMES)
+        return spread([f for f in sorted(read_boxes(zf, dota_id)) if f < limit], n_frames)
 
     for group, want in constants.DOTA_SHEET_PER_GROUP.items():
         taken = 0
@@ -107,7 +108,7 @@ def choose_rows(
             if k in used or GROUP_OF_RATE[clips[k]["rate"]] != group:
                 continue
             frames = boxed(k, counts[k] or 0)
-            if len(frames) == constants.DOTA_SHEET_FRAMES:
+            if len(frames) == n_frames:
                 rows.append(Row(REAL, group, k, k, frames))
                 used.add(k)
                 taken += 1
@@ -121,21 +122,21 @@ def choose_rows(
             continue
         for other in neighbour(k, packed):
             frames = boxed(k, min(counts[k] or 0, counts[other] or 0))
-            if len(frames) == constants.DOTA_SHEET_FRAMES:
+            if len(frames) == n_frames:
                 rows.append(Row(DECOY, GROUP_OF_RATE[clips[k]["rate"]], k, other, frames))
                 used.add(k)
                 decoys += 1
                 break
     if decoys < constants.DOTA_SHEET_DECOYS:
         raise ValueError(f"only {decoys} decoys, need {constants.DOTA_SHEET_DECOYS}")
-    controls = sorted(p.stem for p in val_archive_dir.glob("*.zip"))
+    controls = sorted(p.stem for p in val_archive_dir.glob("*.zip") if p.stem not in seen)
     rng.shuffle(controls)
     n_controls = 0
     for k in controls:
         if n_controls == constants.DOTA_SHEET_VAL_CONTROLS:
             break
         frames = boxed(k, archive_frames(archive_path(val_archive_dir, k)) or 0)
-        if len(frames) == constants.DOTA_SHEET_FRAMES:
+        if len(frames) == n_frames:
             rows.append(Row(CONTROL, CONTROL, k, k, frames))
             n_controls += 1
     if n_controls < constants.DOTA_SHEET_VAL_CONTROLS:
@@ -169,7 +170,8 @@ def draw_boxes(image: Image.Image, boxes: list[list[float]]) -> Image.Image:
 def draw_page(numbered: list[tuple[int, list[Image.Image]]]) -> Image.Image:
     tile_w, tile_h = numbered[0][1][0].size
     pad, label = constants.DOTA_SHEET_MARGIN, constants.DOTA_SHEET_LABEL_WIDTH
-    page = Image.new("RGB", (label + constants.DOTA_SHEET_FRAMES * (tile_w + pad),
+    columns = len(numbered[0][1])
+    page = Image.new("RGB", (label + columns * (tile_w + pad),
                              len(numbered) * (tile_h + pad)), "white")
     pen = ImageDraw.Draw(page)
     for r, (number, tiles) in enumerate(numbered):
@@ -180,11 +182,20 @@ def draw_page(numbered: list[tuple[int, list[Image.Image]]]) -> Image.Image:
     return page
 
 
+def seen_clips(keys: list[Path]) -> frozenset[str]:
+    """Every clip an earlier sheet showed, as boxes or as pixels."""
+    rows = [r for p in keys
+            for r in json.loads(p.read_text(encoding="utf-8"))["rows"].values()]
+    return frozenset(r[field] for r in rows for field in ("dota_id", "frames_id"))
+
+
 def run_sheet(args: argparse.Namespace) -> None:
     clips = json.loads(args.alignment.read_text(encoding="utf-8"))["clips"]
     args.out_dir.mkdir(parents=True, exist_ok=True)
+    seen = seen_clips(args.exclude_key)
     with zipfile.ZipFile(args.annotations) as zf:
-        rows = choose_rows(clips, zf, args.archive_dir, args.val_archive_dir, args.seed)
+        rows = choose_rows(clips, zf, args.archive_dir, args.val_archive_dir, args.seed,
+                           args.frames, seen)
         drawn: list[tuple[int, list[Image.Image]]] = []
         sizes: dict[str, int] = {}
         for number, row in enumerate(rows, start=1):
@@ -199,9 +210,11 @@ def run_sheet(args: argparse.Namespace) -> None:
     for page, start in enumerate(range(0, len(drawn), per_page), start=1):
         draw_page(drawn[start : start + per_page]).save(args.out_dir / PAGE_NAME.format(page))
     key = {str(n): asdict(row) for n, row in enumerate(rows, start=1)}
-    write_json_atomic(args.out_dir / KEY_JSON, {"seed": args.seed, "frame_sizes": sizes,
+    write_json_atomic(args.out_dir / KEY_JSON, {"seed": args.seed, "frames_per_row": args.frames,
+                                                "excluded": sorted(seen), "frame_sizes": sizes,
                                                 "rows": key})
-    LOGGER.info("%d rows on %d pages -> %s", len(rows), -(-len(rows) // per_page), args.out_dir)
+    LOGGER.info("%d rows on %d pages, %d earlier clips excluded -> %s", len(rows),
+                -(-len(rows) // per_page), len(seen), args.out_dir)
 
 
 def score(key: dict[str, Any], flagged: set[int]) -> dict[str, Any]:
@@ -210,6 +223,7 @@ def score(key: dict[str, Any], flagged: set[int]) -> dict[str, Any]:
     unknown = flagged - rows.keys()
     if unknown:
         raise ValueError(f"no such rows: {sorted(unknown)}")
+    missed = sorted(n for n, r in rows.items() if r["kind"] == DECOY and n not in flagged)
     caught = sum(1 for n in flagged if rows[n]["kind"] == DECOY)
     controls = sum(1 for n in flagged if rows[n]["kind"] == CONTROL)
     sensitive = caught >= constants.DOTA_SHEET_MIN_DECOYS_CAUGHT
@@ -224,7 +238,9 @@ def score(key: dict[str, Any], flagged: set[int]) -> dict[str, Any]:
             "pass": len(wrong) <= constants.DOTA_SHEET_MAX_FLAGGED,
         }
     valid = sensitive and fair
-    return {"decoys_caught": caught, "controls_flagged": controls, "gate_valid": valid,
+    return {"flagged": sorted(flagged), "decoys_caught": caught,
+            "decoys_missed": {str(n): rows[n]["dota_id"] for n in missed},
+            "controls_flagged": controls, "gate_valid": valid,
             "groups": groups, "usable_groups": [g for g, v in groups.items() if v["pass"]]
             if valid else []}
 
@@ -238,6 +254,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     s.add_argument("--val-archive-dir", type=Path, required=True)
     s.add_argument("--annotations", type=Path, required=True, help="DoTA_annotations.zip")
     s.add_argument("--seed", type=int, default=constants.DOTA_SHEET_SEED)
+    s.add_argument("--frames", type=int, default=constants.DOTA_SHEET_FRAMES,
+                   help="boxed frames per row")
+    s.add_argument("--exclude-key", type=Path, nargs="*", default=[],
+                   help="key.json of earlier sheets: their clips are not drawn again")
     s.add_argument("--out-dir", type=Path, required=True)
     g = sub.add_parser("score", help="verdict from the row numbers judged wrong")
     g.add_argument("--key", type=Path, required=True)

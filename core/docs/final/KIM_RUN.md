@@ -3035,6 +3035,27 @@ On the first, looser alignment the true val pairs read 0.96–0.98 on the night 
 
 Code: `core/tools/dota_train_match.py`, `core/tools/dota_train_sheet.py`, `dota_cap_frames verify` (`--dota-clip-dir` optional); tests `core/tests/test_dota_train.py`; runbook `colab/final/dota_train_pack_frames.ipynb`; frames `Thesis-Final/data/DoTA_CAP_train_frames/`, reports `Thesis-Final/outputs/REPORTS/dota_train/`. `--cap-csv` = CAP's `cap_text_annotations.xls` (HF `JeffreyChou/MM-AU`, sha256 `1b5b1fa1…`), columns video, type, light, abnormal start, abnormal end, total frames.
 
+### 52.1 Read-out of the first sheet and the redraw (dated note 2026-11-25, before the redraw is drawn; user agreed)
+
+**Pack (DT6): pass.** 3,023 / 3,023 clips, 307,874 frames, 56.69 GB, 0 failed, 0 dropped.
+
+**Pixel gate (DT7), first sheet (seed 2024, 3 frames): NOT VALID.** Decoys caught **7 / 10** (bar 8); controls flagged 0 / 6; real rows flagged 10 fps 2 / 30 (`gZbGLa253Ak_002191`, `nvVk7L3GrJQ_002650`), 30 fps 2 / 30 (`UOjQsfDXjO0_004067`, `gZbGLa253Ak_001152`). The two groups' `pass: true` in `box_gate.json` is not a verdict because the gate is not valid (`usable_groups` is empty). **Pixels of DoTA-CAP-train are not verified; nothing trains on it.** The flagged row numbers were not stored (tool gap, fixed) and the user no longer has them, so which 3 decoys were missed is unknown.
+
+**Post-hoc, unblinded (Claude, with the key open; printed, changes no verdict).** Of the 60 real rows, 58 look right, including both flagged 30 fps rows (their first two frames follow the vehicle exactly; the last is the blurred impact). 10 fps #9 (boxes on trees) looks wrong and #27 (nothing visible under the boxes even brightened) probably is. Decoys #13, #54, #55, #64, #69 have a box that overlaps a vehicle or a rider by chance.
+
+**Redraw, as DT7 fixed it: seed 2025, 5 frames per row, once, then STOP if not valid.** Every DT7 threshold is unchanged: valid iff >= 8 / 10 decoys and <= 1 / 6 controls; then a rate group with > 2 / 30 flagged rows is dropped; 10 fps dropped means STOP. DT7's "one of its three frames" becomes "one of its five frames". Two additions, neither lowers a bar:
+
+| # | Addition | Why |
+|---|---|---|
+| DT10 | Every clip the first sheet showed (boxes or pixels, 76 rows) is excluded from the redraw | its answers have been read |
+| DT11 | Judging text: **every box** of every frame must frame a participant; one wrong box makes the row wrong; a frame where nothing is visible under a box counts as wrong | DT7 did not say which box counts when a frame has several. Written **after** the first sheet's key was read; it makes the judge stricter on real rows too |
+
+Not added: an exemption for blurred impact frames. It would clear the two flagged 30 fps rows, so it would relax the rule after its number was read.
+
+**Expectation.** Decoys are easier to catch (5 frames, every box). If real rows are flagged at the first sheet's rate (2 / 30), each group exceeds 2 / 30 with probability about 1/3 (binomial, n = 30, p = 0.067: 0.32), and 5 frames can only add flags. A dropped group would therefore not by itself show a bad map; it would still be dropped.
+
+Code: `dota_train_sheet sheet --frames --exclude-key`; `score` now stores `flagged` and `decoys_missed`. Runbook `colab/final/dota_train_box_redraw.ipynb` (no re-pack); outputs `REPORTS/dota_train/box_sheet_redraw/`, `box_gate_redraw.json`.
+
 ## 53. KIM ablation on six arms: K5f, K5dfi, K5dfie, K5fbk25, K5dfibk25, K5fepre (dated note 2026-11-24, before any number of the KIM-off rows; user)
 
 **Why.** The user asks which of the six arms benefits from KIM. Metrics in this order: **micro AUC (primary), macro AUC (secondary)**. No valid KIM-off twin exists: K0 trained before §31 (source-class labels), L0f / L0dfi also drop the motion input, so a gap to them is KIM + VideoMAE. Six KIM-off rows are trained; the KIM-on rows are the saved ones.

@@ -2671,3 +2671,12 @@ Promote if a second harness needs the same split.
 **Rule:** Write the queried set beside every "not available" claim, and look for an ordering in the pairs already matched.
 **Files:** core/tools/mmau_match.py, core/tools/dota_train_match.py, core/docs/final/KIM_RUN.md §52
 **Gate status.** One occurrence (pixels not verified yet, DT7); candidate.
+
+## (ee) [LOW] Tools - A one-shot human judgement must store the raw answers, not only their counts (2026-11-25)
+**Triggers:** blind sheet, flagged rows, gate json, decoys missed, by-eye check, key.json
+**Problem:** `dota_train_sheet score` stored counts and the flagged real ids, not the flagged row numbers. The gate missed by one decoy and nobody could say which decoys were missed, so the failure could not be diagnosed.
+**Bad:** `{"decoys_caught": 7}`.
+**Good:** also `flagged` (the judge's list) and `decoys_missed` (row -> id).
+**Rule:** Store the judge's raw list beside every score derived from it.
+**Files:** core/tools/dota_train_sheet.py:score, core/docs/final/KIM_RUN.md §52.1
+**Gate status.** One occurrence; candidate.

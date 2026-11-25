@@ -133,26 +133,32 @@ def small_gate(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(constants, "DOTA_SHEET_VAL_CONTROLS", 1)
 
 
-def test_sheet_draws_shuffled_rows_and_hides_the_truth(
-    tmp_path: Path, small_gate: None
-) -> None:
+def _sheet_args(tmp_path: Path, train_ids: list[str], val_ids: list[str],
+                rate3: set[str]) -> list[str]:
     train, val = tmp_path / "train", tmp_path / "val"
-    ids = [f"vid_00000{i}" for i in range(5)]
-    clips = {k: {"rate": 3 if k == ids[4] else 1} for k in ids}
-    for k in ids:
+    for k in train_ids:
         _archive(train, k, 12)
-    _archive(val, "val_000001", 12)
+    for k in val_ids:
+        _archive(val, k, 12)
     ann = tmp_path / "ann.zip"
     with zipfile.ZipFile(ann, "w") as zf:
-        for k in [*ids, "val_000001"]:
+        for k in [*train_ids, *val_ids]:
             labels = [{"objects": [{"bbox": [100, 100, 300, 200]}]} for _ in range(12)]
             zf.writestr(f"annotations/{k}.json", json.dumps(
                 {"anomaly_start": 2, "anomaly_end": 9, "labels": labels}))
     alignment = tmp_path / "a.json"
-    alignment.write_text(json.dumps({"clips": clips}))
+    alignment.write_text(json.dumps({"clips": {k: {"rate": 3 if k in rate3 else 1}
+                                               for k in train_ids}}))
+    return ["sheet", "--alignment", str(alignment), "--archive-dir", str(train),
+            "--val-archive-dir", str(val), "--annotations", str(ann)]
+
+
+def test_sheet_draws_shuffled_rows_and_hides_the_truth(
+    tmp_path: Path, small_gate: None
+) -> None:
+    ids = [f"vid_00000{i}" for i in range(5)]
     out = tmp_path / "out"
-    dts.main(["sheet", "--alignment", str(alignment), "--archive-dir", str(train),
-              "--val-archive-dir", str(val), "--annotations", str(ann), "--out-dir", str(out)])
+    dts.main([*_sheet_args(tmp_path, ids, ["val_000001"], {ids[4]}), "--out-dir", str(out)])
     key = json.loads((out / dts.KEY_JSON).read_text())
     kinds = sorted(r["kind"] for r in key["rows"].values())
     assert kinds == ["control", "decoy", "real", "real", "real"]
@@ -160,6 +166,24 @@ def test_sheet_draws_shuffled_rows_and_hides_the_truth(
     decoy = next(r for r in key["rows"].values() if r["kind"] == dts.DECOY)
     assert decoy["frames_id"] != decoy["dota_id"]
     assert (out / dts.PAGE_NAME.format(1)).is_file() and key["frame_sizes"] == {"1280x720": 5}
+
+
+def test_redraw_shows_no_clip_of_the_first_sheet(tmp_path: Path, small_gate: None) -> None:
+    ids = [f"vid_{i:06d}" for i in range(12)]
+    base = _sheet_args(tmp_path, ids, ["val_000001", "val_000002"], set(ids[8:]))
+    first, second = tmp_path / "first", tmp_path / "second"
+    dts.main([*base, "--out-dir", str(first)])
+    dts.main([*base, "--out-dir", str(second), "--seed", str(constants.DOTA_SHEET_REDRAW_SEED),
+              "--frames", str(constants.DOTA_SHEET_REDRAW_FRAMES),
+              "--exclude-key", str(first / dts.KEY_JSON)])
+    seen = dts.seen_clips([first / dts.KEY_JSON])
+    key = json.loads((second / dts.KEY_JSON).read_text())
+    assert seen and not seen & dts.seen_clips([second / dts.KEY_JSON])
+    assert key["excluded"] == sorted(seen) and key["frames_per_row"] == 5
+    assert all(r["frames"] == [2, 4, 5, 6, 8] for r in key["rows"].values())
+    with Image.open(second / dts.PAGE_NAME.format(1)) as page:
+        assert page.width == constants.DOTA_SHEET_LABEL_WIDTH + 5 * (
+            constants.DOTA_SHEET_TILE_WIDTH + constants.DOTA_SHEET_MARGIN)
 
 
 def test_boxes_are_scaled_onto_the_tile() -> None:
@@ -180,7 +204,9 @@ def test_score_needs_caught_decoys_and_quiet_controls() -> None:
     decoys = set(range(61, 71))
     good = dts.score(_key(), decoys)
     assert good["gate_valid"] and good["usable_groups"] == ["10fps", "30fps"]
-    assert not dts.score(_key(), set(range(61, 68)))["gate_valid"]  # 7 of 10 caught
+    seven = dts.score(_key(), set(range(61, 68)))  # 7 of 10 caught
+    assert not seven["gate_valid"] and seven["flagged"] == list(range(61, 68))
+    assert seven["decoys_missed"] == {"68": "d7", "69": "d8", "70": "d9"}
     assert not dts.score(_key(), decoys | {71, 72})["gate_valid"]  # 2 controls flagged
     dropped = dts.score(_key(), decoys | {31, 32, 33})  # 3 real clips of the 30 fps group
     assert dropped["gate_valid"] and dropped["usable_groups"] == ["10fps"]
