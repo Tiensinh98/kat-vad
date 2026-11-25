@@ -3124,3 +3124,18 @@ Top two = **K5dfibk25, K5fbk25**. Differences of differences, mean of the two se
 Recorded environments: K5dfirr and K5dfibk25 of §51 on a **T4** start at 0.690560, the same commands here on an **L4** at 0.689790, with the same torch and CUDA. The GPU model is the recorded difference (other differences are not excluded); K5dfi's saved run has no `env.json` and starts at the T4 value. K5f's second value 0.692545 is not measured this way. No interval in this project contains this spread. Consequence for §49.1: K5fepre's Nexar macro reads −0.0070 against K5f with the matched-GPU re-run (saved −0.0149); §49.1's TRADE-OFF label is not re-opened by this, but do not quote its Nexar cost without this line.
 
 **Not licensed.** "KIM helps / hurts on micro" without the set; "bottom-k + KIM is the best model"; "K5fbk25 benefits more than K5dfi"; a difference under about 0.01 micro between rows trained on different GPUs; "KIM hurts DAD" without macro beside it (K5f DAD macro +0.0559).
+
+## 54. K5dfibk25 on whole DoTA-CAP (dated note 2026-11-25, before any number; user)
+
+**Why.** The user wants the onset figure of K5dfibk25 against LaGoVAD on whole DoTA-CAP (1,129 clips), as drawn for K5dfi. K5dfibk25 has only its dev read (569). The eval half (`dota_cap_eval`, 560) is opened for this one row by the user's request, with `protocol_b_eval --final`; §35 / §36 / §37 opened it before for other rows.
+
+| # | Choice |
+|---|---|
+| CB1 Row | `K5dfibk25rr` (§53's on row, L4, step 1,749), checkpoint read only. LaGoVAD (public checkpoint) and K5f: §35's whole-set reads, not re-scored |
+| CB2 Set | whole DoTA-CAP = the row's dev read + the new eval read, pooled by `dota_cap_pool`. No eval-only number is printed or tabled (as §35 R2) |
+| CB3 Output | `zs_curves` onset figure (DoTA 1,129, DADA 370; legend "LaGoVAD + KIM" / "LaGoVAD"; panel title "DoTA", the user's naming for the thesis) and `zs_arm_table` (control K5f). The table keeps the name DoTA-CAP |
+| CB4 Decision | none. §51.1 closed K5dfibk25 and §53.1 adopts nothing; K5f stays whatever the numbers. The KIM-off twin K0dfibk25 is not read here, so the figure compares whole systems, not KIM alone |
+
+**Expectation (before the number).** Whole-set macro within about 0.01 of the dev macro (0.8231), LaGoVAD's 0.6465 far below.
+
+Runbook `colab/final/k5dfibk25_cap_eval.ipynb`; outputs `kim_cap_eval/K5dfibk25rr/`, `kim_cap_eval/REPORTS/`.

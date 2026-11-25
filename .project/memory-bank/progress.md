@@ -8,6 +8,7 @@
 - §35–§38 (2026-11-21/22): whole DoTA-CAP (1,129) table; L0dfi; K5fT2 / K5dfiT2; Nexar source-shortcut probe; K5fno (negative-video normals only) below on 4 sets.
 - §39–§42 (2026-11-22/23): CCTV training — ACCIDENT (P1 not separated), Nexar EDA (§40), MSAD-full × kernel 3/9 (§41: `ignore` on KIM above on MSAD, motion + KIM never raises TAD macro), K5dfiACCs built not run (§42).
 - §43–§44 (2026-11-23/24): pre-onset rise (Nexar val [−1, 0) AUC 0.694; DoTA K5f 0.81 of span level 1–2 s early, costs DoTA macro 0.020); raw vs min-max micro and check 2 — on DoTA raw micro is lost to **level, not ranking**, concentrated in ego-uninvolved accidents (43 % low vs 9 %).
+- §54 (2026-11-25): K5dfibk25rr on whole DoTA-CAP + onset figure, built, NOT RUN (`colab/final/k5dfibk25_cap_eval.ipynb`).
 - §53.1 (2026-11-25): KIM ablation read out: macro BENEFITS 6 / 6; micro BENEFITS K5dfi, K5dfibk25, MIXED the other four; post-hoc DoTA + DADA micro top two K5dfibk25, K5fbk25; T4 vs L4 re-run spread up to ~0.01 micro.
 - §53 (2026-11-24, user): KIM on - off on six arms, built, run (see §53.1): `kim_ablation_report` + 18 tests, `colab/final/kim_ablation.ipynb`; six KIM-off trainings.
 - §52.1 (2026-11-25): pack 3,023 / 3,023 pass; pixel gate first sheet NOT VALID (decoys 7 / 10); the one redraw built, NOT RUN (`colab/final/dota_train_box_redraw.ipynb`, 16 tests).
