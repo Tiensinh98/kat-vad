@@ -1,5 +1,5 @@
 {
-  "annotations": "data/DoTA/raw_annotations/DoTA_annotations.zip",
+  "annotations": "/content/dota_eda/DoTA_annotations.zip",
   "clips": {
     "accident": {
       "lateral": 0.1519867549668874,
@@ -171,7 +171,11 @@
     "window_center_by_class.png",
     "strata.png"
   ],
-  "gate": null,
+  "gate": {
+    "data_dir": "/content/drive/MyDrive/Thesis-Final/data/DoTA_train_window",
+    "equal": true,
+    "windows_checked": 12937
+  },
   "position_rulers": {
     "definition": "late = t / N; hump = -|t / N - 0.5|; macro = mean over two-class clips",
     "macro_hump": 0.8324164995039595,

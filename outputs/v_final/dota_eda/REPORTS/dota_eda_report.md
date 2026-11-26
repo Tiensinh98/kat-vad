@@ -2,7 +2,7 @@
 
 Stride 3 (0.3 s / row) · windows 12 rows, hop 6 · dataset properties only, no model, nothing gates.
 
-Gate: not run (no `--data-dir`); windows rebuilt from the annotations only.
+Gate: rebuilt windows == corpus on disk, 12937 windows checked.
 
 ## 1. Clips
 
