@@ -283,9 +283,10 @@ def test_set_title_renames_a_set_in_the_figures_only(
     seen: dict[str, str] = {}
     real = zc.render_onset
 
-    def spy(path: Path, onset: dict, seed_label: str, set_names: dict) -> None:  # type: ignore[type-arg]
+    def spy(path: Path, onset: dict, seed_label: str, set_names: dict,  # type: ignore[type-arg]
+            show_n: bool = True) -> None:
         seen.update(set_names)
-        real(path, onset, seed_label, set_names)
+        real(path, onset, seed_label, set_names, show_n)
 
     monkeypatch.setattr(zc, "render_onset", spy)
     argv = ["--rank-by", "K5", "--n", "3", "--name", "t", "--out-dir", str(tmp_path / "out"),
@@ -322,3 +323,51 @@ def test_pick_auc_global_changes_the_ranking_and_is_recorded(tmp_path: Path) -> 
     assert set(glob["dota"]["pick_aucs"]["K5"]) == set(glob["dota"]["picks"])
     with pytest.raises(ValueError, match="pick_auc"):
         zc.build(data, "K5", 3, None, pick_auc="nope")
+
+
+def test_hide_n_drops_the_video_count_from_both_titles() -> None:
+    assert zc.onset_panel_title("DoTA", "min-max", 569) == "DoTA (min-max, n = 569)"
+    assert zc.onset_panel_title("DoTA", "min-max", 569, show_n=False) == "DoTA (min-max)"
+    shown = zc.grid_suptitle("DoTA", "in-domain", 569, "K5", "AUC", "faint = raw", "s2024")
+    hidden = zc.grid_suptitle("DoTA", "in-domain", 569, "K5", "AUC", "faint = raw", "s2024",
+                              show_n=False)
+    assert "569" in shown and "569" not in hidden and hidden.startswith("DoTA in-domain:")
+
+
+def test_set_domain_and_hide_n_reach_the_figures(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    k5, labels = _curves(6)
+    lago, _ = _curves(7)
+    tk5, tlab = _curves(8, normal_videos=3)
+    tlago, _ = _curves(9, normal_videos=3)
+    grids: dict[str, tuple[str, bool]] = {}
+    onset_n: list[bool] = []
+    real_grid, real_onset = zc.render_grid, zc.render_onset
+
+    def grid_spy(path, set_name, loaded, picks, aucs, rank_by, seed_label,  # type: ignore[no-untyped-def]
+                 domain, set_names, auc_name, show_n=True):
+        grids[set_name] = (domain, show_n)
+        real_grid(path, set_name, loaded, picks, aucs, rank_by, seed_label, domain, set_names,
+                  auc_name, show_n)
+
+    def onset_spy(path, onset, seed_label, set_names, show_n=True):  # type: ignore[no-untyped-def]
+        onset_n.append(show_n)
+        real_onset(path, onset, seed_label, set_names, show_n)
+
+    monkeypatch.setattr(zc, "render_grid", grid_spy)
+    monkeypatch.setattr(zc, "render_onset", onset_spy)
+    argv = ["--rank-by", "K5", "--n", "3", "--name", "t", "--out-dir", str(tmp_path / "out"),
+            "--read", "dota", "K5", str(_write_npz(tmp_path / "k5.npz", k5, labels)),
+            "--read", "dota", "LaGoVAD", str(_write_npz(tmp_path / "lg.npz", lago, labels)),
+            "--read", "tad", "K5", str(_write_run(tmp_path / "tk5", tk5, tlab)),
+            "--read", "tad", "LaGoVAD", str(_write_run(tmp_path / "tlg", tlago, tlab))]
+    zc.run(zc.build_arg_parser().parse_args(
+        [*argv, "--set-domain", "dota", constants.ZS_CURVES_DOMAIN_IN, "--hide-n"]))
+    assert grids == {"dota": (constants.ZS_CURVES_DOMAIN_IN, False),
+                     "tad": (constants.ZS_CURVES_DOMAIN_ZERO_SHOT, False)}
+    assert onset_n == [False]
+    saved = json.loads((tmp_path / "out" / f"{constants.ZS_CURVES_STEM}_t.json").read_text())
+    assert saved["set_domains"] == {"dota": constants.ZS_CURVES_DOMAIN_IN,
+                                    "tad": constants.ZS_CURVES_DOMAIN_ZERO_SHOT}
+    with pytest.raises(ValueError, match="--set-domain"):
+        zc.run(zc.build_arg_parser().parse_args([*argv, "--set-domain", "dota", "nope"]))

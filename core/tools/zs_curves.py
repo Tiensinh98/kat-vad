@@ -223,11 +223,24 @@ def draw_video(ax: Axes, video: str, loaded: Loaded, set_name: str,
     ax.legend(loc="upper left", fontsize=6)
 
 
+def onset_panel_title(set_title: str, pooling: str, videos: int, show_n: bool = True) -> str:
+    """Onset panel title; ``show_n=False`` drops the set's video count."""
+    return f"{set_title} ({pooling}, n = {videos})" if show_n else f"{set_title} ({pooling})"
+
+
+def grid_suptitle(set_title: str, domain: str, n_videos: int, rank_by: str, auc_name: str,
+                  faint: str, seed_label: str, show_n: bool = True) -> str:
+    """Grid title; ``show_n=False`` drops the set's video count."""
+    count = f", {n_videos} videos" if show_n else ""
+    return (f"{set_title} {domain}{count}: picks spread worst -> best {rank_by} {auc_name}; "
+            f"{faint} ({seed_label})")
+
+
 def render_grid(path: Path, set_name: str, loaded: Loaded, picks: list[str],
                 aucs: dict[str, dict[str, float]], rank_by: str, seed_label: str,
                 domain: str = constants.ZS_CURVES_DOMAIN_ZERO_SHOT,
                 set_names: Mapping[str, str] = SET_NAME,
-                auc_name: str = "per-video AUC") -> None:
+                auc_name: str = "per-video AUC", show_n: bool = True) -> None:
     cols = min(constants.ZS_CURVES_GRID_COLS, len(picks))
     rows = math.ceil(len(picks) / cols)
     fig, axes = plt.subplots(rows, cols, figsize=(5.0 * cols, 3.0 * rows), squeeze=False)
@@ -237,8 +250,8 @@ def render_grid(path: Path, set_name: str, loaded: Loaded, picks: list[str],
         ax.set_visible(False)
     faint = ("faint = raw" if set_name in MINMAX_SETS else "dashed = min-max, shape only")
     n_videos = len(next(iter(loaded.values()))[1])
-    fig.suptitle(f"{set_names[set_name]} {domain}, {n_videos} videos: picks spread worst -> best "
-                 f"{rank_by} {auc_name}; {faint} ({seed_label})", fontsize=10)
+    fig.suptitle(grid_suptitle(set_names[set_name], domain, n_videos, rank_by, auc_name, faint,
+                               seed_label, show_n), fontsize=10)
     fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.95))
     fig.savefig(path, dpi=constants.ZS_CURVES_DPI)
     plt.close(fig)
@@ -264,7 +277,7 @@ def render_videos(out_dir: Path, set_name: str, loaded: Loaded, order: list[str]
 
 
 def render_onset(path: Path, onset: dict[str, dict[str, dict[str, Any]]], seed_label: str,
-                 set_names: Mapping[str, str] = SET_NAME) -> None:
+                 set_names: Mapping[str, str] = SET_NAME, show_n: bool = True) -> None:
     sets = list(onset)
     width = max(constants.ZS_CURVES_ONSET_PANEL_W * len(sets), constants.ZS_CURVES_ONSET_MIN_W)
     fig, axes = plt.subplots(1, len(sets), figsize=(width, constants.ZS_CURVES_ONSET_H),
@@ -290,7 +303,7 @@ def render_onset(path: Path, onset: dict[str, dict[str, dict[str, Any]]], seed_l
         share_ax.set_ylim(0.0, 1.02)
         share_ax.tick_params(labelsize=7)
         pooling = "min-max" if set_name in MINMAX_SETS else "raw"
-        ax.set_title(f"{set_names[set_name]} ({pooling}, n = {videos})", fontsize=10)
+        ax.set_title(onset_panel_title(set_names[set_name], pooling, videos, show_n), fontsize=10)
         ax.set_xlabel("seconds from GT onset", fontsize=9)
         ax.grid(alpha=0.25)
         ax.legend(handles=handles, loc="upper left", fontsize=7)
@@ -398,6 +411,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         metavar=("SET", "TITLE"),
                         help="name of a set in the figure titles instead of the default "
                              "(e.g. dota 'DoTA'); the data and pooling do not change")
+    parser.add_argument("--set-domain", nargs=2, action="append", default=[],
+                        metavar=("SET", "DOMAIN"),
+                        help="domain of one set in its grid title instead of --domain "
+                             f"(DOMAIN in {constants.ZS_CURVES_DOMAINS})")
+    parser.add_argument("--hide-n", action="store_true",
+                        help="leave the set's video count out of the onset and grid titles")
     parser.add_argument("--name", required=True, help="json = zs_curves_<name>.json")
     parser.add_argument("--out-dir", type=Path, required=True)
     return parser
@@ -409,6 +428,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     if unknown:
         raise ValueError(f"--set-title for unknown set(s) {unknown}; sets: {sorted(SET_NAME)}")
     set_names = {**SET_NAME, **dict(args.set_title)}
+    bad = [(s, d) for s, d in args.set_domain
+           if s not in SET_NAME or d not in constants.ZS_CURVES_DOMAINS]
+    if bad:
+        raise ValueError(f"--set-domain {bad}: sets {sorted(SET_NAME)}, "
+                         f"domains {constants.ZS_CURVES_DOMAINS}")
+    domains = dict.fromkeys(SET_NAME, args.domain) | dict(args.set_domain)
+    show_n = not args.hide_n
     table = build(data, args.rank_by, args.n, args.clips, every_video=args.all,
                   pick_auc=args.pick_auc)
     auc_name = ("global raw AUC (vs all normal rows)"
@@ -423,17 +449,19 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         if args.all:
             video_dir = args.out_dir / constants.ZS_CURVES_VIDEO_SUBDIR / set_name
             n = render_videos(video_dir, set_name, data[set_name], t["picks"], aucs,
-                              args.rank_by, args.seed_label, args.domain, set_names, auc_name)
+                              args.rank_by, args.seed_label, domains[set_name], set_names,
+                              auc_name)
             LOGGER.info("%s: %d per-video figures -> %s", set_name, n, video_dir)
             continue
         render_grid(args.out_dir / f"grid_{set_name}.png", set_name, data[set_name],
-                    t["picks"], aucs, args.rank_by, args.seed_label, args.domain, set_names,
-                    auc_name)
+                    t["picks"], aucs, args.rank_by, args.seed_label, domains[set_name], set_names,
+                    auc_name, show_n)
     render_onset(args.out_dir / "onset_aligned.png",
-                 {s: t["onset"] for s, t in table.items()}, args.seed_label, set_names)
+                 {s: t["onset"] for s, t in table.items()}, args.seed_label, set_names, show_n)
     write_json_atomic(args.out_dir / f"{constants.ZS_CURVES_STEM}_{args.name}.json",
                       {"rank_by": args.rank_by, "label": LABEL, "seed_label": args.seed_label,
-                       "domain": args.domain, "pick_auc": args.pick_auc,
+                       "domain": args.domain, "set_domains": {s: domains[s] for s in table},
+                       "pick_auc": args.pick_auc,
                        "sets": table})
     return table
 

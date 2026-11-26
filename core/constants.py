@@ -1493,7 +1493,8 @@ ZS_CURVES_STEP_SECONDS = {
 ZS_CURVES_ONSET_BIN_ROWS_BY_SET = {ZS_CURVES_NEXAR_SET: 8}
 ZS_CURVES_DOMAIN_ZERO_SHOT = "zero-shot"  # figure titles: the set is unseen in training ...
 ZS_CURVES_DOMAIN_IN = "in-domain"  # ... or it is the training corpus's own split
-ZS_CURVES_DOMAINS = (ZS_CURVES_DOMAIN_ZERO_SHOT, ZS_CURVES_DOMAIN_IN)
+ZS_CURVES_DOMAIN_MIXED = "zero-shot / in-domain"  # one model trained on this set, one not
+ZS_CURVES_DOMAINS = (ZS_CURVES_DOMAIN_ZERO_SHOT, ZS_CURVES_DOMAIN_IN, ZS_CURVES_DOMAIN_MIXED)
 ZS_CURVES_IN_DOMAIN_PAIRS = {("nexar", ZS_CURVES_NEXAR_SET)}  # (--train, set) read in-domain
 ZS_CURVES_COLORS = ("tab:blue", "tab:orange", "tab:green", "tab:purple")  # one per --read model
 

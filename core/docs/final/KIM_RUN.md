@@ -3294,3 +3294,33 @@ Raw `outputs/v_final/dota_eda/REPORTS/{dota_eda_report.{md,json},figures/}`.
 **Not licensed.** "KIM gives +x on DoTA" as zero-shot; a contrast to a Nexar-trained row as KIM's effect (corpus changes too); "VideoMAE alone" from K5 − L0 (that is the total); anything from §55.1's list.
 
 Runbook `colab/final/k5dfidota_ablation.ipynb`; outputs `Thesis-Final/outputs/kim_dota_train/{K0dfiDoTA,L0dfiDoTA[,K5dfiDoTArr]}/`, report `REPORTS/k5dfidota_ablation_report.md`; constants `KIM_DOTA_TRAIN_OFF_ROW`, `KIM_DOTA_TRAIN_L0_ROW`, `KIM_DOTA_TRAIN_ABL_*`.
+
+### 58.1 Read-out (2026-11-26, user's Colab run, NVIDIA L4, s2024, n = 1; printed, decides nothing, K5f stays)
+
+Raw `outputs/v_final/kim_dota_train/REPORTS/{k5dfidota_ablation_report.md,ablation/}`. **Guards (checked again locally on the synced files):** J10 = 1,764 on all three rows; config diff K5dfiDoTA → K0dfiDoTA = exactly the four `kim.*` flags, K0dfiDoTA → L0dfiDoTA = exactly {`v2.motion`, `model.motion_dim`}; last-epoch `mul_mil` 0.361 / 0.360 / 0.475 (> 0.01). **Start gate (AB3): matched** — step-1 `mil` 0.731826 on both K rows, so the saved K5dfiDoTA is the on side (no `K5dfiDoTArr`). L0dfiDoTA starts at 0.780400 (other model, printed).
+
+| row | DoTA-CAP-dev (in-domain) macro [95 %] / micro / AP | DADA (zero-shot) macro [95 %] / micro / AP |
+|---|---|---|
+| K5dfiDoTA | 0.8590 [0.8468, 0.8709] / 0.8209 / 0.6776 | 0.7659 [0.7469, 0.7850] / 0.7522 / 0.5715 |
+| K0dfiDoTA | 0.8532 [0.8409, 0.8651] / 0.8156 / 0.6817 | 0.7675 [0.7488, 0.7866] / 0.7553 / 0.5753 |
+| L0dfiDoTA | 0.6682 [0.6536, 0.6826] / 0.6412 / 0.5010 | 0.5911 [0.5763, 0.6063] / 0.5849 / 0.3892 |
+| *position only* | *cubic ruler 0.8545 [0.8386, 0.8695]* | *middle ruler 0.7342 [0.7076, 0.7594]* |
+
+| component (AB2) | set | Δ micro | Δ macro | label (KA5) |
+|---|---|---|---|---|
+| KIM = K5 − K0 | DoTA-CAP-dev | +0.0053 [+0.0007, +0.0098] | +0.0058 [+0.0015, +0.0101] | NO DIFFERENCE (interval above 0, under the +0.01 margin) |
+| KIM | DADA | −0.0031 [−0.0098, +0.0034] | −0.0016 [−0.0083, +0.0050] | NO DIFFERENCE |
+| VideoMAE = K0 − L0 | DoTA-CAP-dev | +0.1745 [+0.1627, +0.1864] | +0.1850 [+0.1720, +0.1980] | GAIN |
+| VideoMAE | DADA | +0.1704 [+0.1524, +0.1878] | +0.1764 [+0.1585, +0.1944] | GAIN |
+| total = K5 − L0 | DoTA-CAP-dev | +0.1797 | +0.1908 | GAIN |
+| total | DADA | +0.1674 | +0.1748 | GAIN |
+
+**Reading.**
+1. **On the DoTA-trained host, KIM adds nothing measurable.** DADA (the zero-shot read) −0.002 macro / −0.003 micro, not separated; DoTA in-domain +0.006, its interval clears 0 but not the margin. The total is VideoMAE's.
+2. **VideoMAE V2-S carries the whole gain at fixed data and recipe:** +0.17…+0.19 on both sets, both metrics. On DADA it lifts the trunk from **below** the middle ruler (0.591 < 0.734) to ~0.03 above it (0.768).
+3. **DoTA in-domain, read against position:** L0dfiDoTA (0.668) sits far below the no-pixel cubic ruler (0.8545); K0 / K5 (0.853 / 0.859) sit **inside** its interval. The motion rows reach what position alone reaches; this read cannot say whether they learn position, content or both (§55.1 ramp, §57 padding prior: the CLIP-only L0 has no padded motion rows, a later read can use that).
+4. **Against the Nexar-trained host (other corpus, printed, not a contrast):** §53.1 measured KIM on K5dfi at DADA micro +0.0229 GAIN; here −0.0031. KIM's DADA gain does not reappear when the host trains on DoTA; the corpus, window (20 → 12 rows), row spacing and input statistics all change between the two, so no cause is licensed. §36.1's K5dfi − L0dfi on DADA (+0.193 macro, motion + KIM) and this K5dfiDoTA − L0dfiDoTA (+0.175) agree in size.
+
+**Expectations (§58):** KIM on DADA +0.01…+0.03 — **wrong** (−0.002); KIM on DoTA NO DIFFERENCE — held; VideoMAE GAIN ≥ +0.10 on DADA — held (+0.176); L0dfiDoTA on DADA near or below the middle ruler — held (0.591, below).
+
+**Licensed (n = 1):** "Trained on DoTA, the motion stream accounts for the whole gain over the LaGoVAD trunk (DADA +0.176 macro); KIM adds nothing separable on DADA (−0.002) or in-domain DoTA (+0.006, under the margin)." **Not licensed:** "KIM does not work" (one host, one seed; on the Nexar host it gains on DADA); "KIM only helps on Nexar" (the hosts differ in five ways); any DoTA number of these rows as zero-shot; "VideoMAE learns accidents on DoTA" without the position ruler beside it.
