@@ -1,0 +1,483 @@
+{
+  "annotations": "data/DoTA/raw_annotations/DoTA_annotations.zip",
+  "clips": {
+    "accident": {
+      "lateral": 0.1519867549668874,
+      "leave_to_left": 0.07682119205298013,
+      "leave_to_right": 0.07185430463576159,
+      "moving_ahead_or_waiting": 0.14403973509933773,
+      "obstacle": 0.017218543046357615,
+      "oncoming": 0.10529801324503311,
+      "pedestrian": 0.017880794701986755,
+      "start_stop_or_stationary": 0.018543046357615896,
+      "turning": 0.3804635761589404,
+      "unknown": 0.015894039735099338
+    },
+    "center_rel": {
+      "mean": 0.5533282680877742,
+      "n": 3018,
+      "name": "span centre / clip rows",
+      "percentiles": {
+        "p0": 0.11764705882352941,
+        "p100": 0.975,
+        "p25": 0.46774193548387094,
+        "p5": 0.3375,
+        "p50": 0.5483870967741935,
+        "p75": 0.6350051975051975,
+        "p95": 0.7857142857142857
+      },
+      "std": 0.1336533234576492
+    },
+    "clips": 3020,
+    "clips_without_abnormal_rows": 2,
+    "ego": {
+      "ego": 0.6076158940397351,
+      "other": 0.3923841059602649
+    },
+    "end_rel": {
+      "mean": 0.7158477580712337,
+      "n": 3018,
+      "name": "span end / clip rows",
+      "percentiles": {
+        "p0": 0.17647058823529413,
+        "p100": 1.0,
+        "p25": 0.6060606060606061,
+        "p5": 0.4488740323715693,
+        "p50": 0.7142857142857143,
+        "p75": 0.8275862068965517,
+        "p95": 1.0
+      },
+      "std": 0.1631789646007941
+    },
+    "night": {
+      "day": 0.8794701986754967,
+      "night": 0.1205298013245033
+    },
+    "post_rows": {
+      "mean": 10.028164347249835,
+      "n": 3018,
+      "name": "normal rows after the span",
+      "percentiles": {
+        "p0": 0.0,
+        "p100": 77.0,
+        "p25": 5.25,
+        "p5": 0.0,
+        "p50": 9.0,
+        "p75": 13.0,
+        "p95": 22.0
+      },
+      "std": 7.27484217729844
+    },
+    "pre_rows": {
+      "mean": 13.179589131875414,
+      "n": 3018,
+      "name": "normal rows before the span",
+      "percentiles": {
+        "p0": 0.0,
+        "p100": 77.0,
+        "p25": 9.25,
+        "p5": 5.0,
+        "p50": 12.0,
+        "p75": 16.0,
+        "p95": 23.0
+      },
+      "std": 5.909429702354149
+    },
+    "rows": {
+      "mean": 34.28509933774834,
+      "n": 3020,
+      "name": "rows / clip (s3)",
+      "percentiles": {
+        "p0": 11.0,
+        "p100": 100.0,
+        "p25": 28.0,
+        "p5": 21.0,
+        "p50": 33.0,
+        "p75": 39.0,
+        "p95": 51.0
+      },
+      "std": 9.710776588088843
+    },
+    "seconds": {
+      "mean": 10.187019867549669,
+      "n": 3020,
+      "name": "seconds / clip",
+      "percentiles": {
+        "p0": 3.3,
+        "p100": 30.0,
+        "p25": 8.3,
+        "p5": 6.1,
+        "p50": 9.9,
+        "p75": 11.7,
+        "p95": 15.104999999999972
+      },
+      "std": 2.9087041776335325
+    },
+    "share_pre_below_window": 0.42047713717693835,
+    "share_span_reaches_end": 0.10536779324055666,
+    "share_span_starts_at_0": 0.0003313452617627568,
+    "span_rows": {
+      "mean": 11.081179589131876,
+      "n": 3018,
+      "name": "abnormal rows / clip",
+      "percentiles": {
+        "p0": 1.0,
+        "p100": 64.0,
+        "p25": 7.0,
+        "p5": 4.0,
+        "p50": 10.0,
+        "p75": 14.0,
+        "p95": 23.0
+      },
+      "std": 6.372497000815444
+    },
+    "span_share": {
+      "mean": 0.32503897996691916,
+      "n": 3018,
+      "name": "abnormal share of the clip",
+      "percentiles": {
+        "p0": 0.022222222222222223,
+        "p100": 0.9375,
+        "p25": 0.21212121212121213,
+        "p5": 0.12121212121212122,
+        "p50": 0.3,
+        "p75": 0.41025641025641024,
+        "p95": 0.6170212765957447
+      },
+      "std": 0.15206938953483656
+    },
+    "start_rel": {
+      "mean": 0.39080877810431464,
+      "n": 3018,
+      "name": "span start / clip rows",
+      "percentiles": {
+        "p0": 0.0,
+        "p100": 0.95,
+        "p25": 0.2978723404255319,
+        "p5": 0.17226600985221674,
+        "p50": 0.3793103448275862,
+        "p75": 0.47058823529411764,
+        "p95": 0.6428571428571429
+      },
+      "std": 0.14374142364367937
+    },
+    "youtube_ids": 186
+  },
+  "figures": [
+    "span_position.png",
+    "time_profile.png",
+    "abnormal_rows_per_positive_window.png",
+    "normal_gap_to_span.png",
+    "window_center_by_class.png",
+    "strata.png"
+  ],
+  "gate": null,
+  "position_rulers": {
+    "definition": "late = t / N; hump = -|t / N - 0.5|; macro = mean over two-class clips",
+    "macro_hump": 0.8324164995039595,
+    "macro_late": 0.5938212311358122,
+    "micro_hump": 0.8066257570241768,
+    "micro_late": 0.5850295568749746,
+    "two_class_clips": 3018
+  },
+  "stride": 3,
+  "time_profile": {
+    "by_relative_bin": [
+      0.006044383041188153,
+      0.051339503166098394,
+      0.18456247611769203,
+      0.42950723504106375,
+      0.6479322371699053,
+      0.7030710351908895,
+      0.5786193672099712,
+      0.3621663744398987,
+      0.18668195280405084,
+      0.08582746478873239
+    ],
+    "by_rows_from_end": [
+      0.08178807947019867,
+      0.10463576158940398,
+      0.12450331125827814,
+      0.1519867549668874,
+      0.18178807947019868,
+      0.22913907284768212,
+      0.2768211920529801,
+      0.33543046357615897,
+      0.39437086092715234,
+      0.45927152317880793
+    ],
+    "by_rows_from_start": [
+      0.00033112582781456954,
+      0.004304635761589404,
+      0.008940397350993378,
+      0.017880794701986755,
+      0.031125827814569535,
+      0.05529801324503311,
+      0.0837748344370861,
+      0.12549668874172185,
+      0.1675496688741722,
+      0.24602649006622518
+    ],
+    "row_share": 0.32299282409866625
+  },
+  "window": {
+    "hop": 6,
+    "length": 12
+  },
+  "windows": {
+    "accident": [
+      {
+        "accident": "turning",
+        "normal": 1224,
+        "positive": 3307,
+        "positive_rate": 0.7298609578459502,
+        "share_of_normal": 0.3446916361588285,
+        "share_of_positive": 0.3523332623055615,
+        "sources": 1149
+      },
+      {
+        "accident": "lateral",
+        "normal": 525,
+        "positive": 1512,
+        "positive_rate": 0.7422680412371134,
+        "share_of_normal": 0.14784567727400733,
+        "share_of_positive": 0.1610909865757511,
+        "sources": 459
+      },
+      {
+        "accident": "moving_ahead_or_waiting",
+        "normal": 525,
+        "positive": 1333,
+        "positive_rate": 0.7174381054897739,
+        "share_of_normal": 0.14784567727400733,
+        "share_of_positive": 0.14202002983166417,
+        "sources": 434
+      },
+      {
+        "accident": "oncoming",
+        "normal": 428,
+        "positive": 876,
+        "positive_rate": 0.6717791411042945,
+        "share_of_normal": 0.12052942833004787,
+        "share_of_positive": 0.09333049222245898,
+        "sources": 318
+      },
+      {
+        "accident": "leave_to_left",
+        "normal": 288,
+        "positive": 907,
+        "positive_rate": 0.7589958158995815,
+        "share_of_normal": 0.08110391439031259,
+        "share_of_positive": 0.09663328361389303,
+        "sources": 232
+      },
+      {
+        "accident": "leave_to_right",
+        "normal": 264,
+        "positive": 805,
+        "positive_rate": 0.7530402245088869,
+        "share_of_normal": 0.07434525485778654,
+        "share_of_positive": 0.08576603451949712,
+        "sources": 217
+      },
+      {
+        "accident": "start_stop_or_stationary",
+        "normal": 84,
+        "positive": 168,
+        "positive_rate": 0.6666666666666666,
+        "share_of_normal": 0.023655308363841172,
+        "share_of_positive": 0.01789899850841679,
+        "sources": 56
+      },
+      {
+        "accident": "pedestrian",
+        "normal": 90,
+        "positive": 158,
+        "positive_rate": 0.6370967741935484,
+        "share_of_normal": 0.025344973246972685,
+        "share_of_positive": 0.01683358193053484,
+        "sources": 54
+      },
+      {
+        "accident": "obstacle",
+        "normal": 65,
+        "positive": 161,
+        "positive_rate": 0.7123893805309734,
+        "share_of_normal": 0.018304702900591382,
+        "share_of_positive": 0.017153206903899425,
+        "sources": 52
+      },
+      {
+        "accident": "unknown",
+        "normal": 58,
+        "positive": 159,
+        "positive_rate": 0.7327188940092166,
+        "share_of_normal": 0.016333427203604617,
+        "share_of_positive": 0.016940123588323034,
+        "sources": 48
+      }
+    ],
+    "counts": {
+      "normal": 3551,
+      "normal_per_source": {
+        "mean": 1.1762172904935408,
+        "n": 3019,
+        "name": "normal / source",
+        "percentiles": {
+          "p0": 0.0,
+          "p100": 12.0,
+          "p25": 0.0,
+          "p5": 0.0,
+          "p50": 1.0,
+          "p75": 2.0,
+          "p95": 3.0
+        },
+        "std": 1.269074720570856
+      },
+      "positive": 9386,
+      "positive_per_source": {
+        "mean": 3.1089764822789,
+        "n": 3019,
+        "name": "positive / source",
+        "percentiles": {
+          "p0": 0.0,
+          "p100": 10.0,
+          "p25": 2.0,
+          "p5": 1.0,
+          "p50": 3.0,
+          "p75": 4.0,
+          "p95": 5.0
+        },
+        "std": 1.1075259330560168
+      },
+      "sources": 3019,
+      "sources_without_a_normal_window": 944,
+      "windows": 12937
+    },
+    "ego": [
+      {
+        "ego": "ego",
+        "normal": 2074,
+        "positive": 5491,
+        "positive_rate": 0.7258426966292135,
+        "share_of_normal": 0.5840608279357927,
+        "share_of_positive": 0.5850202429149798,
+        "sources": 1834
+      },
+      {
+        "ego": "other",
+        "normal": 1477,
+        "positive": 3895,
+        "positive_rate": 0.7250558451228593,
+        "share_of_normal": 0.4159391720642073,
+        "share_of_positive": 0.4149797570850202,
+        "sources": 1185
+      }
+    ],
+    "mil_k": {
+      "bottomk_25_arms": 2,
+      "mil": 2,
+      "mul_mil": 1
+    },
+    "night": [
+      {
+        "night": "day",
+        "normal": 3066,
+        "positive": 8257,
+        "positive_rate": 0.7292237039653802,
+        "share_of_normal": 0.8634187552802027,
+        "share_of_positive": 0.8797144683571276,
+        "sources": 2655
+      },
+      {
+        "night": "night",
+        "normal": 485,
+        "positive": 1129,
+        "positive_rate": 0.6995043370508055,
+        "share_of_normal": 0.13658124471979724,
+        "share_of_positive": 0.12028553164287237,
+        "sources": 364
+      }
+    ],
+    "normal_windows": {
+      "after_span": 1044,
+      "before_span": 2500,
+      "gap_rows": {
+        "mean": 5.36597065462754,
+        "n": 3544,
+        "name": "rows between a normal window and its span",
+        "percentiles": {
+          "p0": 0.0,
+          "p100": 65.0,
+          "p25": 1.0,
+          "p5": 0.0,
+          "p50": 3.0,
+          "p75": 7.0,
+          "p95": 18.0
+        },
+        "std": 6.942084179018179
+      },
+      "normal_windows_with_a_span": 3544,
+      "share_within_near_rows": 0.4198645598194131
+    },
+    "padding": {
+      "first_full_row": 5,
+      "share_normal_padded": 0.49310053506054635,
+      "share_normal_touching_end": 0.042241622078287806,
+      "share_positive_padded": 0.1350948220754315,
+      "share_positive_touching_end": 0.03579799701683358
+    },
+    "positive_windows": {
+      "abnormal_rows": {
+        "mean": 6.4167909652674195,
+        "n": 9386,
+        "name": "abnormal rows / positive window",
+        "percentiles": {
+          "p0": 1.0,
+          "p100": 12.0,
+          "p25": 4.0,
+          "p5": 1.0,
+          "p50": 6.0,
+          "p75": 9.0,
+          "p95": 12.0
+        },
+        "std": 3.430406299476484
+      },
+      "row_profile": [
+        0.4423609631365864,
+        0.4695290858725762,
+        0.4887065842744513,
+        0.5093756658853612,
+        0.5287662476028127,
+        0.546984871084594,
+        0.5601960366503302,
+        0.5682932026422332,
+        0.5710632857447262,
+        0.5751118687406777,
+        0.5789473684210527,
+        0.5774557852120179
+      ],
+      "share_at_most": {
+        "1": 0.07212870232260814,
+        "2": 0.1524611122949073,
+        "3": 0.24259535478372043,
+        "6": 0.5322821223098232
+      },
+      "share_whole_window_abnormal": 0.1287023226081398
+    },
+    "rulers": {
+      "center_hump": 0.7896265209339204,
+      "center_hump_within_source": {
+        "mean_auc": 0.8585608399942871,
+        "sources": 2051
+      },
+      "center_raw": 0.6771836524352495,
+      "center_raw_within_source": {
+        "mean_auc": 0.7599755829521798,
+        "sources": 2051
+      },
+      "padded_rows": 0.3209971435074426,
+      "touches_end": 0.4967781874692729
+    }
+  }
+}

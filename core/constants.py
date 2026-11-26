@@ -1768,6 +1768,14 @@ KIM_DOTA_TRAIN_ARMS = {
                        f"loss.bottomk_topk_pct={KIM_BOTTOMK_TOPK_PCT}"),
 }
 KIM_DOTA_TRAIN_ARMS_REPORT_STEM = "k5dfidota_arms_report"  # REPORTS/<this>.md
+# §57: EDA of the cut DoTA train corpus (core/tools/dota_eda.py); figures reuse NEXAR_EDA_*
+DOTA_EDA_OUTPUT_DIRNAME = "dota_eda"  # OUTPUT_ROOT/<this>/REPORTS
+DOTA_EDA_REPORT_STEM = "dota_eda_report"
+DOTA_EDA_ROW_THRESHOLDS = (1, 2, 3, 6)  # share of positive windows with <= k abnormal rows (of 12)
+DOTA_EDA_POSITION_BINS = 10  # relative clip position bins for the row-level time profile
+DOTA_EDA_TAIL_ROWS = 10  # rows counted back from the clip end (3 s at s3)
+DOTA_EDA_END_TOLERANCE_ROWS = 1  # a span "reaches the clip end" if it stops this close to it
+DOTA_EDA_TOP_CLASSES = 12  # accident_name rows shown in the table / figure
 KIM_DOTA_TRAIN_ARMS_TABLE_NAME = "k5dfidota_arms_s2024"  # zs_arm_table control K5dfiDoTA
 CAP_LIGHT_NIGHT = 2  # CAP's light column: 1 day, 2 night
 # DT7 pixel gate: DoTA boxes drawn on the recovered frames, judged by eye

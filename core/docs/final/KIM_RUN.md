@@ -3223,3 +3223,35 @@ Guards: J10 (step 1,764 = last step of `metrics.jsonl`), config diff = DC4, last
 **Not licensed.** Anything from §55.1's list; "ego / bottom-k helps on DoTA" as a zero-shot claim; reading a DAD macro without its placebo.
 
 Runbook `colab/final/k5dfidota_arms.ipynb`; outputs `Thesis-Final/outputs/kim_dota_train/<row>/`, report `REPORTS/k5dfidota_arms_report.md`.
+
+## 57. EDA of the cut DoTA train corpus `DoTA_train_window` (dated note 2026-11-26, user; dataset properties only)
+
+**Why.** The user asked for insight into the corpus §55 / §56 train on. Mirror of §40 (Nexar) for DoTA: no model, nothing gates, no arm follows.
+
+| # | Choice |
+|---|---|
+| DE1 Corpus | §55's 3,020 clips and 12,937 windows, **rebuilt in memory** from DoTA's annotation zip (sha256 = the frozen map's) and the frozen map by `dota_train_build.plan` (the planner that wrote the corpus; `build` now calls it). With `--data-dir` the rebuilt windows are gated against the corpus on disk (ids, labels, start / end, positive rows) |
+| DE2 Read | **train only** (user: no dev): clips: length, span length and position, span reaching the end / starting at 0, ego / night / class · row-level time profile (relative bins, rows from the end / start) and no-pixel rulers (late `t/N`, hump; micro and within-clip macro) · windows: counts, abnormal rows per positive window, row profile, gap to the span, centre rulers, V2-S padded rows (rows < 5 at s3) and clip-end windows by class, positive rate by stratum, MIL k. Six figures |
+| DE3 Status | Printed, never gating. Rulers are corpus priors, not model results |
+
+Tool `core/tools/dota_eda.py` (train only; a first draft also profiled DoTA-CAP-dev, removed by the user), tests `core/tests/test_dota_eda.py` (8), runbook `colab/final/dota_eda.ipynb` (CPU, gate against Drive's corpus), constants `DOTA_EDA_*`.
+
+### 57.1 Local read (2026-11-26, Claude; same annotation zip, **gate not run** — the Colab run adds it)
+
+Raw `outputs/v_final/dota_eda/REPORTS/{dota_eda_report.{md,json},figures/}`.
+
+| Item | Measured |
+|---|---|
+| Clips | 3,020 from 186 YouTube ids; median 9.9 s (33 rows, 3.3–30 s); abnormal share of a clip median 0.30; span start / end median 0.38 / 0.71 of the clip; turning 38 %, lateral 15 %, moving ahead 14 %, oncoming 11 %; ego-involved 61 %, night 12 % |
+| Where the span sits | mid-clip: abnormal share per tenth of the clip 0.01 → 0.70 (0.5–0.6) → 0.09; span reaches the clip end in **10.5 %** of clips, starts at row 0 in 0 %. No-pixel row rulers: hump micro 0.807 / macro 0.832; late `t/N` 0.585 / 0.594 |
+| Windows | 12,937 = 9,386 positive (**73 %**) + 3,551 normal; 944 of 3,019 clips (31 %) give **no** normal window (42 % have < 12 normal rows before the span); 1 clip too short (`r6_ZhT7rmhM_004291`), 2 clips without an abnormal row at s3 |
+| Positive windows | abnormal rows median 6 of 12; ≤ 1 row 7.2 %, ≤ 2 15.2 %, whole window 12.9 %. Row profile inside a positive window rises 0.44 → 0.58 (abnormal rows sit later in the window) |
+| Normal windows | 2,500 before the span, 1,044 after (**70 % before**); gap to the span median 3 rows, **42 % within 2 rows** (Nexar 6.3 %: DoTA's negatives are near-span, hard) |
+| Position inside a clip | window centre within-clip AUC raw **0.760** (later windows are positive), hump 0.859; pooled raw 0.677, hump 0.790 |
+| V2-S padding | rows < 5 see a clamped first frame: **49.3 % of normal windows hold padded rows vs 13.5 % of positive** (padded-rows AUC 0.321, i.e. 0.679 for "normal"); clip-end windows 4.2 % / 3.6 % (AUC 0.497) |
+| Strata | positive rate ego 0.726 vs other 0.725; day 0.729, night 0.700; classes 0.64 (pedestrian) – 0.76 (leave_to_left) |
+| MIL k (12 rows) | `L_MIL` k = 2 (pct 5), multi-class k = 1, §56 bottom-k k = 2 |
+
+**Reading (printed).** Two corpus priors point the way §55.1's DAD ramp went: inside a training clip the positive windows sit later than the normal ones (within-clip raw 0.760), and half the normal windows carry the V2-S padded rows of the clip start against 13.5 % of the positives. A model can only see a window's 12 rows, but the padded rows are visible in its V2-S input. **This is the corpus side of the hypothesis, not a test of it:** whether K5dfiDoTA uses either cue needs a model read (e.g. its score on padded vs unpadded rows of DAD negatives, or a corpus whose normal windows avoid rows < 5).
+
+**Licensed:** "In DoTA train, 70 % of the normal windows lie before the span and 49 % of them hold V2-S padded rows (positives 13.5 %)". **Not licensed:** "K5dfiDoTA learned the padding / late shortcut" (no model was read); "DoTA has hard negatives so it is a better corpus" (near-span negatives also hold label noise at the boundary).

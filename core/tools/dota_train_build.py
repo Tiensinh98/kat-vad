@@ -28,6 +28,7 @@ from core.data.dataset_files import (
     write_windows,
 )
 from core.data.v2_splits import lines_sha1
+from core.data.windows import Window
 from core.tools.dota_train_extract import train_clips
 from core.tools.dota_train_match import DotaClip, read_dota
 from core.tools.kill_switch_probe import write_json_atomic
@@ -56,8 +57,11 @@ def make_record(clip: DotaClip) -> DadaRecord:
     )
 
 
-def build(out_dir: Path, clips: list[DotaClip]) -> dict[str, Any]:
-    """Write the corpus files and return the counts."""
+Plan = tuple[dict[str, Window], dict[str, list[int]], dict[str, DadaRecord], dict[str, int]]
+
+
+def plan(clips: list[DotaClip]) -> Plan:
+    """``(windows, frame labels, record, label)`` per window id: the corpus, in memory."""
     records = [make_record(c) for c in clips]
     windows, frame_labels, by_window = plan_record_windows(
         records, constants.DOTA_TRAIN_STRIDE, constants.DOTA_TRAIN_WINDOW_LENGTH,
@@ -66,6 +70,13 @@ def build(out_dir: Path, clips: list[DotaClip]) -> dict[str, Any]:
     )
     labels = {w: window_label(frame_labels[w], by_window[w], constants.WINDOW_MIN_POSITIVE)
               for w in windows}
+    return windows, frame_labels, by_window, labels
+
+
+def build(out_dir: Path, clips: list[DotaClip]) -> dict[str, Any]:
+    """Write the corpus files and return the counts."""
+    records = [make_record(c) for c in clips]
+    windows, frame_labels, by_window, labels = plan(clips)
     meta = {
         w: {
             "class_name": by_window[w].class_name, "fault_label": by_window[w].fault_label,
