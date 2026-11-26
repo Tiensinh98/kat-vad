@@ -1,0 +1,85 @@
+{
+  "control": "K5f",
+  "draws": 2000,
+  "label": "PRELIMINARY (n = 1 seed); printed, decides nothing",
+  "seed": 2024,
+  "sets": {
+    "dota": {
+      "cells": {
+        "K5dfibk25rr": {
+          "ap": 0.6069654247585524,
+          "base_rate": 0.3260253725828304,
+          "macro": {
+            "clips": 1129,
+            "clusters": 176,
+            "high": 0.83191737496746,
+            "low": 0.8096274075770911,
+            "mean": 0.8209999915725212
+          },
+          "micro": 0.769197226122834
+        },
+        "K5f": {
+          "ap": 0.5651943381469811,
+          "base_rate": 0.3260253725828304,
+          "macro": {
+            "clips": 1129,
+            "clusters": 176,
+            "high": 0.8328907907751496,
+            "low": 0.8116107559253297,
+            "mean": 0.8226300616592576
+          },
+          "micro": 0.7361515556184861
+        },
+        "LaGoVAD": {
+          "ap": 0.39034931244402815,
+          "base_rate": 0.3260253725828304,
+          "macro": {
+            "clips": 1129,
+            "clusters": 176,
+            "high": 0.6631007825409191,
+            "low": 0.6295358128160782,
+            "mean": 0.6465193972152496
+          },
+          "micro": 0.6197870313086064
+        }
+      },
+      "clip_oracle_micro": null,
+      "deltas": {
+        "K5dfibk25rr": {
+          "macro": {
+            "clips": 1129,
+            "clusters": 176,
+            "high": 0.004207610583818288,
+            "low": -0.007376390255965464,
+            "mean": -0.0016300700867363054
+          },
+          "macro_sentence": "not separated",
+          "micro": {
+            "high": 0.03883611301788781,
+            "low": 0.027507137156558337,
+            "mean": 0.033045670504347924
+          },
+          "micro_sentence": "above"
+        },
+        "LaGoVAD": {
+          "macro": {
+            "clips": 1129,
+            "clusters": 176,
+            "high": -0.15787999228714863,
+            "low": -0.19433428161478652,
+            "mean": -0.1761106644440079
+          },
+          "macro_sentence": "below",
+          "micro": {
+            "high": -0.09831088399383887,
+            "low": -0.1351514732536895,
+            "mean": -0.11636452430987976
+          },
+          "micro_sentence": "below"
+        }
+      },
+      "items": 1129,
+      "pooling": "1129 clips, protocol B; micro / AP after per-clip min-max"
+    }
+  }
+}

@@ -3154,6 +3154,23 @@ Recorded environments: K5dfirr and K5dfibk25 of §51 on a **T4** start at 0.6905
 
 Runbook `colab/final/k5dfibk25_cap_eval.ipynb`; outputs `kim_cap_eval/K5dfibk25rr/`, `kim_cap_eval/REPORTS/`.
 
+### 54.1 Read-out (2026-11-26, user's Colab run; s2024, n = 1; printed, decides nothing, K5f stays)
+
+Raw `outputs/v_final/kim_cap_eval/{K5dfibk25rr/,REPORTS/zs_arm_table_cap_all_k5dfibk25_s2024.md}`; `OPENED.json` 2026-11-26T09:32Z (`dota_cap_eval`, row K5dfibk25rr, checkpoint `kim_ablation/K5dfibk25rr`). Pooled read 1,129 clips (dev + eval).
+
+| whole DoTA-CAP (1,129, protocol B) | macro [95 %] | micro | AP |
+|---|---|---|---|
+| K5f (control) | 0.8226 [0.8116, 0.8329] | 0.7362 | 0.5652 |
+| **K5dfibk25rr** | **0.8210 [0.8096, 0.8319]** | **0.7692** | **0.6070** |
+| K5dfi (§35.1, printed) | 0.8240 [0.8136, 0.8342] | 0.7603 | 0.5899 |
+| LaGoVAD (public ckpt) | 0.6465 [0.6295, 0.6631] | 0.6198 | 0.3903 |
+
+Paired vs K5f: macro −0.0016 [−0.0074, +0.0042] not separated; **micro +0.0330 [+0.0275, +0.0388] above**. LaGoVAD − K5f macro −0.176, micro −0.116, below.
+
+**Reading.** (1) Expectation held: whole-set macro 0.8210 is 0.002 below the dev macro 0.8231; LaGoVAD far below. (2) Against K5f the gain is micro only (level across clips, §44), macro level — the §53.1 DoTA pattern on the whole set. (3) K5dfibk25rr vs K5dfi is **not** a contrast here: no paired number was printed, the point gap is +0.009 micro / −0.003 macro, inside the GPU re-run spread of §53.1 (K5dfi saved on a T4, K5dfibk25rr on an L4), and §51.1 found bottom-k under the margin on dev. (4) The local copy of the onset figure (`kim/REPORTS/figures/train_nexar/dota_dada/k5dfibk25_lagovad_kim_vs_lagovad_s2024/`, 2026-11-25) is the **dev-only** draft (DoTA n = 569); the 1,129-clip figure this run drew is on Drive and not synced.
+
+**Licensed:** "on whole DoTA-CAP, K5dfibk25 is level with K5f on macro (−0.002 n.s.) and above it on micro (+0.033 [+0.028, +0.039]), n = 1". **Not licensed:** "bottom-k improves on K5dfi"; any eval-only number (CB2); a change of reference.
+
 ## 55. K5dfiDoTA: K5dfi's recipe trained on the recovered DoTA train clips (dated note 2026-11-25, before any feature or number; user)
 
 **Override.** §52's gate DT7 was NOT VALID twice and its rule said STOP (§52.2). **The user decided on 2026-11-25 to train anyway**, after the unblinded re-read of both sheets (117 of 120 real rows right, 3 wrong; not a gate). This note reopens the line; it does not change §52's verdicts. The pixels are **not verified by the pre-registered gate**: about 2.5 % [0.5, 7.1] of the rows looked wrong, and only the 3 seen ones are removed.
