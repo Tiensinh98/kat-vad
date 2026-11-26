@@ -1,0 +1,170 @@
+{
+  "arm": {
+    "crn": "none",
+    "motion": "vit_s_k710_dl_from_giant"
+  },
+  "checkpoints": {
+    "s2024": "/content/drive/MyDrive/Thesis-Final/outputs/kim_dota_train/K5dfibk25DoTA/K5/s2024/checkpoint_last.pt"
+  },
+  "crn_reference": "item",
+  "crop_s": 8.0,
+  "crops": {
+    "0.1": {
+      "items": 111,
+      "macro": {
+        "clips": 111,
+        "clusters": 111,
+        "high": 0.8194037119904458,
+        "low": 0.7483109149136046,
+        "mean": 0.7848811189150842
+      },
+      "middle_ruler_macro": {
+        "clips": 111,
+        "clusters": 111,
+        "high": 0.21172554309940883,
+        "low": 0.19284316392693832,
+        "mean": 0.20199256522357173
+      }
+    },
+    "0.3": {
+      "items": 112,
+      "macro": {
+        "clips": 112,
+        "clusters": 112,
+        "high": 0.8192489500295242,
+        "low": 0.7552228727299527,
+        "mean": 0.788348695578775
+      },
+      "middle_ruler_macro": {
+        "clips": 112,
+        "clusters": 112,
+        "high": 0.6593601395792357,
+        "low": 0.653129621070607,
+        "mean": 0.656244316077735
+      }
+    },
+    "0.5": {
+      "items": 112,
+      "macro": {
+        "clips": 112,
+        "clusters": 112,
+        "high": 0.7599921157588131,
+        "low": 0.6998928789039851,
+        "mean": 0.7308795876689655
+      },
+      "middle_ruler_macro": {
+        "clips": 112,
+        "clusters": 112,
+        "high": 0.9999809336286272,
+        "low": 0.9999696965468692,
+        "mean": 0.99997543878675
+      }
+    },
+    "0.7": {
+      "items": 112,
+      "macro": {
+        "clips": 112,
+        "clusters": 112,
+        "high": 0.7175143403599615,
+        "low": 0.6555490465498441,
+        "mean": 0.6870027529332249
+      },
+      "middle_ruler_macro": {
+        "clips": 112,
+        "clusters": 112,
+        "high": 0.6611218448882403,
+        "low": 0.6549781546818333,
+        "mean": 0.6580238399291017
+      }
+    },
+    "0.9": {
+      "items": 111,
+      "macro": {
+        "clips": 111,
+        "clusters": 111,
+        "high": 0.7150097773485833,
+        "low": 0.6438617297691921,
+        "mean": 0.6799369246245445
+      },
+      "middle_ruler_macro": {
+        "clips": 111,
+        "clusters": 111,
+        "high": 0.22045715159110407,
+        "low": 0.20147482000528955,
+        "mean": 0.2106463757327022
+      }
+    },
+    "mean_over_placements": {
+      "macro": {
+        "clips": 110,
+        "clusters": 110,
+        "high": 0.759708098535817,
+        "low": 0.7038714097877234,
+        "mean": 0.7328124623775286
+      },
+      "videos": 110
+    }
+  },
+  "crops_skipped": {
+    "0.1": 1,
+    "0.9": 1
+  },
+  "data_dir": "/content/k5dfidota_arms/nexar_defs",
+  "global_steps": {
+    "s2024": 1764
+  },
+  "per_run_crop_endpoint": {
+    "s2024": 0.7328124623775286
+  },
+  "per_run_whole_macro": {
+    "s2024": 0.7681250096665136
+  },
+  "positives": 112,
+  "protocol": "N-B: s1[::3] per item, CRN per item, native frames, seed-averaged",
+  "released_baseline": false,
+  "split": "nexar_val",
+  "stats_dir": "/content/k5dfidota_arms/stage/dota_stats",
+  "stats_manifest": {
+    "architecture": "core/docs/v2/KAT_VAD_v2_ARCHITECTURE.md \u00a74-\u00a75",
+    "arm": "A2",
+    "baked_ids": 3020,
+    "baked_ids_sha1": "e57bd3c07b6359b328117b946fef9bbadd4dbc3c",
+    "c": 0.4262830490777294,
+    "clip_dir": "/content/k5dfidota/stage/x",
+    "crn": "none",
+    "crn_warmup": 8,
+    "fitted_on": "fit.txt",
+    "mode": "fit-ids",
+    "motion": "vit_s_k710_dl_from_giant",
+    "reference_unit": "source video at the baked stride (windows are slices of it)",
+    "s": 1.0,
+    "stats_file": "v2_input_stats.npz",
+    "stride_over_clip_dir": 1,
+    "train_ids_sha1": "0b0cce381b0c0bd787132f0553d4c42af3ff6c49",
+    "train_sources": 3019,
+    "video_dir": "/content/k5dfidota/stage/u",
+    "width": 896
+  },
+  "videos": 225,
+  "whole": {
+    "clip_auc_max": 0.5858881163084704,
+    "clip_oracle_micro": 0.7611150688923789,
+    "macro": {
+      "clips": 112,
+      "clusters": 112,
+      "high": 0.7945769042775536,
+      "low": 0.740671844351725,
+      "mean": 0.7681250096665136
+    },
+    "micro": 0.7091195595046191,
+    "micro_ap": 0.12149771141867924,
+    "middle_ruler_macro": {
+      "clips": 112,
+      "clusters": 112,
+      "high": 0.9837907700032339,
+      "low": 0.9608286967655435,
+      "mean": 0.9735204951160077
+    },
+    "positive_frame_share": 0.03942206375806307
+  }
+}

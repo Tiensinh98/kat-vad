@@ -3255,6 +3255,8 @@ Tool `core/tools/dota_eda.py` (train only; a first draft also profiled DoTA-CAP-
 
 ### 57.1 Local read (2026-11-26, Claude; same annotation zip, **gate not run** — the Colab run adds it)
 
+**Gate (2026-11-26, user's Colab run): PASSED** — rebuilt windows == the corpus on Drive, 12,937 windows checked; every number below reproduced in the synced `REPORTS/dota_eda_report.md`.
+
 Raw `outputs/v_final/dota_eda/REPORTS/{dota_eda_report.{md,json},figures/}`.
 
 | Item | Measured |
