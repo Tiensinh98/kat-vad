@@ -3178,3 +3178,29 @@ Runbook `colab/final/k5dfibk25_cap_eval.ipynb`; outputs `kim_cap_eval/K5dfibk25r
 **Not licensed.** "Zero-shot on DoTA" for this row; "DoTA pixels verified"; "state of the art on DoTA"; "more data helps" from one contrast with several changes; any comparison with a method trained on DoTA's full train split (252 clips missing, not at random).
 
 Code: `core/tools/dota_train_extract.py`, `core/tools/dota_train_build.py`, `nexar_extract.motion_rows(clip_step=)`; tests `core/tests/test_dota_train_corpus.py`; runbook `colab/final/k5dfidota.ipynb`; outputs `Thesis-Final/outputs/kim_dota_train/`, caches `clip/DoTA_train_s3_ncc`, `video/<V2-S>/DoTA_train_s3_squash`, `v2/A2_S/DoTA_train_s3_dota` and the four `*_dota` restats, corpus `Thesis-Final/data/DoTA_train_window`.
+
+### 55.1 Read-out (2026-11-26, s2024, n = 1; decides nothing, K5f stays)
+
+Guards: J10 (step 1,764 = last step of `metrics.jsonl`), config diff = DC4, last-epoch `mul_mil` 0.26–0.48 (> 0.01), gate R2 max |diff| 2.38e-07, corpus counts = DC2. NVIDIA L4. Raw `outputs/v_final/kim_dota_train/REPORTS/{k5dfidota_report,zs_arm_table_k5dfidota_s2024}.md`.
+
+| set | K5dfi | K5dfiDoTA | K5f | K5dfiDoTA − K5dfi macro | micro |
+|---|---|---|---|---|---|
+| Nexar val (crops macro) | 0.8698 | 0.7363 | — | −0.1335 [−0.1635, −0.1037] | — |
+| DoTA-CAP-dev (**in-domain** for K5dfiDoTA) | 0.8259 / 0.7613 | 0.8590 / 0.8209 | 0.8188 / 0.7353 | +0.0331 [+0.0212, +0.0451] | +0.0595 [+0.0463, +0.0730] |
+| DADA-2000 | 0.7677 / 0.7591 | 0.7659 / 0.7522 | 0.7744 / 0.7551 | −0.0018 [−0.0207, +0.0173] n.s. | −0.0069 n.s. |
+| TAD | 0.7198 / 0.6119 | 0.7579 / 0.6488 | 0.6981 / 0.6711 | +0.0381 [−0.0141, +0.0887] n.s. | +0.0369 n.s. |
+| DAD | 0.7494 / 0.7091 | 0.9287 / 0.9109 | 0.8070 / 0.7072 | +0.1793 [+0.1452, +0.2149] | +0.2018 [+0.1708, +0.2335] |
+
+(cells = macro / micro; DoTA / DADA micro after per-video min-max, TAD / DAD raw.)
+
+**Reading.**
+1. **DoTA-CAP-dev:** 0.8590 lies inside the no-pixel cubic position ruler's interval 0.8545 [0.8386, 0.8695], and 566 / 569 dev clips share a YouTube id with train. The in-domain gain is not separated from position + scene; no capability claim.
+2. **DADA, the cleanest zero-shot read: no difference.** Training on DoTA does not transfer to another dashcam set here.
+3. **TAD:** not separated (macro or micro).
+4. **Nexar val −0.134:** zero-shot for this row, in-domain for K5dfi; a corpus switch, not a cost of DoTA.
+5. **DAD +0.179 is mostly a time ramp (post-hoc, printed, not gated).** `dad_position_diag` with K5dfi / K5dfiDoTA in place of W0 / R4 (`REPORTS/dad_position_diag.md`): the same accident mask on the 301 negatives (no accident) scores **placebo 0.8916 [0.8717, 0.9100]** for K5dfiDoTA (K5dfi 0.6222, LaGoVAD 0.5134); gap macro − placebo **+0.0370** (K5dfi +0.1273). Mean score on DAD negatives by fifth of the video: K5dfiDoTA 0.011 / 0.040 / 0.064 / 0.178 / 0.337, last > first in 99 % of videos (K5dfi 0.021 → 0.161, 84 %) (`REPORTS/ramp_posthoc.py`). Same-position, accident rows: K5dfiDoTA − K5dfi **+0.0804 [+0.0272, +0.1323]** — separates accident videos from normal ones, does not localize; chosen after the numbers. On TAD's 38 normal videos K5dfiDoTA's level is higher (0.13–0.22 vs 0.05–0.09 per fifth).
+6. **Mechanism not measured.** Candidate: DoTA's normals all come from clip starts, where the causal V2-S window is padded (first full window = row 7 on DAD), so "padded = normal" could be learned; the ramp continues past row 7, so this does not explain it all.
+
+**Expectations (§55):** DoTA above K5dfi — right; above the 0.8545 ruler — no (inside its CI); Nexar below — right; DADA — flat; TAD / DAD near K5dfi — DAD **wrong** (+0.179, a ramp).
+
+**Write:** "trained on DoTA: DADA no difference (−0.002 n.s.); DoTA in-domain 0.859 inside the position ruler's CI; DAD +0.179 mostly a time ramp (placebo 0.892)". **Never write:** "DoTA training improves DAD / TAD", "K5dfiDoTA localizes better", a DoTA number of this row beside a zero-shot one, "more data helps". Claude's proposal (not decided): close the DoTA-train line; another seed does not remove the YouTube-id overlap or the ramp.
