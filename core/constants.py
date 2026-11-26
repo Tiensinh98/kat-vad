@@ -1777,6 +1777,14 @@ DOTA_EDA_TAIL_ROWS = 10  # rows counted back from the clip end (3 s at s3)
 DOTA_EDA_END_TOLERANCE_ROWS = 1  # a span "reaches the clip end" if it stops this close to it
 DOTA_EDA_TOP_CLASSES = 12  # accident_name rows shown in the table / figure
 KIM_DOTA_TRAIN_ARMS_TABLE_NAME = "k5dfidota_arms_s2024"  # zs_arm_table control K5dfiDoTA
+# §58: ablation on the §55 corpus; KIM = K5dfiDoTA - K0dfiDoTA, VideoMAE = K0dfiDoTA - L0dfiDoTA
+KIM_DOTA_TRAIN_OFF_ROW = "K0dfiDoTA"  # K5dfiDoTA with KIM_ABLATION_FLAGS false (§53 KA1)
+KIM_DOTA_TRAIN_L0_ROW = "L0dfiDoTA"  # + v2.motion=none, model.motion_dim=0, plain CLIP (§36 R1)
+KIM_DOTA_TRAIN_ABL_REPORT_STEM = "k5dfidota_ablation_report"  # REPORTS/<this>.md
+KIM_DOTA_TRAIN_ABL_TABLES = {"kim": "k5dfidota_abl_vs_k0_s2024",  # control K0dfiDoTA
+                             "motion": "k5dfidota_abl_vs_l0_s2024"}  # control L0dfiDoTA
+KIM_DOTA_TRAIN_POSITION_RULER = (0.8545, 0.8386, 0.8695)  # §55: cubic position, DoTA-CAP-dev
+KIM_DADA_MIDDLE_RULER = (0.7342, 0.7076, 0.7594)  # §36.1: position-only middle ruler, DADA
 CAP_LIGHT_NIGHT = 2  # CAP's light column: 1 day, 2 night
 # DT7 pixel gate: DoTA boxes drawn on the recovered frames, judged by eye
 DOTA_BOX_WIDTH = 1280  # DoTA's boxes live on a 1280 x 720 frame
