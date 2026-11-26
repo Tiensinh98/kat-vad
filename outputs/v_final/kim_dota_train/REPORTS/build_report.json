@@ -1,0 +1,31 @@
+{
+  "clip_ids_sha1": "e57bd3c07b6359b328117b946fef9bbadd4dbc3c",
+  "construction": {
+    "clips": 3020,
+    "clips_giving_normals": 2075,
+    "clips_with_both_kinds": 2051,
+    "clips_with_windows": 3019,
+    "row_abnormal_share": 0.323,
+    "train_abnormal": 9386,
+    "train_items": 12937,
+    "train_normal": 3551
+  },
+  "excluded": [
+    "V3--0ubJkNE_005461",
+    "gZbGLa253Ak_002191",
+    "nvVk7L3GrJQ_002650"
+  ],
+  "geometry": {
+    "hop": 6,
+    "min_positive": 1,
+    "stride": 3,
+    "window_length": 12
+  },
+  "plan": {
+    "epochs": 6,
+    "items_per_epoch": 18772,
+    "steps": 1764,
+    "steps_per_epoch": 294
+  },
+  "rule": "KIM_RUN.md \u00a755"
+}
