@@ -186,3 +186,33 @@ class TestPositionDiag:
         assert r["same_position_contrasts"][f"{R4} - {W0}"]["mean"] == 0.0
         assert "_boot" not in r["rows"][W0]["same_position"]
         assert "No-pixel `t/N` ruler macro = 1.0000" in diag.render(r)
+
+    def test_any_rows_with_contrasts_against_a_control(self) -> None:
+        drift, labels = _dad_curves(trend=1.0, seed=0, bump=0.0)
+        react, _ = _dad_curves(trend=0.0, seed=1, bump=1.0)
+        names = ("C", "A", "B")
+        contrasts = (("A", "C"), ("B", "C"))
+        r = diag.diagnose({"C": drift, "A": react, "B": drift}, labels, RESAMPLES, 0,
+                          names, contrasts)
+        assert tuple(r["rows"]) == names
+        assert list(r["same_position_contrasts"]) == ["A - C", "B - C"]
+        assert r["same_position_contrasts"]["B - C"]["mean"] == 0.0
+        text = diag.render(r)
+        assert all(f"| {n} |" in text for n in names) and f"| {W0} |" not in text
+
+    def test_row_dirs_from_cli(self, tmp_path: Path) -> None:
+        parser = diag.build_arg_parser()
+        args = parser.parse_args(["--row", "C", str(tmp_path / "c"),
+                                  "--row", "A", str(tmp_path / "a"),
+                                  "--control", "C", "--out-dir", str(tmp_path)])
+        dirs, contrasts = diag.row_dirs(args)
+        assert dirs == {"C": tmp_path / "c", "A": tmp_path / "a"} and contrasts == (("A", "C"),)
+        old = parser.parse_args(["--dad-root", str(tmp_path), "--out-dir", str(tmp_path)])
+        dirs, contrasts = diag.row_dirs(old)
+        assert dirs[LAG] == tmp_path / LAG / constants.ZS_LAGOVAD_RUN
+        assert contrasts == diag.CONTRASTS
+        bad = parser.parse_args(["--row", "C", "x", "--control", "Z", "--out-dir", str(tmp_path)])
+        with pytest.raises(ValueError, match="--control"):
+            diag.row_dirs(bad)
+        with pytest.raises(SystemExit):
+            parser.parse_args(["--dad-root", "x", "--row", "C", "x", "--out-dir", "y"])

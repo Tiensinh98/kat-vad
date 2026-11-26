@@ -1759,6 +1759,16 @@ KIM_DOTA_TRAIN_ROW = "K5dfiDoTA"  # in-domain on DoTA, never a zero-shot row
 KIM_DOTA_TRAIN_OUTPUT_DIRNAME = "kim_dota_train"  # OUTPUT_ROOT/<this>/<row>/{K5/s<seed>, eval}
 KIM_DOTA_TRAIN_REPORT_STEM = "k5dfidota_report"  # REPORTS/<this>.md
 KIM_DOTA_TRAIN_TABLE_NAME = "k5dfidota_s2024"  # zs_arm_table control K5dfi (row K5f printed)
+# §56: three arms on the §55 corpus, control K5dfiDoTA; each = K5dfiDoTA's command + these sets
+KIM_DOTA_TRAIN_ARMS = {
+    "K5dfieDoTA": ("data.is_egocentric=true",),
+    "K5dfibk25DoTA": (f"loss.bottomk_weight={KIM_BOTTOMK25_WEIGHT}",
+                      f"loss.bottomk_topk_pct={KIM_BOTTOMK_TOPK_PCT}"),
+    "K5dfiebk25DoTA": ("data.is_egocentric=true", f"loss.bottomk_weight={KIM_BOTTOMK25_WEIGHT}",
+                       f"loss.bottomk_topk_pct={KIM_BOTTOMK_TOPK_PCT}"),
+}
+KIM_DOTA_TRAIN_ARMS_REPORT_STEM = "k5dfidota_arms_report"  # REPORTS/<this>.md
+KIM_DOTA_TRAIN_ARMS_TABLE_NAME = "k5dfidota_arms_s2024"  # zs_arm_table control K5dfiDoTA
 CAP_LIGHT_NIGHT = 2  # CAP's light column: 1 day, 2 night
 # DT7 pixel gate: DoTA boxes drawn on the recovered frames, judged by eye
 DOTA_BOX_WIDTH = 1280  # DoTA's boxes live on a 1280 x 720 frame

@@ -2173,6 +2173,7 @@ a planted in-box signal (expect GO) before any real number exists.
 **Rule:** Compute the no-pixel monotone AND middle rulers whenever a label construction changes; a ruler near 1.0 means the macro cannot be read as detection.
 **Files:** `core/tools/dad_position_diag.py`, `core/tools/nexar_transfer_readout.py:read_tad_runs`, `core/docs/final/ZS_DAD.md` §8.
 **Gate status.** One occurrence; reinforces the position-ruler rule (pending (ag)/(ah), (ar)). Candidate.
+**Recurrence 2026-11-26 (§55.1).** K5dfiDoTA's DAD macro +0.179 over K5dfi read as a big gain in the four-set table; the placebo was not in the table and only a post-hoc `dad_position_diag` showed it at 0.892 (gap +0.037). Second occurrence: the DAD placebo is now printed for every row by the §56 runbook (`dad_position_diag --row/--control`). Make it part of `zs_arm_table`'s DAD block if a third row hits it.
 
 ## (cd) [MEDIUM] Notebooks - A one-attribute version guard passes a partial upload (2026-11-04)
 **Triggers:** Colab upload, Drive, per-file upload, stale code, version guard, KeyError at late step, hasattr

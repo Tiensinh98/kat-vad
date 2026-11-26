@@ -3204,3 +3204,22 @@ Guards: J10 (step 1,764 = last step of `metrics.jsonl`), config diff = DC4, last
 **Expectations (§55):** DoTA above K5dfi — right; above the 0.8545 ruler — no (inside its CI); Nexar below — right; DADA — flat; TAD / DAD near K5dfi — DAD **wrong** (+0.179, a ramp).
 
 **Write:** "trained on DoTA: DADA no difference (−0.002 n.s.); DoTA in-domain 0.859 inside the position ruler's CI; DAD +0.179 mostly a time ramp (placebo 0.892)". **Never write:** "DoTA training improves DAD / TAD", "K5dfiDoTA localizes better", a DoTA number of this row beside a zero-shot one, "more data helps". Claude's proposal (not decided): close the DoTA-train line; another seed does not remove the YouTube-id overlap or the ramp.
+
+## 56. Three arms on the §55 DoTA-train corpus: K5dfieDoTA, K5dfibk25DoTA, K5dfiebk25DoTA (dated note 2026-11-26, before any number of these rows; user)
+
+**Why.** The user wants to see how the two §34 / §51 knobs behave when the host is trained on DoTA train (§55) instead of Nexar. The line is in-domain on DoTA and §55.1 showed a time ramp on DAD; these rows inherit both caveats. Claude had proposed closing the line (§55.1); the user chose to run these arms.
+
+| # | Choice |
+|---|---|
+| DA1 Rows | Control **K5dfiDoTA** (§55, checkpoint reused, not retrained). **K5dfieDoTA** = + `data.is_egocentric=true` (θ_ego 0.85, ≤ 2 clips per splice: §34). **K5dfibk25DoTA** = + `loss.bottomk_weight=0.25`, `loss.bottomk_topk_pct=5` (§51's two keys; `k = n // 5` = 2 on a plain 12-row window, 4 on Nexar's 20). **K5dfiebk25DoTA** = both. Together a 2 × 2 (ego × bottom-k) with K5dfiDoTA at the origin. `constants.KIM_DOTA_TRAIN_ARMS` |
+| DA2 Corpus / inputs | §55's exactly: `DoTA_train_window` (12,937 windows), the DoTA-statistics bake, the four restated zero-shot bakes, the same KNN cache; nothing re-extracted or re-fitted |
+| DA3 Recipe | K5dfiDoTA's command + DA1's sets; s2024, 6 epochs, 1,764 steps. Guards: J10, config diff to K5dfiDoTA = exactly the keys of DA1 (bottomk_topk_pct shows because its default is 16), last-epoch `mul_mil` > 0.01, bake manifests (DoTA `train_ids_sha1`) |
+| DA4 Reads | As §55 DC6: Nexar val, DoTA-CAP-dev (protocol B, **in-domain**), DADA whole, TAD, DAD. DoTA-CAP eval stays sealed |
+| DA5 Table | `zs_arm_table` control K5dfiDoTA, rows the three arms + K5dfi (Nexar-trained, printed); Nexar val each arm − K5dfiDoTA paired per video. **DAD position diagnostics for every row** (`dad_position_diag --row`, control K5dfiDoTA, LaGoVAD printed): placebo and same-position accident rows beside every DAD number. Interaction (ego × bottom-k) is not tested; the 2 × 2 cells are printed |
+| DA6 Decision | none (n = 1). K5f stays the reference and the zero-shot model whatever the numbers |
+
+**Expectation (before the number; a wrong one changes nothing).** On Nexar, K5dfie − K5dfi showed no difference on any set (§34.1) and K5dfibk25 − K5dfirr was under the margin (§51.1), so: ego ≈ 0 on every set; bottom-k narrows the curve (§50.1) and may lower DoTA-CAP-dev micro slightly; DADA not separated for all three; whether bottom-k shrinks DAD's ramp (placebo 0.892) is not predicted.
+
+**Not licensed.** Anything from §55.1's list; "ego / bottom-k helps on DoTA" as a zero-shot claim; reading a DAD macro without its placebo.
+
+Runbook `colab/final/k5dfidota_arms.ipynb`; outputs `Thesis-Final/outputs/kim_dota_train/<row>/`, report `REPORTS/k5dfidota_arms_report.md`.

@@ -8,6 +8,7 @@
 - §35–§38 (2026-11-21/22): whole DoTA-CAP (1,129) table; L0dfi; K5fT2 / K5dfiT2; Nexar source-shortcut probe; K5fno (negative-video normals only) below on 4 sets.
 - §39–§42 (2026-11-22/23): CCTV training — ACCIDENT (P1 not separated), Nexar EDA (§40), MSAD-full × kernel 3/9 (§41: `ignore` on KIM above on MSAD, motion + KIM never raises TAD macro), K5dfiACCs built not run (§42).
 - §43–§44 (2026-11-23/24): pre-onset rise (Nexar val [−1, 0) AUC 0.694; DoTA K5f 0.81 of span level 1–2 s early, costs DoTA macro 0.020); raw vs min-max micro and check 2 — on DoTA raw micro is lost to **level, not ranking**, concentrated in ego-uninvolved accidents (43 % low vs 9 %).
+- §56 (2026-11-26, user): K5dfieDoTA / K5dfibk25DoTA / K5dfiebk25DoTA on the §55 corpus, control K5dfiDoTA, built NOT RUN (`colab/final/k5dfidota_arms.ipynb`); `dad_position_diag --row/--control`.
 - §55.1 (2026-11-26, READ OUT, n = 1, decides nothing, K5f stays): K5dfiDoTA − K5dfi DADA −0.002 n.s., TAD n.s., DoTA-CAP-dev in-domain 0.859 inside the position ruler CI (0.8545), DAD +0.179 mostly a time ramp (placebo 0.892, post-hoc), Nexar −0.134 (corpus switch).
 - §55 (2026-11-25, user's override of DT7): K5dfiDoTA = K5dfi's recipe on 3,020 recovered DoTA train clips (W 12 / hop 6 / s3) built, NOT RUN; A2 statistics fitted on DoTA train, `colab/final/k5dfidota.ipynb`, 31 tests.
 - §52.2 (2026-11-25): DoTA-train box redraw NOT VALID (decoys 6 / 10) -> line STOPPED; nothing trains on DoTA-CAP-train; DoTA stays held out.

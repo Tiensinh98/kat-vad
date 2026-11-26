@@ -14,6 +14,11 @@ separate "reacts to the accident" from "scores rise with time". Pure aggregation
 
     python -m core.tools.dad_position_diag --dad-root outputs/v_final/zs_lagovad/eval/dad \\
         --out-dir outputs/v_final/zs_lagovad/REPORTS
+
+Any rows (``--row NAME RUN_DIR``, repeated; contrasts = each row minus ``--control``)::
+
+    python -m core.tools.dad_position_diag --row LaGoVAD <zs_lagovad>/eval/dad/LaGoVAD/released \\
+        --row K5dfiDoTA <run>/eval/dad/K5/s2024 --control K5dfiDoTA --out-dir <REPORTS>
 """
 
 from __future__ import annotations
@@ -113,7 +118,8 @@ def row_reads(pos: np.ndarray, neg: np.ndarray, abnormal: np.ndarray, full_from:
 
 
 def diagnose(curves: dict[str, dict[str, np.ndarray]], labels: dict[str, np.ndarray],
-             resamples: int, seed: int) -> dict[str, Any]:
+             resamples: int, seed: int, rows_order: tuple[str, ...] = ROWS,
+             contrasts: tuple[tuple[str, str], ...] = CONTRASTS) -> dict[str, Any]:
     """The full report from ``{row: {video: score}}`` and the shared labels."""
     abnormal = accident_rows(labels)
     ids = sorted(labels)
@@ -127,9 +133,9 @@ def diagnose(curves: dict[str, dict[str, np.ndarray]], labels: dict[str, np.ndar
     rows = {
         row: row_reads(np.stack([curves[row][v] for v in pos_ids]),
                        np.stack([curves[row][v] for v in neg_ids]), abnormal, full_from, draws)
-        for row in ROWS
+        for row in rows_order
     }
-    boots = {row: rows[row]["same_position"].pop("_boot") for row in ROWS}
+    boots = {row: rows[row]["same_position"].pop("_boot") for row in rows_order}
     ruler = np.arange(length, dtype=np.float64)
     truth = np.isin(np.arange(length), abnormal).astype(np.int64)
     return {
@@ -147,7 +153,7 @@ def diagnose(curves: dict[str, dict[str, np.ndarray]], labels: dict[str, np.ndar
                 - rows[b]["same_position"]["accident_rows"]["mean"],
                 boots[a] - boots[b],
             )
-            for a, b in CONTRASTS
+            for a, b in contrasts
         },
     }
 
@@ -172,7 +178,7 @@ def render(r: dict[str, Any]) -> str:
         f"macro, rows {full}+ | placebo, rows {full}+ | gap |",
         "|---|---|---|---|---|---|---|",
     ]
-    for row in ROWS:
+    for row in r["rows"]:
         a, f = r["rows"][row]["all_rows"], r["rows"][row]["full_window_rows"]
         lines.append(f"| {row} | {a['positive']:.4f} | {_ci(a['placebo_ci'])} | "
                      f"{_ci(a['gap'], True)} | {f['positive']:.4f} | "
@@ -184,7 +190,7 @@ def render(r: dict[str, Any]) -> str:
         f"| row | accident rows | rows {full} up to the accident | difference |",
         "|---|---|---|---|",
     ]
-    for row in ROWS:
+    for row in r["rows"]:
         s = r["rows"][row]["same_position"]
         lines.append(f"| {row} | {_ci(s['accident_rows'])} | {_ci(s['rows_before'])} | "
                      f"{_ci(s['accident_minus_before'], True)} |")
@@ -195,22 +201,39 @@ def render(r: dict[str, Any]) -> str:
 
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n", 1)[0])
-    parser.add_argument("--dad-root", type=Path, required=True,
-                        help="<zs_lagovad root>/eval/dad (<row>/<run>/scores under it)")
+    src = parser.add_mutually_exclusive_group(required=True)
+    src.add_argument("--dad-root", type=Path,
+                     help="<zs_lagovad root>/eval/dad (<row>/<run>/scores under it): rows "
+                          "LaGoVAD / W0 / R4")
+    src.add_argument("--row", nargs=2, action="append", metavar=("NAME", "RUN_DIR"),
+                     help="one row's core.evaluate run dir (scores/ under it); repeat")
+    parser.add_argument("--control", help="with --row: contrasts are every other row minus this")
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--seed", type=int, default=constants.ZS_SEED, help="the arms' seed")
     parser.add_argument("--bootstrap", type=int, default=constants.V2_E1_BOOTSTRAP)
     return parser
 
 
+def row_dirs(args: argparse.Namespace) -> tuple[dict[str, Path], tuple[tuple[str, str], ...]]:
+    """``{row: run dir}`` and the contrasts, from ``--dad-root`` or ``--row`` / ``--control``."""
+    if args.row is None:
+        return {row: args.dad_root / row / (
+            constants.ZS_LAGOVAD_RUN if row == constants.ZS_LAGOVAD_ARM else f"s{args.seed}")
+            for row in ROWS}, CONTRASTS
+    dirs = {name: Path(path) for name, path in args.row}
+    if len(dirs) != len(args.row):
+        raise ValueError(f"duplicate --row names: {[n for n, _ in args.row]}")
+    if args.control not in dirs:
+        raise ValueError(f"--control {args.control!r} is not one of the --row names {list(dirs)}")
+    return dirs, tuple((row, args.control) for row in dirs if row != args.control)
+
+
 def run(args: argparse.Namespace) -> dict[str, Any]:
-    runs = {row: tadz_readout.load_run(
-        args.dad_root / row
-        / (constants.ZS_LAGOVAD_RUN if row == constants.ZS_LAGOVAD_ARM else f"s{args.seed}"))
-        for row in ROWS}
+    dirs, contrasts = row_dirs(args)
+    runs = {row: tadz_readout.load_run(d) for row, d in dirs.items()}
     labels = tadz_readout.check_labels(runs, None)
-    report = diagnose({row: runs[row][0] for row in ROWS}, labels, args.bootstrap,
-                      constants.V5_BOOTSTRAP_SEED)
+    report = diagnose({row: runs[row][0] for row in dirs}, labels, args.bootstrap,
+                      constants.V5_BOOTSTRAP_SEED, tuple(dirs), contrasts)
     write_json_atomic(args.out_dir / f"{REPORT_STEM}.json", report)
     write_text_atomic(args.out_dir / f"{REPORT_STEM}.md", render(report))
     LOGGER.info("position diagnostics -> %s", args.out_dir)
