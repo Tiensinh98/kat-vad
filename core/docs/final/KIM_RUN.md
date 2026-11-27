@@ -3324,3 +3324,23 @@ Raw `outputs/v_final/kim_dota_train/REPORTS/{k5dfidota_ablation_report.md,ablati
 **Expectations (§58):** KIM on DADA +0.01…+0.03 — **wrong** (−0.002); KIM on DoTA NO DIFFERENCE — held; VideoMAE GAIN ≥ +0.10 on DADA — held (+0.176); L0dfiDoTA on DADA near or below the middle ruler — held (0.591, below).
 
 **Licensed (n = 1):** "Trained on DoTA, the motion stream accounts for the whole gain over the LaGoVAD trunk (DADA +0.176 macro); KIM adds nothing separable on DADA (−0.002) or in-domain DoTA (+0.006, under the margin)." **Not licensed:** "KIM does not work" (one host, one seed; on the Nexar host it gains on DADA); "KIM only helps on Nexar" (the hosts differ in five ways); any DoTA number of these rows as zero-shot; "VideoMAE learns accidents on DoTA" without the position ruler beside it.
+
+### 58.2 L0dfiDoTA on DAD + DAD placebo (2026-11-27, user's Colab run `colab/final/l0dfidota_dad_figures.ipynb`, s2024, n = 1; POST-HOC, printed, decides nothing, K5f stays)
+
+Raw `outputs/v_final/kim_dota_train/L0dfiDoTA/eval/dad/K5/s2024/results.json` (466 videos, `score_norm` none) and `outputs/v_final/kim_dota_train/REPORTS/dad_position_l0dfidota/dad_position_diag.{md,json}` (control K5dfiDoTA). Same CLIP frames as K5dfiDoTA's DAD read (check-inputs, step 5). **DAD's no-pixel `t/N` ruler macro = 1.0000** (accident = rows 13–14 of 15 in every positive): DAD macro alone measures position, so it is read only beside the placebo (§56 DA5).
+
+| row | DAD macro / micro / AP (raw) | placebo, all rows | gap beyond placebo, all rows | gap, rows 7+ | same position: accident rows (pos vs neg) |
+|---|---|---|---|---|---|
+| K5dfiDoTA | 0.9287 / 0.9109 / 0.3487 | 0.8916 [0.8717, 0.9100] | +0.0370 [+0.0121, +0.0621] | +0.0334 [−0.0085, +0.0736] | 0.7553 [0.7077, 0.8005] |
+| L0dfiDoTA | 0.6697 / 0.6732 / 0.1283 | 0.6048 [0.5709, 0.6384] | +0.0649 [+0.0100, +0.1185] | +0.0384 [−0.0212, +0.0979] | 0.6341 [0.5793, 0.6881] |
+
+Accident rows, paired (position cannot help): **L0dfiDoTA − K5dfiDoTA −0.1212 [−0.1768, −0.0645]**. Accident rows − rows 7 up to the accident: K5dfiDoTA +0.0388 [−0.0007, +0.0777], L0dfiDoTA −0.0106 [−0.0694, +0.0472]. Median video AUC (`zs_curves`, global raw): DAD 0.947 / 0.731, DADA 0.789 / 0.587, DoTA-CAP-dev (in-domain) 0.865 / 0.665 (K5dfiDoTA / L0dfiDoTA).
+
+**Reading.**
+1. **The +0.259 DAD macro gap between the two rows is mostly ramp.** K5dfiDoTA's placebo is 0.892, L0dfiDoTA's 0.605; beyond its own placebo each row gains only +0.04 / +0.06 (all rows), and neither interval clears 0 on rows 7+. Within a video, neither row is shown to point at the accident beyond the time ramp.
+2. **Across videos at the same rows, the DoTA-trained motion host separates better:** accident rows of positives vs the same rows of negatives 0.755 vs 0.634, paired +0.121 [+0.065, +0.177]. This is the DAD read position cannot reach. It is motion + KIM together (no K0dfiDoTA DAD read; on DADA §58.1 put the whole gain on VideoMAE).
+3. L0dfiDoTA's same-position AUC (0.634) sits between the released LaGoVAD (0.588) and the Nexar-trained K5dfi (0.675) of the §56 placebo table — other runs, printed beside, not a contrast.
+
+**Licensed (n = 1):** "On DAD, trained on DoTA, the motion host ranks accident rows of positive videos above the same rows of negative videos better than the LaGoVAD trunk (+0.121 [+0.065, +0.177])." **Not licensed:** any DAD macro difference without the placebo ("+0.26 on DAD"); "KIM helps on DAD" (no KIM-off DAD read); "either row localizes the accident within a DAD video" (rows 7+ gaps cross 0); "DoTA training improves DAD".
+
+**Figures:** `outputs/v_final/kim/REPORTS/figures/train_dota/dota_dada_dad/k5dfidota_vs_l0dfidota_s2024/` (onset, grids DoTA / DADA / DAD, two models). The notebook in the tree names the tag `k5dfidota_vs_l0dfidota_vs_lagovad_s2024` and adds the released checkpoint to the onset; the synced folder has neither, so the Drive copy that ran was older (pending: re-run step 7 only if the three-line onset is wanted).
