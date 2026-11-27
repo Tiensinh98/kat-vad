@@ -1498,6 +1498,29 @@ ZS_CURVES_DOMAINS = (ZS_CURVES_DOMAIN_ZERO_SHOT, ZS_CURVES_DOMAIN_IN, ZS_CURVES_
 ZS_CURVES_IN_DOMAIN_PAIRS = {("nexar", ZS_CURVES_NEXAR_SET)}  # (--train, set) read in-domain
 ZS_CURVES_COLORS = ("tab:blue", "tab:orange", "tab:green", "tab:purple")  # one per --read model
 
+# core.tools.loss_curves: training-loss curves of one or more runs from their metrics.jsonl
+LOSS_CURVES_STEM = "loss_curves"  # <out-dir>/<stem>_<name>.{png,json}
+LOSS_CURVES_METRICS_FILENAME = "metrics.jsonl"  # = core.train.METRICS_FILENAME (no torch here)
+LOSS_CURVES_CONFIG_FILENAME = "config.yaml"  # core.train writes it beside the metrics
+LOSS_CURVES_KEYS = ("total", "mil", "mul_mil", "dvs_sup", "dvs_sup_mil", "kim_mil", "kim_nkc", "lr")
+# loss term -> its config weight in `total` (core/train.py: total = mil + sum w * term); None = 1
+LOSS_CURVES_WEIGHTS = {
+    "mil": None,
+    "mul_mil": "loss.mul_weight",
+    "dvs_sup": "loss.pseudo_sup_weight",
+    "dvs_sup_mil": "loss.pseudo_sup_mil_weight",
+    "bottomk": "loss.bottomk_weight",
+    "kim_mil": "kim.mil_weight",
+    "kim_nkc": "kim.nkc_weight",
+}
+LOSS_CURVES_SMOOTH_STEPS = 25  # centred rolling mean / std window, in logged steps
+LOSS_CURVES_EDGE_STEPS = 50  # JSON: mean over the first / last this many steps a key is logged
+LOSS_CURVES_COLS = 4  # panels per row
+LOSS_CURVES_PANEL_W = 4.2  # inches per panel
+LOSS_CURVES_PANEL_H = 3.0
+LOSS_CURVES_BAND_ALPHA = 0.2  # +-1 rolling std band around the rolling mean
+LOSS_CURVES_DIRNAME = "losses"  # <final>/kim/REPORTS/figures/train_<a>_vs_<b>/losses/<tag>/
+
 # ---------------------------------------------------------------------------
 # KIM_RUN.md §38 S0: Nexar source-shortcut probe (before any K5fno build)
 # ---------------------------------------------------------------------------

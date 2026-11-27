@@ -125,3 +125,14 @@ draws with `zs_curves` (grid, onset, `--all`) into
   sits near 0 before the onset and peaks ≈ 0.65 at +1.5–2 s; K5-T2 has the same shape on a
   raised floor (≈ 0.40 → 0.78), i.e. more false alarm level on normal Nexar rows; LaGoVAD is
   flat at ≈ 0.27. Position-confounded on Nexar (middle ruler 0.9735): shape only.
+
+## Training-loss curves (`core.tools.loss_curves`, 2026-11-27)
+
+Reads each run's own `metrics.jsonl` (+ `config.yaml` for the weights); nothing is re-run. One panel per key (`total`, `mil`, `mul_mil`, `dvs_sup`, `dvs_sup_mil`, `kim_mil`, `kim_nkc`, `lr`), runs overlaid on global step: centred rolling mean (25 steps) inside a band of ±1 rolling standard deviation over the same window (minibatch noise; per-step lines dropped 2026-11-27, user). The JSON holds first / last 50-step means, the smoothed minimum, and `total_residual` = max |total − Σ w·term| (≈ 0 means every term of `total` is logged).
+
+    python -m core.tools.loss_curves --name k5dfi_nexar_vs_dota_s2024 \
+        --out-dir outputs/v_final/kim/REPORTS/figures/train_nexar_vs_dota/losses/k5dfi_nexar_vs_dota_s2024 \
+        --run "K5dfi (Nexar)" outputs/v_final/kim_dvs_ignore/K5dfi/K5/s2024 \
+        --run "K5dfiDoTA (DoTA)" outputs/v_final/kim_dota_train/K5dfiDoTA/K5/s2024
+
+**K5dfi Nexar vs DoTA (s2024, n = 1, illustration).** Same recipe, same LR schedule, ~1,750 steps each, but Nexar = 33 epochs × 53 steps, DoTA = 6 epochs × 294 steps (each Nexar window seen ~5.5× as often). `total_residual` 3e-7 on both. Last-50-step means Nexar / DoTA: total 0.79 / 1.63, `mil` 0.20 / 0.42, `mul_mil` 0.16 / 0.35, `kim_mil` 0.19 / 0.40, `dvs_sup_mil` 0.13 / 0.26, `dvs_sup` 0.04 / 0.07, `kim_nkc` 0.79 / 1.19 (starts at step 221 on both). Starts match (total 3.12 / 3.11). The DoTA row ends at about twice the Nexar loss on every term and flattens after ~750 steps; the Nexar row keeps falling. A training loss is not a fit to held-out data: lower Nexar loss is consistent with more passes over a smaller corpus, and says nothing about either row's zero-shot score.
