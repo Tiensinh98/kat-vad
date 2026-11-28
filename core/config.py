@@ -227,6 +227,8 @@ class KIMConfig:
     ``edge_mask`` also zeroes each bag's first valid pair (the KP3 consequence, §5.3).
     ``capacity_control`` = arm Kcap: K5 with ``kin_feat = MLP(LN(v^t))``, no differences (§6.3).
     ``seam_mask`` zeroes the pairs across DVS joins: arm K5d, DVS on (§12).
+    ``edge_fill`` gives every masked pair the nearest real difference and pads the gate
+    convolutions by replication: no constant at the sequence edges (§68).
     """
 
     enabled: bool = False
@@ -234,6 +236,7 @@ class KIMConfig:
     edge_mask: bool = False
     capacity_control: bool = False
     seam_mask: bool = False
+    edge_fill: bool = False
     # §59: "none" = KIM reads v^t; "clip" / "fused" = a second temporal encoder over the CLIP
     # columns / over x + W_u u feeds KIM, which still returns onto v^t
     input_encoder: str = constants.KIM_INPUT_ENCODER_NONE
@@ -510,6 +513,8 @@ def validate_kim(cfg: Config) -> None:
             raise ValueError("kim.capacity_control needs kim.enabled=true and kim.prototypes=true")
         if kim.seam_mask:
             raise ValueError("kim.seam_mask needs kim.enabled=true and pairs (no capacity_control)")
+        if kim.edge_fill:
+            raise ValueError("kim.edge_fill needs kim.enabled=true and pairs (no capacity_control)")
         if kim.input_encoder != constants.KIM_INPUT_ENCODER_NONE:
             raise ValueError("kim.input_encoder needs kim.enabled=true")
         return
@@ -526,6 +531,8 @@ def validate_kim(cfg: Config) -> None:
             raise ValueError("kim.capacity_control has no pairs: kim.edge_mask must be false")
         if kim.seam_mask:
             raise ValueError("kim.seam_mask needs kim.enabled=true and pairs (no capacity_control)")
+        if kim.edge_fill:
+            raise ValueError("kim.edge_fill needs kim.enabled=true and pairs (no capacity_control)")
     if kim.seam_mask and cfg.dvs.theta >= 1.0 and cfg.dvs.theta_ego >= 1.0:  # arm K5d: no join
         raise ValueError("kim.seam_mask needs DVS on (dvs.theta < 1 or dvs.theta_ego < 1)")
     if cfg.kip.enabled:

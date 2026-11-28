@@ -68,7 +68,7 @@ def _build_kim(cfg: Config) -> KIM:
         torch.manual_seed(cfg.train.seed)
         arm = KIMCapacity if cfg.kim.capacity_control else KIM
         kim = arm(cfg.model.hidden_dim, cfg.kim.width, prototypes=cfg.kim.prototypes,
-                  edge_mask=cfg.kim.edge_mask)
+                  edge_mask=cfg.kim.edge_mask, edge_fill=cfg.kim.edge_fill)
         if cfg.kim.input_encoder != constants.KIM_INPUT_ENCODER_NONE:
             model = cfg.model
             kim.attach_encoder(

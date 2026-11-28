@@ -2044,3 +2044,14 @@ KIM_WG_GATE_TOL = 1e-4  # WG4: whole macro vs the saved read-out (cross-GPU floa
 KIM_WG_REPORT_STEM = "window_geometry_read"  # REPORTS/window_geometry/<this>.{md,json}
 KIM_WG_GEOMETRY, KIM_WG_PART, KIM_WG_NOT = "GEOMETRY", "PART GEOMETRY", "NOT GEOMETRY"  # WG6
 KIM_WG_SPIKE_ROWS = (1, 2)  # WG7: rows where KIM's vel / acc are structurally zero (edge_mask)
+# KIM_RUN §68: edge fill (no constant at the sequence edges) on the CLIP-only DoTA host
+KIM_EDGE_FILL_KEY = "kim.edge_fill"  # EF4: the only config key the row adds to L5dfiDoTA
+KIM_EDGE_FILL_ROW = "L5dfiDoTAef"  # EF2
+KIM_EDGE_FILL_FAILED_ROW = "L5dfiDoTA"  # EF3: the §64.2 row the fill should repair
+KIM_EDGE_FILL_TRUNK_ROW = "L0dfiDoTArr"  # EF3: §64.2's trunk control (Tesla T4)
+KIM_EDGE_FILL_TRUNK_RERUN = "L0dfiDoTArr2"  # EF3: the trunk re-trained on another GPU
+KIM_EDGE_FILL_SETS = ("dota", "dada")  # EF7: deciding sets (DoTA in-domain)
+KIM_EDGE_FILL_REPORT_STEM = "kim_edge_fill_report"  # REPORTS/<this>.{md,json}
+KIM_EDGE_FILL_HELPS, KIM_EDGE_FILL_COSTS = "KIM HELPS", "KIM COSTS"  # EF7
+KIM_EDGE_FILL_NO_DIFFERENCE, KIM_EDGE_FILL_MIXED = "NO DIFFERENCE", "MIXED"
+KIM_GATE_PADDING_FILL = "replicate"  # EF1 (c): gate conv padding_mode under kim.edge_fill

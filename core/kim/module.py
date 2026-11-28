@@ -69,6 +69,23 @@ def first_difference(x: Tensor) -> Tensor:
     return out
 
 
+def fill_from_nearest(x: Tensor, have: Tensor, valid: Tensor) -> Tensor:
+    """``x (B, L, F)`` with every valid row lacking a value (``valid & ~have``) set to the nearest
+    row that has one, the next first, else the previous (``KIM_RUN.md`` §68 EF1). Rows with no
+    such row anywhere, and invalid rows, are left as they are.
+    """
+    length = have.shape[1]
+    idx = torch.arange(length, device=x.device).expand_as(have)
+    has = have.bool()
+    nxt = torch.where(has, idx, torch.full_like(idx, length))
+    nxt = torch.flip(torch.cummin(torch.flip(nxt, [1]), dim=1).values, [1])
+    prv = torch.cummax(torch.where(has, idx, torch.full_like(idx, -1)), dim=1).values
+    src = torch.where(nxt < length, nxt, prv)
+    need = valid.bool() & ~has & (src >= 0)
+    src = torch.where(need, src, idx)
+    return torch.gather(x, 1, src.unsqueeze(-1).expand_as(x))
+
+
 def kim_scale(d1: Tensor, pair: Tensor) -> Tensor:
     """Per-bag median over valid pairs of ``mean_c d1`` (``(B,)``, detached; 1 if no pair)."""
     per_step = d1.detach().mean(dim=-1)  # (B, L)
@@ -137,11 +154,13 @@ class KIM(nn.Module):
         width: int = constants.KIM_WIDTH,
         prototypes: bool = False,
         edge_mask: bool = False,
+        edge_fill: bool = False,
     ) -> None:
         super().__init__()
         self.width = width
         self.use_prototypes = prototypes
         self.edge_mask = edge_mask
+        self.edge_fill = edge_fill
         feat_dim = 3 * width
         self.norm = nn.LayerNorm(d_model)
         self._build_feature_layers(d_model, width)
@@ -178,8 +197,12 @@ class KIM(nn.Module):
     def _build_feature_layers(self, d_model: int, width: int) -> None:
         self.state_proj = nn.Linear(d_model, width)
         pad = (constants.KIM_GATE_KERNEL - 1) // 2
-        self.vel_gate = nn.Conv1d(width, width, constants.KIM_GATE_KERNEL, padding=pad)
-        self.acc_gate = nn.Conv1d(width, width, constants.KIM_GATE_KERNEL, padding=pad)
+        # §68 EF1 (c): replicate the edge row instead of zero padding (same weights, same shapes)
+        mode = constants.KIM_GATE_PADDING_FILL if self.edge_fill else "zeros"
+        self.vel_gate = nn.Conv1d(width, width, constants.KIM_GATE_KERNEL, padding=pad,
+                                  padding_mode=mode)
+        self.acc_gate = nn.Conv1d(width, width, constants.KIM_GATE_KERNEL, padding=pad,
+                                  padding_mode=mode)
 
     def _feature_layers(self) -> tuple[nn.Module, ...]:
         return (self.state_proj, self.vel_gate, self.acc_gate)
@@ -214,10 +237,14 @@ class KIM(nn.Module):
         d1 = first_difference(state)
         scale = kim_scale(d1, pair)
         d1 = d1 * pair.unsqueeze(-1) / (scale[:, None, None] + constants.KIM_EPS)
+        if self.edge_fill:  # §68 EF1 (a): no structural zero where a pair is masked
+            d1 = fill_from_nearest(d1, pair, mask)
         vel, vel_gate = self._gated(self.vel_gate, d1, mask)
         pair2 = torch.zeros_like(pair)
         pair2[:, 1:] = pair[:, 1:] * pair[:, :-1]
         d2 = first_difference(vel) * pair2.unsqueeze(-1)
+        if self.edge_fill:  # §68 EF1 (b)
+            d2 = fill_from_nearest(d2, pair2, mask)
         acc, acc_gate = self._gated(self.acc_gate, d2, mask)
         return torch.cat([state, vel, acc], dim=-1), scale, vel_gate, acc_gate
 
@@ -331,4 +358,5 @@ class KIMCapacity(KIM):
         return norm
 
 
-__all__ = ["KIM", "KIMCapacity", "KIMOutput", "first_difference", "kim_scale", "pair_mask"]
+__all__ = ["KIM", "KIMCapacity", "KIMOutput", "fill_from_nearest", "first_difference", "kim_scale",
+           "pair_mask"]
