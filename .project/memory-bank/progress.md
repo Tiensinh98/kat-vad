@@ -1,6 +1,14 @@
 # Progress
 
-**2026-11-24 (full update, branch `v_final_las_vad`) — K5f is the reference and main model; every arm since §12 is printed only, none adopted.** One line per section, detail in `core/docs/final/KIM_RUN.md`:
+**2026-11-29 (full update, branch `v_final_las_vad`, tip `4fb3971` + uncommitted §68) — K5f stays the reference and main model; §63–§68 printed only, none adopted.** Counts: **335 Python files under `core/` (197 source + 138 under `core/tests/`), 59,829 source lines, 2,454 tests collected, 69 `.md` under `core/docs/`**.
+- §63–§63.3 (2026-11-28): DoTA-train Qwen2.5-VL captions, 30-clip pilot (32B NF4): v1 mean 3.57, v2 prompt 3.40 — no prompt chosen; §65 K5dfiDoTAt (label-template captions) built, NOT RUN.
+- §64.1 (2026-11-28, L4, n = 1): **KIM on the CLIP-only host, Nexar:** L5dfi − L0dfirr macro +0.085 / +0.067 / +0.084 (Nexar val / DoTA-CAP-dev / DADA) vs +0.025 / +0.021 / +0.029 on VideoMAE; differences carry it (L5dfi − L5dficap DoTA / DADA +0.065 / +0.062); KIM recovers ~½ of VideoMAE's gain.
+- §64.2 (2026-11-28, T4): **DoTA host: L5dfiDoTA below chance** (DoTA-CAP-dev 0.400, DADA 0.447) while fitting training like L0; L5dficapDoTA − L0 +0.014 / +0.016.
+- §66 (2026-11-28): is `kim_nkc` under-weighted? grad probe `kim_grad_probe` + row L5dfin0 (`kim.nkc_weight=0`), built, NOT RUN (`kim_nkc_weight.ipynb`).
+- §67 / §67.1 (2026-11-28): window-geometry read (`window_geometry_read`): **PART GEOMETRY** — L5dfiDoTA windowed 0.578 (+0.178 over whole) but −0.086 under L0 windowed; in-window profile rows 1–2 = 0.64 / 0.49, rest ≤ 0.06 → a window classifier writing at KIM's structural-zero slot (k = 12 // 5 = 2 = slot width; Nexar k = 4, profile there not measured). Lesson candidate (ek).
+- §68 (2026-11-29): **`kim.edge_fill`** (masked pairs take the nearest real difference, gate convs replicate-padded) and row L5dfiDoTAef vs trunk L0dfiDoTArr, built, NOT RUN (`kim_edge_fill_dota.ipynb`). Requested next, not built: (a) in-window profile of L5dfi on Nexar's 20-row windows.
+
+**2026-11-24 (earlier full update, branch `v_final_las_vad`) — K5f is the reference and main model; every arm since §12 is printed only, none adopted.** One line per section, detail in `core/docs/final/KIM_RUN.md`:
 - §13–§16 (2026-11-07/09): K5 on T2 (only Nexar val separates), form probe closed, Normal-text probe, **K5-whole** below K5 on 4 / 5 sets with flat per-video curves (`mil` → 0 by epoch 45).
 - §17–§28 (2026-11-09/16): K5neg (FA −0.43 at cut 0.5 but 3 sets below), MSAD zero-shot, Nexar gate, baseline micro, lag / failing-tail (§24: ego-uninvolved fails ~1.5×), K5ln / K5k2 / K5nc2 / K5Lneg all closed.
 - §29–§31 (2026-11-16/17): Qwen captions built; **§31 label fix** (label-0 windows = `Normal`) → **K5f replaces K5** as reference (lesson (dn)).
