@@ -1915,3 +1915,19 @@ PROTO_REPORT_STEM = "k0dfi_proto_report"  # REPORTS/<this>.{md,json}
 PROTO_TABLE_NAME = "k0dfi_proto_s2024"  # REPORTS/zs_arm_table_<this>.md
 PROTO_DAD_DIAG_DIRNAME = "dad_position_k0dfi_proto"  # REPORTS/<this>/dad_position_diag.md
 PROTO_LOG_KEYS = ("proto_lambda", "proto_cos", "proto_ready", "proto_anchor_share")
+# KIM_RUN §64: KIM on the CLIP-only host (no VideoMAE), with its capacity control, on two hosts
+KIM_CLIP_HOST_OUTPUT_DIRNAME = "kim_clip_host"  # OUTPUT_ROOT/<this>/<row>/{K5/s<seed>, eval}
+KIM_CLIP_HOST_REPORT_STEM = "kim_clip_host_report"  # REPORTS/<stem>_<host>.{md,json}
+KIM_CLIP_HOST_NEXAR, KIM_CLIP_HOST_DOTA = "nexar", "dota"
+KIM_CLIP_HOST_ROWS = {  # host -> CH1 / CH2 rows: KIM on CLIP, its Kcap, CLIP control, VideoMAE pair
+    KIM_CLIP_HOST_NEXAR: {"L5": "L5dfi", "L5cap": "L5dficap", "L0": KIM_LAGOVAD_NEXAR_ROW,
+                          "K5": KIM_DVS_IGNORE_ROW + KIM_ABLATION_RERUN_SUFFIX, "K0": "K0dfi"},
+    KIM_CLIP_HOST_DOTA: {"L5": "L5dfiDoTA", "L5cap": "L5dficapDoTA", "L0": KIM_DOTA_TRAIN_L0_ROW,
+                         "K5": KIM_DOTA_TRAIN_ROW, "K0": KIM_DOTA_TRAIN_OFF_ROW},
+}
+KIM_CLIP_HOST_CAP_FLAGS = ("kim.enabled", "kim.prototypes", "kim.capacity_control")  # CH1 Kcap
+KIM_CLIP_HOST_MOTION_KEYS = ("v2.motion", "model.motion_dim")  # CH9: K0 - L0
+KIM_CLIP_HOST_SETS = {  # CH7: host -> (deciding sets, labelled-only sets)
+    KIM_CLIP_HOST_NEXAR: (("nexar", "dota", "dada"), ("dad",)),
+    KIM_CLIP_HOST_DOTA: (("dota", "dada"), ()),
+}
