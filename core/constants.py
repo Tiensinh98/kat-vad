@@ -2014,3 +2014,27 @@ DOTA_LABEL_CAPTION_OTHER = {  # LC1: the camera car only watches; {p} = all anno
 }
 DOTA_LABEL_CAPTION_SINGLE = ("pedestrian", "obstacle", "leave_to_left", "leave_to_right")  # 1 party
 DOTA_LABEL_CAPTION_NOT_EGO_TAIL = " The camera car is not involved."
+# KIM_RUN §66: is kim_nkc under-weighted? gradient probe (NK1) + L5dfin0 (NK2) on the CLIP host
+KIM_NKC_OUTPUT_DIRNAME = "kim_nkc"  # OUTPUT_ROOT/<this>/<row>/{K5/s<seed>, eval}, REPORTS/
+KIM_NKC_ROW = "L5dfin0"  # NK2: L5dfi + kim.nkc_weight=0
+KIM_NKC_CONTROL_ROW = "L5dfi"  # NK3 (re-trained as L5dfi + RERUN_SUFFIX on another GPU)
+KIM_NKC_WEIGHT_KEY = "kim.nkc_weight"  # NK4: the only config key the row may change
+KIM_NKC_OFF_WEIGHT = 0.0
+KIM_NKC_REPORT_STEM = "kim_nkc_report"  # REPORTS/<this>.{md,json}
+KIM_NKC_SETS = (("nexar", "dota", "dada"), ("dad",))  # NK5: (deciding, labelled-only)
+KIM_NKC_HELPS, KIM_NKC_COSTS = "NKC HELPS", "NKC COSTS"  # NK7
+KIM_NKC_NO_DIFFERENCE, KIM_NKC_MIXED = "NO DIFFERENCE", "MIXED"
+KIM_GRAD_PROBE_STEM = "kim_grad_probe"  # <out>/<this>.{md,json}
+KIM_GRAD_PROBE_BATCHES = 16  # NK1: batches of the run's own batch size
+KIM_GRAD_PROBE_EPOCH = 32  # NK1: the last epoch of the 33-epoch Nexar recipe (0-based)
+KIM_GRAD_PROBE_TOTAL_TOL = 1e-4  # reassembled total vs Trainer.compute_losses
+KIM_GRAD_PROBE_GROUPS = {  # NK1: parameter group -> qualified-name prefixes in KATVAD
+    "temporal_encoder": ("temporal_encoder.",),
+    "motion_residual": ("motion_residual.",),
+    "kim": ("kim.",),
+    "fusion": ("fusion.",),
+    "heads": ("bin_head.", "sim_head."),
+}
+KIM_GRAD_PROBE_TRUNK = "temporal_encoder"
+KIM_GRAD_PROBE_BRANCH = "kim"
+KIM_GRAD_PROBE_TERMS = ("kim_mil", "kim_nkc")  # the KIM terms; everything else in total = task
