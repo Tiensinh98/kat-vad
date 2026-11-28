@@ -1,0 +1,150 @@
+{
+  "arm": {
+    "crn": "none",
+    "motion": "none"
+  },
+  "checkpoints": {
+    "s2024": "/content/drive/MyDrive/Thesis-Final/outputs/kim_clip_host/L0dfirr/K5/s2024/checkpoint_last.pt"
+  },
+  "crn_reference": "item",
+  "crop_s": 8.0,
+  "crops": {
+    "0.1": {
+      "items": 111,
+      "macro": {
+        "clips": 111,
+        "clusters": 111,
+        "high": 0.7074795665533268,
+        "low": 0.6481821884596797,
+        "mean": 0.6780749902637501
+      },
+      "middle_ruler_macro": {
+        "clips": 111,
+        "clusters": 111,
+        "high": 0.21172554309940883,
+        "low": 0.19284316392693832,
+        "mean": 0.20199256522357173
+      }
+    },
+    "0.3": {
+      "items": 112,
+      "macro": {
+        "clips": 112,
+        "clusters": 112,
+        "high": 0.6958005755914632,
+        "low": 0.6402706697195173,
+        "mean": 0.6684515937462943
+      },
+      "middle_ruler_macro": {
+        "clips": 112,
+        "clusters": 112,
+        "high": 0.6593601395792357,
+        "low": 0.653129621070607,
+        "mean": 0.656244316077735
+      }
+    },
+    "0.5": {
+      "items": 112,
+      "macro": {
+        "clips": 112,
+        "clusters": 112,
+        "high": 0.693017095235262,
+        "low": 0.6436902862852923,
+        "mean": 0.6682780960760414
+      },
+      "middle_ruler_macro": {
+        "clips": 112,
+        "clusters": 112,
+        "high": 0.9999809336286272,
+        "low": 0.9999696965468692,
+        "mean": 0.99997543878675
+      }
+    },
+    "0.7": {
+      "items": 112,
+      "macro": {
+        "clips": 112,
+        "clusters": 112,
+        "high": 0.6964006366671748,
+        "low": 0.6372705691114943,
+        "mean": 0.6669566408410889
+      },
+      "middle_ruler_macro": {
+        "clips": 112,
+        "clusters": 112,
+        "high": 0.6611218448882403,
+        "low": 0.6549781546818333,
+        "mean": 0.6580238399291017
+      }
+    },
+    "0.9": {
+      "items": 111,
+      "macro": {
+        "clips": 111,
+        "clusters": 111,
+        "high": 0.6968486301426512,
+        "low": 0.632767594349043,
+        "mean": 0.6650535078400671
+      },
+      "middle_ruler_macro": {
+        "clips": 111,
+        "clusters": 111,
+        "high": 0.22045715159110407,
+        "low": 0.20147482000528955,
+        "mean": 0.2106463757327022
+      }
+    },
+    "mean_over_placements": {
+      "macro": {
+        "clips": 110,
+        "clusters": 110,
+        "high": 0.6916852354658476,
+        "low": 0.6431262223215622,
+        "mean": 0.667647226417638
+      },
+      "videos": 110
+    }
+  },
+  "crops_skipped": {
+    "0.1": 1,
+    "0.9": 1
+  },
+  "data_dir": "/content/kim_clip_host_nexar/nexar_defs",
+  "global_steps": {
+    "s2024": 1749
+  },
+  "per_run_crop_endpoint": {
+    "s2024": 0.667647226417638
+  },
+  "per_run_whole_macro": {
+    "s2024": 0.6858374249675665
+  },
+  "positives": 112,
+  "protocol": "N-B: s1[::3] per item, CRN per item, native frames, seed-averaged",
+  "released_baseline": false,
+  "split": "nexar_val",
+  "stats_dir": null,
+  "stats_manifest": null,
+  "videos": 225,
+  "whole": {
+    "clip_auc_max": 0.6396965865992416,
+    "clip_oracle_micro": 0.7611150688923789,
+    "macro": {
+      "clips": 112,
+      "clusters": 112,
+      "high": 0.7125120593636874,
+      "low": 0.6590199880674638,
+      "mean": 0.6858374249675665
+    },
+    "micro": 0.6872979600840227,
+    "micro_ap": 0.11076861103042814,
+    "middle_ruler_macro": {
+      "clips": 112,
+      "clusters": 112,
+      "high": 0.9837907700032339,
+      "low": 0.9608286967655435,
+      "mean": 0.9735204951160077
+    },
+    "positive_frame_share": 0.03942206375806307
+  }
+}

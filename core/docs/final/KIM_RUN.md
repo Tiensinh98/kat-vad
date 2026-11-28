@@ -3559,7 +3559,27 @@ Code: `core/tools/dota_caption.py` (`pilot`, `qc-score`; reuses `nexar_caption`'
 
 **Licensed whatever the numbers:** "on a CLIP-only host trained on <corpus>, KIM's on − off is <A>, against <B> on the VideoMAE host; the difference is <I> (n = 1)". **Never:** "KIM models motion" (on CLIP rows the differences measure appearance change), "VideoMAE hides KIM's motion signal" unless Q2 is SUPPORTED **and** Q3 is DIFFERENCES on the same host and metric, any sentence from a set outside CH7, or a seed claim.
 
-Code: `core/tools/kim_clip_host_report.py` (CH5–CH9; reuses `kim_ablation_report`'s readers, pooled-AUC bootstrap and config diff), constants `KIM_CLIP_HOST_*`, tests `core/tests/test_kim_clip_host.py` (L5 / L5cap start as L0, train to score), `core/tests/test_kim_clip_host_report.py`. Runbooks `colab/final/kim_clip_host_nexar.ipynb`, `colab/final/kim_clip_host_dota.ipynb` (outputs `Thesis-Final/outputs/kim_clip_host/`). **Status: built, NOT RUN.**
+Code: `core/tools/kim_clip_host_report.py` (CH5–CH9; reuses `kim_ablation_report`'s readers, pooled-AUC bootstrap and config diff), constants `KIM_CLIP_HOST_*`, tests `core/tests/test_kim_clip_host.py` (L5 / L5cap start as L0, train to score), `core/tests/test_kim_clip_host_report.py`. Runbooks `colab/final/kim_clip_host_nexar.ipynb`, `colab/final/kim_clip_host_dota.ipynb` (outputs `Thesis-Final/outputs/kim_clip_host/`). **Status: Nexar host READ OUT 2026-11-28 (§64.1); DoTA host NOT RUN.**
+
+### 64.1 Read-out, Nexar host (2026-11-28, s2024, n = 1; PRELIMINARY, decides nothing, K5f stays)
+
+Run: all five rows on NVIDIA L4 / torch 2.14.1 / CUDA 13.0 (`env.json`). L0 = **L0dfirr** (L0dfi re-trained in the session per CH3; its DoTA-CAP-dev macro 0.6714 vs the saved L0dfi 0.6770, DADA 0.5735 vs 0.575). Gates: starts matched (L5 / L5cap = L0dfirr 0.720915; K5dfirr = K0dfi 0.689790), J10 1,749 every new row, config diffs exactly CH9's, last-epoch `mul_mil` 0.26–0.31 (above the §31 floor). Report `kim_clip_host/REPORTS/kim_clip_host_report_nexar.md`.
+
+| row | Nexar val | DoTA-CAP-dev | DADA | DAD *(labelled)* |
+|---|---|---|---|---|
+| L0dfirr | 0.6873 / 0.6676 | 0.6354 / 0.6714 | 0.5698 / 0.5735 | 0.6014 / 0.5478 |
+| L5dficap | 0.7340 / 0.7353 | 0.6290 / 0.6740 | 0.5901 / 0.5950 | 0.5869 / 0.5427 |
+| L5dfi | 0.7598 / 0.7527 | 0.6615 / 0.7385 | 0.6306 / 0.6572 | 0.5681 / 0.4923 |
+| K0dfi | 0.8505 / 0.8415 | 0.7697 / 0.8053 | 0.7374 / 0.7378 | 0.7112 / 0.7375 |
+| K5dfirr | 0.8834 / 0.8669 | 0.7657 / 0.8264 | 0.7603 / 0.7665 | 0.7076 / 0.7545 |
+
+(micro / macro.) Contrasts, macro (micro): **A = L5 − L0** Nexar +0.085 (+0.073), DoTA +0.067 (+0.026), DADA +0.084 (+0.061), all GAIN; DAD −0.056 (−0.033) COST. **B = K5 − K0** +0.025 / +0.021 / +0.029 GAIN (micro: Nexar +0.033, DADA +0.023 GAIN, DoTA −0.004 n.d.). **I = A − B** +0.060 / +0.046 / +0.055 GAIN (micro +0.040 / +0.030 / +0.038); DAD −0.073 COST. **C = L5 − L5cap** +0.018 / +0.065 / +0.062 GAIN (micro +0.026 / +0.032 / +0.040). Printed: L5cap − L0 macro Nexar +0.068, DADA +0.022 GAIN, DoTA +0.003 n.d.; K0 − L0 +0.13…+0.19 everywhere; K5 − L5 +0.09…+0.11 (DAD +0.26).
+
+**Verdicts (CH8), micro and macro alike: Q1 YES, Q2 SUPPORTED, Q3 DIFFERENCES.** Expectation check: Q1 held; Q2 expected NO CLAIM on this host — **wrong**; Q3 expected BRANCH + LOSSES — **wrong** (on the CLIP host the differences carry most of A on DoTA / DADA; the capacity branch alone gains only on Nexar val and a little on DADA).
+
+Reading (printed, not gated). (1) On the CLIP host KIM recovers about half of what VideoMAE adds on macro (A / (K0 − L0) ≈ 0.49 Nexar, 0.50 DoTA, 0.51 DADA) and less on micro (0.44 / 0.19 / 0.36); K5 − L5 stays +0.09…+0.13, so VideoMAE is not replaced. (2) I GAIN is also what diminishing returns on a stronger host would give; what separates the two readings here is C: on CLIP the differences beat a same-width branch by +0.06 on DoTA / DADA macro, while on the VideoMAE host §11 found K5 − Kcap DADA +0.0012 (s2025, pre-§31 labels — not paired with this run). (3) L5dficap fits the training windows better than L5dfi (last-step `mil` 0.244 vs 0.382, `kim_mil` 0.238 vs 0.293) and transfers worse: extra capacity without differences fits Nexar, it does not transfer. (4) DAD (labelled only): KIM costs on the CLIP host and L5dfi's macro 0.492 is below chance; never quoted as a result (time-ramp placebo, §55.1). (5) L5dfi's Nexar val micro 0.760 ≈ the clip oracle 0.761.
+
+**Licensed:** "on a CLIP-only host trained on Nexar, KIM's on − off is +0.085 / +0.067 / +0.084 macro on Nexar val / DoTA-CAP-dev / DADA, against +0.025 / +0.021 / +0.029 on the VideoMAE host; the difference is +0.060 / +0.046 / +0.055, and on the CLIP host it is carried by the differences, not the branch (n = 1)". The §64 guard is met on this host (Q2 SUPPORTED and Q3 DIFFERENCES, both metrics), so "VideoMAE overlaps with what KIM's differences add on CLIP" may be written for the Nexar host, n = 1. **Never:** "KIM models motion" (on CLIP rows the differences are appearance change between rows), "KIM can replace VideoMAE" (K5 − L5 +0.09…+0.13), any DAD sentence, any seed claim, or the DoTA host's verdict before it runs.
 
 **§63 DC9 (2026-11-28, user: only an L4 24 GB available).** The pilot may run on Qwen2.5-VL-**32B** NF4 (first choice on an L4) or **7B** bf16 (if the 32B runs out of memory); 72B NF4 stays the choice on an 80 GB GPU. The model is in every record's identity and in the pilot folder name, so records of two models are never mixed or pooled. Model size changes only caption quality; the user's QC of the 30 decides whether it is good enough. A later full run uses the model whose pilot passed, never a different one without a new pilot.
 
