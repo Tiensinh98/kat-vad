@@ -271,7 +271,8 @@ class Trainer:
                 if not cfg.loss.caption_manifest:
                     raise ValueError(f"loss.cap_contrast_mode={cfg.loss.cap_contrast_mode} needs "
                                      "loss.caption_manifest (KIM_RUN.md §30 C3)")
-                self.captions = load_caption_manifest(Path(cfg.loss.caption_manifest))
+                self.captions = load_caption_manifest(Path(cfg.loss.caption_manifest),
+                                                      cfg.data.dataset)
                 cosine_temp = constants.LNEG_CAPTION_TEMP
             elif cfg.loss.caption_manifest:
                 raise ValueError("loss.caption_manifest is read only by loss.cap_contrast_mode "

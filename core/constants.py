@@ -1965,3 +1965,52 @@ KIM_CLIP_HOST_SETS = {  # CH7: host -> (deciding sets, labelled-only sets)
     KIM_CLIP_HOST_NEXAR: (("nexar", "dota", "dada"), ("dad",)),
     KIM_CLIP_HOST_DOTA: (("dota", "dada"), ()),
 }
+# KIM_RUN §65: label-template captions on the DoTA host (K5dfiDoTA + LaGoVAD's caption path)
+CAPTION_MANIFEST_SPLIT_KEY = "train_split"  # a manifest without it is bound to nexar_train (§30)
+CAPTION_SPLIT_NEXAR = "nexar_train"
+CAPTION_SPLIT_DOTA = "dota_train"  # the §55 clips: frozen map minus DOTA_TRAIN_EXCLUDED
+CAPTION_SPLITS = (CAPTION_SPLIT_NEXAR, CAPTION_SPLIT_DOTA)
+DOTA_LABEL_CAPTION_ROW = "K5dfiDoTAt"  # K5dfiDoTA + caption_lagovad on the template captions
+DOTA_LABEL_CAPTION_FILENAME = "dota_label_captions.json"  # the manifest the row trains with
+DOTA_LABEL_CAPTION_REPORT_STEM = "k5dfidota_label_caption_report"  # REPORTS/<this>.{md,json}
+DOTA_LABEL_CAPTION_TABLE_NAME = "k5dfidota_label_caption_s2024"  # zs_arm_table name
+DOTA_LABEL_CAPTION_KEYS = ("loss.cap_contrast_mode", "loss.caption_manifest")  # LC4 config diff
+DOTA_LABEL_CAPTION_DECIDING = ("dada",)  # LC6: the zero-shot set; DoTA-CAP-dev is in-domain
+DOTA_LABEL_CAPTION_HELPS = "LABEL TEXT HELPS"
+DOTA_LABEL_CAPTION_NO_HELP = "LABEL TEXT DOES NOT HELP"
+DOTA_LABEL_CAPTION_MIXED = "MIXED"
+# LC1: DoTA object category -> the noun a caption names (rider is folded into its motor / bike)
+DOTA_LABEL_CAPTION_NOUNS = {"car": "car", "truck": "truck", "bus": "bus", "motor": "motorcycle",
+                            "bike": "bicycle", "person": "pedestrian", "rider": "rider"}
+DOTA_LABEL_CAPTION_RIDDEN = ("motor", "bike")  # a rider with one of these is that vehicle's rider
+DOTA_LABEL_CAPTION_NUMBERS = {2: "two", 3: "three", 4: "four"}  # more -> "several"
+DOTA_LABEL_CAPTION_DEFAULT_OTHER = "another vehicle"  # ego clip with no annotated object
+DOTA_LABEL_CAPTION_DEFAULT_ONE = "a vehicle"  # non-ego single-party type with no object
+DOTA_LABEL_CAPTION_EGO = {  # LC1: ego-involved clips; {p} = the other parties
+    "start_stop_or_stationary": "The camera car hits {p} that is starting, stopping or standing "
+                                "still.",
+    "moving_ahead_or_waiting": "The camera car hits {p} that is moving ahead or waiting in the "
+                               "same lane.",
+    "lateral": "The camera car and {p} moving sideways in the same direction collide.",
+    "oncoming": "The camera car collides with {p} coming from the opposite direction.",
+    "turning": "The camera car collides with {p} that turns into or crosses the road.",
+    "pedestrian": "The camera car hits {p}.",
+    "obstacle": "The camera car hits an obstacle on the road.",
+    "leave_to_left": "The camera car loses control and leaves the road to the left.",
+    "leave_to_right": "The camera car loses control and leaves the road to the right.",
+    DOTA_CAPTION_UNKNOWN: "The camera car has an accident with {p}.",
+}
+DOTA_LABEL_CAPTION_OTHER = {  # LC1: the camera car only watches; {p} = all annotated parties
+    "start_stop_or_stationary": "{p} collide while one is starting, stopping or standing still.",
+    "moving_ahead_or_waiting": "{p} collide while one is moving ahead or waiting in its lane.",
+    "lateral": "{p} moving sideways in the same direction collide.",
+    "oncoming": "{p} coming from opposite directions collide.",
+    "turning": "{p} collide while one turns into or crosses the road.",
+    "pedestrian": "{p} hits a pedestrian.",
+    "obstacle": "{p} hits an obstacle on the road.",
+    "leave_to_left": "{p} loses control and leaves the road to the left.",
+    "leave_to_right": "{p} loses control and leaves the road to the right.",
+    DOTA_CAPTION_UNKNOWN: "{p} have an accident.",
+}
+DOTA_LABEL_CAPTION_SINGLE = ("pedestrian", "obstacle", "leave_to_left", "leave_to_right")  # 1 party
+DOTA_LABEL_CAPTION_NOT_EGO_TAIL = " The camera car is not involved."
