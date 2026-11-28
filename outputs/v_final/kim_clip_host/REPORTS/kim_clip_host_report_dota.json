@@ -1,0 +1,416 @@
+{
+  "config_diffs": {
+    "K0_vs_L0": {
+      "model.motion_dim": [
+        0,
+        384
+      ],
+      "v2.motion": [
+        "none",
+        "vit_s_k710_dl_from_giant"
+      ]
+    },
+    "K5_vs_K0": [
+      "kim.edge_mask",
+      "kim.enabled",
+      "kim.prototypes",
+      "kim.seam_mask"
+    ],
+    "L5_vs_L0": [
+      "kim.edge_mask",
+      "kim.enabled",
+      "kim.prototypes",
+      "kim.seam_mask"
+    ],
+    "L5cap_vs_L0": [
+      "kim.capacity_control",
+      "kim.enabled",
+      "kim.prototypes"
+    ]
+  },
+  "deciding_sets": [
+    "dota",
+    "dada"
+  ],
+  "draws": 2000,
+  "fixed_mul_mil": {
+    "K0": 0.3602376143847193,
+    "K5": 0.3614953689429225,
+    "L0": 0.47121161496152686,
+    "L5": 0.48935405514678176,
+    "L5cap": 0.4553425912143422
+  },
+  "host": "dota",
+  "label": "PRELIMINARY (n = 1 seed); decides nothing, K5f stays the reference",
+  "labelled_sets": [],
+  "labels": {
+    "macro": {
+      "A": {
+        "dada": "COST",
+        "dota": "COST"
+      },
+      "B": {
+        "dada": "NO DIFFERENCE",
+        "dota": "NO DIFFERENCE"
+      },
+      "C": {
+        "dada": "COST",
+        "dota": "COST"
+      },
+      "I": {
+        "dada": "COST",
+        "dota": "COST"
+      },
+      "cap": {
+        "dada": "GAIN",
+        "dota": "GAIN"
+      },
+      "motion": {
+        "dada": "GAIN",
+        "dota": "GAIN"
+      },
+      "motion_given_kim": {
+        "dada": "GAIN",
+        "dota": "GAIN"
+      }
+    },
+    "micro": {
+      "A": {
+        "dada": "COST",
+        "dota": "COST"
+      },
+      "B": {
+        "dada": "NO DIFFERENCE",
+        "dota": "NO DIFFERENCE"
+      },
+      "C": {
+        "dada": "COST",
+        "dota": "COST"
+      },
+      "I": {
+        "dada": "COST",
+        "dota": "COST"
+      },
+      "cap": {
+        "dada": "GAIN",
+        "dota": "NO DIFFERENCE"
+      },
+      "motion": {
+        "dada": "GAIN",
+        "dota": "GAIN"
+      },
+      "motion_given_kim": {
+        "dada": "GAIN",
+        "dota": "GAIN"
+      }
+    }
+  },
+  "rows": {
+    "K0": {
+      "env": {
+        "cuda": "13.0",
+        "gpu": "NVIDIA L4",
+        "torch": "2.14.1+cu130"
+      },
+      "name": "K0dfiDoTA",
+      "root": "/content/drive/MyDrive/Thesis-Final/outputs/kim_dota_train/K0dfiDoTA"
+    },
+    "K5": {
+      "env": {
+        "cuda": "13.0",
+        "gpu": "NVIDIA L4",
+        "torch": "2.14.1+cu130"
+      },
+      "name": "K5dfiDoTA",
+      "root": "/content/drive/MyDrive/Thesis-Final/outputs/kim_dota_train/K5dfiDoTA"
+    },
+    "L0": {
+      "env": {
+        "cuda": "13.0",
+        "gpu": "Tesla T4",
+        "torch": "2.14.1+cu130"
+      },
+      "name": "L0dfiDoTArr",
+      "root": "/content/drive/MyDrive/Thesis-Final/outputs/kim_clip_host/L0dfiDoTArr"
+    },
+    "L5": {
+      "env": {
+        "cuda": "13.0",
+        "gpu": "Tesla T4",
+        "torch": "2.14.1+cu130"
+      },
+      "name": "L5dfiDoTA",
+      "root": "/content/drive/MyDrive/Thesis-Final/outputs/kim_clip_host/L5dfiDoTA"
+    },
+    "L5cap": {
+      "env": {
+        "cuda": "13.0",
+        "gpu": "Tesla T4",
+        "torch": "2.14.1+cu130"
+      },
+      "name": "L5dficapDoTA",
+      "root": "/content/drive/MyDrive/Thesis-Final/outputs/kim_clip_host/L5dficapDoTA"
+    }
+  },
+  "rule": "core/docs/final/KIM_RUN.md \u00a764",
+  "seed": 2024,
+  "sets": {
+    "dada": {
+      "cells": {
+        "K0": {
+          "macro": 0.7675054393472661,
+          "micro": 0.7553039128505237
+        },
+        "K5": {
+          "macro": 0.7659137324469406,
+          "micro": 0.7522413225070159
+        },
+        "L0": {
+          "macro": 0.5879988782303495,
+          "micro": 0.5828573692602799
+        },
+        "L5": {
+          "macro": 0.44646854659027174,
+          "micro": 0.4691289967546338
+        },
+        "L5cap": {
+          "macro": 0.6039601715564397,
+          "micro": 0.599309541132509
+        }
+      },
+      "clip_oracle_micro": null,
+      "macro": {
+        "A": {
+          "clips": 370,
+          "clusters": 370,
+          "high": -0.12262533538084813,
+          "low": -0.1607295764327294,
+          "mean": -0.14153033164007778
+        },
+        "B": {
+          "clips": 370,
+          "clusters": 370,
+          "high": 0.005032573122663441,
+          "low": -0.008293780000837794,
+          "mean": -0.0015917069003255836
+        },
+        "C": {
+          "clips": 370,
+          "clusters": 370,
+          "high": -0.13753952507565131,
+          "low": -0.17787169711582215,
+          "mean": -0.15749162496616798
+        },
+        "I": {
+          "clips": 370,
+          "clusters": 370,
+          "high": -0.11942101624524112,
+          "low": -0.16063791612006756,
+          "mean": -0.13993862473975222
+        },
+        "cap": {
+          "clips": 370,
+          "clusters": 370,
+          "high": 0.02132253027679353,
+          "low": 0.010935997978535653,
+          "mean": 0.015961293326090198
+        },
+        "motion": {
+          "clips": 370,
+          "clusters": 370,
+          "high": 0.19780462187219414,
+          "low": 0.16138738082764756,
+          "mean": 0.17950656111691654
+        },
+        "motion_given_kim": {
+          "clips": 370,
+          "clusters": 370,
+          "high": 0.34520702462466224,
+          "low": 0.294391426855594,
+          "mean": 0.31944518585666876
+        }
+      },
+      "micro": {
+        "A": {
+          "high": -0.09775379379651769,
+          "low": -0.1300881164832223,
+          "mean": -0.1137283725056461
+        },
+        "B": {
+          "high": 0.003374797301959042,
+          "low": -0.009767267195885823,
+          "mean": -0.003062590343507865
+        },
+        "C": {
+          "high": -0.11299056246621894,
+          "low": -0.14798738224927085,
+          "mean": -0.13018054437787513
+        },
+        "I": {
+          "high": -0.09301605217187872,
+          "low": -0.12871999133333636,
+          "mean": -0.11066578216213824
+        },
+        "cap": {
+          "high": 0.021565625999466813,
+          "low": 0.011390020670458929,
+          "mean": 0.016452171872229027
+        },
+        "motion": {
+          "high": 0.18967598415297546,
+          "low": 0.15437669185702604,
+          "mean": 0.1724465435902438
+        },
+        "motion_given_kim": {
+          "high": 0.3082005254487378,
+          "low": 0.2581571410804313,
+          "mean": 0.28311232575238204
+        }
+      },
+      "videos": 370
+    },
+    "dota": {
+      "cells": {
+        "K0": {
+          "macro": 0.8531801802057895,
+          "micro": 0.8156277695606362
+        },
+        "K5": {
+          "macro": 0.8589864276223611,
+          "micro": 0.8208800624097248
+        },
+        "L0": {
+          "macro": 0.6638060933589484,
+          "micro": 0.6371960910848882
+        },
+        "L5": {
+          "macro": 0.40014165770615656,
+          "micro": 0.42807912230174777
+        },
+        "L5cap": {
+          "macro": 0.6780853587790103,
+          "micro": 0.6464211913677884
+        }
+      },
+      "clip_oracle_micro": null,
+      "macro": {
+        "A": {
+          "clips": 569,
+          "clusters": 91,
+          "high": -0.2412732047193897,
+          "low": -0.2854214198281127,
+          "mean": -0.2636644356527918
+        },
+        "B": {
+          "clips": 569,
+          "clusters": 91,
+          "high": 0.01010425846467017,
+          "low": 0.0014759002712878553,
+          "mean": 0.005806247416571778
+        },
+        "C": {
+          "clips": 569,
+          "clusters": 91,
+          "high": -0.2557199586294732,
+          "low": -0.2993570355674476,
+          "mean": -0.2779437010728538
+        },
+        "I": {
+          "clips": 569,
+          "clusters": 91,
+          "high": -0.24632276233531494,
+          "low": -0.29177535893728485,
+          "mean": -0.26947068306936367
+        },
+        "cap": {
+          "clips": 569,
+          "clusters": 91,
+          "high": 0.019496767437182736,
+          "low": 0.008824806528900934,
+          "mean": 0.014279265420061955
+        },
+        "motion": {
+          "clips": 569,
+          "clusters": 91,
+          "high": 0.20261085072200713,
+          "low": 0.17634354527737336,
+          "mean": 0.18937408684684098
+        },
+        "motion_given_kim": {
+          "clips": 569,
+          "clusters": 91,
+          "high": 0.47946678294941636,
+          "low": 0.4372759607211253,
+          "mean": 0.4588447699162047
+        }
+      },
+      "micro": {
+        "A": {
+          "high": -0.19042464351698615,
+          "low": -0.2297769574329336,
+          "mean": -0.2091169687831404
+        },
+        "B": {
+          "high": 0.009791728963014746,
+          "low": 0.0006793479034775259,
+          "mean": 0.005252292849088569
+        },
+        "C": {
+          "high": -0.19873214445359288,
+          "low": -0.24027605332428006,
+          "mean": -0.21834206906604064
+        },
+        "I": {
+          "high": -0.19558161972319799,
+          "low": -0.236214953957204,
+          "mean": -0.21436926163222897
+        },
+        "cap": {
+          "high": 0.01489774516376759,
+          "low": 0.0032372564362848468,
+          "mean": 0.009225100282900245
+        },
+        "motion": {
+          "high": 0.190939743807085,
+          "low": 0.16700307583362475,
+          "mean": 0.17843167847574803
+        },
+        "motion_given_kim": {
+          "high": 0.41475549675477175,
+          "low": 0.37407372274290956,
+          "mean": 0.392800940107977
+        }
+      },
+      "videos": 569
+    }
+  },
+  "starts": {
+    "K5": {
+      "control": 0.7318264245986938,
+      "new": 0.7318264245986938,
+      "same_draws": true
+    },
+    "L5": {
+      "control": 0.7782984375953674,
+      "new": 0.7782984375953674,
+      "same_draws": true
+    },
+    "L5cap": {
+      "control": 0.7782984375953674,
+      "new": 0.7782984375953674,
+      "same_draws": true
+    }
+  },
+  "verdicts": {
+    "macro": {
+      "Q1 KIM helps the CLIP host": "NO",
+      "Q2 VideoMAE masks KIM": "REVERSED",
+      "Q3 what carries A": "DIFFERENCES COST"
+    },
+    "micro": {
+      "Q1 KIM helps the CLIP host": "NO",
+      "Q2 VideoMAE masks KIM": "REVERSED",
+      "Q3 what carries A": "DIFFERENCES COST"
+    }
+  }
+}
