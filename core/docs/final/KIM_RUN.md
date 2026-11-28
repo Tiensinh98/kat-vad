@@ -3410,6 +3410,21 @@ Raw `outputs/v_final/kim_dfi_clip_encoder/REPORTS/{k5dfi_clip_encoder_report.md,
 
 Runbook `colab/final/k5dfit2_ablation.ipynb`; outputs `Thesis-Final/outputs/kim_t2_fixed/{K0dfiT2,K5dfiT2rr}/`, K5dfiT2's DAD read under `kim_t2_fixed/K5dfiT2/eval/dad/`, report `kim_t2_fixed/REPORTS/k5dfit2_ablation_report.md`; constants `KIM_T2_OFF_ROW`, `KIM_T2_RERUN_ROW`, `KIM_T2_ABL_*`.
 
+### 60.1 Read-out (2026-11-28, s2024, n = 1; Tesla T4 both rows; decides nothing, K5f stays)
+
+**Gates.** TK4 start matched (step-1 `mil` 0.749036 on = off = saved K5dfiT2). TK5: J10 1,740 both rows; config diff K5dfiT2rr → K0dfiT2 = the four `kim.*` flags only; last-epoch mean `mul_mil` 0.100 (off) / 0.106 (on). TK2 reproduction: K5dfiT2rr = saved K5dfiT2 on every printed cell (macro Δ +0.0000). Last-epoch mean trunk losses equal (`mil` 0.139 / 0.140); the last-batch values (0.137 vs 0.308) are one batch, not a difference.
+
+| set | K0dfiT2 macro / micro / AP | K5dfiT2rr macro / micro / AP | Δ micro (KIM) | Δ macro (KIM) | Δ AP |
+|---|---|---|---|---|---|
+| DoTA-CAP (1,129) | 0.7840 / 0.7405 / 0.5605 | 0.7969 / 0.7236 / 0.5400 | −0.0168 [−0.0230, −0.0110] **COST** | +0.0130 [+0.0079, +0.0181] **GAIN** | −0.0205 |
+| DAD (466) | 0.8242 / 0.7807 / 0.2183 | 0.8107 / 0.7516 / 0.1491 | −0.0291 [−0.0435, −0.0140] **COST** (clip classification, oracle 0.8390) | −0.0135 [−0.0338, +0.0077] n.d. | −0.0692 |
+
+**DAD beside the placebo (§56 DA5, post-hoc).** KIM raises the placebo (0.681 → 0.718) and narrows the gap beyond it (+0.143 → +0.093; rows 7+ +0.119 → +0.079). Same-position accident rows, positives vs negatives: 0.749 → 0.726, paired −0.024 [−0.045, −0.003] below.
+
+**Reading.** The expectation (NO DIFFERENCE on DoTA-CAP) was wrong in both metrics, in opposite directions: on the T2 host KIM gains within-clip ranking (macro) and loses cross-clip level (micro, AP). The Nexar host showed the same sign pattern, smaller (§53.1: macro above, DoTA micro −0.004 n.s.). On DAD the macro difference is not separated, and the position-free reads go down.
+
+**Licensed.** "On T2, s2024, KIM on − off: DoTA-CAP macro +0.013 GAIN, micro −0.017 COST, AP −0.021; DAD micro −0.029 COST, DAD macro n.d." **Not licensed.** "KIM improves DoTA" without the metric; "KIM hurts" without the metric; "KIM sharpens localization" (macro only, n = 1); any cause of the micro cost (level vs ranking not decomposed here: `micro_level_read` was not run on these rows).
+
 ## 61. Class prototypes on `v^t` in the main score, KIM off: K0dfiP, K0dfiL, K0dfiPL, K0dfiPLb on host K0dfi (dated note 2026-11-28, before any number of these rows; user)
 
 **Why.** The user asked whether KIM's prototype idea (typical features per class, kept as buffers) can enter the main flow as an extra confidence term with KIM disabled, so that `H_bin` does not decide alone, and whether a loss like `L_nkc` should teach it. Facts read in the tree before this note: KIM's prototypes live on `kin_feat`, only weight `kim_score`, and `kim_score` is train-only (`core/inference.py:197` scores `cls_bin_logits`), so **no prototype has ever reached the inference score**; §11 put KIM's gain on "branch + losses". Logged `kim_proto_cos` falls from ~0.9 to −0.3…−0.7, so the two means separate on `kin_feat`. Host = **K0dfi** (§53: K5dfi with KIM off; V2-S motion, DVS θ 0.7 / θ_ego 0.85, `ignore`). Reads: **Nexar val, DoTA-CAP-dev, DADA, DAD; no TAD** (user). No training-free probe first (user).
@@ -3433,3 +3448,73 @@ Runbook `colab/final/k5dfit2_ablation.ipynb`; outputs `Thesis-Final/outputs/kim_
 **Not licensed.** "Prototypes make the model confident" (λ and the term are measured, confidence is not); "the prototype head replaces KIM" from KIM = PL − K5dfi alone (envs, n = 1); any DAD macro difference without the placebo; "μ1 helps / hurts" (no row has μ0 without μ1).
 
 Code: config `proto.*` (`core/config.py`, default all false = every earlier arm unchanged, refused with `kim.enabled`), `core/models/proto_bank.py`, `core/models/kat_vad.py` (`_fuse_and_head`), `core/train.py` (`_proto_losses`), report `core/tools/k0dfi_proto_report.py`; runbook `colab/final/k0dfi_proto.ipynb`; outputs `Thesis-Final/outputs/kim_dfi_proto/`.
+
+### 61.1 Read-out (2026-11-28, user's Colab run, Tesla T4 all rows, s2024, n = 1): **D = COST (closed)**, K5f stays
+
+Raw `outputs/v_final/kim_dfi_proto/REPORTS/k0dfi_proto_summary.md`. **Gates.** Control = **K0dfirr** (K0dfi's env was L4, this session T4, PR6). PR7 start matched on all four rows (step-1 `mil` 0.690560); `proto_ready` = 1; J10 1,749 on all five; config diff = the row's `proto.*` keys; last-epoch `mul_mil` 0.149…0.152; state dict = control + `proto.*` (notebook check fixed the same day: the first version's assertion could never pass). Last step λ: P +0.0091, PL +0.0034, PLb +0.0033; cos(μ0, μ1) +0.26 without L, −0.44 with L.
+
+| contrast (macro; Nexar val per-video crop means) | Nexar val | DoTA-CAP-dev | DADA | DAD (never decides) |
+|---|---|---|---|---|
+| **D = K0dfiPL − K0dfirr** | **−0.0240 [−0.0307, −0.0177] COST** | +0.0033 n.d. (above, under margin) | +0.0011 n.d. | −0.0082 n.d. (below, under margin) |
+| P = K0dfiP − K0dfirr | −0.0005 n.d. | +0.0001 | +0.0001 | +0.0012 |
+| L = K0dfiL − K0dfirr | −0.0247 COST | +0.0034 | +0.0012 | −0.0089 |
+| PL − P | −0.0236 COST | +0.0032 | +0.0010 | −0.0093 |
+| b = K0dfiPLb − K0dfiPL | +0.0002 | +0.0001 | −0.0000 | +0.0000 |
+| R = K0dfiPL − K5f | −0.0758 COST | −0.0088 n.d. | −0.0353 COST | −0.0758 COST |
+| KIM = K0dfiPL − K5dfi (envs differ) | −0.0513 COST | −0.0159 COST | −0.0285 COST | −0.0182 COST |
+
+Micro (printed): L / PL raise DoTA-CAP-dev micro +0.005 and DADA micro +0.004 (intervals above 0, under the margin), DAD micro −0.005. Nexar val negatives with peak > 0.5: 0.646 (rr, P) → 0.673 (L, PL, PLb). DAD placebo / same-position reads: no row separates from K0dfirr (accident rows paired |Δ| ≤ 0.003).
+
+**Reading.**
+1. **The score term does nothing:** λ stays ≤ 0.01 from its zero init, so the term moves the logit by ≤ ~0.02; P is equal to the control on every set (expectation held).
+2. **Every effect is the normal-anchored loss**, and it costs Nexar val −0.024 (expectation "Nexar NO DIFFERENCE" wrong) while DoTA / DADA move by < +0.005. The loss separates the prototypes in `v^t` (cos +0.26 → −0.44) without that separation reaching the score.
+3. **Bottom-k into μ0 changes nothing** (expectation held).
+4. Not a candidate: R costs Nexar val, DADA, DAD; the prototype head sits below K5dfi everywhere (printed, envs differ).
+
+**Licensed (n = 1):** "On K0dfi, a zero-init prototype score term stays at λ ≈ 0 and changes nothing; the normal-anchored prototype loss costs Nexar val −0.024 and moves DoTA-CAP-dev / DADA by < 0.005." **Not licensed:** "prototypes do not work" (one host, one weight 0.1, one τ); "the loss hurts Nexar because …" (no cause measured); "μ1 helps / hurts"; "the prototype term replaces KIM".
+
+## 62. Where KIM's min-max micro goes: within-clip vs cross-clip pairs (dated note 2026-11-28, before any number of this read; user)
+
+**Why.** §53.1, §58.1 and §60.1 share one pattern on the all-abnormal sets: KIM on − off raises macro (within-clip ranking) and lowers, or raises less, the min-max micro. §60.1 left the cause open ("level vs ranking not decomposed"). The user asked for the micro-level read. §44.2's `micro_level_read` reads *raw* micro of one row; the reports' DoTA / DADA micro is pooled *after per-clip min-max* and the question is an on − off difference, so this read splits that micro exactly.
+
+| # | Choice |
+|---|---|
+| MP1 Split | Per row, scores min-max per clip (the reports' pooling). Over all (positive frame, negative frame) pairs: micro = w_W · AUC_W + (1 − w_W) · AUC_X, with w_W = Σ_c P_c N_c / (P N) the within-clip pair share, AUC_W the pair-weighted within-clip AUC and AUC_X the cross-clip pairs. AUC_X is split by the negative frame's place in its clip: **pre** (before the clip's first positive frame), **post** (after its last), gap (between positives, printed if any). Levels printed: mean min-max value of positive, pre and post frames. Macro (equal-clip mean) printed beside |
+| MP2 Gates (raise) | Reconstruction of micro from its parts within 1e-6; every clip two-class; on and off rows score the same clip ids with the same labels |
+| MP3 Pairs | Nexar host, §53's six arms with §53.1's on sides (K5f, K5dfirr, K5dfierr, K5fbk25, K5dfibk25rr, K5feprerr vs K0f … K0fepre) on DoTA-CAP-dev and DADA; T2 host K5dfiT2rr − K0dfiT2 on whole DoTA-CAP (dev + eval pooled); DoTA host K5dfiDoTA − K0dfiDoTA on DADA (its DoTA-CAP-dev read is in-domain, printed) |
+| MP4 Intervals | Δ on − off per part, paired cluster bootstrap (DoTA by source video, DADA by clip), 2,000 draws, §24's seed; a resampled clip's copies count as one clip for the within / cross split |
+| MP5 Reading (declared now) | "**Cross-clip**": Δ AUC_X interval below 0 while Δ AUC_W is not; then the place is the part (pre / post) whose Δ AUC_X interval is below 0 and whose negative level rises. "**Within-clip**": Δ AUC_W below 0. Else "not located". Printed, decides nothing, n = 1 |
+
+**Expectation (before any number; a wrong one changes nothing).** w_W is small (≲ 0.01 at 569 clips), so micro ≈ AUC_X and KIM's micro loss sits in AUC_X; on K5f and K5fepre it sits on pre-onset negatives (§43.1: K5f is at 0.81 of its span 1–2 s before the GT).
+
+**Not licensed.** "KIM causes the early rise" (on − off locates a difference, not a mechanism inside KIM); any reading of a pair whose start gate did not match in §53.1 / §60.1; DoTA-host DoTA numbers as zero-shot.
+
+Code: `core/tools/micro_pair_split.py`, tests `core/tests/test_micro_pair_split.py`; output `outputs/v_final/kim/REPORTS/micro_pair_split/`.
+
+### 62.1 Read-out (2026-11-28, local CPU on saved scores, n = 1; printed, decides nothing, K5f stays)
+
+Raw `outputs/v_final/kim/REPORTS/micro_pair_split/micro_pair_split.{md,json}`. MP2 gates passed on all 15 pairs (parts rebuild micro within 1e-6, every clip two-class, labels equal on − off). Every Δ micro equals the §53.1 / §58.1 / §60.1 reports' cell. No gap negatives on any set.
+
+**1. Min-max micro on DoTA-CAP / DADA is a cross-clip number.** w_W (within-clip pair share) = 0.0016 (DoTA-CAP-dev), 0.0008 (whole DoTA-CAP), 0.0028 (DADA): ≥ 99.7 % of micro's pairs compare a positive frame of one clip with a negative frame of another. Within-clip ranking does not enter micro.
+
+**2. KIM never lowers within-clip ranking.** Δ AUC_W is above 0 on every pair except K5f DoTA (+0.0006 n.s.) and the DoTA host on DADA (+0.0006 n.s.); MP5's "within-clip" reading fires nowhere.
+
+**3. On DoTA zero-shot the micro loss sits in cross-clip pairs against pre-onset negatives.**
+
+| pair (DoTA-CAP) | Δ micro | Δ within | Δ x_pre | Δ x_post | pre-onset level off → on | positive level off → on | MP5 |
+|---|---|---|---|---|---|---|---|
+| K5f | −0.040 | +0.001 n.s. | **−0.081** | +0.007 n.s. | 0.112 → 0.368 | 0.489 → 0.650 | cross-clip (pre) |
+| K5fepre | −0.046 | +0.013 | **−0.081** | −0.008 n.s. | 0.087 → 0.376 | 0.484 → 0.680 | cross-clip (pre) |
+| K5dfie | −0.013 | +0.009 | **−0.041** | +0.018 | 0.141 → 0.272 | 0.501 → 0.585 | cross-clip (pre) |
+| K5fbk25 | −0.002 n.s. | +0.019 | **−0.022** | +0.020 | 0.080 → 0.208 | 0.447 → 0.577 | not located (pre and post cancel) |
+| K5dfi | −0.004 n.s. | +0.020 | **−0.011** | +0.004 n.s. | 0.123 → 0.231 | 0.480 → 0.593 | not located |
+| K5dfibk25 | +0.004 n.s. | +0.023 | −0.003 n.s. | +0.011 | 0.110 → 0.197 | 0.457 → 0.565 | not located |
+| K5dfiT2 (T2 host, 1,129) | −0.017 | +0.012 | **−0.020** | **−0.013** | 0.143 → 0.248 | 0.606 → 0.677 | cross-clip (pre, post) |
+
+KIM lifts the pre-onset frames inside each clip's min-max range (×1.7…×4.3) more than it lifts the accident frames (×1.1…×1.4). Within a clip the accident still outranks its own pre-onset frames (Δ within ≥ 0), but across clips the lifted pre-onset frames now outrank other clips' accident frames. x_pre falls on 6 / 7 DoTA pairs (5 intervals below 0), and the fall is largest on the rows with the largest pre-onset lift (K5f, K5fepre). This is the §43.1 early rise seen through micro.
+
+**4. On DADA the same lift does not cost:** pre-onset levels rise less (e.g. K5dfi 0.106 → 0.167) and positives more (0.377 → 0.503), so x_pre and x_post both rise and micro gains on 4 / 6 Nexar arms. **The DoTA host does not lift pre-onset frames** (DoTA in-domain 0.073 → 0.075, DADA 0.106 → 0.131); its small DADA change sits in x_post (−0.016).
+
+**Expectation check.** w_W small: held. Micro loss in AUC_X: held. Pre-onset on K5f / K5fepre: held (and on K5dfie, T2).
+
+**Licensed (n = 1):** "On DoTA-CAP, KIM's min-max micro cost is cross-clip: KIM raises pre-onset frames within each clip's range more than accident frames, so they outrank other clips' accident frames, while within-clip ranking does not fall." "Min-max micro on DoTA-CAP / DADA measures cross-clip comparisons (≥ 99.7 % of pairs)." **Not licensed:** "KIM anticipates accidents" or "KIM causes the early rise" (on − off locates a difference, not a mechanism; §43.1's cause H1 untested); "the DoTA host avoids the early rise because of DoTA training" (corpus, window, spacing, statistics differ); a reading of a pre-onset lift as a level shift of the whole curve (min-max removes level; this is a shape change).

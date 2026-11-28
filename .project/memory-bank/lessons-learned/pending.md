@@ -2719,3 +2719,12 @@ Promote if a second harness needs the same split.
 **Rule:** Add every config section that changes the module tree to `core/inference.py:ARCH_SECTIONS`, and test train → `load_model_for_scoring` from a default `Config()`.
 **Files:** core/inference.py ARCH_SECTIONS, core/tests/test_proto_bank.py TestTraining
 **Gate status.** One occurrence (caught by the test before any run); candidate.
+
+## (ej) [MEDIUM] Notebook guard - an assertion that can never pass (2026-11-28, §61)
+**Triggers:** assert, state dict, notebook check, set difference, guard
+**Problem:** the §61 notebook's state-dict guard asserted that every key left after removing the `proto.*` keys starts with `proto.`, so it failed on a correct checkpoint and stopped the run after K0dfiP trained.
+**Bad:** `extra = {k for k in keys if k.startswith('proto.')}; assert all(k.startswith('proto.') for k in keys - extra)`
+**Good:** `assert extra and keys - extra == set(control_payload['model'])`
+**Rule:** Compare a new row's state-dict keys with the control's keys, and run every notebook guard once on a fixture before the notebook ships.
+**Files:** colab/final/k0dfi_proto.ipynb cell 8 (check_run)
+**Gate status.** One occurrence; candidate.
