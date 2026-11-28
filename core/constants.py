@@ -1681,6 +1681,9 @@ MICRO_LEVEL_GATE_ATOL = 1e-6  # L2: positive-weighted mean of A_c must equal the
 MICRO_LEVEL_REPORT_STEM = "micro_level_read"
 MICRO_LEVEL_REPORT_DIR = "kim_fixed/REPORTS/micro_level"  # relative to OUTPUT_ROOT
 MICRO_LEVEL_ROWS = ("K5f", "K5dfi")  # L1, the first is the overlap's reference
+MICRO_SPLIT_GATE_ATOL = 1e-6  # §62 MP2: within + cross parts must rebuild the pooled min-max micro
+MICRO_SPLIT_REPORT_STEM = "micro_pair_split"
+MICRO_SPLIT_REPORT_DIR = "kim/REPORTS/micro_pair_split"  # relative to OUTPUT_ROOT
 
 # --- KIM_RUN §46: does the ego gap in level shrink on T2-trained rows? (ego_gap_read) ---
 EGO_GAP_PAIRS = (("K5f", "K5fT2"), ("K5dfi", "K5dfiT2"))  # EG1 (Nexar row, T2 row), first = primary
