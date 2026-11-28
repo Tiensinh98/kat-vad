@@ -2234,6 +2234,7 @@ Promote if a second harness needs the same split.
 **Rule:** Test a claim of "equals the control at step 0" on the first logged losses; build an added module on a private RNG.
 **Files:** core/models/kat_vad.py (`_build_sa2v2`), core/tests/test_sv4.py (`TestPairedWithW0D`), core/docs/final/SA2V2_RUN.md §10.4, D13
 **Why pending:** one occurrence, fixed for SV4 only; SV2 and SV3 keep their build so their reads stay reproducible. Promote on a second.
+**Second occurrence, extended (2026-11-28, §59 K5dfice):** a private init is not enough when the added module has **dropout and runs in the training forward**: its masks draw from the device's default generator and shift every later host draw (fusion dropout), so step-1 `mil` would differ from K5dfirr's. Fix: `core/kim/module.py:PrivateRNG` swaps the module's own generator state in around its forward (training only) and restores the host's; `core/tests/test_kim_input_encoder.py::TestInit::test_step_one_forward_equals_the_arm_without_it` checks outputs and the global RNG after a train-mode forward. Extended rule: an added module that draws at forward time gets its own stream too. Caught at design, before any run. **Eligible for promotion (two occurrences)** — run GATES.md first.
 
 ## (ci) [MEDIUM] Experiments - A learned module that moves with the labels is not thereby a module that points (2026-11-06)
 **Triggers:** C2, shuffled labels, entropy, spread, evidence map, STAUC, untrained prior, moved further

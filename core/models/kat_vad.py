@@ -57,12 +57,31 @@ def _build_sa2v2(cfg: Config) -> SA2V2:
 
 
 def _build_kim(cfg: Config) -> KIM:
-    """KIM under a private RNG (``KIM_RUN.md`` D13): host init and data order equal K0's."""
+    """KIM under a private RNG (``KIM_RUN.md`` D13): host init and data order equal K0's.
+
+    §59: ``kim.input_encoder`` != none attaches a second temporal encoder with the host's
+    configuration, drawn after KIM's own layers in the same private stream, so KIM's init equals
+    that of the arm without it.
+    """
     with torch.random.fork_rng(devices=[]):
         torch.manual_seed(cfg.train.seed)
         arm = KIMCapacity if cfg.kim.capacity_control else KIM
-        return arm(cfg.model.hidden_dim, cfg.kim.width, prototypes=cfg.kim.prototypes,
-                   edge_mask=cfg.kim.edge_mask)
+        kim = arm(cfg.model.hidden_dim, cfg.kim.width, prototypes=cfg.kim.prototypes,
+                  edge_mask=cfg.kim.edge_mask)
+        if cfg.kim.input_encoder != constants.KIM_INPUT_ENCODER_NONE:
+            model = cfg.model
+            kim.attach_encoder(
+                TemporalEncoder(
+                    hidden_size=model.hidden_dim,
+                    num_layers=model.temporal_layers,
+                    num_heads=model.temporal_heads,
+                    window_size=model.temporal_window,
+                    max_position_embeddings=model.temporal_max_positions,
+                    use_gate=model.temp_gate,
+                ),
+                dropout_seed=cfg.train.seed + constants.KIM_ENCODER_RNG_OFFSET,
+            )
+        return kim
 
 
 class KATVAD(nn.Module):
@@ -96,6 +115,7 @@ class KATVAD(nn.Module):
         motion_dropout: float = 0.0,
         kim: KIM | None = None,
         motion_norm: str = constants.MOTION_NORM_OFF,
+        kim_input: str = constants.KIM_INPUT_ENCODER_NONE,
     ) -> None:
         super().__init__()
         # v2 motion stream (architecture §5): absent unless motion_dim > 0, so every
@@ -137,6 +157,16 @@ class KATVAD(nn.Module):
         if kim is not None and kip is not None:
             raise ValueError("KIM takes KIP's slot: build with one of them")
         self.kim = kim
+        # §59: which rows the KIM's own encoder reads (none = KIM reads v^t)
+        if kim_input not in constants.KIM_INPUT_ENCODERS:
+            raise ValueError(f"unknown kim_input {kim_input!r}")
+        if (kim_input != constants.KIM_INPUT_ENCODER_NONE) != (
+            kim is not None and kim.encoder is not None
+        ):
+            raise ValueError("kim_input != none needs a KIM with an attached encoder, and back")
+        if kim_input != constants.KIM_INPUT_ENCODER_NONE and self.motion_residual is None:
+            raise ValueError("kim_input needs the motion stream (motion_dim > 0)")
+        self.kim_input = kim_input
         self.fusion = CoAttentionFusion(
             d_model=hidden_dim, nhead=fusion_heads, num_layers=fusion_num_layers
         )
@@ -214,6 +244,7 @@ class KATVAD(nn.Module):
             ),
             kim=_build_kim(cfg) if cfg.kim.enabled else None,
             motion_norm=cfg.model.motion_norm,
+            kim_input=cfg.kim.input_encoder,  # validate_kim refuses it with KIM off
         )
         if load_clip and model.sa2v2 is not None:
             model.sa2v2.set_text_projection(clip_text_projection())  # rule D3
@@ -363,11 +394,16 @@ class KATVAD(nn.Module):
             v_feat = self._stp_rows(v_feat, mask, outputs)
         if self.sa2v2 is not None:
             v_feat = self._sv2_rows(v_feat, mask, class_feats, outputs)
+        kim_source = None
+        if self.kim_input == constants.KIM_INPUT_ENCODER_CLIP:
+            kim_source = v_feat[..., : self.hidden_dim]  # §59: c_t, before W_u
         if self.motion_residual is not None:
             # v2 A2/A3: rows are [x ; c*u~/sigma_u] -> h = x + W_u(...)  (architecture §5)
             v_feat, outputs["motion_share"] = self.motion_residual(
                 v_feat, self._motion_mask(mask)
             )
+        if self.kim_input == constants.KIM_INPUT_ENCODER_FUSED:
+            kim_source = v_feat  # §59 capacity control: the main encoder's own input
         vt = self.temporal_encoder(v_feat, v_feat_l)
 
         if self.kip is not None:
@@ -379,7 +415,8 @@ class KATVAD(nn.Module):
             outputs["motion_scores"] = motion_scores
             vis_feats = vk
         elif self.kim is not None:
-            kim_out = self.kim(vt, mask, kim_seam)
+            kim_out = self.kim(vt, mask, kim_seam, source=kim_source,
+                               lengths=None if kim_source is None else v_feat_l)
             outputs |= {
                 "vt": vt,
                 "kim_feat": kim_out.kin_feat,

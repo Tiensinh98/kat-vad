@@ -1,0 +1,540 @@
+{
+  "control": "K5dfirr",
+  "draws": 2000,
+  "label": "PRELIMINARY (n = 1 seed); printed, decides nothing",
+  "seed": 2024,
+  "sets": {
+    "dad": {
+      "cells": {
+        "K5dfi": {
+          "ap": 0.11672436597043948,
+          "base_rate": 0.04721030042918455,
+          "macro": {
+            "clips": 165,
+            "clusters": 165,
+            "high": 0.7850874125874125,
+            "low": 0.7116550116550118,
+            "mean": 0.7494172494172494
+          },
+          "micro": 0.7091163891163891
+        },
+        "K5dfice": {
+          "ap": 0.12241493932164188,
+          "base_rate": 0.04721030042918455,
+          "macro": {
+            "clips": 165,
+            "clusters": 165,
+            "high": 0.7944055944055946,
+            "low": 0.7186480186480186,
+            "mean": 0.7573426573426574
+          },
+          "micro": 0.7301997451997453
+        },
+        "K5dficx": {
+          "ap": 0.12658868395891382,
+          "base_rate": 0.04721030042918455,
+          "macro": {
+            "clips": 165,
+            "clusters": 165,
+            "high": 0.8139860139860141,
+            "low": 0.7412529137529137,
+            "mean": 0.7785547785547785
+          },
+          "micro": 0.7348129948129948
+        },
+        "K5dfirr": {
+          "ap": 0.11672436597043948,
+          "base_rate": 0.04721030042918455,
+          "macro": {
+            "clips": 165,
+            "clusters": 165,
+            "high": 0.7850874125874125,
+            "low": 0.7116550116550118,
+            "mean": 0.7494172494172494
+          },
+          "micro": 0.7091163891163891
+        },
+        "K5f": {
+          "ap": 0.11488028705706722,
+          "base_rate": 0.04721030042918455,
+          "macro": {
+            "clips": 165,
+            "clusters": 165,
+            "high": 0.842890442890443,
+            "low": 0.7685314685314685,
+            "mean": 0.806993006993007
+          },
+          "micro": 0.7071794521794522
+        }
+      },
+      "clip_oracle_micro": 0.838963963963964,
+      "deltas": {
+        "K5dfi": {
+          "macro": {
+            "clips": 165,
+            "clusters": 165,
+            "high": 0.0,
+            "low": 0.0,
+            "mean": 0.0
+          },
+          "macro_sentence": "not separated",
+          "micro": {
+            "high": 0.0,
+            "low": 0.0,
+            "mean": 0.0
+          },
+          "micro_sentence": "not separated"
+        },
+        "K5dfice": {
+          "macro": {
+            "clips": 165,
+            "clusters": 165,
+            "high": 0.024242424242424242,
+            "low": -0.008630536130536083,
+            "mean": 0.007925407925407926
+          },
+          "macro_sentence": "not separated",
+          "micro": {
+            "high": 0.02975748513539183,
+            "low": 0.012075874578406386,
+            "mean": 0.02108335608335621
+          },
+          "micro_sentence": "above"
+        },
+        "K5dficx": {
+          "macro": {
+            "clips": 165,
+            "clusters": 165,
+            "high": 0.04312354312354312,
+            "low": 0.01561771561771561,
+            "mean": 0.029137529137529136
+          },
+          "macro_sentence": "above",
+          "micro": {
+            "high": 0.031629456188145395,
+            "low": 0.019797056307681683,
+            "mean": 0.0256966056966057
+          },
+          "micro_sentence": "above"
+        },
+        "K5f": {
+          "macro": {
+            "clips": 165,
+            "clusters": 165,
+            "high": 0.07785547785547786,
+            "low": 0.037762237762237756,
+            "mean": 0.05757575757575758
+          },
+          "macro_sentence": "above",
+          "micro": {
+            "high": 0.008568309264818243,
+            "low": -0.011861391363613036,
+            "mean": -0.0019369369369368616
+          },
+          "micro_sentence": "not separated"
+        }
+      },
+      "items": 466,
+      "pooling": "466 videos (macro over the 165 positives), s7; raw"
+    },
+    "dada": {
+      "cells": {
+        "K5dfi": {
+          "ap": 0.5548065782181216,
+          "base_rate": 0.28850217526413924,
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.7904958504702784,
+            "low": 0.7439156660418802,
+            "mean": 0.7676965107468467
+          },
+          "micro": 0.7590971828933467
+        },
+        "K5dfice": {
+          "ap": 0.5479979236762061,
+          "base_rate": 0.28850217526413924,
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.7716321269466118,
+            "low": 0.7277248401913663,
+            "mean": 0.750008876843983
+          },
+          "micro": 0.7464190776584588
+        },
+        "K5dficx": {
+          "ap": 0.5411721938514642,
+          "base_rate": 0.28850217526413924,
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.7713340524555071,
+            "low": 0.7270547106028138,
+            "mean": 0.7494203474219346
+          },
+          "micro": 0.7427484798354644
+        },
+        "K5dfirr": {
+          "ap": 0.5548065782181216,
+          "base_rate": 0.28850217526413924,
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.7904958504702784,
+            "low": 0.7439156660418802,
+            "mean": 0.7676965107468467
+          },
+          "micro": 0.7590971828933467
+        },
+        "K5f": {
+          "ap": 0.5523734030401823,
+          "base_rate": 0.28850217526413924,
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.7985987776834752,
+            "low": 0.7498504394855516,
+            "mean": 0.7744395881220727
+          },
+          "micro": 0.7550781293515803
+        }
+      },
+      "clip_oracle_micro": null,
+      "deltas": {
+        "K5dfi": {
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.0,
+            "low": 0.0,
+            "mean": 0.0
+          },
+          "macro_sentence": "not separated",
+          "micro": {
+            "high": 0.0,
+            "low": 0.0,
+            "mean": 0.0
+          },
+          "micro_sentence": "not separated"
+        },
+        "K5dfice": {
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": -0.011577775923213511,
+            "low": -0.023899080780287473,
+            "mean": -0.017687633902863827
+          },
+          "macro_sentence": "below",
+          "micro": {
+            "high": -0.0063337330588082675,
+            "low": -0.019005018247003954,
+            "mean": -0.012678105234887882
+          },
+          "micro_sentence": "below"
+        },
+        "K5dficx": {
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": -0.01244662136966558,
+            "low": -0.02421964277758335,
+            "mean": -0.01827616332491217
+          },
+          "macro_sentence": "below",
+          "micro": {
+            "high": -0.01089448957193435,
+            "low": -0.021860256932724424,
+            "mean": -0.016348703057882275
+          },
+          "micro_sentence": "below"
+        },
+        "K5f": {
+          "macro": {
+            "clips": 370,
+            "clusters": 370,
+            "high": 0.01563691363236854,
+            "low": -0.0023813575668066235,
+            "mean": 0.0067430773752259815
+          },
+          "macro_sentence": "not separated",
+          "micro": {
+            "high": 0.004416833731120164,
+            "low": -0.0127894390083392,
+            "mean": -0.00401905354176646
+          },
+          "micro_sentence": "not separated"
+        }
+      },
+      "items": 370,
+      "pooling": "370 whole sources, s8; micro / AP after per-video min-max"
+    },
+    "dota": {
+      "cells": {
+        "K5dfi": {
+          "ap": 0.5904210901961282,
+          "base_rate": 0.3271185548006531,
+          "macro": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.8397503610942079,
+            "low": 0.8119603255698755,
+            "mean": 0.8259189981814643
+          },
+          "micro": 0.7613401719822908
+        },
+        "K5dfice": {
+          "ap": 0.6119447328389714,
+          "base_rate": 0.3271185548006531,
+          "macro": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.8345623893477002,
+            "low": 0.8057590562613391,
+            "mean": 0.8202150117155754
+          },
+          "micro": 0.7787657068747403
+        },
+        "K5dficx": {
+          "ap": 0.6011262161991762,
+          "base_rate": 0.3271185548006531,
+          "macro": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.8297293661868069,
+            "low": 0.8009683980253599,
+            "mean": 0.8153592094457475
+          },
+          "micro": 0.7692538635827703
+        },
+        "K5dfirr": {
+          "ap": 0.5904210901961282,
+          "base_rate": 0.3271185548006531,
+          "macro": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.8397503610942079,
+            "low": 0.8119603255698755,
+            "mean": 0.8259189981814643
+          },
+          "micro": 0.7613401719822908
+        },
+        "K5f": {
+          "ap": 0.5693027363094068,
+          "base_rate": 0.3271185548006531,
+          "macro": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.8326869554325746,
+            "low": 0.8043475678824966,
+            "mean": 0.8188000508231417
+          },
+          "micro": 0.7352591168683862
+        }
+      },
+      "clip_oracle_micro": null,
+      "deltas": {
+        "K5dfi": {
+          "macro": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.0,
+            "low": 0.0,
+            "mean": 0.0
+          },
+          "macro_sentence": "not separated",
+          "micro": {
+            "high": 0.0,
+            "low": 0.0,
+            "mean": 0.0
+          },
+          "micro_sentence": "not separated"
+        },
+        "K5dfice": {
+          "macro": {
+            "clips": 569,
+            "clusters": 91,
+            "high": -0.0011756936790825274,
+            "low": -0.010221674914923777,
+            "mean": -0.005703986465889033
+          },
+          "macro_sentence": "below",
+          "micro": {
+            "high": 0.023250561915447304,
+            "low": 0.011693558800745947,
+            "mean": 0.01742553489244958
+          },
+          "micro_sentence": "above"
+        },
+        "K5dficx": {
+          "macro": {
+            "clips": 569,
+            "clusters": 91,
+            "high": -0.00650235969055095,
+            "low": -0.01454227998488952,
+            "mean": -0.01055978873571684
+          },
+          "macro_sentence": "below",
+          "micro": {
+            "high": 0.012250940361487342,
+            "low": 0.0036277733968290466,
+            "mean": 0.0079136916004795
+          },
+          "micro_sentence": "above"
+        },
+        "K5f": {
+          "macro": {
+            "clips": 569,
+            "clusters": 91,
+            "high": 0.0008655094510683071,
+            "low": -0.015260104747244886,
+            "mean": -0.0071189473583227435
+          },
+          "macro_sentence": "not separated",
+          "micro": {
+            "high": -0.018789992594639243,
+            "low": -0.033535981434605774,
+            "mean": -0.026081055113904572
+          },
+          "micro_sentence": "below"
+        }
+      },
+      "items": 569,
+      "pooling": "569 clips, protocol B; micro / AP after per-clip min-max"
+    },
+    "tad": {
+      "cells": {
+        "K5dfi": {
+          "ap": 0.22118004800938457,
+          "base_rate": 0.0724309642372114,
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.7863740479474166,
+            "low": 0.6508377482383481,
+            "mean": 0.7198075952868549
+          },
+          "micro": 0.6118970229380185
+        },
+        "K5dfice": {
+          "ap": 0.16603152430496196,
+          "base_rate": 0.0724309642372114,
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.775309825359335,
+            "low": 0.6523541501513989,
+            "mean": 0.7148683674726366
+          },
+          "micro": 0.5487836749633968
+        },
+        "K5dficx": {
+          "ap": 0.16949722133793976,
+          "base_rate": 0.0724309642372114,
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.7793945702805466,
+            "low": 0.6473458998481336,
+            "mean": 0.7144587698013286
+          },
+          "micro": 0.5563024036115178
+        },
+        "K5dfirr": {
+          "ap": 0.22118004800938457,
+          "base_rate": 0.0724309642372114,
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.7863740479474166,
+            "low": 0.6508377482383481,
+            "mean": 0.7198075952868549
+          },
+          "micro": 0.6118970229380185
+        },
+        "K5f": {
+          "ap": 0.26124008893490874,
+          "base_rate": 0.0724309642372114,
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.7675433206643081,
+            "low": 0.6250082357163901,
+            "mean": 0.6981099329105682
+          },
+          "micro": 0.6711349438750609
+        }
+      },
+      "clip_oracle_micro": 0.9226451927769644,
+      "deltas": {
+        "K5dfi": {
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.0,
+            "low": 0.0,
+            "mean": 0.0
+          },
+          "macro_sentence": "not separated",
+          "micro": {
+            "high": 0.0,
+            "low": 0.0,
+            "mean": 0.0
+          },
+          "micro_sentence": "not separated"
+        },
+        "K5dfice": {
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.011491553756533402,
+            "low": -0.021048477613678805,
+            "mean": -0.0049392278142181036
+          },
+          "macro_sentence": "not separated",
+          "micro": {
+            "high": -0.03461792630958097,
+            "low": -0.09037493347296367,
+            "mean": -0.06311334797462176
+          },
+          "micro_sentence": "below"
+        },
+        "K5dficx": {
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.00848590426796109,
+            "low": -0.019009494282008016,
+            "mean": -0.0053488254855261355
+          },
+          "macro_sentence": "not separated",
+          "micro": {
+            "high": -0.030837764448875652,
+            "low": -0.08225259633344202,
+            "mean": -0.05559461932650067
+          },
+          "micro_sentence": "below"
+        },
+        "K5f": {
+          "macro": {
+            "clips": 60,
+            "clusters": 60,
+            "high": 0.001837598487363467,
+            "low": -0.04852312917945647,
+            "mean": -0.021697662376286512
+          },
+          "macro_sentence": "not separated",
+          "micro": {
+            "high": 0.09426222739126185,
+            "low": 0.022393641016865,
+            "mean": 0.05923792093704239
+          },
+          "micro_sentence": "above"
+        }
+      },
+      "items": 100,
+      "pooling": "100 videos (macro over the 60 two-class), s8; raw"
+    }
+  }
+}

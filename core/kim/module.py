@@ -25,6 +25,8 @@ scorer, ``W_out`` and losses, and about the same parameter count (``KIM_RUN.md``
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 
 import torch
@@ -77,8 +79,57 @@ def kim_scale(d1: Tensor, pair: Tensor) -> Tensor:
     return torch.stack(scales)
 
 
+class PrivateRNG:
+    """A random stream of its own for one module's dropout (``KIM_RUN.md`` §59 CE2).
+
+    Inside :meth:`active` the device's default generator holds this stream's state; on exit the
+    stream's state is kept and the caller's is put back, so the host draws exactly what it would
+    have drawn without the module. Not checkpointed: a resumed run restarts the stream.
+    """
+
+    def __init__(self, seed: int) -> None:
+        self.seed = seed
+        self._states: dict[str, Tensor] = {}
+
+    @staticmethod
+    def _get(device: torch.device) -> Tensor:
+        state: Tensor = (torch.cuda.get_rng_state(device) if device.type == "cuda"
+                         else torch.get_rng_state())
+        return state
+
+    @staticmethod
+    def _set(device: torch.device, state: Tensor) -> None:
+        if device.type == "cuda":
+            torch.cuda.set_rng_state(state, device)
+        else:
+            torch.set_rng_state(state)
+
+    def _initial(self, device: torch.device) -> Tensor:
+        generator = torch.Generator(device=device)
+        generator.manual_seed(self.seed)
+        state: Tensor = generator.get_state()
+        return state
+
+    @contextmanager
+    def active(self, device: torch.device) -> Iterator[None]:
+        key = str(device)
+        host = self._get(device)
+        self._set(device, self._states.get(key, self._initial(device)))
+        try:
+            yield
+        finally:
+            self._states[key] = self._get(device)
+            self._set(device, host)
+
+
 class KIM(nn.Module):
-    """State / velocity / acceleration of ``v^t``, scored and returned through zero-init W_out."""
+    """State / velocity / acceleration of ``v^t``, scored and returned through zero-init W_out.
+
+    With :meth:`attach_encoder` (§59) the differences are taken on a second temporal encoder's
+    output over ``source`` rows instead of on ``v^t``; the return path stays ``v^t + W_out k``.
+    """
+
+    encoder: nn.Module | None
 
     def __init__(
         self,
@@ -104,6 +155,25 @@ class KIM(nn.Module):
         self.register_buffer("prototypes", torch.zeros(constants.KIM_CLASSES, feat_dim))
         self.register_buffer("proto_init", torch.zeros(constants.KIM_CLASSES, dtype=torch.bool))
         self.reset_parameters()
+        self.encoder = None
+        self.encoder_rng: PrivateRNG | None = None
+
+    def attach_encoder(self, encoder: nn.Module, dropout_seed: int) -> None:
+        """§59 CE1/CE2: ``encoder(source, lengths)`` feeds the differences; own dropout stream.
+
+        Called after construction, so KIM's own initial draws are those of an arm without it.
+        """
+        self.encoder = encoder
+        self.encoder_rng = PrivateRNG(dropout_seed)
+
+    def _encode(self, source: Tensor, lengths: Tensor) -> Tensor:
+        assert self.encoder is not None and self.encoder_rng is not None  # nosec B101
+        if not self.training:
+            encoded: Tensor = self.encoder(source, lengths)
+            return encoded
+        with self.encoder_rng.active(source.device):
+            encoded = self.encoder(source, lengths)
+        return encoded
 
     def _build_feature_layers(self, d_model: int, width: int) -> None:
         self.state_proj = nn.Linear(d_model, width)
@@ -151,10 +221,28 @@ class KIM(nn.Module):
         acc, acc_gate = self._gated(self.acc_gate, d2, mask)
         return torch.cat([state, vel, acc], dim=-1), scale, vel_gate, acc_gate
 
-    def forward(self, vt: Tensor, mask: Tensor, seam: Tensor | None = None) -> KIMOutput:
-        """``vt (B, L, D)``, ``mask (B, L)``: 1 = valid, ``seam (B, L)``: 1 starts a part."""
+    def forward(
+        self,
+        vt: Tensor,
+        mask: Tensor,
+        seam: Tensor | None = None,
+        source: Tensor | None = None,
+        lengths: Tensor | None = None,
+    ) -> KIMOutput:
+        """``vt (B, L, D)``, ``mask (B, L)``: 1 = valid, ``seam (B, L)``: 1 starts a part.
+
+        With an attached encoder, ``source (B, L, D)`` and ``lengths (B,)`` are required: the
+        features are taken on ``encoder(source)``, and ``vt`` is only the return path.
+        """
         mask = mask.to(vt.dtype)
-        raw, scale, vel_gate, acc_gate = self._features(vt, mask, seam)
+        kin_in = vt
+        if self.encoder is not None:
+            if source is None or lengths is None:
+                raise ValueError("KIM with an input encoder needs source rows and lengths (§59)")
+            kin_in = self._encode(source, lengths)
+        elif source is not None:
+            raise ValueError("source rows given to a KIM without an input encoder")
+        raw, scale, vel_gate, acc_gate = self._features(kin_in, mask, seam)
         kin_feat = raw * mask.unsqueeze(-1)
         logits = self.scorer(kin_feat)
         score = self._score(kin_feat, logits)
@@ -211,6 +299,12 @@ class KIM(nn.Module):
     def w_state_norm(self) -> Tensor:
         norm: Tensor = self.state_proj.weight.detach().norm()
         return norm
+
+    def encoder_params(self) -> list[Tensor]:
+        """The attached encoder's trainable parameters (empty without one), in a fixed order."""
+        if self.encoder is None:
+            return []
+        return [p for p in self.encoder.parameters() if p.requires_grad]
 
 
 class KIMCapacity(KIM):

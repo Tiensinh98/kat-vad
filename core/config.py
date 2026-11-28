@@ -234,6 +234,9 @@ class KIMConfig:
     edge_mask: bool = False
     capacity_control: bool = False
     seam_mask: bool = False
+    # §59: "none" = KIM reads v^t; "clip" / "fused" = a second temporal encoder over the CLIP
+    # columns / over x + W_u u feeds KIM, which still returns onto v^t
+    input_encoder: str = constants.KIM_INPUT_ENCODER_NONE
     width: int = constants.KIM_WIDTH
     mil_weight: float = constants.KIM_MIL_WEIGHT
     nkc_weight: float = constants.KIM_NKC_WEIGHT
@@ -469,6 +472,9 @@ def validate_kim(cfg: Config) -> None:
         raise ValueError(f"kim.proto_momentum must be in (0, 1], got {kim.proto_momentum}")
     if kim.warmup_steps < 0:
         raise ValueError(f"kim.warmup_steps must be >= 0, got {kim.warmup_steps}")
+    if kim.input_encoder not in constants.KIM_INPUT_ENCODERS:
+        raise ValueError(f"kim.input_encoder must be one of {constants.KIM_INPUT_ENCODERS}, "
+                         f"got {kim.input_encoder!r}")
     if not kim.enabled:
         if kim.prototypes:
             raise ValueError("kim.prototypes needs kim.enabled=true")
@@ -478,7 +484,15 @@ def validate_kim(cfg: Config) -> None:
             raise ValueError("kim.capacity_control needs kim.enabled=true and kim.prototypes=true")
         if kim.seam_mask:
             raise ValueError("kim.seam_mask needs kim.enabled=true and pairs (no capacity_control)")
+        if kim.input_encoder != constants.KIM_INPUT_ENCODER_NONE:
+            raise ValueError("kim.input_encoder needs kim.enabled=true")
         return
+    if kim.input_encoder != constants.KIM_INPUT_ENCODER_NONE:  # §59 CE1
+        if kim.capacity_control:
+            raise ValueError("kim.input_encoder feeds KIM's differences: no capacity_control")
+        if cfg.model.motion_dim <= 0:
+            raise ValueError("kim.input_encoder needs the motion stream (model.motion_dim > 0): "
+                             "without it the CLIP and fused rows are the same")
     if kim.capacity_control:  # arm Kcap = K5's prototypes and losses, and it has no pair to mask
         if not kim.prototypes:
             raise ValueError("kim.capacity_control needs kim.enabled=true and kim.prototypes=true")

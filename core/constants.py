@@ -1731,6 +1731,21 @@ KIM_DFI_BOTTOMK25_OUTPUT_DIRNAME = "kim_dfi_bottomk25"  # OUTPUT_ROOT/<this>/<ro
 KIM_DFI_BOTTOMK25_REPORT_STEM = "k5dfi_bottomk_report"  # REPORTS/<this>.{md,json}
 KIM_DFI_BOTTOMK25_TABLE_NAME = "k5dfi_bottomk25_s2024"  # REPORTS/zs_arm_table_<this>.md
 
+# --- KIM_RUN §59: KIM reads its own temporal encoder (kim.input_encoder) ---
+KIM_INPUT_ENCODER_NONE = "none"  # KIM reads v^t (every arm before §59)
+KIM_INPUT_ENCODER_CLIP = "clip"  # second encoder over the CLIP columns (K5dfice)
+KIM_INPUT_ENCODER_FUSED = "fused"  # second encoder over x + W_u u (capacity control K5dficx)
+KIM_INPUT_ENCODERS = (KIM_INPUT_ENCODER_NONE, KIM_INPUT_ENCODER_CLIP, KIM_INPUT_ENCODER_FUSED)
+KIM_ENCODER_RNG_OFFSET = 1  # CE2: the second encoder's dropout stream is seeded train.seed + this
+KIM_ENC_MIN_DRIFT = 1e-3  # CE5: final ||theta - theta_0|| / ||theta_0|| below this = DID NOT TRAIN
+KIM_CLIP_ENC_ROW = "K5dfice"  # CE1: K5dfi + kim.input_encoder=clip
+KIM_CLIP_ENC_CAP_ROW = "K5dficx"  # CE1: K5dfi + kim.input_encoder=fused
+KIM_CLIP_ENC_CONTROL = KIM_DFI_BOTTOMK25_CONTROL  # CE3: K5dfirr, reused on a matching GPU
+KIM_CLIP_ENC_CONTROL_GPU = "Tesla T4"  # CE3: the GPU K5dfirr trained on (§51.1)
+KIM_CLIP_ENC_OUTPUT_DIRNAME = "kim_dfi_clip_encoder"  # OUTPUT_ROOT/<this>/<row>/
+KIM_CLIP_ENC_REPORT_STEM = "k5dfi_clip_encoder_report"  # REPORTS/<this>.{md,json}
+KIM_CLIP_ENC_TABLE_NAME = "k5dfi_clip_encoder_s2024"  # REPORTS/zs_arm_table_<this>.md
+
 # --- KIM_RUN §53: KIM-on vs KIM-off on six arms (kim_ablation_report) ---
 # KA1: KIM-on arm -> (its KIM-off row, OUTPUT_ROOT dir that holds the on row); first = KA7 reference
 KIM_ABLATION_ARMS = {

@@ -324,6 +324,12 @@ class Trainer:
         self.epoch = 0  # completed epochs
         self.global_step = 0  # optimizer steps taken
         self._resume_batches_done = 0
+        # §59 CE5: the KIM input encoder's initial weights, for its drift (none without one)
+        kim_module = self.model.kim
+        self._kim_enc_init = (
+            None if kim_module is None or not kim_module.encoder_params()
+            else torch.cat([p.detach().flatten() for p in kim_module.encoder_params()]).clone()
+        )
 
     # ------------------------------------------------------------------ losses
     def _kip_loss_flags(self) -> tuple[bool, bool]:
@@ -663,6 +669,22 @@ class Trainer:
                 losses[f"sv2_top3q_{name}"] = top_q[flag].mean()
         return stp.patch_weight * patch + stp.branch_weight * branch
 
+    def _kim_encoder_logs(self) -> dict[str, float]:
+        """§59 CE5: the KIM input encoder's gradient norm, unscaled (empty without one)."""
+        if self._kim_enc_init is None or self.model.kim is None:
+            return {}
+        grads = [p.grad.detach().float().norm() for p in self.model.kim.encoder_params()
+                 if p.grad is not None]
+        norm = float(torch.stack(grads).norm()) if grads else 0.0
+        return {"kim_enc_grad_norm": norm / float(self.scaler.get_scale())}
+
+    def _kim_encoder_drift(self) -> float:
+        """§59 CE5: ``||theta - theta_0|| / ||theta_0||`` of the KIM input encoder."""
+        assert self._kim_enc_init is not None and self.model.kim is not None  # nosec B101
+        now = torch.cat([p.detach().flatten() for p in self.model.kim.encoder_params()])
+        init = self._kim_enc_init.to(now.device)
+        return float((now - init).norm() / init.norm().clamp(min=constants.KIM_EPS))
+
     def _kim_losses(
         self,
         outputs: dict[str, Tensor],
@@ -850,11 +872,17 @@ class Trainer:
                     batch_idx + 1
                 ) % cfg_t.grad_accum_steps == 0 or batch_idx == num_batches - 1
                 if is_boundary:
+                    enc_logs = self._kim_encoder_logs()
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
                     self.optimizer.zero_grad(set_to_none=True)
                     self.scheduler.step()
                     self.global_step += 1
+
+                    if enc_logs:
+                        enc_logs["kim_enc_drift"] = self._kim_encoder_drift()
+                else:
+                    enc_logs = {}
 
                 epoch_losses.append(float(losses["total"].detach()))
                 record = {
@@ -863,6 +891,7 @@ class Trainer:
                     "global_step": self.global_step,
                     "lr": self.scheduler.get_last_lr()[0],
                     **{k: float(v.detach()) for k, v in losses.items()},
+                    **enc_logs,
                 }
                 self._log_metrics(record)
                 if batch_idx % self.log_every == 0:
