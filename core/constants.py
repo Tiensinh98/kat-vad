@@ -1870,6 +1870,40 @@ DOTA_CAPTION_PROMPT = (  # {type_text} / {ego_text}: filled per clip from DoTA's
     "describe the video. Do not mention weather, lighting or time of day. Output only the "
     "sentence."
 )
+# §63.2 prompt v2 (2026-11-28, user): §63.1's failures = wrong participants of distant non-ego
+# crashes, wrong class / colour, a template "both come to a stop". One template per ego flag.
+DOTA_CAPTION_V2_HEAD = (
+    "This video was recorded by a dashcam mounted behind the windshield of the ego vehicle, "
+    "facing forward. It shows a traffic accident. The annotators labelled it as {type_text}. "
+)
+DOTA_CAPTION_V2_TAIL = (
+    "Name each road user by its exact class (car, SUV, van, truck, bus, motorcycle, bicycle, "
+    "pedestrian); give a colour only when it is clearly visible. Describe what happens after "
+    "the impact only if it is visible in the video; do not add that the vehicles stop. Use the "
+    "label as a hint, but describe what is visible; if the video disagrees with the label, "
+    "describe the video. Do not mention weather, lighting or time of day. Output only the "
+    "sentence."
+)
+DOTA_CAPTION_PROMPT_V2 = {  # ego_involve -> template with {type_text}
+    True: DOTA_CAPTION_V2_HEAD + (
+        "The ego vehicle (the camera car) is one of the vehicles in the accident. Describe the "
+        "accident in one sentence of at most 40 words: what the ego vehicle collides with, what "
+        "that road user does just before the impact and from which direction it comes. "
+    ) + DOTA_CAPTION_V2_TAIL,
+    False: DOTA_CAPTION_V2_HEAD + (
+        "The ego vehicle (the camera car) is NOT involved: it only watches other road users "
+        "crash, possibly far ahead. First find the moment of impact: the road users that "
+        "actually touch, or the one that leaves the road or hits an object. Ignore road users "
+        "that only pass the camera before or after the impact, and never mention a road user "
+        "that is not visible. Describe the accident in one sentence of at most 40 words: which "
+        "road users collide, what each one does just before the impact and from which direction "
+        "it comes. If the impact is too far or too small to tell the details, state only what is "
+        "certain instead of guessing. Do not say that the ego vehicle crashes. "
+    ) + DOTA_CAPTION_V2_TAIL,
+}
+DOTA_CAPTION_PROMPT_V1_NAME, DOTA_CAPTION_PROMPT_V2_NAME = "v1", "v2"
+DOTA_CAPTION_PROMPT_NAMES = (DOTA_CAPTION_PROMPT_V1_NAME, DOTA_CAPTION_PROMPT_V2_NAME)
+DOTA_CAPTION_PROMPT_DEFAULT = DOTA_CAPTION_PROMPT_V2_NAME
 # DT7 pixel gate: DoTA boxes drawn on the recovered frames, judged by eye
 DOTA_BOX_WIDTH = 1280  # DoTA's boxes live on a 1280 x 720 frame
 DOTA_BOX_HEIGHT = 720

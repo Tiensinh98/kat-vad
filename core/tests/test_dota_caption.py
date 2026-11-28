@@ -80,11 +80,33 @@ def test_clip_shorter_than_the_frame_count_raises() -> None:
 
 # --------------------------------------------------------------------------- prompt / sample
 def test_prompt_carries_type_and_ego() -> None:
-    ego = dc.prompt_for(_ann(kind="oncoming", ego=True))
-    other = dc.prompt_for(_ann(kind="oncoming", ego=False))
+    ego = dc.prompt_for(_ann(kind="oncoming", ego=True), "v1")
+    other = dc.prompt_for(_ann(kind="oncoming", ego=False), "v1")
     assert constants.DOTA_CAPTION_TYPE_TEXT["oncoming"] in ego
     assert constants.DOTA_CAPTION_EGO_TEXT[True] in ego
     assert constants.DOTA_CAPTION_EGO_TEXT[False] in other and "{" not in other
+
+
+def test_v1_keeps_the_pilots_identity_and_folder() -> None:
+    """§63.1's 32B records (tag 7eb9f067) must still load: v1 hashes exactly as before."""
+    assert dc.pilot_dirname("Qwen/Qwen2.5-VL-32B-Instruct", "v1") == \
+        "7eb9f067_Qwen2.5-VL-32B-Instruct_16f"
+    v1 = dc.identity(constants.NEXAR_CAPTION_MODEL, "abc", constants.NEXAR_CAPTION_QUANT, "v1")
+    v2 = dc.identity(constants.NEXAR_CAPTION_MODEL, "abc", constants.NEXAR_CAPTION_QUANT, "v2")
+    assert v1["prompt_sha1"] != v2["prompt_sha1"]
+    assert dc.pilot_dirname("m/x", "v1") != dc.pilot_dirname("m/x", "v2")
+
+
+def test_v2_has_one_template_per_ego_flag() -> None:
+    ego = dc.prompt_for(_ann(kind="lateral", ego=True), "v2")
+    other = dc.prompt_for(_ann(kind="lateral", ego=False), "v2")
+    for text in (ego, other):
+        assert constants.DOTA_CAPTION_TYPE_TEXT["lateral"] in text and "{" not in text
+        assert "do not add that the vehicles stop" in text and "exact class" in text
+    assert "NOT involved" in other and "moment of impact" in other
+    assert "NOT involved" not in ego
+    with pytest.raises(ValueError, match="prompt version"):
+        dc.prompt_for(_ann(), "v9")
 
 
 def test_every_type_has_a_sentence() -> None:
@@ -156,4 +178,18 @@ def test_caption_sheet_and_score_round_trip(tmp_path: Path) -> None:
         writer.writerows(rows)
     result = nc.score_qc(out)
     assert result["mean"] == 4.0 and result["verdict"] == "pass" and result["type_ok_share"] == 1.0
+
+    dc.write_sheet(tmp_path / "frames", records, out / nc.QC_DIRNAME, anns, "again")
+    with ratings.open(encoding="utf-8", newline="") as fh:  # a re-run never blanks the scores
+        assert [r["score"] for r in csv.DictReader(fh)] == ["5", "3"]
+
+    v1 = dc.identity(constants.NEXAR_CAPTION_MODEL, "abc123", constants.NEXAR_CAPTION_QUANT, "v1")
+    out_v1 = tmp_path / "pilot_v1"
+    dc.caption_clips(tmp_path / "frames", anns, sorted(anns), out_v1, v1, fake, "v1")
+    assert constants.DOTA_CAPTION_EGO_TEXT[False] in fake.prompts[-1]
+    dc.write_sheet(tmp_path / "frames", dc.caption_clips(
+        tmp_path / "frames", anns, sorted(anns), out_v1, v1, fake, "v1"),
+        out_v1 / nc.QC_DIRNAME, anns, "v1")
+    text = dc.compare({"v1": out_v1, "v2": out}, tmp_path / "cmp.md")
+    assert "| v1 | v2 |" in text and "**[5]**" in text and text.count("\n| ") == 3
 

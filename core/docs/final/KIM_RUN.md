@@ -3560,3 +3560,45 @@ Code: `core/tools/dota_caption.py` (`pilot`, `qc-score`; reuses `nexar_caption`'
 **Licensed whatever the numbers:** "on a CLIP-only host trained on <corpus>, KIM's on − off is <A>, against <B> on the VideoMAE host; the difference is <I> (n = 1)". **Never:** "KIM models motion" (on CLIP rows the differences measure appearance change), "VideoMAE hides KIM's motion signal" unless Q2 is SUPPORTED **and** Q3 is DIFFERENCES on the same host and metric, any sentence from a set outside CH7, or a seed claim.
 
 Code: `core/tools/kim_clip_host_report.py` (CH5–CH9; reuses `kim_ablation_report`'s readers, pooled-AUC bootstrap and config diff), constants `KIM_CLIP_HOST_*`, tests `core/tests/test_kim_clip_host.py` (L5 / L5cap start as L0, train to score), `core/tests/test_kim_clip_host_report.py`. Runbooks `colab/final/kim_clip_host_nexar.ipynb`, `colab/final/kim_clip_host_dota.ipynb` (outputs `Thesis-Final/outputs/kim_clip_host/`). **Status: built, NOT RUN.**
+
+**§63 DC9 (2026-11-28, user: only an L4 24 GB available).** The pilot may run on Qwen2.5-VL-**32B** NF4 (first choice on an L4) or **7B** bf16 (if the 32B runs out of memory); 72B NF4 stays the choice on an 80 GB GPU. The model is in every record's identity and in the pilot folder name, so records of two models are never mixed or pooled. Model size changes only caption quality; the user's QC of the 30 decides whether it is good enough. A later full run uses the model whose pilot passed, never a different one without a new pilot.
+
+### 63.1 Pilot read-out, Qwen2.5-VL-32B NF4 on an L4 (2026-11-28; ratings by Claude, not by the user; printed, decides nothing)
+
+Run: 30 / 30 captions in 14 min, revision `7cfb30d7`, prompt `7eb9f067`, 30 distinct captions, 19–37 words, 0 over the limit, 0 non-ego clips naming the ego. **Ratings were made by Claude from the 16-frame contact sheets at the user's request, not by the user** (a contact sheet can hide a fast impact; aftermath claims mostly unverifiable). LaGoVAD Tab. B 1–5: **mean 3.57, median 4**, counts 1/2/3/4/5 = 1/3/8/14/4, **≥ 4 on 18 / 30**; `type_ok` 27 / 30, `roles_ok` 20 / 30. **Ego-involved 3.84 (n = 19) vs non-ego 3.09 (n = 11)**; three of the four lowest are non-ego (#10, #21, #24, #28 = 2, 2, 1, 2).
+
+Error patterns: (1) on non-ego clips the model names the wrong participants of a distant accident or invents one (#24: a pedestrian–motorcycle crash that is not in the frames; #21: the crossing van is described as the crash, the crash happens later between other cars; #28: the black sedan that cuts in is called a white van); (2) wrong class or colour (#7 motorcyclist → cyclist, #14 sedan → van, #5 #20 #29 colour); (3) a template aftermath "both vehicles come to a stop" where the frames show otherwise (#4, #13); (4) the label hint pulls the description where the frames disagree (#16 a cut-in described as a rear-end, type `unknown`).
+
+Never: "the captions pass QC" (no user rating, no pre-registered bar), or "32B is as good as 72B" (72B never ran on DoTA).
+
+### 63.2 Prompt v2 for non-ego clips, and A100 / L4 handling (2026-11-28, user; BUILT, NOT RUN; written before any v2 caption)
+
+**Why.** §63.1 (Claude's rating of 32B v1): non-ego clips 3.09 vs ego 3.84; the errors are wrong or invented participants of distant crashes, wrong class / colour, a template "both vehicles come to a stop", and the label hint winning over the frames.
+
+| # | Choice |
+|---|---|
+| P1 | **v2 = one template per ego flag** (`constants.DOTA_CAPTION_PROMPT_V2`). Non-ego: find the moment of impact (who actually touches, or who leaves the road / hits an object); ignore road users that only pass the camera; never mention one that is not visible; if the impact is too far or small, state only what is certain. Both: exact class (car, SUV, van, truck, bus, motorcycle, bicycle, pedestrian), a colour only when clearly visible, the aftermath only if visible and no "the vehicles stop". Type hint and "video wins" kept. Ego wording changed only by the two shared lines (the class and aftermath errors also hit ego clips, #4 #13 #14) |
+| P2 | **v1 unchanged**: same text, same hash and folder (`7eb9f067`), so §63.1's 32B records still load (test `test_v1_keeps_the_pilots_identity_and_folder`) |
+| P3 | `pilot --prompts v1 v2` captions both with **one model load**; v1 clips already on Drive are skipped. Same 30 clips, same frames. A re-run never blanks scores already in a `qc_ratings.csv` |
+| P4 | Model from the GPU: ≥ 70 GB → 72B NF4; else 32B NF4 (A100-40GB, L4); 7B bf16 only by hand after a 32B OOM. **v1 and v2 are compared on the same model only** (`compare` writes them side by side); never the L4's 32B v1 beside an A100's 72B v2 |
+| P5 | Same 30 clips = still the dev set (DC8): v2 is tuned on them, so its score here is optimistic; a deciding QC is a fresh draw |
+| P6 | Read-out printed per version (Tab. B mean, ego / non-ego split, `type_ok`, `roles_ok`), never a pass / fail. Rater named (user or Claude) |
+
+Code: `dota_caption.py` (`template_text`, `prompt_for(ann, version)`, `identity(..., version)`, `pilot_dirname(model, version)`, `compare`, CLI `--prompts`, `compare`), tests `test_dota_caption.py` (+3; 48 green with `test_nexar_caption.py`), notebook `colab/final/dota_captions_pilot.ipynb` (step 8 writes Claude's §63.1 v1 ratings into the 32B v1 folder only if it has none).
+
+### 63.3 Read-out v1 vs v2, Qwen2.5-VL-32B NF4 on an L4 (2026-11-28; ratings by Claude, not by the user; printed, decides nothing)
+
+Run: v2 30 / 30 in 16 min (with model load), tag `a1e1d31b`, same revision and frames as v1; 30 distinct, median 24 words (v1 27), max 39, 0 non-ego naming the ego. **Rated by Claude from the same 16-frame contact sheets, not blind (the rater knew which column was v2 and wrote the prompt)**; v1 scores are §63.1's.
+
+| | v1 (§63.1) | v2 |
+|---|---|---|
+| Tab. B mean / median | 3.57 / 4 | **3.40 / 4** |
+| counts 1/2/3/4/5 | 1/3/8/14/4 | 0/6/8/14/2 |
+| ≥ 4 | 18 / 30 | 16 / 30 |
+| ego (n = 19) | 3.84 | 3.63 |
+| non-ego (n = 11) | 3.09 | 3.00 |
+| `type_ok` / `roles_ok` | 27 / 20 | 29 / 20 |
+
+v2 better on #13 #24 #26 #28 (+1 each), worse on #1 #18 (−2), #5 #9 #15 #20 #22 #29 (−1). What v2 fixed: the template "both vehicles come to a stop" is gone; #24 now names the car that is in the frames; #28 names the right two vehicles (but swaps who changes lane); #14 / #29 colour or class. What it did not fix or made worse: (1) a new template aftermath ("veer off course", "lose control", "spin", "move erratically") on 10 / 30, none visible — the banned phrase was replaced, not the habit; (2) a stock side "from the right side" on #1 #15 #29, wrong where the turner comes from the left or ahead; (3) the wrong pair in distant non-ego crashes stays (#10, #20, #21); #24 still invents the pedestrian being hit; (4) #7 is still a "bicycle" (a motorcycle), #1 / #5 class or colour newly wrong; #24 breaks the one-sentence rule.
+
+Reading: v2 does not beat v1 on this rater and these clips (−0.17 mean; the dev set favours v2, P5, so the true gap is no better). Never: "v2 improves the captions", "non-ego captions are fixed", or any v1 / v2 claim from another model. No prompt is chosen by this read-out.

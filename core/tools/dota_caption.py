@@ -15,6 +15,10 @@ Subcommands::
     python -m core.tools.dota_caption pilot --archive-dir data/DoTA_CAP_train_frames \\
         --annotations DoTA_annotations.zip --revision <sha> --out-dir outputs/dota_captions
     python -m core.tools.dota_caption qc-score --pilot-dir outputs/dota_captions/pilot/<tag>
+    python -m core.tools.dota_caption compare --pilot v1 <dir> --pilot v2 <dir> --out cmp.md
+
+``--prompts v1 v2`` captions both prompt versions with one model load (§63.2: v2 = one template
+per ego flag, written after §63.1's errors on non-ego clips); each version has its own folder.
 
 ``pilot`` captions the ``DOTA_CAPTION_PILOT_SAMPLE`` seeded clips (one per accident type, the
 rest drawn at random) into ``pilot/<prompt tag>_<model>_<frames>f/`` and writes one contact
@@ -110,11 +114,25 @@ def caption_window(ann: dict[str, Any], n: int = constants.DOTA_CAPTION_FRAMES
     return indices, (start, end)
 
 
-def prompt_for(ann: dict[str, Any]) -> str:
-    """The template filled with the clip's annotated type and ego involvement."""
-    return constants.DOTA_CAPTION_PROMPT.format(
-        type_text=constants.DOTA_CAPTION_TYPE_TEXT[ann["accident_name"]],
-        ego_text=constants.DOTA_CAPTION_EGO_TEXT[bool(ann["ego_involve"])])
+def template_text(version: str) -> str:
+    """The text a prompt version is hashed and tagged by (v1: its one template, unchanged)."""
+    if version == constants.DOTA_CAPTION_PROMPT_V1_NAME:
+        return constants.DOTA_CAPTION_PROMPT
+    if version == constants.DOTA_CAPTION_PROMPT_V2_NAME:
+        return "\n---\n".join(constants.DOTA_CAPTION_PROMPT_V2[k] for k in (True, False))
+    raise ValueError(f"prompt version must be one of {constants.DOTA_CAPTION_PROMPT_NAMES}")
+
+
+def prompt_for(ann: dict[str, Any],
+               version: str = constants.DOTA_CAPTION_PROMPT_DEFAULT) -> str:
+    """The version's template filled with the clip's annotated type and ego involvement."""
+    type_text = constants.DOTA_CAPTION_TYPE_TEXT[ann["accident_name"]]
+    ego = bool(ann["ego_involve"])
+    if version == constants.DOTA_CAPTION_PROMPT_V1_NAME:
+        return constants.DOTA_CAPTION_PROMPT.format(
+            type_text=type_text, ego_text=constants.DOTA_CAPTION_EGO_TEXT[ego])
+    template_text(version)  # raises on an unknown version
+    return constants.DOTA_CAPTION_PROMPT_V2[ego].format(type_text=type_text)
 
 
 def decode_frames(path: Path, indices: list[int], frames: int,
@@ -146,13 +164,14 @@ def pilot_sample(anns: dict[str, dict[str, Any]], n: int = constants.DOTA_CAPTIO
     return sorted(chosen + rng.sample(rest, n - len(chosen)))
 
 
-def identity(model: str, revision: str, quant: str) -> dict[str, Any]:
+def identity(model: str, revision: str, quant: str,
+             version: str = constants.DOTA_CAPTION_PROMPT_DEFAULT) -> dict[str, Any]:
     """The keys ``nexar_caption.load_record`` compares; a record that differs is refused."""
     if revision.strip().lower() in REFUSED_REVISIONS:
         raise ValueError(f"pin a model revision (a commit sha), not {revision!r} (C4)")
     if quant not in constants.NEXAR_CAPTION_QUANT_CHOICES:
         raise ValueError(f"quant must be one of {constants.NEXAR_CAPTION_QUANT_CHOICES}")
-    digest = hashlib.sha1(constants.DOTA_CAPTION_PROMPT.encode("utf-8"), usedforsecurity=False)
+    digest = hashlib.sha1(template_text(version).encode("utf-8"), usedforsecurity=False)
     return {
         "model": model, "revision": revision, "quant": quant, "prompt_sha1": digest.hexdigest(),
         "frames": constants.DOTA_CAPTION_FRAMES, "size": list(constants.DOTA_CAPTION_SIZE),
@@ -162,9 +181,9 @@ def identity(model: str, revision: str, quant: str) -> dict[str, Any]:
     }
 
 
-def pilot_dirname(model: str) -> str:
-    """One folder per prompt template, model and frame count."""
-    tag = prompt_tag(constants.DOTA_CAPTION_PROMPT)
+def pilot_dirname(model: str, version: str = constants.DOTA_CAPTION_PROMPT_DEFAULT) -> str:
+    """One folder per prompt template, model and frame count (v1's tag is §63's ``7eb9f067``)."""
+    tag = prompt_tag(template_text(version))
     return f"{tag}_{model.split('/')[-1]}_{constants.DOTA_CAPTION_FRAMES}f"
 
 
@@ -214,7 +233,8 @@ class DotaCaptioner(QwenCaptioner):
 
 # --------------------------------------------------------------------------- run
 def caption_clips(archive_dir: Path, anns: dict[str, dict[str, Any]], ids: list[str],
-                  out_dir: Path, ident: dict[str, Any], captioner: Any) -> dict[str, Any]:
+                  out_dir: Path, ident: dict[str, Any], captioner: Any,
+                  version: str = constants.DOTA_CAPTION_PROMPT_DEFAULT) -> dict[str, Any]:
     """Caption ``ids``; finished clips are skipped (atomic per-clip records, C11c)."""
     records: dict[str, dict[str, Any]] = {}
     t0, made = time.time(), 0
@@ -225,10 +245,11 @@ def caption_clips(archive_dir: Path, anns: dict[str, dict[str, Any]], ids: list[
             ann = anns[vid]
             indices, (start, end) = caption_window(ann)
             frames = decode_frames(archive_dir / f"{vid}.zip", indices, ann["num_frames"])
-            prompt = prompt_for(ann)
+            prompt = prompt_for(ann, version)
             fps = len(indices) * constants.DOTA_FPS / (end - start)
             answer = clean_caption(captioner.caption(frames, fps, prompt))
             record = {**ident, "video_id": vid, "caption": answer, "prompt": prompt,
+                      "prompt_version": version,
                       "accident_name": ann["accident_name"],
                       "ego_involve": bool(ann["ego_involve"]),
                       "anomaly": [ann["anomaly_start"], ann["anomaly_end"]],
@@ -246,6 +267,12 @@ def write_sheet(archive_dir: Path, records: dict[str, dict[str, Any]], sheet_dir
                 anns: dict[str, dict[str, Any]], title: str) -> None:
     """Contact sheets + ratings csv + a markdown sheet for the user."""
     sheet_dir.mkdir(parents=True, exist_ok=True)
+    kept: dict[str, list[str]] = {}  # a re-run keeps the scores already given (never blanks them)
+    ratings = sheet_dir / QC_RATINGS_FILENAME
+    if ratings.exists():
+        with ratings.open(encoding="utf-8", newline="") as fh:
+            kept = {r["video_id"]: [r.get(c, "") for c in (QC_SCORE_COLUMN, *QC_FLAG_COLUMNS)]
+                    for r in csv.DictReader(fh)}
     lines = [f"# {title}", "",
              f"Give each caption an integer `{QC_SCORE_COLUMN}` from "
              f"{constants.NEXAR_CAPTION_QC_SCORE_MIN} to {constants.NEXAR_CAPTION_QC_SCORE_MAX} in "
@@ -255,7 +282,7 @@ def write_sheet(archive_dir: Path, records: dict[str, dict[str, Any]], sheet_dir
              "| score | criteria |", "|---|---|",
              *(f"| {s} | {QC_CRITERIA[s]} |" for s in sorted(QC_CRITERIA, reverse=True)), "",
              "| # | clip | type | ego | window | caption |", "|---|---|---|---|---|---|"]
-    with (sheet_dir / QC_RATINGS_FILENAME).open("w", encoding="utf-8", newline="") as fh:
+    with ratings.open("w", encoding="utf-8", newline="") as fh:
         writer = csv.writer(fh)
         writer.writerow(["rank", "video_id", "event_type", "ego_involve", "caption",
                          QC_SCORE_COLUMN, *QC_FLAG_COLUMNS])
@@ -264,33 +291,69 @@ def write_sheet(archive_dir: Path, records: dict[str, dict[str, Any]], sheet_dir
             frames = decode_frames(archive_dir / f"{vid}.zip", r["frame_indices"],
                                    anns[vid]["num_frames"])
             contact_sheet(frames).save(sheet_dir / f"{rank:02d}_{vid}.png")
-            writer.writerow([rank, vid, r["accident_name"], r["ego_involve"], r["caption"], "",
-                             *[""] * len(QC_FLAG_COLUMNS)])
+            given = kept.get(vid, [""] * (1 + len(QC_FLAG_COLUMNS)))
+            writer.writerow([rank, vid, r["accident_name"], r["ego_involve"], r["caption"],
+                             *given])
             start, end = r["window_frames"]
             lines.append(f"| {rank} | {vid} | {r['accident_name']} | {r['ego_involve']} | "
                          f"{start}-{end} (onset {r['anomaly'][0]}) | {r['caption']} |")
     write_text_atomic(sheet_dir / QC_SHEET_FILENAME, "\n".join(lines) + "\n")
 
 
-def run_pilot(args: argparse.Namespace) -> Path:
+def run_pilot(args: argparse.Namespace) -> list[Path]:
+    """Caption the pilot with every version in ``args.prompts``, one model load for all."""
     clips = train_clips(constants.DOTA_TRAIN_SPLITS_DIR / constants.DOTA_TRAIN_MAP_FILENAME)
     anns = load_annotations(args.annotations, sorted(clips))
     ids = pilot_sample(anns)
     missing = [v for v in ids if not (args.archive_dir / f"{v}.zip").is_file()]
     if missing:
         raise FileNotFoundError(f"{len(missing)} pilot archives missing: {missing[:5]}")
-    ident = identity(args.model, args.revision, args.quant)
-    pilot_dir: Path = args.out_dir / PILOT_DIRNAME / pilot_dirname(args.model)
-    write_text_atomic(pilot_dir / "prompt_template.txt", constants.DOTA_CAPTION_PROMPT + "\n")
     captioner = DotaCaptioner(args.model, args.revision, resolve_device(args.device), args.quant)
-    records = caption_clips(args.archive_dir, anns, ids, pilot_dir, ident, captioner)
-    write_json_atomic(pilot_dir / PILOT_SUMMARY_FILENAME,
-                      {"prompt_tag": prompt_tag(constants.DOTA_CAPTION_PROMPT), **ident,
-                       "ids": ids, **summarize(records)})
-    write_sheet(args.archive_dir, records, pilot_dir / QC_DIRNAME, anns,
-                f"DoTA train caption pilot, prompt {prompt_tag(constants.DOTA_CAPTION_PROMPT)} "
-                "(§63)")
-    return pilot_dir
+    dirs: list[Path] = []
+    for version in args.prompts:
+        ident = identity(args.model, args.revision, args.quant, version)
+        pilot_dir: Path = args.out_dir / PILOT_DIRNAME / pilot_dirname(args.model, version)
+        tag = prompt_tag(template_text(version))
+        write_text_atomic(pilot_dir / "prompt_template.txt", template_text(version) + "\n")
+        records = caption_clips(args.archive_dir, anns, ids, pilot_dir, ident, captioner, version)
+        write_json_atomic(pilot_dir / PILOT_SUMMARY_FILENAME,
+                          {"prompt_tag": tag, "prompt_version": version, **ident, "ids": ids,
+                           **summarize(records)})
+        write_sheet(args.archive_dir, records, pilot_dir / QC_DIRNAME, anns,
+                    f"DoTA train caption pilot, prompt {version} ({tag}), "
+                    f"{args.model.split('/')[-1]} (§63)")
+        dirs.append(pilot_dir)
+    return dirs
+
+
+def compare(dirs: dict[str, Path], out: Path) -> str:
+    """§63.2: the versions' captions side by side per clip, with any score already given."""
+    caps: dict[str, dict[str, dict[str, Any]]] = {}
+    scores: dict[str, dict[str, str]] = {}
+    for name, d in dirs.items():
+        caps[name] = {p.stem: json.loads(p.read_text(encoding="utf-8"))
+                      for p in sorted((d / CAPTIONS_DIRNAME).glob("*.json"))}
+        ratings = d / QC_DIRNAME / QC_RATINGS_FILENAME
+        with ratings.open(encoding="utf-8", newline="") as fh:
+            scores[name] = {r["video_id"]: r[QC_SCORE_COLUMN] for r in csv.DictReader(fh)}
+    ids = sorted(set.intersection(*(set(c) for c in caps.values())))
+    if not ids:
+        raise ValueError("the pilot folders share no captioned clip")
+    names = list(dirs)
+    lines = ["# §63.2 caption comparison: " + " vs ".join(names), "",
+             "| # | clip | type | ego | " + " | ".join(names) + " |",
+             "|---|---|---|---|" + "---|" * len(names)]
+    for rank, vid in enumerate(ids, 1):
+        first = caps[names[0]][vid]
+        cells = []
+        for n in names:
+            score = scores[n].get(vid, "")
+            cells.append(caps[n][vid]["caption"] + (f" **[{score}]**" if score else ""))
+        lines.append(f"| {rank} | {vid} | {first['accident_name']} | {first['ego_involve']} | "
+                     + " | ".join(cells) + " |")
+    text = "\n".join(lines) + "\n"
+    write_text_atomic(out, text)
+    return text
 
 
 # --------------------------------------------------------------------------- CLI
@@ -306,8 +369,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
     pilot.add_argument("--quant", choices=constants.NEXAR_CAPTION_QUANT_CHOICES,
                        default=constants.NEXAR_CAPTION_QUANT)
     pilot.add_argument("--device", default="auto")
+    pilot.add_argument("--prompts", nargs="+", choices=constants.DOTA_CAPTION_PROMPT_NAMES,
+                       default=[constants.DOTA_CAPTION_PROMPT_DEFAULT],
+                       help="prompt versions, captioned in order with one model load; a version "
+                            "already captioned is skipped clip by clip")
     score = sub.add_parser("qc-score")
     score.add_argument("--pilot-dir", type=Path, required=True)
+    cmp = sub.add_parser("compare")
+    cmp.add_argument("--pilot", nargs=2, action="append", required=True, metavar=("NAME", "DIR"))
+    cmp.add_argument("--out", type=Path, required=True)
     return parser
 
 
@@ -317,7 +387,12 @@ def main(argv: list[str] | None = None) -> None:
     if args.command == "qc-score":
         LOGGER.info("QC: %s", score_qc(args.pilot_dir))
         return
-    LOGGER.info("pilot sheet: %s", run_pilot(args) / QC_DIRNAME / QC_SHEET_FILENAME)
+    if args.command == "compare":
+        compare({name: Path(d) for name, d in args.pilot}, args.out)
+        LOGGER.info("comparison: %s", args.out)
+        return
+    for pilot_dir in run_pilot(args):
+        LOGGER.info("pilot sheet: %s", pilot_dir / QC_DIRNAME / QC_SHEET_FILENAME)
 
 
 if __name__ == "__main__":
