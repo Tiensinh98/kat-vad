@@ -2038,3 +2038,9 @@ KIM_GRAD_PROBE_GROUPS = {  # NK1: parameter group -> qualified-name prefixes in 
 KIM_GRAD_PROBE_TRUNK = "temporal_encoder"
 KIM_GRAD_PROBE_BRANCH = "kim"
 KIM_GRAD_PROBE_TERMS = ("kim_mil", "kim_nkc")  # the KIM terms; everything else in total = task
+# KIM_RUN §67: window-geometry read of the CLIP-only DoTA host rows (inference only)
+KIM_WG_ROWS = ("L5", "L0", "L5cap")  # WG1: subject, control, printed
+KIM_WG_GATE_TOL = 1e-4  # WG4: whole macro vs the saved read-out (cross-GPU float drift)
+KIM_WG_REPORT_STEM = "window_geometry_read"  # REPORTS/window_geometry/<this>.{md,json}
+KIM_WG_GEOMETRY, KIM_WG_PART, KIM_WG_NOT = "GEOMETRY", "PART GEOMETRY", "NOT GEOMETRY"  # WG6
+KIM_WG_SPIKE_ROWS = (1, 2)  # WG7: rows where KIM's vel / acc are structurally zero (edge_mask)

@@ -3559,7 +3559,7 @@ Code: `core/tools/dota_caption.py` (`pilot`, `qc-score`; reuses `nexar_caption`'
 
 **Licensed whatever the numbers:** "on a CLIP-only host trained on <corpus>, KIM's on − off is <A>, against <B> on the VideoMAE host; the difference is <I> (n = 1)". **Never:** "KIM models motion" (on CLIP rows the differences measure appearance change), "VideoMAE hides KIM's motion signal" unless Q2 is SUPPORTED **and** Q3 is DIFFERENCES on the same host and metric, any sentence from a set outside CH7, or a seed claim.
 
-Code: `core/tools/kim_clip_host_report.py` (CH5–CH9; reuses `kim_ablation_report`'s readers, pooled-AUC bootstrap and config diff), constants `KIM_CLIP_HOST_*`, tests `core/tests/test_kim_clip_host.py` (L5 / L5cap start as L0, train to score), `core/tests/test_kim_clip_host_report.py`. Runbooks `colab/final/kim_clip_host_nexar.ipynb`, `colab/final/kim_clip_host_dota.ipynb` (outputs `Thesis-Final/outputs/kim_clip_host/`). **Status: Nexar host READ OUT 2026-11-28 (§64.1); DoTA host NOT RUN.**
+Code: `core/tools/kim_clip_host_report.py` (CH5–CH9; reuses `kim_ablation_report`'s readers, pooled-AUC bootstrap and config diff), constants `KIM_CLIP_HOST_*`, tests `core/tests/test_kim_clip_host.py` (L5 / L5cap start as L0, train to score), `core/tests/test_kim_clip_host_report.py`. Runbooks `colab/final/kim_clip_host_nexar.ipynb`, `colab/final/kim_clip_host_dota.ipynb` (outputs `Thesis-Final/outputs/kim_clip_host/`). **Status: Nexar host READ OUT 2026-11-28 (§64.1); DoTA host READ OUT 2026-11-28 (§64.2): L5dfiDoTA failed below chance.**
 
 ### 64.1 Read-out, Nexar host (2026-11-28, s2024, n = 1; PRELIMINARY, decides nothing, K5f stays)
 
@@ -3580,6 +3580,30 @@ Run: all five rows on NVIDIA L4 / torch 2.14.1 / CUDA 13.0 (`env.json`). L0 = **
 Reading (printed, not gated). (1) On the CLIP host KIM recovers about half of what VideoMAE adds on macro (A / (K0 − L0) ≈ 0.49 Nexar, 0.50 DoTA, 0.51 DADA) and less on micro (0.44 / 0.19 / 0.36); K5 − L5 stays +0.09…+0.13, so VideoMAE is not replaced. (2) I GAIN is also what diminishing returns on a stronger host would give; what separates the two readings here is C: on CLIP the differences beat a same-width branch by +0.06 on DoTA / DADA macro, while on the VideoMAE host §11 found K5 − Kcap DADA +0.0012 (s2025, pre-§31 labels — not paired with this run). (3) L5dficap fits the training windows better than L5dfi (last-step `mil` 0.244 vs 0.382, `kim_mil` 0.238 vs 0.293) and transfers worse: extra capacity without differences fits Nexar, it does not transfer. (4) DAD (labelled only): KIM costs on the CLIP host and L5dfi's macro 0.492 is below chance; never quoted as a result (time-ramp placebo, §55.1). (5) L5dfi's Nexar val micro 0.760 ≈ the clip oracle 0.761.
 
 **Licensed:** "on a CLIP-only host trained on Nexar, KIM's on − off is +0.085 / +0.067 / +0.084 macro on Nexar val / DoTA-CAP-dev / DADA, against +0.025 / +0.021 / +0.029 on the VideoMAE host; the difference is +0.060 / +0.046 / +0.055, and on the CLIP host it is carried by the differences, not the branch (n = 1)". The §64 guard is met on this host (Q2 SUPPORTED and Q3 DIFFERENCES, both metrics), so "VideoMAE overlaps with what KIM's differences add on CLIP" may be written for the Nexar host, n = 1. **Never:** "KIM models motion" (on CLIP rows the differences are appearance change between rows), "KIM can replace VideoMAE" (K5 − L5 +0.09…+0.13), any DAD sentence, any seed claim, or the DoTA host's verdict before it runs.
+
+### 64.2 Read-out, DoTA host (2026-11-28, s2024, n = 1; PRELIMINARY, decides nothing, K5f stays)
+
+Run: L5dfiDoTA, L5dficapDoTA and **L0dfiDoTArr** (L0dfiDoTA re-trained in the session per CH3) on Tesla T4; K5dfiDoTA / K0dfiDoTA reused (§58). Starts matched (L rows 0.778298, K pair 0.731826), J10 1,764, config diffs exact. Report `kim_clip_host/REPORTS/kim_clip_host_report_dota.md`. DoTA-CAP-dev is in-domain on this host.
+
+| row | DoTA-CAP-dev *(in-domain)* | DADA |
+|---|---|---|
+| L0dfiDoTArr | 0.6372 / 0.6638 | 0.5829 / 0.5880 |
+| L5dficapDoTA | 0.6464 / 0.6781 | 0.5993 / 0.6040 |
+| **L5dfiDoTA** | **0.4281 / 0.4001** | **0.4691 / 0.4465** |
+| K0dfiDoTA | 0.8156 / 0.8532 | 0.7553 / 0.7675 |
+| K5dfiDoTA | 0.8209 / 0.8590 | 0.7522 / 0.7659 |
+
+(micro / macro.) Macro: A = L5 − L0 −0.264 / −0.142 COST; B = K5 − K0 +0.006 / −0.002 n.d.; I −0.270 / −0.140 COST; C = L5 − L5cap −0.278 / −0.158 COST; printed L5cap − L0 +0.014 / +0.016 GAIN. Micro the same signs. **Verdicts, micro and macro: Q1 NO, Q2 REVERSED, Q3 DIFFERENCES COST.** Expectations (Q1 GAIN, Q2 SUPPORTED, Q3 BRANCH + LOSSES) all wrong.
+
+**The L5 row failed; the verdicts describe that failure, not KIM's contribution.** L5dfiDoTA scores **below chance in-domain** (DoTA macro 0.400) and on DADA (0.447), while it fits the training windows as L0 does (last-epoch `mil` 0.544 vs 0.542; `kim_mil` 0.526 vs L5cap 0.460). Post-hoc reads of the saved scores (printed, decide nothing; Claude, not a repo tool):
+
+1. **A spike at the sequence start.** Raw score median 0.034 over all DoTA frames (L0 0.096), but native frames 2–6 (rows 1–2 at s3) average 0.38–0.53; on DADA rows 1–2 0.59 / 0.58 against a median 0.018. No other row has it (L5cap, L0 flat; K5 / K0 ≈ 0 at the clip start). KIM's features are structurally zero there (`edge_mask` drops pair 1 → `vel` 0 at rows 0–1, `acc` 0 at rows 0–2), so every training window carries the same "no change" code in its first three rows.
+2. **The spike is not the whole failure.** Dropping rows 0–2 from every clip, macro L5 0.447 (DoTA) / 0.477 (DADA), still below chance (L0 0.649 / 0.582, L5cap 0.663 / 0.600, K5 0.835 / 0.744). Min-max profile: pre-span 0.25 > accident 0.13 > post 0.11 (L0 0.16 / 0.36 / 0.20): the ranking inside clips is inverted.
+3. Same recipe on the Nexar host (L5dfi) does not do this (DoTA read 0.739, no start spike: rows 1–2 at 0.13–0.18 of a 0.36 median).
+
+**Not measured:** why. Candidate (untested): DoTA windows are 12 rows and 73 % positive (§56), so a code present in every window (KIM's start zeros) can satisfy top-k MIL on positives at low cost; whole-clip reads then see the code once and the rest of the curve is not ranked. The test is a read of L5dfiDoTA on 12-row DoTA-CAP-dev windows (the training geometry): if it ranks there, the failure is the train / read geometry, not the differences.
+
+**Licensed:** "on the CLIP-only host trained on DoTA windows, KIM (L5dfiDoTA) ends below chance on DoTA-CAP-dev (0.400 macro) and DADA (0.447), with a score spike at the first rows of each sequence; the same branch without differences (L5dficapDoTA) gains +0.014 / +0.016 over the trunk (n = 1)". **Never:** "KIM hurts on DoTA" / "differences hurt" as a general sentence (one failed row, mechanism unknown), "VideoMAE does not mask KIM" (Q2 REVERSED is the failure's sign), "KIM models motion", any seed claim. The Nexar host's §64.1 reading stands on its own host only.
 
 **§63 DC9 (2026-11-28, user: only an L4 24 GB available).** The pilot may run on Qwen2.5-VL-**32B** NF4 (first choice on an L4) or **7B** bf16 (if the 32B runs out of memory); 72B NF4 stays the choice on an 80 GB GPU. The model is in every record's identity and in the pilot folder name, so records of two models are never mixed or pooled. Model size changes only caption quality; the user's QC of the 30 decides whether it is good enough. A later full run uses the model whose pilot passed, never a different one without a new pilot.
 
@@ -3663,3 +3687,23 @@ Code: `core/tools/dota_label_captions.py` (`parties`, `label_caption`, `build_ma
 **Licensed whatever the numbers:** "on the CLIP-only host trained on Nexar, removing `kim_nkc` (weight 0.1) changes Nexar val / DoTA-CAP-dev / DADA by <N> (n = 1)"; "at the checkpoint, the weighted `kim_nkc` gradient is <r> of `kim_mil`'s in KIM and <r'> of the task's at the trunk". **Never:** "the weight is too small / right" from step 1 alone (a gradient size is not a contribution); "prototypes do not matter" (L5dfin0 keeps them); any sentence about the VideoMAE host from step 2 (only L5 is trained); a weight chosen from DoTA / DADA; a seed claim.
 
 Code: `core/tools/kim_grad_probe.py` (NK1), `core/tools/kim_nkc_report.py` (NK4–NK7; reuses `kim_ablation_report`'s readers and bootstrap, `kim_clip_host_report.question`), constants `KIM_NKC_*`, tests `core/tests/test_kim_grad_probe.py`, `core/tests/test_kim_nkc_report.py`. Runbook `colab/final/kim_nkc_weight.ipynb` (outputs `Thesis-Final/outputs/kim_nkc/`). **Status: built, NOT RUN.**
+
+## 67. Window-geometry read: does L5dfiDoTA rank on the 12-row windows it trained on? (dated note 2026-11-28, before any number of this read; user)
+
+**Why.** §64.2: L5dfiDoTA (KIM on the CLIP-only DoTA host) reads below chance on whole clips (DoTA-CAP-dev macro 0.400) while fitting its 12-row training windows as well as L0. Two untested candidates, both about geometry: KIM's structural zeros at rows 0–2 of every sequence act as a start code, and `kim_scale` normalizes differences by the sequence's own median (window at training, whole clip at the read). This read scores the same clips in the training geometry. Inference only, nothing trained; it decides only which explanation §64.2's failure gets.
+
+| # | Choice |
+|---|---|
+| WG1 Rows | **L5dfiDoTA** (subject), **L0dfiDoTArr** (control, §64.2's L0), **L5dficapDoTA** (printed: branch without differences). Plain `DoTA_s1_ncc[::3]` input, the rows' own checkpoints (J10) |
+| WG2 Set | DoTA-CAP-dev, 569 clips, **in-domain** for these rows; labels and clips as protocol B. DADA not read (its own stride and geometry; a later note if needed) |
+| WG3 Reads, per row | **whole** = protocol B exactly (`rate_matched_eval.score_steps`, whole clip); **windowed** = the same s3 rows cut into windows of `DOTA_TRAIN_WINDOW_LENGTH` 12 / hop `DOTA_TRAIN_WINDOW_HOP` 6 (+ tail window, `window_starts`), each window scored alone, per-row mean over the windows covering it (`overlap_average`). Both interpolated to native frames (J3); macro = mean per-clip AUC over two-class clips |
+| WG4 Gate (raise) | each row's whole macro equals its saved `eval/dota/K5/protocol_b_readout.json` macro within 1e-4 (same scorer, same clips; the saved reads ran on a T4, so a different GPU may move a tied rank) |
+| WG5 Contrasts (paired per clip, `dota_group` cluster bootstrap, §53 KA5 labels) | **G** = L5 windowed − L5 whole (decides); **R** = L5 windowed − L0 windowed (decides); printed: L0 and L5cap windowed − whole, L5cap windowed − L0 windowed |
+| WG6 Verdict | **GEOMETRY** iff G GAIN and R not COST (in its training geometry KIM ranks at least as the trunk: the failure is the read geometry); **PART GEOMETRY** iff G GAIN and R COST; **NOT GEOMETRY** iff G not GAIN (the model is wrong in its own geometry) |
+| WG7 Printed, never decides | window-level AUC (window label = ≥ 1 abnormal row, `WINDOW_MIN_POSITIVE`; window score = top-k mean of its own scores, k = n // `loss.mil_topk_pct`, as `L_MIL`); mean raw score by position 0–11 inside a window (is there a start code in the training geometry?); raw score at rows 1–2 over the clip median, whole read |
+
+**Expectation (written now; a wrong one changes nothing).** PART GEOMETRY: windowing removes the start spike from the clip start but puts it at every window start, so G may gain without reaching L0.
+
+**Licensed whatever the numbers:** "read on 12-row windows, L5dfiDoTA's DoTA-CAP-dev macro is <x> against <y> on whole clips (n = 1, in-domain)". **Never:** "KIM works on DoTA" from GEOMETRY (the deployable read is the whole clip; a fix is a new arm), "the start zeros are the cause" (WG7 is printed), any zero-shot sentence (DoTA is in-domain here), a seed claim. Whatever the verdict, K5f stays the reference.
+
+Code: `core/tools/window_geometry_read.py`, constants `KIM_WG_*`, tests `core/tests/test_window_geometry_read.py`. Runbook `colab/final/kim_window_geometry.ipynb` (outputs `Thesis-Final/outputs/kim_clip_host/REPORTS/window_geometry/`). **Status: built, NOT RUN.**
