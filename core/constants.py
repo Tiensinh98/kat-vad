@@ -1828,6 +1828,48 @@ KIM_DOTA_TRAIN_ABL_TABLES = {"kim": "k5dfidota_abl_vs_k0_s2024",  # control K0df
 KIM_DOTA_TRAIN_POSITION_RULER = (0.8545, 0.8386, 0.8695)  # §55: cubic position, DoTA-CAP-dev
 KIM_DADA_MIDDLE_RULER = (0.7342, 0.7076, 0.7594)  # §36.1: position-only middle ruler, DADA
 CAP_LIGHT_NIGHT = 2  # CAP's light column: 1 day, 2 night
+# §63: event captions for the recovered DoTA train clips (core.tools.dota_caption); a data
+# artifact, nothing trains. Model, quant, frame size and the QC scale are Nexar's (§29.3)
+DOTA_CAPTION_OUTPUT_DIRNAME = "dota_captions"  # OUTPUT_ROOT/<this>/pilot/<prompt tag>/
+DOTA_CAPTION_FRAMES = 16  # 8 Qwen time steps; a 5 s window at 10 fps holds 50 native frames
+DOTA_CAPTION_PRE_ONSET_S = 2.0  # window opens this long before anomaly_start (Nexar's 2.0 s)
+DOTA_CAPTION_POST_ONSET_S = 3.0  # and closes this long after it, or at anomaly_end if sooner
+DOTA_CAPTION_SIZE = NEXAR_CAPTION_SIZE  # (700, 392): DoTA frames are 16:9 like Nexar's
+DOTA_CAPTION_PILOT_SAMPLE = 30  # user: try 30 clips, read the QC, then decide
+DOTA_CAPTION_PILOT_SEED = 2024
+DOTA_CAPTION_UNKNOWN = "unknown"  # DoTA's accident_name for an unlabelled type
+# DoTA's accident_name -> the type sentence the prompt carries (Yao et al. 2022, Tab. 1)
+DOTA_CAPTION_TYPE_TEXT = {
+    "start_stop_or_stationary": "a collision with another vehicle that is starting, stopping "
+                                "or standing still",
+    "moving_ahead_or_waiting": "a collision with another vehicle that is moving ahead or "
+                               "waiting in the same lane",
+    "lateral": "a collision with another vehicle moving sideways in the same direction, "
+               "for example while changing lanes",
+    "oncoming": "a collision with an oncoming vehicle",
+    "turning": "a collision with a vehicle that turns into or crosses the road",
+    "pedestrian": "a vehicle hitting a pedestrian",
+    "obstacle": "a vehicle hitting an obstacle on the road",
+    "leave_to_left": "a vehicle losing control and leaving the road to the left",
+    "leave_to_right": "a vehicle losing control and leaving the road to the right",
+    DOTA_CAPTION_UNKNOWN: "an accident whose type the annotators did not label",
+}
+DOTA_CAPTION_EGO_TEXT = {
+    True: "The ego vehicle (the camera car) is one of the vehicles in the accident.",
+    False: "The ego vehicle (the camera car) is NOT involved: it only watches other road "
+           "users crash. Do not say that the ego vehicle crashes.",
+}
+DOTA_CAPTION_PROMPT = (  # {type_text} / {ego_text}: filled per clip from DoTA's annotation
+    "This video was recorded by a dashcam mounted behind the windshield of the ego vehicle, "
+    "facing forward. It shows a traffic accident. The annotators labelled it as "
+    "{type_text}. {ego_text} Describe the accident in one sentence of at most 40 words: "
+    "which road users collide (cars, trucks, buses, motorcycles, cyclists, pedestrians, "
+    "the ego vehicle), what each one does just before the impact, from which direction it "
+    "comes, and what happens right after. Name only road users that take part. Use the "
+    "label as a hint, but describe what is visible; if the video disagrees with the label, "
+    "describe the video. Do not mention weather, lighting or time of day. Output only the "
+    "sentence."
+)
 # DT7 pixel gate: DoTA boxes drawn on the recovered frames, judged by eye
 DOTA_BOX_WIDTH = 1280  # DoTA's boxes live on a 1280 x 720 frame
 DOTA_BOX_HEIGHT = 720

@@ -3518,3 +3518,22 @@ KIM lifts the pre-onset frames inside each clip's min-max range (×1.7…×4.3) 
 **Expectation check.** w_W small: held. Micro loss in AUC_X: held. Pre-onset on K5f / K5fepre: held (and on K5dfie, T2).
 
 **Licensed (n = 1):** "On DoTA-CAP, KIM's min-max micro cost is cross-clip: KIM raises pre-onset frames within each clip's range more than accident frames, so they outrank other clips' accident frames, while within-clip ranking does not fall." "Min-max micro on DoTA-CAP / DADA measures cross-clip comparisons (≥ 99.7 % of pairs)." **Not licensed:** "KIM anticipates accidents" or "KIM causes the early rise" (on − off locates a difference, not a mechanism; §43.1's cause H1 untested); "the DoTA host avoids the early rise because of DoTA training" (corpus, window, spacing, statistics differ); a reading of a pre-onset lift as a level shift of the whole curve (min-max removes level; this is a shape change).
+
+## 63. DoTA train captions with Qwen2.5-VL: a 30-clip pilot (dated note 2026-11-28, before any caption is generated or read; user)
+
+**A data artifact, not an arm.** The user asked for captions of the recovered DoTA train clips (§52 / §55 corpus), tried first on 30 clips to see the QC, then decide. Nothing here trains, and nothing authorizes using the captions: that needs the pilot read-out **and** a new dated note with its own use and loss rule (the caption `L_neg` line is closed since §33; a reopening is the user's call).
+
+| # | Choice | Value |
+|---|---|---|
+| DC1 Clips | the frozen §52 map minus `DOTA_TRAIN_EXCLUDED` = **3,020**, read from `Thesis-Final/data/DoTA_CAP_train_frames/{dota_id}.zip` (DoTA-native 10 fps). Pixels not verified (DT7, §52.2): a wrong map row shows up as a caption of another clip |
+| DC2 Pilot | **30 clips, seed 2024**: one per DoTA `accident_name` (10 types, seeded pick), then 20 at random from the rest (`dota_caption.pilot_sample`). Drawn: turning 9, oncoming 5, lateral 4, moving-ahead 4, start-stop 2, obstacle 2, pedestrian / leave-left / leave-right / unknown 1 each; ego-involved 19 / 30 |
+| DC3 Window | 16 frames at the bin centres of `[anomaly_start − 2.0 s, min(anomaly_start + 3.0 s, anomaly_end))`, widened inside the clip when shorter than 16 frames; each frame 700 × 392 (Nexar's size, both 16:9) |
+| DC4 Model | Nexar's §29.3 round-7 setting: `Qwen/Qwen2.5-VL-72B-Instruct`, NF4, greedy, 128 new tokens; the revision reuses Nexar's pin when the model is the same. 32B NF4 allowed on a 40 GB GPU (own folder) |
+| DC5 Prompt | `DOTA_CAPTION_PROMPT`: dashcam framing, **DoTA's annotated type** (`DOTA_CAPTION_TYPE_TEXT`, Yao et al. Tab. 1 wording) **and ego involvement** (`DOTA_CAPTION_EGO_TEXT`; non-ego clips are told not to say the ego vehicle crashes) as a hint, the way LaGoVAD's prompt carries the video label; one sentence ≤ 40 words: who collides, what each does before the impact, from where, what follows; describe the video if it disagrees with the label; no weather / lighting / time of day. No type prefix (DoTA's type is known, unlike Nexar's §29.3 contact call) |
+| DC6 Output | `Thesis-Final/outputs/dota_captions/pilot/<prompt sha1[:8]>_<model>_16f/` — per-clip JSON (atomic, identity-checked as §29 CP5, filled prompt stored), `pilot_summary.json`, `qc/` (contact sheets, `qc_ratings.csv`, `qc_sheet.md`) |
+| DC7 QC | the user rates the 30 on LaGoVAD Tab. B 1–5 (`nexar_caption.score_qc`, unchanged); `type_ok` / `roles_ok` optional y / n. Printed: mean, histogram, word counts, scene-word share, non-ego clips whose caption names "ego vehicle" (a heuristic, not a verdict). **Read as a pilot: nothing passes or fails here.** |
+| DC8 After the pilot | the 30 pilot clips become the prompt's **dev set**: the prompt may be changed after reading them, and any later QC that decides anything is a fresh seeded draw outside these 30 (lesson 14) |
+
+**Limits.** One rater; the label hint makes type errors rare by construction, so the pilot measures roles, direction and invention, not type recognition; DoTA's boxes and spans are loose (§52.2). Not LaGoVAD's prompt or model (Qwen2-VL-72B), 16 frames of a 5 s window.
+
+Code: `core/tools/dota_caption.py` (`pilot`, `qc-score`; reuses `nexar_caption`'s captioner, cleaning, identity check and QC scorer), `core/constants.py` (`DOTA_CAPTION_*`), tests `core/tests/test_dota_caption.py` (12). Runbook `colab/final/dota_captions_pilot.ipynb` (80 GB GPU). **Status: built, NOT RUN.**
