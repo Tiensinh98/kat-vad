@@ -23,7 +23,7 @@ import torch
 from torch import Tensor, nn
 
 from core import constants
-from core.config import validate_kim, validate_stp, validate_v2, validate_v5
+from core.config import validate_kim, validate_proto, validate_stp, validate_v2, validate_v5
 from core.data.collate import padding_mask
 from core.kim.module import KIM, KIMCapacity
 from core.kip.kip_module import KIP
@@ -32,6 +32,7 @@ from core.models.fusion import CoAttentionFusion
 from core.models.heads import BinaryHead, MultiClassHead
 from core.models.motion_residual import MotionResidual
 from core.models.mqr import GridReadout, SpatialMILHead
+from core.models.proto_bank import PrototypeBank
 from core.models.sa2 import SpatialAttentionAggregation
 from core.models.sa2v2 import SA2V2
 from core.models.temporal_encoder import TemporalEncoder
@@ -116,6 +117,7 @@ class KATVAD(nn.Module):
         kim: KIM | None = None,
         motion_norm: str = constants.MOTION_NORM_OFF,
         kim_input: str = constants.KIM_INPUT_ENCODER_NONE,
+        proto: PrototypeBank | None = None,
     ) -> None:
         super().__init__()
         # v2 motion stream (architecture §5): absent unless motion_dim > 0, so every
@@ -179,6 +181,10 @@ class KATVAD(nn.Module):
         self.sim_head = MultiClassHead(temperature_init=multiclass_temp)
         self.clip_text_model = clip_text_model
         self.tokenizer = tokenizer
+        # §61: class prototypes on v^t in the main score; absent unless proto.score / proto.loss
+        if proto is not None and kim is not None:
+            raise ValueError("proto.* is the KIM-off host's term (§61): build without KIM")
+        self.proto = proto
 
     @classmethod
     def from_config(cls, cfg: Config, load_clip: bool = False) -> KATVAD:
@@ -187,6 +193,7 @@ class KATVAD(nn.Module):
         validate_v5(cfg)
         validate_stp(cfg)
         validate_kim(cfg)
+        validate_proto(cfg)
         v5 = cfg.v5
         grid_readout = smil_head = None
         if v5.readout != constants.V5_READOUT_OFF:
@@ -245,6 +252,8 @@ class KATVAD(nn.Module):
             kim=_build_kim(cfg) if cfg.kim.enabled else None,
             motion_norm=cfg.model.motion_norm,
             kim_input=cfg.kim.input_encoder,  # validate_kim refuses it with KIM off
+            proto=(PrototypeBank(cfg.model.hidden_dim, score=cfg.proto.score)
+                   if cfg.proto.enabled else None),
         )
         if load_clip and model.sa2v2 is not None:
             model.sa2v2.set_text_projection(clip_text_projection())  # rule D3
@@ -284,6 +293,9 @@ class KATVAD(nn.Module):
         expanded_txt = txt_feats[None, :, :].expand(vis_feats.shape[0], -1, -1)
         v_fused, t_fused = self.fusion(vis_feats, expanded_txt, lengths)
         bin_logits = self.bin_head(before_fused=vis_feats, after_fused=v_fused)
+        if self.proto is not None and self.proto.lam is not None:  # §61 PR2
+            mask = padding_mask(lengths, vis_feats.shape[1]).to(vis_feats.device)
+            bin_logits = bin_logits + self.proto.score_term(vis_feats, mask).to(bin_logits.dtype)
         sim_mat = self.sim_head(v_fused, t_fused)
         return bin_logits, sim_mat
 

@@ -248,6 +248,31 @@ class KIMConfig:
 
 
 @dataclass
+class ProtoConfig:
+    """Class prototypes on ``v^t`` in the main score (rule ``KIM_RUN.md`` §61).
+
+    All false (default) = no module, no loss key, the state dict unchanged. ``score`` adds
+    ``lambda * (cos(v, mu1) - cos(v, mu0))`` to the bin logits (lambda init 0); ``loss`` is the
+    normal-anchored contrast; ``bottomk_normals`` also feeds mu0 the bottom-k steps of abnormal
+    bags. Refused with ``kim.enabled`` (the host is KIM-off). Values = KIM's D11 / D12.
+    """
+
+    score: bool = False
+    loss: bool = False
+    bottomk_normals: bool = False
+    weight: float = constants.KIM_NKC_WEIGHT
+    temp: float = constants.KIM_NKC_TEMP
+    negatives: int = constants.KIM_NKC_NEGATIVES
+    anchor_thresh: float = constants.KIM_ANCHOR_THRESH
+    momentum: float = constants.KIM_PROTO_MOMENTUM
+    warmup_steps: int = constants.KIM_WARMUP_STEPS
+
+    @property
+    def enabled(self) -> bool:
+        return self.score or self.loss
+
+
+@dataclass
 class Config:
     """Top-level KAT-VAD configuration."""
 
@@ -261,6 +286,7 @@ class Config:
     v5: V5Config = field(default_factory=V5Config)
     stp: STPConfig = field(default_factory=STPConfig)
     kim: KIMConfig = field(default_factory=KIMConfig)
+    proto: ProtoConfig = field(default_factory=ProtoConfig)
 
     def to_dict(self) -> dict[str, Any]:
         return dataclasses.asdict(self)
@@ -508,3 +534,28 @@ def validate_kim(cfg: Config) -> None:
         raise ValueError("kim.enabled cannot be combined with stp.sa2 / stp.sa2v2")
     if cfg.v5.readout != constants.V5_READOUT_OFF:
         raise ValueError("kim.enabled cannot be combined with the v5 grid readout")
+
+
+def validate_proto(cfg: Config) -> None:
+    """Fail loud on a prototype config §61 does not define."""
+    proto = cfg.proto
+    if proto.bottomk_normals and not proto.enabled:
+        raise ValueError("proto.bottomk_normals needs proto.score or proto.loss")
+    if not proto.enabled:
+        return
+    if cfg.kim.enabled:
+        raise ValueError("proto.* is the KIM-off host's term (§61): set kim.enabled=false")
+    if cfg.kip.enabled:
+        raise ValueError("proto.* reads v^t: set kip.enabled=false")
+    if proto.weight < 0:
+        raise ValueError(f"proto.weight must be >= 0, got {proto.weight}")
+    if proto.temp <= 0:
+        raise ValueError(f"proto.temp must be > 0, got {proto.temp}")
+    if proto.negatives < 1:
+        raise ValueError(f"proto.negatives must be >= 1, got {proto.negatives}")
+    if not 0.0 <= proto.anchor_thresh < 1.0:
+        raise ValueError(f"proto.anchor_thresh must be in [0, 1), got {proto.anchor_thresh}")
+    if not 0.0 < proto.momentum <= 1.0:
+        raise ValueError(f"proto.momentum must be in (0, 1], got {proto.momentum}")
+    if proto.warmup_steps < 0:
+        raise ValueError(f"proto.warmup_steps must be >= 0, got {proto.warmup_steps}")

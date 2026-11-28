@@ -2710,3 +2710,12 @@ Promote if a second harness needs the same split.
 **Rule:** Compute the train-fitted position ruler and the shared-source count before training a row whose benchmark becomes in-domain.
 **Files:** core/docs/final/KIM_RUN.md §55, core/tools/position_prior.py:prior_scores
 **Gate status.** One occurrence; candidate. Family of C12 / pending (ag), (ar).
+
+## (ei) [HIGH] Checkpoint - a new config section must join `inference.ARCH_SECTIONS` (2026-11-28, §61)
+**Triggers:** new config section, new module, state_dict, load_model_for_scoring, ARCH_SECTIONS
+**Problem:** a row trained with `proto.*` on could not be scored: eval built the model from the default config, which has no prototype bank, so `load_state_dict` raised on the unexpected keys `proto.lam` / `proto.prototypes` / `proto.proto_init`.
+**Bad:** adding a `@dataclass` section that builds modules, without adding it to `ARCH_SECTIONS`.
+**Good:** `ARCH_SECTIONS = (..., "kim", "proto")` plus a test that trains a row and loads it with `load_model_for_scoring(Config(), ...)`.
+**Rule:** Add every config section that changes the module tree to `core/inference.py:ARCH_SECTIONS`, and test train → `load_model_for_scoring` from a default `Config()`.
+**Files:** core/inference.py ARCH_SECTIONS, core/tests/test_proto_bank.py TestTraining
+**Gate status.** One occurrence (caught by the test before any run); candidate.

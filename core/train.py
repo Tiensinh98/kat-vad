@@ -77,6 +77,7 @@ from core.losses.mil import (
 from core.losses.smil import spatial_mil_loss
 from core.models.kat_vad import KATVAD
 from core.models.mqr import query_entropy
+from core.models.proto_bank import bottomk_steps
 from core.models.sa2 import attention_entropy
 from core.models.text_encoding import (
     TEXT_ENCODER_CHOICES,
@@ -626,6 +627,8 @@ class Trainer:
             total = total + self._sv2_losses(outputs, losses, labels, lengths, mask)
         if self.model.kim is not None:
             total = total + self._kim_losses(outputs, losses, labels, lengths, mask, seam)
+        if self.model.proto is not None:
+            total = total + self._proto_losses(outputs, losses, labels, lengths, mask)
         losses["total"] = total
         return losses
 
@@ -736,6 +739,50 @@ class Trainer:
                     module.update_prototypes(feats, negatives, anchors, kim.proto_momentum)
             losses["kim_proto_cos"] = module.prototype_cosine()
             losses["kim_proto_ready"] = score.new_tensor(float(module.prototypes_ready))
+        return total
+
+    def _proto_losses(
+        self,
+        outputs: dict[str, Tensor],
+        losses: dict[str, Tensor],
+        labels: Tensor,
+        lengths: Tensor,
+        mask: Tensor,
+    ) -> Tensor:
+        """§61: the normal-anchored prototype loss (PR3) and the prototype update (PR1, PR4).
+
+        Anchors = top-k of the main score above ``proto.anchor_thresh``; the loss and the update
+        start at ``proto.warmup_steps`` and the update runs after the loss, as KIM's (D11).
+        """
+        bank = self.model.proto
+        assert bank is not None  # nosec B101 - caller checks
+        cfg, topk = self.cfg.proto, self.cfg.loss.mil_topk_pct
+        feats = outputs["vis_feats"]
+        score = outputs["cls_bin_logits"].detach().sigmoid()
+        anchors = kim_anchors(score, labels, lengths, topk, cfg.anchor_thresh)
+        normals = normal_steps(labels, mask)
+        total = feats.new_zeros(())
+        if self.global_step >= cfg.warmup_steps:
+            if cfg.loss and bank.ready:
+                # roles swapped vs kim_nkc: anchors = normal steps, positive mu_0 (PR3)
+                losses["proto_nkc"] = kim_nkc_loss(
+                    feats, normals, anchors, bank.prototypes.flip(0), cfg.negatives, cfg.temp
+                )
+                total = total + cfg.weight * losses["proto_nkc"]
+            if self.model.training:
+                mu0_steps = normals
+                if cfg.bottomk_normals:
+                    mu0_steps = normals | bottomk_steps(score, labels, lengths, topk)
+                bank.update(feats, mu0_steps, anchors, cfg.momentum)
+        slots = sum(max(1, int(n) // topk) for n, y in zip(lengths.tolist(), labels.tolist(),
+                                                            strict=True) if y >= 0.5 and n > 0)
+        losses |= {
+            "proto_cos": bank.cosine(),
+            "proto_ready": feats.new_tensor(float(bank.ready)),
+            "proto_anchor_share": feats.new_tensor(float(anchors.sum()) / max(1, slots)),
+        }
+        if bank.lam is not None:
+            losses["proto_lambda"] = bank.lam.detach().clone()
         return total
 
     # ------------------------------------------------------------ checkpoints

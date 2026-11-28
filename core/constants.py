@@ -1844,3 +1844,29 @@ DOTA_SHEET_BOX_LINE = 3
 DOTA_SHEET_MIN_DECOYS_CAUGHT = 8  # of DOTA_SHEET_DECOYS, else the gate cannot see errors
 DOTA_SHEET_MAX_FLAGGED = 2  # real clips per rate group; more drops the group
 DOTA_SHEET_MAX_CONTROLS_FLAGGED = 1  # val controls; more means the judging is too strict
+# --- KIM_RUN §60: KIM on - off on the T2-trained host (K5dfiT2) ---
+KIM_T2_OFF_ROW = "K0dfiT2"  # TK1: K5dfiT2 with KIM_ABLATION_FLAGS false
+KIM_T2_RERUN_ROW = KIM_T2_FIXED_DVS_IGNORE_ROW + KIM_ABLATION_RERUN_SUFFIX  # TK2: K5dfiT2rr
+KIM_T2_ABL_OPENED_FILENAME = "OPENED_s60.json"  # TK6: DoTA-CAP-eval opened for the two new rows
+KIM_T2_ABL_REPORT_STEM = "k5dfit2_ablation_report"  # kim_t2_fixed/REPORTS/<this>.md
+KIM_T2_ABL_TABLE_NAME = "k5dfit2_abl_vs_k0_s2024"  # zs_arm_table control K0dfiT2
+KIM_T2_ABL_DAD_DIAG_DIRNAME = "dad_position_k5dfit2_ablation"  # REPORTS/<this>/dad_position_diag.md
+# --- KIM_RUN §61: class prototypes on v^t in the main score, KIM off (host K0dfi) ---
+PROTO_CLASSES = 2  # PR1: [0] normal (label-0 bags), [1] abnormal (main-score anchors)
+PROTO_LAMBDA_INIT = 0.0  # PR2: the row starts equal to its host
+PROTO_OUTPUT_DIRNAME = "kim_dfi_proto"  # OUTPUT_ROOT/<this>/<row>/{K5/s<seed>, eval}, REPORTS
+PROTO_HOST_ROW = "K0dfi"  # PR6: §53's KIM-off K5dfi
+PROTO_HOST_OUTPUT_DIRNAME = "kim_ablation"  # where K0dfi's run and reads live
+PROTO_HOST_GPU = "NVIDIA L4"  # PR6: K0dfi's env.json
+PROTO_ROWS = {  # PR5: row -> its proto.* overrides
+    "K0dfiP": {"proto.score": "true"},
+    "K0dfiL": {"proto.loss": "true"},
+    "K0dfiPL": {"proto.score": "true", "proto.loss": "true"},
+    "K0dfiPLb": {"proto.score": "true", "proto.loss": "true", "proto.bottomk_normals": "true"},
+}
+PROTO_DECIDING_ROW = "K0dfiPL"  # PR9: D = this - control
+PROTO_DECISION_SETS = ("nexar", "dota", "dada")  # PR10: DAD labelled, never decides
+PROTO_REPORT_STEM = "k0dfi_proto_report"  # REPORTS/<this>.{md,json}
+PROTO_TABLE_NAME = "k0dfi_proto_s2024"  # REPORTS/zs_arm_table_<this>.md
+PROTO_DAD_DIAG_DIRNAME = "dad_position_k0dfi_proto"  # REPORTS/<this>/dad_position_diag.md
+PROTO_LOG_KEYS = ("proto_lambda", "proto_cos", "proto_ready", "proto_anchor_share")
