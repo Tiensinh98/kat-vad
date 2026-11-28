@@ -1,0 +1,162 @@
+{
+  "control": "K0dfiT2",
+  "draws": 2000,
+  "label": "PRELIMINARY (n = 1 seed); printed, decides nothing",
+  "seed": 2024,
+  "sets": {
+    "dad": {
+      "cells": {
+        "K0dfiT2": {
+          "ap": 0.2182907549488264,
+          "base_rate": 0.04721030042918455,
+          "macro": {
+            "clips": 165,
+            "clusters": 165,
+            "high": 0.8603729603729603,
+            "low": 0.7862470862470862,
+            "mean": 0.8242424242424242
+          },
+          "micro": 0.7807184457184457
+        },
+        "K5dfiT2": {
+          "ap": 0.14910807957443223,
+          "base_rate": 0.04721030042918455,
+          "macro": {
+            "clips": 165,
+            "clusters": 165,
+            "high": 0.8445221445221447,
+            "low": 0.7755244755244755,
+            "mean": 0.8107226107226105
+          },
+          "micro": 0.7515874965874967
+        },
+        "K5dfiT2rr": {
+          "ap": 0.14910807957443223,
+          "base_rate": 0.04721030042918455,
+          "macro": {
+            "clips": 165,
+            "clusters": 165,
+            "high": 0.8445221445221447,
+            "low": 0.7755244755244755,
+            "mean": 0.8107226107226105
+          },
+          "micro": 0.7515874965874967
+        }
+      },
+      "clip_oracle_micro": 0.838963963963964,
+      "deltas": {
+        "K5dfiT2": {
+          "macro": {
+            "clips": 165,
+            "clusters": 165,
+            "high": 0.007692307692307687,
+            "low": -0.0337995337995338,
+            "mean": -0.01351981351981352
+          },
+          "macro_sentence": "not separated",
+          "micro": {
+            "high": -0.014029407501874556,
+            "low": -0.04346100033234498,
+            "mean": -0.029130949130949046
+          },
+          "micro_sentence": "below"
+        },
+        "K5dfiT2rr": {
+          "macro": {
+            "clips": 165,
+            "clusters": 165,
+            "high": 0.007692307692307687,
+            "low": -0.0337995337995338,
+            "mean": -0.01351981351981352
+          },
+          "macro_sentence": "not separated",
+          "micro": {
+            "high": -0.014029407501874556,
+            "low": -0.04346100033234498,
+            "mean": -0.029130949130949046
+          },
+          "micro_sentence": "below"
+        }
+      },
+      "items": 466,
+      "pooling": "466 videos (macro over the 165 positives), s7; raw"
+    },
+    "dota": {
+      "cells": {
+        "K0dfiT2": {
+          "ap": 0.560529444329183,
+          "base_rate": 0.3260253725828304,
+          "macro": {
+            "clips": 1129,
+            "clusters": 176,
+            "high": 0.7970318830232169,
+            "low": 0.7708381428125181,
+            "mean": 0.7839883847237481
+          },
+          "micro": 0.7404693688438133
+        },
+        "K5dfiT2": {
+          "ap": 0.5400188643836182,
+          "base_rate": 0.3260253725828304,
+          "macro": {
+            "clips": 1129,
+            "clusters": 176,
+            "high": 0.8087398589072883,
+            "low": 0.7849766748872724,
+            "mean": 0.796949295703152
+          },
+          "micro": 0.7236330759346602
+        },
+        "K5dfiT2rr": {
+          "ap": 0.5400188643836182,
+          "base_rate": 0.3260253725828304,
+          "macro": {
+            "clips": 1129,
+            "clusters": 176,
+            "high": 0.8087398589072883,
+            "low": 0.7849766748872724,
+            "mean": 0.796949295703152
+          },
+          "micro": 0.7236330759346602
+        }
+      },
+      "clip_oracle_micro": null,
+      "deltas": {
+        "K5dfiT2": {
+          "macro": {
+            "clips": 1129,
+            "clusters": 176,
+            "high": 0.018067080992214463,
+            "low": 0.00794897038071504,
+            "mean": 0.012960910979403856
+          },
+          "macro_sentence": "above",
+          "micro": {
+            "high": -0.010975391524168734,
+            "low": -0.022976076607757273,
+            "mean": -0.016836292909153117
+          },
+          "micro_sentence": "below"
+        },
+        "K5dfiT2rr": {
+          "macro": {
+            "clips": 1129,
+            "clusters": 176,
+            "high": 0.018067080992214463,
+            "low": 0.00794897038071504,
+            "mean": 0.012960910979403856
+          },
+          "macro_sentence": "above",
+          "micro": {
+            "high": -0.010975391524168734,
+            "low": -0.022976076607757273,
+            "mean": -0.016836292909153117
+          },
+          "micro_sentence": "below"
+        }
+      },
+      "items": 1129,
+      "pooling": "1129 clips, protocol B; micro / AP after per-clip min-max"
+    }
+  }
+}
