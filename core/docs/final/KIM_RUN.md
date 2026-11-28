@@ -3706,4 +3706,22 @@ Code: `core/tools/kim_grad_probe.py` (NK1), `core/tools/kim_nkc_report.py` (NK4�
 
 **Licensed whatever the numbers:** "read on 12-row windows, L5dfiDoTA's DoTA-CAP-dev macro is <x> against <y> on whole clips (n = 1, in-domain)". **Never:** "KIM works on DoTA" from GEOMETRY (the deployable read is the whole clip; a fix is a new arm), "the start zeros are the cause" (WG7 is printed), any zero-shot sentence (DoTA is in-domain here), a seed claim. Whatever the verdict, K5f stays the reference.
 
-Code: `core/tools/window_geometry_read.py`, constants `KIM_WG_*`, tests `core/tests/test_window_geometry_read.py`. Runbook `colab/final/kim_window_geometry.ipynb` (outputs `Thesis-Final/outputs/kim_clip_host/REPORTS/window_geometry/`). **Status: built, NOT RUN.**
+Code: `core/tools/window_geometry_read.py`, constants `KIM_WG_*`, tests `core/tests/test_window_geometry_read.py`. Runbook `colab/final/kim_window_geometry.ipynb` (outputs `Thesis-Final/outputs/kim_clip_host/REPORTS/window_geometry/`). **Status: READ OUT 2026-11-28 (§67.1): PART GEOMETRY.**
+
+### 67.1 Read-out (2026-11-28, s2024, n = 1, in-domain; decides only §64.2's explanation, K5f stays)
+
+Gate WG4 passed (whole = saved protocol B). Report `kim_clip_host/REPORTS/window_geometry/window_geometry_read.md`.
+
+| row | whole macro | windowed macro | window AUC | spike rows 1–2 / median (whole) |
+|---|---|---|---|---|
+| L5dfiDoTA | 0.400 | 0.578 | 0.682 | 18.2 |
+| L5dficapDoTA | 0.678 | 0.671 | 0.689 | 0.97 |
+| L0dfiDoTArr | 0.664 | 0.663 | 0.692 | 1.07 |
+
+**G = L5 windowed − whole +0.178 [+0.164, +0.190] GAIN; R = L5 windowed − L0 windowed −0.086 [−0.101, −0.070] COST → PART GEOMETRY** (expectation held). Printed: L0 and L5cap do not move with the geometry (−0.001, −0.007); L5cap windowed − L0 windowed +0.008.
+
+Mean raw score by position inside a 12-row window, L5: 0.155, **0.644, 0.485**, then 0.036–0.060 at positions 3–11 (L0 and L5cap rise smoothly 0.15 → 0.21 / 0.19 → 0.25).
+
+**Reading (printed, n = 1).** L5dfiDoTA solves its training task almost as well as the trunk at the window level (window AUC 0.682 vs 0.692): its top-k = 2 slots are rows 1–2 of every window, and their score depends on the window's content. It has become a **window classifier that writes its decision at the two rows KIM marks with structural zeros** (`edge_mask` → `vel` 0 at rows 0–1, `acc` 0 at rows 0–2); the other ten rows sit near 0.06, so within-window ranking is gone. Read on whole clips, that slot appears once, at the clip start (pre-accident), and the clip reads below chance; read on windows, each window's decision lands at its own start, which recovers 0.18 but stays 0.09 under the trunk. Top-k MIL does not say where in a positive window the evidence is, so a fixed, always-present position code is a cheap place to put it. The Nexar-host L5dfi (§64.1) and every VideoMAE row show no such slot; why DoTA's windows (12 rows, 73 % positive, k = 2) and not Nexar's is not measured.
+
+**Licensed:** "on the CLIP-only DoTA host, KIM's rows 1–2 carry the window decision (mean 0.64 / 0.49 against ≤ 0.06 elsewhere); read on 12-row windows the row recovers +0.178 macro but stays −0.086 below the trunk (n = 1, in-domain)". **Never:** "KIM works on DoTA" (the deployable read is the whole clip), "the start zeros are proven the cause" (no arm removes them), "MIL is broken", any zero-shot sentence, a seed claim. A repair (differences that leave no constant at the sequence start, e.g. edge-replicated first pairs) is a new arm and needs its own dated note.

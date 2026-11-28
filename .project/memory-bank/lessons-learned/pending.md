@@ -2728,3 +2728,12 @@ Promote if a second harness needs the same split.
 **Rule:** Compare a new row's state-dict keys with the control's keys, and run every notebook guard once on a fixture before the notebook ships.
 **Files:** colab/final/k0dfi_proto.ipynb cell 8 (check_run)
 **Gate status.** One occurrence; candidate.
+
+## (ek) [MEDIUM] Model - a constant feature at a fixed sequence position becomes a MIL output slot (2026-11-28, KIM_RUN §67.1)
+**Triggers:** first difference, edge mask, padding zeros, top-k MIL, short windows, window classifier, below chance
+**Problem:** KIM's differences are structurally zero at rows 0–2 of every sequence; on 12-row DoTA windows (73 % positive, k = 2) the model wrote each window's decision at rows 1–2 (0.64 / 0.49 vs ≤ 0.06 elsewhere), so whole-clip reads fell below chance (0.400) while window AUC matched the trunk.
+**Bad:** a feature that is a constant (0) at fixed positions of every training sequence, under a location-agnostic MIL loss.
+**Good:** no constant at the edges (e.g. replicate the first valid difference), and read a new row's in-window position profile before trusting its whole-clip number.
+**Rule:** Print the mean score by position inside the training window for any row whose features differ at the sequence edges, before reading it on whole clips.
+**Files:** core/kim/module.py:_features (pair_mask, first_difference), core/tools/window_geometry_read.py:position_profile
+**Gate status.** One occurrence; candidate. Family of C14 (clip classifier).
